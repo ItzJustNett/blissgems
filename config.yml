@@ -1,0 +1,226 @@
+# BlissGems Configuration File
+# Version 1.0.0
+
+# ==========================================
+# ENERGY SYSTEM
+# ==========================================
+energy:
+  # Energy gained on player kill
+  gain-on-kill: 1
+  # Energy lost on death
+  loss-on-death: 1
+  # Maximum energy level
+  max-energy: 10
+  # Starting energy for pristine gems
+  starting-energy: 5
+  # Energy at which passives stop working (Ruined state)
+  ruined-threshold: 1
+  # Energy at which abilities cannot be used (Broken state)
+  broken-threshold: 0
+
+# ==========================================
+# GEM SETTINGS
+# ==========================================
+gems:
+  # Enable/disable specific gem types
+  enabled:
+    astra: true
+    fire: true
+    flux: true
+    life: true
+    puff: true
+    speed: true
+    strength: true
+    wealth: true
+
+  # Only one gem can be active at a time
+  single-gem-only: true
+
+# ==========================================
+# PASSIVE EFFECTS
+# ==========================================
+passives:
+  # How often to apply passive effects (in ticks, 20 ticks = 1 second)
+  update-interval: 20
+
+  astra:
+    phase-chance: 0.15  # 15% chance to phase through attacks
+
+  life:
+    heal-amount: 0.5  # Hearts healed every 5 seconds
+    heal-interval: 100  # Ticks between heals (5 seconds)
+    undead-damage-multiplier: 3.0
+    saturation-multiplier: 2.0
+
+  flux:
+    flow-state-speed-boost: 0.2  # Additional speed in water
+
+  puff:
+    double-jump-enabled: true
+
+  speed:
+    soul-sand-immunity: true
+
+# ==========================================
+# ABILITIES
+# ==========================================
+abilities:
+  # Global ability cooldown (in seconds)
+  global-cooldown: 1
+
+  # Specific ability cooldowns (in seconds)
+  cooldowns:
+    astra-daggers: 15
+    fire-fireball: 60
+    fire-campfire: 60
+    flux-ground: 20
+    flux-shocking-arrows: 5
+    life-heart-drainer: 30
+    life-circle-of-life: 60
+    puff-dash: 5
+    puff-breezy-bash: 10
+    speed-sedative: 35
+    speed-storm: 45
+    strength-bloodthorns: 20
+    strength-frailer: 25
+    strength-chad: 30
+    wealth-durability-chip: 30
+    wealth-pockets: 0  # No cooldown for opening
+    wealth-unfortunate: 40
+    wealth-rich-rush: 540  # 9 minutes
+    wealth-amplification: 180  # 3 minutes
+
+  # Ability damage values
+  damage:
+    astra-daggers: 4.0
+    fire-fireball: 6.0
+    fire-campfire: 2.0
+    flux-shocking: 3.0
+    life-drainer: 4.0  # Total over 20 seconds
+    puff-dash: 2.0
+    strength-bloodthorns: 5.0
+
+  # Fire campfire settings
+  fire-campfire:
+    radius: 5.0
+    burn-duration: 3  # seconds enemies burn
+
+  # Ability durations (in seconds)
+  durations:
+    flux-ground-freeze: 3
+    fire-campfire: 60
+    life-drainer: 20
+    life-circle: 10
+    wealth-unfortunate: 40
+    wealth-rich-rush: 120
+    wealth-amplification: 45
+
+# ==========================================
+# AUTO-ENCHANTING (TIER 2 ONLY)
+# ==========================================
+auto-enchant:
+  enabled: true
+  # Enchantments are applied when holding appropriate tools
+  fire:
+    flame: true
+    fire-aspect: true
+  puff:
+    power: true
+    punch: true
+    feather-falling: true
+  speed:
+    efficiency: true
+  strength:
+    sharpness: true
+  wealth:
+    fortune: true
+    looting: true
+    mending: true
+
+# ==========================================
+# UPGRADER SYSTEM
+# ==========================================
+upgrader:
+  # Play effects on upgrade
+  play-effects: true
+  # Particle effect type
+  particle: ENCHANT
+  particle-count: 50
+  # Sound effect
+  sound: ENTITY_PLAYER_LEVELUP
+  sound-volume: 1.0
+  sound-pitch: 1.5
+
+# ==========================================
+# TRADER SYSTEM
+# ==========================================
+trader:
+  # Cooldown in seconds
+  cooldown: 5
+  # Play effects on trade
+  play-effects: true
+  particle: PORTAL
+  particle-count: 30
+  sound: ENTITY_ENDERMAN_TELEPORT
+
+# ==========================================
+# ENERGY BOTTLE
+# ==========================================
+energy-bottle:
+  # Drop chance when Pristine +5 player kills another player
+  drop-enabled: true
+  # Play effects on absorption
+  play-effects: true
+  particle: HEART
+  particle-count: 20
+  sound: ENTITY_EXPERIENCE_ORB_PICKUP
+
+# ==========================================
+# REPAIR KIT / PEDESTAL
+# ==========================================
+repair-kit:
+  # Energy restored per second
+  energy-per-second: 1
+  # Maximum total energy a kit can restore
+  max-total-energy: 10
+  # Range to heal nearby players (in blocks)
+  heal-radius: 10
+  # Update interval (in ticks)
+  update-interval: 20
+  # Prioritize lowest energy players
+  prioritize-lowest: true
+  # Particle effects
+  play-effects: true
+  particle: HAPPY_VILLAGER
+  particle-count: 5
+
+# ==========================================
+# MESSAGES
+# ==========================================
+messages:
+  prefix: "&5&lBlissGems &8»&r"
+  no-permission: "&cYou don't have permission to use this command!"
+  player-not-found: "&cPlayer not found!"
+  invalid-gem-type: "&cInvalid gem type!"
+  invalid-tier: "&cInvalid tier! Use 1 or 2."
+  gem-given: "&aGave {player} a {gem} (Tier {tier})!"
+  energy-set: "&aSet {player}'s energy to {amount}!"
+  energy-added: "&aAdded {amount} energy to {player}!"
+  energy-removed: "&aRemoved {amount} energy from {player}!"
+  no-gem: "&cYou don't have a gem equipped!"
+  energy-withdrawn: "&aWithdrawn 1 energy into a bottle!"
+  not-enough-energy: "&cNot enough energy to withdraw!"
+  config-reloaded: "&aConfiguration reloaded!"
+  gem-info: "&aGem: &f{gem} &7(Tier {tier}) &8| &aEnergy: &f{energy}/10 &8| &aState: &f{state}"
+  no-active-gem: "&cYou don't have an active gem!"
+  upgrade-success: "&aGem upgraded to Tier 2!"
+  upgrade-wrong-type: "&cThis upgrader doesn't match your gem type!"
+  upgrade-already-tier2: "&cYour gem is already Tier 2!"
+  trade-success: "&aGem traded to {gem}!"
+  trade-cooldown: "&cPlease wait {seconds} seconds before trading again!"
+  ability-cooldown: "&cAbility on cooldown! Wait {seconds} seconds."
+  ability-no-energy: "&cNot enough energy to use this ability!"
+  passives-disabled: "&cYour gem is too damaged! Passives are disabled."
+  ability-activated: "&aAbility activated: {ability}"
+  first-gem-received: "&aWelcome to the server! You received your first gem: &f{gem}"
+  already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
