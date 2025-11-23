@@ -1,0 +1,23 @@
+name: BlissGems
+version: '1.0.0'
+main: fun.obriy.blissgems.BlissGems
+api-version: '1.21'
+description: Bliss SMP Gem System
+author: magicc
+website: https://mc.obriy.fun
+depend: [Oraxen]
+
+commands:
+  bliss:
+    description: Main BlissGems command
+    usage: /<command> [subcommand]
+    aliases: [gems, bg]
+    permission: blissgems.admin
+
+permissions:
+  blissgems.admin:
+    description: Access to all BlissGems commands
+    default: op
+  blissgems.use:
+    description: Allows players to use gems
+    default: true
