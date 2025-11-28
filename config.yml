@@ -73,7 +73,8 @@ abilities:
     astra-daggers: 15
     fire-fireball: 60
     fire-campfire: 60
-    flux-ground: 20
+    flux-ground: 60  # Updated: 1 minute cooldown for Ground ability
+    flux-ray: 60  # New: Flux Ray laser ability (Tier 2)
     flux-shocking-arrows: 5
     life-heart-drainer: 30
     life-circle-of-life: 60
@@ -108,6 +109,7 @@ abilities:
   # Ability durations (in seconds)
   durations:
     flux-ground-freeze: 3
+    flux-ray: 8  # Duration of Flux Ray laser (7-10 seconds recommended)
     fire-campfire: 60
     life-drainer: 20
     life-circle: 10

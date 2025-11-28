@@ -24,6 +24,7 @@ import fun.obriy.blissgems.listeners.GemInteractListener;
 import fun.obriy.blissgems.listeners.PassiveListener;
 import fun.obriy.blissgems.listeners.PlayerDeathListener;
 import fun.obriy.blissgems.listeners.PlayerJoinListener;
+import fun.obriy.blissgems.listeners.StunListener;
 import fun.obriy.blissgems.listeners.UpgraderListener;
 import fun.obriy.blissgems.managers.AbilityManager;
 import fun.obriy.blissgems.managers.CooldownDisplayManager;
@@ -92,6 +93,7 @@ extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
     }
 
     private void registerCommands() {

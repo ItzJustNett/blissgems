@@ -13,6 +13,7 @@
 package fun.obriy.blissgems.abilities;
 
 import fun.obriy.blissgems.BlissGems;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -21,19 +22,24 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import java.util.ArrayList;
-import java.util.List;
+import org.bukkit.scheduler.BukkitRunnable;
+import java.util.*;
 
 public class FluxAbilities {
     private final BlissGems plugin;
+    private static final Set<UUID> stunnedPlayers = new HashSet<>();
 
     public FluxAbilities(BlissGems plugin) {
         this.plugin = plugin;
     }
 
+    public static boolean isPlayerStunned(UUID playerId) {
+        return stunnedPlayers.contains(playerId);
+    }
+
     public void onRightClick(Player player, int tier) {
         if (tier == 2 && player.isSneaking()) {
-            this.chainLightning(player);
+            this.fluxRay(player);
         } else {
             this.ground(player);
         }
@@ -44,91 +50,117 @@ public class FluxAbilities {
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-        int duration = this.plugin.getConfigManager().getAbilityDuration("flux-ground-freeze");
-        for (Entity entity : player.getNearbyEntities(8.0, 8.0, 8.0)) {
-            if (!(entity instanceof LivingEntity)) continue;
-            LivingEntity target = (LivingEntity)entity;
-            if (entity instanceof Player) continue;
-            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, duration * 20, 255, false, true));
-            target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, duration * 20, 255, false, true));
-            target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+
+        // Stun duration: 5 seconds (100 ticks)
+        int stunDuration = 100;
+
+        // Find target player
+        LivingEntity target = this.getTargetEntity(player, 20);
+        if (target == null || !(target instanceof Player)) {
+            player.sendMessage("§cNo player target found!");
+            return;
         }
-        player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
-        player.spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 1.0, 0.0), 50, 2.0, 2.0, 2.0);
+
+        Player targetPlayer = (Player) target;
+
+        // Apply stun effects
+        targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 255, false, true));
+        targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, stunDuration, -10, false, true));
+        targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 255, false, true));
+        targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 255, false, true));
+
+        // Add to stunned players list
+        stunnedPlayers.add(targetPlayer.getUniqueId());
+
+        // Remove from stunned list after 5 seconds
+        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+            stunnedPlayers.remove(targetPlayer.getUniqueId());
+        }, stunDuration);
+
+        // Visual effects
+        targetPlayer.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 1.0, 0.5);
+        targetPlayer.playSound(targetPlayer.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.2f);
+        player.spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 1.0, 0.0), 30, 1.0, 1.0, 1.0);
+
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Ground"));
+        targetPlayer.sendMessage("§c§lYou have been stunned for 5 seconds!");
     }
 
     public void shockingArrows(Player player) {
         player.sendMessage("\u00a7b\u00a7lShocking Arrows \u00a77(Passive - shoots electric arrows)");
     }
 
-    public void chainLightning(Player player) {
+    public void fluxRay(Player player) {
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            player.sendMessage("§c§oThis ability requires Tier 2!");
             return;
         }
-        String abilityKey = "flux-chain-lightning";
+        String abilityKey = "flux-ray";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        double damage = this.plugin.getConfig().getDouble("abilities.damage.flux-chain-lightning", 6.0);
-        double chainRadius = this.plugin.getConfig().getDouble("abilities.flux-chain-lightning.chain-radius", 5.0);
-        int maxChains = this.plugin.getConfig().getInt("abilities.flux-chain-lightning.max-chains", 5);
+        // Flux Ray configuration
+        int rayRange = 20;
+        int duration = this.plugin.getConfig().getInt("abilities.durations.flux-ray", 8); // 8 seconds default
+        double damagePerTick = 0.5 / 20.0; // 0.5 hearts per second = 1 HP per second = 0.05 HP per tick
 
-        // Find initial target
-        LivingEntity target = this.getTargetEntity(player, 15);
-        if (target == null) {
-            player.sendMessage("\u00a7cNo target found!");
-            return;
-        }
+        Location start = player.getEyeLocation();
 
-        List<LivingEntity> hitEntities = new ArrayList<>();
-        LivingEntity currentTarget = target;
-        hitEntities.add(currentTarget);
-
-        // Initial hit
-        currentTarget.damage(damage, (Entity)player);
-        currentTarget.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, currentTarget.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5);
-
-        // Draw line from player to first target
-        drawLightningLine(player.getEyeLocation(), currentTarget.getLocation().add(0, 1, 0));
-
-        // Chain to nearby entities
-        for (int i = 0; i < maxChains - 1; i++) {
-            LivingEntity nextTarget = null;
-            double closestDistance = chainRadius;
-
-            for (Entity entity : currentTarget.getNearbyEntities(chainRadius, chainRadius, chainRadius)) {
-                if (!(entity instanceof LivingEntity)) continue;
-                if (entity instanceof Player) continue;
-                if (hitEntities.contains(entity)) continue;
-
-                double distance = entity.getLocation().distance(currentTarget.getLocation());
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    nextTarget = (LivingEntity) entity;
-                }
-            }
-
-            if (nextTarget == null) break;
-
-            // Draw lightning line between targets
-            drawLightningLine(currentTarget.getLocation().add(0, 1, 0), nextTarget.getLocation().add(0, 1, 0));
-
-            // Damage next target (reduced damage for chains)
-            double chainDamage = damage * 0.7;
-            nextTarget.damage(chainDamage, (Entity)player);
-            nextTarget.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, nextTarget.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
-
-            hitEntities.add(nextTarget);
-            currentTarget = nextTarget;
-        }
-
+        // Play initial sound
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.5f);
+
+        // Create a repeating task that runs every tick for the duration
+        new BukkitRunnable() {
+            int ticksElapsed = 0;
+            final int maxTicks = duration * 20; // Convert seconds to ticks
+
+            @Override
+            public void run() {
+                if (ticksElapsed >= maxTicks) {
+                    this.cancel();
+                    return;
+                }
+
+                // Get current eye location (updates if player moves)
+                Location currentStart = player.getEyeLocation();
+
+                // Find all entities in the ray path
+                Set<LivingEntity> hitEntities = new HashSet<>();
+                for (int i = 1; i <= rayRange; i++) {
+                    Location point = currentStart.clone().add(currentStart.getDirection().multiply(i));
+
+                    // Spawn particles along the ray
+                    if (ticksElapsed % 2 == 0) { // Reduce particle spam
+                        player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 2, 0.1, 0.1, 0.1, 0.01);
+                        player.getWorld().spawnParticle(Particle.END_ROD, point, 1, 0.05, 0.05, 0.05, 0);
+                    }
+
+                    // Check for entities at this point
+                    for (Entity entity : player.getWorld().getNearbyEntities(point, 0.5, 0.5, 0.5)) {
+                        if (entity instanceof LivingEntity && entity != player && !hitEntities.contains(entity)) {
+                            hitEntities.add((LivingEntity) entity);
+                        }
+                    }
+                }
+
+                // Damage all hit entities
+                for (LivingEntity target : hitEntities) {
+                    target.damage(damagePerTick * 20, player); // Damage for this tick
+                    if (ticksElapsed % 10 == 0) { // Show hit particle every 0.5 seconds
+                        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3);
+                    }
+                }
+
+                ticksElapsed++;
+            }
+        }.runTaskTimer(this.plugin, 0L, 1L);
+
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Chain Lightning"));
+        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Flux Ray"));
     }
 
     private void drawLightningLine(Location from, Location to) {
