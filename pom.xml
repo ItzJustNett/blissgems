@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>fun.obriy</groupId>
+    <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>1.0.1</version>
+    <version>2.6.0</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
@@ -22,21 +22,6 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <!-- Oraxen Releases -->
-        <repository>
-            <id>oraxen-releases</id>
-            <url>https://repo.oraxen.com/releases</url>
-        </repository>
-        <!-- Oraxen Snapshots -->
-        <repository>
-            <id>oraxen-snapshots</id>
-            <url>https://repo.oraxen.com/snapshots</url>
-        </repository>
-        <!-- JitPack for fallback -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
         </repository>
         <!-- PlaceholderAPI -->
         <repository>
@@ -54,14 +39,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Oraxen API (installed from local server JAR) -->
-        <dependency>
-            <groupId>io.th0rgal</groupId>
-            <artifactId>oraxen</artifactId>
-            <version>1.195.1</version>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- PlaceholderAPI -->
         <dependency>
             <groupId>me.clip</groupId>
@@ -72,6 +49,7 @@
     </dependencies>
 
     <build>
+        <finalName>BlissGems-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
@@ -97,9 +75,76 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>fun.obriy.blissgems.BlissGems</mainClass>
+                            <mainClass>dev.xoperr.blissgems.BlissGems</mainClass>
                         </manifest>
                     </archive>
+                </configuration>
+            </plugin>
+
+            <!-- ProGuard Obfuscation Plugin - Standalone -->
+            <plugin>
+                <groupId>com.github.wvengen</groupId>
+                <artifactId>proguard-maven-plugin</artifactId>
+                <version>2.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>proguard</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <obfuscate>true</obfuscate>
+                    <injar>${project.build.finalName}.jar</injar>
+                    <outjar>${project.build.finalName}-obfuscated.jar</outjar>
+                    <libs>
+                        <lib>${java.home}/jmods/java.base.jmod</lib>
+                        <lib>${java.home}/jmods/java.desktop.jmod</lib>
+                    </libs>
+                    <options>
+                        <!-- Don't shrink or optimize - only obfuscate -->
+                        <option>-dontshrink</option>
+                        <option>-dontoptimize</option>
+                        <option>-dontwarn</option>
+                        <option>-ignorewarnings</option>
+
+                        <!-- Keep main plugin class and JavaPlugin extension -->
+                        <option>-keep public class dev.xoperr.blissgems.BlissGems {
+    public void onEnable();
+    public void onDisable();
+    public void onLoad();
+    public protected *;
+}</option>
+
+                        <!-- Keep all Bukkit/Spigot required classes -->
+                        <option>-keep public class * extends org.bukkit.plugin.java.JavaPlugin</option>
+                        <option>-keep class * implements org.bukkit.event.Listener { *; }</option>
+                        <option>-keep class * implements org.bukkit.command.CommandExecutor { *; }</option>
+                        <option>-keep class * implements org.bukkit.command.TabCompleter { *; }</option>
+                        <option>-keep class * implements org.bukkit.configuration.serialization.ConfigurationSerializable { *; }</option>
+
+                        <!-- Keep enum methods that Bukkit/Java needs -->
+                        <option>-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+    **[] $VALUES;
+    public *;
+}</option>
+
+                        <!-- Preserve annotations for Bukkit -->
+                        <option>-keepattributes *Annotation*</option>
+
+                        <!-- Keep line numbers for stack traces but remove variable names -->
+                        <option>-keepattributes SourceFile,LineNumberTable</option>
+                        <option>-keepattributes !LocalVariableTable,!LocalVariableTypeTable</option>
+
+                        <!-- Obfuscation settings (safe for Paper) -->
+                        <option>-allowaccessmodification</option>
+
+                        <!-- Print mapping file for debugging (if needed) -->
+                        <option>-printmapping ${project.build.directory}/proguard-mapping.txt</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>

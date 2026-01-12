@@ -1,23 +1,61 @@
 name: BlissGems
-version: '1.0.0'
-main: fun.obriy.blissgems.BlissGems
+version: '2.6.0'
+main: dev.xoperr.blissgems.BlissGems
 api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://mc.obriy.fun
-depend: [Oraxen]
+softdepend: [Oraxen, PlaceholderAPI]
 
 commands:
   bliss:
     description: Main BlissGems command
     usage: /<command> [subcommand]
     aliases: [gems, bg]
-    permission: blissgems.admin
 
 permissions:
-  blissgems.admin:
-    description: Access to all BlissGems commands
+  blissgems.*:
+    description: Access to all BlissGems permissions
     default: op
+    children:
+      blissgems.admin: true
+      blissgems.user: true
+  blissgems.admin:
+    description: Access to admin commands (give, energy, reload, etc.)
+    default: op
+  blissgems.user:
+    description: Access to player commands
+    default: true
+    children:
+      blissgems.use: true
+      blissgems.info: true
+      blissgems.pockets: true
+      blissgems.amplify: true
+      blissgems.autosmelt: true
+      blissgems.toggle: true
+      blissgems.trust: true
+      blissgems.ability: true
   blissgems.use:
-    description: Allows players to use gems
+    description: Allows players to use gem abilities
+    default: true
+  blissgems.info:
+    description: Allows using /bliss info command
+    default: true
+  blissgems.pockets:
+    description: Allows using /bliss pockets command
+    default: true
+  blissgems.amplify:
+    description: Allows using /bliss amplify command
+    default: true
+  blissgems.toggle:
+    description: Allows using /bliss toggle_click command
+    default: true
+  blissgems.trust:
+    description: Allows using /bliss trust commands
+    default: true
+  blissgems.ability:
+    description: Allows using /bliss ability commands
+    default: true
+  blissgems.autosmelt:
+    description: Allows using /bliss autosmelt command (Wealth T2)
     default: true

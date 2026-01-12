@@ -1,5 +1,6 @@
 # BlissGems Configuration File
-# Version 1.0.0
+# DO NOT modify the config-version unless you know what you're doing!
+config-version: "1.0.0"
 
 # ==========================================
 # ENERGY SYSTEM
@@ -12,11 +13,13 @@ energy:
   # Maximum energy level
   max-energy: 10
   # Starting energy for pristine gems
-  starting-energy: 5
+  starting-energy: 10
   # Energy at which passives stop working (Ruined state)
   ruined-threshold: 1
   # Energy at which abilities cannot be used (Broken state)
   broken-threshold: 0
+  # Ban players when they reach 0 energy
+  ban-on-zero-energy: false
 
 # ==========================================
 # GEM SETTINGS
@@ -37,29 +40,92 @@ gems:
   single-gem-only: true
 
 # ==========================================
+# CRAFTING RECIPES
+# ==========================================
+crafting:
+  # Enable/disable custom crafting recipes
+  # Based on Bliss SMP Season 3 recipes
+  enabled: true
+
+# ==========================================
 # PASSIVE EFFECTS
 # ==========================================
 passives:
   # How often to apply passive effects (in ticks, 20 ticks = 1 second)
   update-interval: 20
 
+  # Tier-specific passive values (tier1 = weaker, tier2 = stronger)
   astra:
-    phase-chance: 0.15  # 15% chance to phase through attacks
+    tier1:
+      phase-chance: 0.10  # 10% chance to phase through attacks
+    tier2:
+      phase-chance: 0.15  # 15% chance to phase through attacks
 
   life:
-    heal-amount: 0.5  # Hearts healed every 5 seconds
-    heal-interval: 100  # Ticks between heals (5 seconds)
-    undead-damage-multiplier: 3.0
-    saturation-multiplier: 2.0
+    tier1:
+      heal-amount: 0.3  # Hearts healed every 5 seconds
+      heal-interval: 100  # Ticks between heals (5 seconds)
+      undead-damage-multiplier: 2.0  # 2x damage to undead
+      saturation-multiplier: 1.5  # 1.5x saturation gain
+      golden-apple-absorption-level: 0  # Absorption I (2 hearts)
+    tier2:
+      heal-amount: 0.5  # Hearts healed every 5 seconds
+      heal-interval: 100  # Ticks between heals (5 seconds)
+      undead-damage-multiplier: 3.0  # 3x damage to undead
+      saturation-multiplier: 2.0  # 2x saturation gain
+      golden-apple-absorption-level: 1  # Absorption II (4 hearts)
 
   flux:
-    flow-state-speed-boost: 0.2  # Additional speed in water
+    tier1:
+      shocking-arrow-damage: 2.0  # Electric arrow damage
+      flow-state-speed-boost: 0.15  # Additional speed boost in flow state
+    tier2:
+      shocking-arrow-damage: 3.0  # Electric arrow damage
+      flow-state-speed-boost: 0.2  # Additional speed boost in flow state
 
   puff:
-    double-jump-enabled: true
+    tier1:
+      double-jump-enabled: true
+      double-jump-velocity: 0.6  # Vertical boost for double jump
+      launch-velocity: 3.5  # Upward launch when hitting players
+      fall-damage-immunity: true
+      sculk-immunity: false  # Tier 1 doesn't have sculk immunity
+    tier2:
+      double-jump-enabled: true
+      double-jump-velocity: 0.8  # Vertical boost for double jump
+      launch-velocity: 4.5  # Upward launch when hitting players
+      fall-damage-immunity: true
+      sculk-immunity: true  # Tier 2 has sculk immunity
+
+  fire:
+    tier1:
+      auto-smelt: true  # Auto-smelt ores
+      fire-resistance: false  # Tier 1 doesn't have fire resistance
+    tier2:
+      auto-smelt: true  # Auto-smelt ores
+      fire-resistance: true  # Tier 2 has fire resistance
 
   speed:
-    soul-sand-immunity: true
+    tier1:
+      soul-sand-immunity: true
+      speed-level: 0  # Speed I
+    tier2:
+      soul-sand-immunity: true
+      speed-level: 1  # Speed II
+
+  strength:
+    tier1:
+      strength-level: 0  # Strength I
+    tier2:
+      strength-level: 1  # Strength II
+
+  wealth:
+    tier1:
+      luck-level: 0  # Luck I
+      villager-discount: 0.10  # 10% discount
+    tier2:
+      luck-level: 1  # Luck II
+      villager-discount: 0.20  # 20% discount
 
 # ==========================================
 # ABILITIES
@@ -75,6 +141,7 @@ abilities:
     fire-fireball: 10
     fire-campfire: 60  # 1 minute
     flux-ground: 20
+    flux-beam: 60  # 60 seconds (1 minute) - Very powerful armor-piercing attack
     flux-shocking-arrows: 5
     life-heart-drainer: 30
     life-circle-of-life: 60
@@ -105,6 +172,8 @@ abilities:
   damage:
     astra-daggers: 4.0
     fire-fireball: 6.0
+    flux-beam-base: 5.0  # 2.5 hearts uncharged (scales to 15.0 HP at 100% charge)
+    flux-beam-max-armor-damage: 150  # Durability damage at 100% charge
     flux-shocking: 3.0
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
@@ -201,6 +270,20 @@ repair-kit:
   particle-count: 5
 
 # ==========================================
+# REVIVE BEACON
+# ==========================================
+revive-beacon:
+  # Duration the beacon stays active (in seconds)
+  duration: 300  # 5 minutes
+  # Range in blocks for revival
+  range: 10.0
+  # Health restored on revival (as a portion of max health)
+  # Use max health value (20.0) for full health
+  revive-health: 10.0  # Half health by default
+  # Single use (beacon is consumed after first revival)
+  single-use: true
+
+# ==========================================
 # MESSAGES
 # ==========================================
 messages:
@@ -214,6 +297,7 @@ messages:
   energy-added: "&aAdded {amount} energy to {player}!"
   energy-removed: "&aRemoved {amount} energy from {player}!"
   no-gem: "&cYou don't have a gem equipped!"
+  cannot-drop-gem: "&c&lYou cannot drop your gem!"
   energy-withdrawn: "&aWithdrawn 1 energy into a bottle!"
   not-enough-energy: "&cNot enough energy to withdraw!"
   config-reloaded: "&aConfiguration reloaded!"
@@ -232,3 +316,126 @@ messages:
   already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
   projection-boundary: "&cYou've reached the projection boundary!"
   projection-ended: "&dAstral Projection ended. You've returned to your body."
+  click-activation-disabled: "&cClick activation is disabled! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
+  ban-enabled: "&aBan-on-zero-energy has been &aenabled&a! Players who reach 0 energy will be banned."
+  ban-disabled: "&cBan-on-zero-energy has been &cdisabled&c."
+  energy-zero-banned: "&4&lYou have been banned for reaching 0 energy! Your gem is completely broken."
+
+  # Gem Protection Messages
+  cannot-store-gem-container: "&c&lYou cannot store gems in containers!"
+  cannot-store-gem-bundle: "&c&lYou cannot store gems in bundles!"
+  cannot-place-gem-itemframe: "&c&lYou cannot place your gem in item frames!"
+  cannot-move-gem-full-inventory: "&c&lYou cannot move your gem when inventory is full! Clear a space first."
+  cannot-swap-gem-full-inventory: "&c&lYou cannot swap items with your gem when inventory is full!"
+  cannot-move-gem-to-container: "&c&lYou cannot move gems to other containers!"
+  inventory-full-with-gem: "&c&lYour inventory is full! Cannot move items while carrying a gem."
+  gem-forced-into-inventory: "&e&lYour gem was forced into inventory. A non-gem item was dropped."
+  gem-forced-into-hotbar: "&c&lYour gem was forced into your hotbar!"
+
+  # Trust System Messages
+  cannot-trust-self: "&cYou already trust yourself!"
+  player-trusted: "&aYou now trust &l{player}&r&a! Your gem abilities will not harm them."
+  player-untrusted: "&cYou no longer trust &l{player}&r&c! Your gem abilities can now harm them."
+  player-not-trusted: "&cYou were not trusting {player}!"
+  no-trusted-players: "&7You have no trusted players. Use &b/bliss trust <player>&7 to add someone."
+  trusted-players-header: "&5&lTrusted Players ({count}):"
+  trusted-player-entry: "&8 - &b{player} {status}"
+  cannot-harm-trusted: "&c&lYou cannot stun {player} because they are trusted!"
+
+  # Click Activation Messages
+  click-activation-enabled: "&aClick activation &l&aENABLED&r&a! You can now use right-click to activate abilities."
+  click-activation-disabled: "&cClick activation &l&cDISABLED&r&c! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
+
+  # Command Messages
+  must-hold-gem: "&c§lYou must be holding a gem to use this command!"
+  requires-tier2: "&cSecondary abilities require Tier 2 gem!"
+  requires-tier2-ability: "&c&oThis ability requires Tier 2!"
+
+  # Wealth Gem Messages
+  requires-wealth-gem-pockets: "&cYou need a Wealth gem to use Pockets!"
+  requires-wealth-t2-pockets: "&cPockets requires Tier 2 Wealth gem!"
+  requires-wealth-gem-amplify: "&cYou need a Wealth gem to use Amplification!"
+  requires-wealth-t2-amplify: "&cAmplification requires Tier 2 Wealth gem!"
+  requires-wealth-t2-autosmelt: "&c&lYou need Wealth Gem Tier 2 to use auto-smelt!"
+  autosmelt-enabled: "&a&lAuto-Smelt enabled! Ores will now be automatically smelted when mined."
+  autosmelt-disabled: "&c&lAuto-Smelt disabled!"
+
+  # Energy Display Messages
+  energy-info-header: "&5&lBlissGems &8»"
+  energy-info-line1: "&7Energy: {energyBar} &f{energy}/10"
+  energy-info-line2: "&7State: {state}"
+  energy-bottle-failed: "&cFailed to create energy bottle!"
+
+  # Passive Effect Messages
+  phased-attack: "&d&oYou phased through the attack!"
+  enemy-launched: "&b&oYou've been launched into the sky!"
+  launched-enemy: "&b&oYou launched {player} into the sky!"
+  slam-down: "&c&oYou're being slammed down!"
+  double-jump: "&b&oDouble jump!"
+  shocking-arrow-hit: "&b&oShocking Arrow hit!"
+  life-gem-golden-apple: "&a&oLife Gem enhanced your golden apple!"
+
+  # Stun Messages
+  cannot-use-while-stunned: "&c&lYou cannot use {item} while stunned!"
+  can-only-eat-golden-apple-stunned: "&c&lYou can only eat golden apples while stunned!"
+  player-grounded: "&c&lYou have been grounded for {duration} seconds! You cannot move or jump!"
+  grounded-target: "&b⚡ &oGrounded {target} for {duration} seconds!"
+
+  # Repair Kit Messages
+  repair-kit-usage: "&d&oTo use the Repair Kit, drop it on top of a Beacon to create a Pedestal!"
+  repair-kit-usage-info: "&d&oThe Pedestal will restore energy to all nearby players."
+  pedestal-created: "&d&l✦ &d&oPedestal created! It will restore energy to nearby players."
+  pedestal-created-nearby: "&d&o{player} created a Repair Kit Pedestal nearby!"
+  pedestal-creation-failed: "&c&oCouldn't create pedestal at this location!"
+  pedestal-activated: "&d&l✦ &d&oRepair Kit Pedestal activated!"
+  pedestal-exhausted: "&d&oThe Repair Kit has been exhausted!"
+
+  # Revive Beacon Messages
+  revive-beacon-activated: "&e&lRevive Beacon activated!"
+  revive-beacon-duration: "&7Duration: &f{duration}"
+  revive-beacon-range: "&7Range: &f{range} blocks"
+  revive-beacon-info: "&7If you die within range, you'll be revived!"
+  revived-by-beacon: "&a&l✦ You have been revived by your Revive Beacon!"
+  revive-beacon-expired: "&c&lYour Revive Beacon has expired!"
+
+  # Soul System Messages
+  soul-absorbed: "&d&oAbsorbed soul from {entity}! +{hearts} hearts"
+  cannot-capture-players: "&c&oCannot capture players!"
+  soul-capacity-full: "&c&oYour gem is full! (Max {max} souls)"
+  entity-cannot-capture: "&c&oThis entity cannot be captured!"
+  soul-captured: "&d&lSoul Captured! &d&oCaptured {mob} ({count}/{max})"
+  no-souls-captured: "&c&oNo souls captured!"
+  souls-released: "&d&lReleased {count} captured soul(s)!"
+
+  # Critical Hit Messages
+  charged-attack: "&c&l⚔ CHARGED ATTACK! &c2x Damage!"
+  crit-progress: "&e&l⚡ &e{remaining} more crit for CHARGED ATTACK!"
+
+  # Flow State Messages
+  max-flow-state: "&b&l⚡ MAX FLOW STATE!"
+
+  # Ability Specific Messages
+  no-target-found: "&cNo target found!"
+  fireball-charging: "&6&oCharging fireball... Right-click again to fire!"
+  fireball-fully-charged: "&6&lFully charged! &eRight-click to fire!"
+  fireball-not-enough-charge: "&c&oNot enough charge!"
+  fireball-fired: "&6&oFired at {charge}% power!"
+  campfire-cannot-place: "&c&oCannot place campfire here!"
+  campfire-placed: "&6&oPlaced Campfire! Heals you and burns enemies for 1 minute."
+  campfire-destroyed: "&6&oCampfire was destroyed!"
+  campfire-expired: "&6&oCampfire expired!"
+  flux-beam-charging: "&b⚡ &oCharging Flux Beam... Right-click again to fire!"
+  flux-beam-fully-charged: "&b⚡&l Fully charged! &eRight-click to fire!"
+  flux-beam-fired: "&b⚡ &oFired Flux Beam at {charge}% power! (&c{damage} HP&o)"
+  armor-restored: "&a&lRestored {player}'s armor! (+{durability} durability)"
+  sloth-sedative-info: "&e&oSloth's Sedative slows all nearby enemies with Slowness IV!"
+  sloth-sedative-hit: "{message} &7(Slowed {count} enemies!)"
+  speed-storm-info: "&a&oSpeed Storm grants you Speed VI for 10 seconds!"
+  durability-chip-info: "&6&lDurability Chip &7(Toggles 2x durability damage on tools)"
+  wealth-no-target: "&e&oNo target found! &7(Aim at a player to use Unfortunate)"
+  wealth-no-player: "&cNo player target found!"
+  bloodthorns-hit: "{message} &7({count} targets hit!)"
+  shift-for-secondary: "&e&oShift + use ability or right-click for secondary ability!"
+  no-gem-types-available: "&cNo other gem types available!"
+  trade-failed: "&cFailed to trade gem!"
+  upgrade-failed: "&cFailed to upgrade gem!"

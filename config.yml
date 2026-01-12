@@ -12,7 +12,7 @@ energy:
   # Maximum energy level
   max-energy: 10
   # Starting energy for pristine gems
-  starting-energy: 5
+  starting-energy: 10
   # Energy at which passives stop working (Ruined state)
   ruined-threshold: 1
   # Energy at which abilities cannot be used (Broken state)
@@ -70,24 +70,25 @@ abilities:
 
   # Specific ability cooldowns (in seconds)
   cooldowns:
-    astra-daggers: 15
-    fire-fireball: 60
-    fire-campfire: 60
-    flux-ground: 60  # Updated: 1 minute cooldown for Ground ability
-    flux-ray: 60  # New: Flux Ray laser ability (Tier 2)
-    flux-shocking-arrows: 5
-    life-heart-drainer: 30
-    life-circle-of-life: 60
-    puff-dash: 5
-    puff-breezy-bash: 10
-    speed-sedative: 35
-    speed-storm: 45
-    strength-bloodthorns: 20
-    strength-frailer: 25
-    strength-chad: 30
-    wealth-durability-chip: 30
+    astra-daggers: 20
+    astra-projection: 60  # Astral Projection cooldown
+    fire-fireball: 90
+    fire-campfire: 120
+    flux-ground: 90
+    flux-ray: 120
+    flux-shocking-arrows: 8
+    life-heart-drainer: 45
+    life-circle-of-life: 90
+    puff-dash: 8
+    puff-breezy-bash: 15
+    speed-sedative: 50
+    speed-storm: 60
+    strength-bloodthorns: 30
+    strength-frailer: 35
+    strength-chad: 45
+    wealth-durability-chip: 40
     wealth-pockets: 0  # No cooldown for opening
-    wealth-unfortunate: 40
+    wealth-unfortunate: 60
     wealth-rich-rush: 540  # 9 minutes
     wealth-amplification: 180  # 3 minutes
 
@@ -108,14 +109,19 @@ abilities:
 
   # Ability durations (in seconds)
   durations:
-    flux-ground-freeze: 3
+    flux-ground-freeze: 5
     flux-ray: 8  # Duration of Flux Ray laser (7-10 seconds recommended)
+    astra-projection: 10
     fire-campfire: 60
     life-drainer: 20
     life-circle: 10
     wealth-unfortunate: 40
     wealth-rich-rush: 120
     wealth-amplification: 45
+
+  # Astra projection settings
+  astra-projection:
+    radius: 150.0  # Maximum distance from origin point
 
 # ==========================================
 # AUTO-ENCHANTING (TIER 2 ONLY)
@@ -200,7 +206,7 @@ repair-kit:
 # MESSAGES
 # ==========================================
 messages:
-  prefix: "&5&lBlissGems &8»&r"
+  prefix: "&5&lBlissGems &8»"
   no-permission: "&cYou don't have permission to use this command!"
   player-not-found: "&cPlayer not found!"
   invalid-gem-type: "&cInvalid gem type!"
@@ -226,3 +232,8 @@ messages:
   ability-activated: "&aAbility activated: {ability}"
   first-gem-received: "&aWelcome to the server! You received your first gem: &f{gem}"
   already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
+  projection-boundary: "&d&oYou've reached the projection boundary!"
+  projection-ended: "&d&oAstral Projection ended. You've returned to your body."
+  no-energy: "&cYour gem has no energy! It cannot be used."
+  energy-bottle-consumed: "&aConsumed energy bottle and gained 1 energy!"
+  gem-energy-restored: "&d&oRepair Kit restored {amount} energy!"
