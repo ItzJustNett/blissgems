@@ -42,3 +42,15 @@ bin/
 # Other
 *.bak
 *.tmp
+
+#some other shit
+.gitconfig
+.bash_profile
+.bashrc
+.gitmodules
+.idea
+.mcp.json
+.profile 
+.ripgreprc
+.zprofile
+.zshrc
