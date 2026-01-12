@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 4002,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/trader"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/emerald"
+    }
+  }
+}

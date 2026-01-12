@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "blissgems:item/astragemtier2pristine3"
+  },
+  "display": {
+    "gui": {
+      "scale": [0.7, 0.7, 0.7]
+    }
+  }
+}

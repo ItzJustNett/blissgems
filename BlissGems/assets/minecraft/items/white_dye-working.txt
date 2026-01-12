@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:range_dispatch",
+  "property": "minecraft:custom_model_data",
+  "index": 0,
+  "entries": [
+    {
+      "threshold": 1005.0,
+      "model": "blissgems:item/puff_gem_tier1"
+    },
+    {
+      "threshold": 2005.0,
+      "model": "blissgems:item/puff_gem_tier2"
+    }
+  ],
+  "fallback": {
+    "type": "minecraft:model",
+    "model": "minecraft:item/white_dye"
+  }
+}

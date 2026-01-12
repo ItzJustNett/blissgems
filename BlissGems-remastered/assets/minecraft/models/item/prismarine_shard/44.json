@@ -1,0 +1,6 @@
+{
+	"parent": "item/tier2",
+	"textures": {
+	  "layer0": "item/prismarine_shard/44"
+	}
+}

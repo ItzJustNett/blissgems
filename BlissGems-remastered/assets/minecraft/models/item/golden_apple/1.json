@@ -1,0 +1,6 @@
+{
+	"parent": "item/fruit",
+	"textures": {
+	  "layer0": "item/golden_apple/1"
+	}
+}

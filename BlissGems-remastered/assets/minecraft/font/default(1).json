@@ -1,0 +1,13 @@
+{
+    "providers": [
+        {
+            "type": "bitmap",
+            "file": "minecraft:font/symbols.png",
+            "ascent": 8,
+            "height": 8,
+            "chars": [
+                "\uD83E🔮\u1f53➖\u1f53➕\u1f53🔺\u1f53🍀\u1f53🎯\u1f53🌩\u1f53🤺\u1f53⚔\u1f53💘\u1f53💖\u1f53⏫\u1f53☁\u1f53🧨\u1f53🥾\u1f53🧑🏻\u1f53🤼"
+            ]
+        }
+    ]
+}

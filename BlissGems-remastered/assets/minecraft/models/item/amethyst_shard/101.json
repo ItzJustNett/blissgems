@@ -1,0 +1,6 @@
+{
+	"parent": "item/tier1",
+	"textures": {
+	  "layer0": "item/amethyst_shard/101"
+	}
+}

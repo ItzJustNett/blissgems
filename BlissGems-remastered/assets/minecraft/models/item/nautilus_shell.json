@@ -1,0 +1,18 @@
+{
+	"parent": "item/handheld",
+	"textures": {
+		"layer0": "item/nautilus_shell"
+	},
+	
+	"overrides": [
+		{"predicate": {"custom_model_data":200}, "model": "item/nautilus_shell/repairitem"},
+		{"predicate": {"custom_model_data":210}, "model": "item/nautilus_shell/reviveitemclosed"},
+		{"predicate": {"custom_model_data":220}, "model": "item/nautilus_shell/revivalitemopen"},
+		{"predicate": {"custom_model_data":230}, "model": "item/nautilus_shell/spiritdagger"},
+		{"predicate": {"custom_model_data":240}, "model": "item/nautilus_shell/gemfragment"},
+		{"predicate": {"custom_model_data":250}, "model": "item/nautilus_shell/totemtoken"},
+		{"predicate": {"custom_model_data":300}, "model": "item/nautilus_shell/bottleofenergy"},
+		{"predicate": {"custom_model_data":301}, "model": "item/nautilus_shell/graybottleofenergy"},
+		{"predicate": {"custom_model_data":320}, "model": "item/nautilus_shell/greenbottleofenergy"}
+	]
+}

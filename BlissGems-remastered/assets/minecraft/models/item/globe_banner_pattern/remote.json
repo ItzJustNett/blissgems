@@ -1,0 +1,6 @@
+{
+	"parent": "item/handheld3d",
+	"textures": {
+	  "layer0": "item/specialitems/remote"
+	}
+}

@@ -1,0 +1,13 @@
+{
+	"parent": "item/generated",
+	"gui_shade": "false",
+	"textures": {
+		"layer0": "item/golden_apple"
+	},
+	
+	"overrides": [
+		{"predicate": {"custom_model_data":1}, "model": "item/golden_apple/1"},
+                {"predicate": {"custom_model_data":2}, "model": "item/golden_apple/2"},
+                {"predicate": {"custom_model_data":3}, "model": "item/golden_apple/3"}
+	]
+}

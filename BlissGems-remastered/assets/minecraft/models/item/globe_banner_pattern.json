@@ -1,0 +1,10 @@
+{
+	"parent": "item/generated",
+	"textures": {
+		"layer0": "item/globe_banner_pattern"
+	},
+	
+	"overrides": [
+		{"predicate": {"custom_model_data":310}, "model": "item/globe_banner_pattern/remote"}
+	]
+}
