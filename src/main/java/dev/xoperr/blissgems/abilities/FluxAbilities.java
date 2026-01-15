@@ -6,6 +6,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -104,25 +105,26 @@ public class FluxAbilities {
                 // Show charge bar in action bar
                 showChargeBar(player, newCharge);
 
-                // Electric-themed particles AROUND player (not blocking view)
+                // Flux cyan particles AROUND player (not blocking view) - RGB(94, 215, 255)
                 Location playerLoc = player.getLocation();
+                Particle.DustOptions cyanDust = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.0f);
 
-                // Ring of electric sparks around player at WAIST/FEET height
+                // Ring of cyan dust particles around player at WAIST/FEET height
                 double ringRadius = 1.4;
                 for (int i = 0; i < 8; i++) {
                     double angle = (i / 8.0) * 2 * Math.PI + (ticksElapsed * 0.1);
                     double x = Math.cos(angle) * ringRadius;
                     double z = Math.sin(angle) * ringRadius;
 
-                    // Ground level ring
-                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
+                    // Ground level ring - cyan dust
+                    player.getWorld().spawnParticle(Particle.DUST,
                         playerLoc.clone().add(x, 0.2, z),
-                        3, 0.1, 0.1, 0.1, 0.02);
+                        3, 0.1, 0.1, 0.1, 0.0, cyanDust, true);
 
-                    // Waist height ring
-                    player.getWorld().spawnParticle(Particle.END_ROD,
+                    // Waist height ring - electric spark for accent
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
                         playerLoc.clone().add(x * 0.8, 0.8, z * 0.8),
-                        2, 0.05, 0.05, 0.05, 0.01);
+                        2, 0.05, 0.05, 0.05, 0.02);
                 }
 
                 // Spiral of particles going upward
@@ -137,17 +139,18 @@ public class FluxAbilities {
                         1, 0.05, 0.05, 0.05, 0);
                 }
 
-                // Additional particles that increase with charge
+                // Additional cyan particles that increase with charge
                 if (ticksElapsed % 5 == 0) {
                     int particleCount = 5 + (newCharge / 15);
+                    Particle.DustOptions cyanDustCharge = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 0.9f);
 
-                    // Electric sparks around player at waist level
-                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
+                    // Cyan dust particles around player at waist level
+                    player.getWorld().spawnParticle(Particle.DUST,
                         playerLoc.clone().add(0, 0.8, 0),
-                        particleCount * 2, 1.2, 0.5, 1.2, 0.03);
+                        particleCount * 2, 1.2, 0.5, 1.2, 0.0, cyanDustCharge, true);
 
-                    // Soul fire flames for effect
-                    player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
+                    // Smoke particles for effect (as per Skript)
+                    player.getWorld().spawnParticle(Particle.SMOKE,
                         playerLoc.clone().add(0, 0.5, 0),
                         particleCount, 1.5, 0.4, 1.5, 0.02);
 
@@ -174,15 +177,17 @@ public class FluxAbilities {
                     maxChargeNotified = true;
                 }
 
-                // Keep showing max charge particles
+                // Keep showing max charge cyan particles
                 if (newCharge >= MAX_CHARGE && ticksElapsed % 3 == 0) {
-                    // Large electric burst around player at LOW height
-                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
-                        playerLoc.clone().add(0, 0.6, 0),
-                        30, 1.8, 0.4, 1.8, 0.1);
+                    Particle.DustOptions cyanDustMax = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.0f);
 
-                    // Soul fire flames for extra effect
-                    player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
+                    // Large cyan burst around player at LOW height
+                    player.getWorld().spawnParticle(Particle.DUST,
+                        playerLoc.clone().add(0, 0.6, 0),
+                        30, 1.8, 0.4, 1.8, 0.0, cyanDustMax, true);
+
+                    // Smoke for extra effect (as per Skript)
+                    player.getWorld().spawnParticle(Particle.SMOKE,
                         playerLoc.clone().add(0, 0.3, 0),
                         20, 1.5, 0.3, 1.5, 0.08);
 
@@ -420,21 +425,23 @@ public class FluxAbilities {
             }, stunDuration);
         }
 
-        // Visual effects
-        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0.0, 1.0, 0.0), 200, 1.0, 1.8, 1.0);
-        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0.0, 1.0, 0.0), 100, 0.7, 1.2, 0.7);
-        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation(), 60, 0.7, 0.2, 0.7);
-        target.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, target.getLocation().add(0.0, 0.5, 0.0), 40, 0.5, 0.5, 0.5);
+        // Visual effects - Dark cyan for Ground Stun (RGB 16, 131, 173)
+        Particle.DustOptions darkCyanDust = new Particle.DustOptions(ParticleUtils.FLUX_DARK_CYAN, 1.5f);
 
-        // Ground effect circle
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 200, 1.0, 1.8, 1.0, 0.0, darkCyanDust, true);
+        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0.0, 1.0, 0.0), 100, 0.7, 1.2, 0.7);
+        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation(), 60, 0.7, 0.2, 0.7);
+        target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0.0, 0.5, 0.0), 40, 0.5, 0.5, 0.5);
+
+        // Ground effect circle with dark cyan
         for (int i = 0; i < 24; i++) {
             double angle = (i / 24.0) * 2 * Math.PI;
             double x = Math.cos(angle) * 1.8;
             double z = Math.sin(angle) * 1.8;
-            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
+            target.getWorld().spawnParticle(Particle.DUST,
                 target.getLocation().add(x, 0.1, z),
-                8, 0.15, 0.15, 0.15, 0);
-            target.getWorld().spawnParticle(Particle.END_ROD,
+                8, 0.15, 0.15, 0.15, 0.0, darkCyanDust, true);
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
                 target.getLocation().add(x, 0.5, z),
                 3, 0.1, 0.1, 0.1, 0);
         }

@@ -15,6 +15,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
@@ -52,7 +53,11 @@ public class LifeAbilities {
         }
         int duration = this.plugin.getConfigManager().getAbilityDuration("life-drainer");
         target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, duration * 20, 1, false, true));
-        target.getWorld().spawnParticle(Particle.SCULK_SOUL, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+
+        // Life gem pink particles (RGB 255, 0, 180) - Heart Drainer
+        Particle.DustOptions pinkDust = new Particle.DustOptions(ParticleUtils.LIFE_PINK, 1.5f);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, pinkDust, true);
+        target.getWorld().spawnParticle(Particle.SCULK_SOUL, target.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 1.0f, 1.5f);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Heart Drainer"));
@@ -94,30 +99,34 @@ public class LifeAbilities {
                 target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 40, 1, false, true));
             }
 
-            // Spawn MASSIVE particles at circle location - CENTER
-            player.getWorld().spawnParticle(Particle.HEART, circleLocation.clone().add(0, 1, 0), 30, 4.0, 0.5, 4.0);
-            player.getWorld().spawnParticle(Particle.SCULK_SOUL, circleLocation.clone().add(0, 0.5, 0), 40, 4.0, 0.2, 4.0);
-            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, circleLocation.clone().add(0, 0.2, 0), 25, 3.0, 0.1, 3.0);
+            // Circle of Life uses slightly different pink (RGB 255, 0, 179)
+            Particle.DustOptions pinkCircleDust = new Particle.DustOptions(ParticleUtils.LIFE_PINK_ALT, 1.0f);
 
-            // VISIBLE CIRCLE BORDER - Shows exact radius with particles
+            // Spawn MASSIVE pink particles at circle location - CENTER
+            player.getWorld().spawnParticle(Particle.DUST, circleLocation.clone().add(0, 1, 0), 30, 4.0, 0.5, 4.0, 0.0, pinkCircleDust, true);
+            player.getWorld().spawnParticle(Particle.HEART, circleLocation.clone().add(0, 1, 0), 20, 4.0, 0.5, 4.0);
+            player.getWorld().spawnParticle(Particle.SCULK_SOUL, circleLocation.clone().add(0, 0.5, 0), 30, 4.0, 0.2, 4.0);
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, circleLocation.clone().add(0, 0.2, 0), 15, 3.0, 0.1, 3.0);
+
+            // VISIBLE CIRCLE BORDER with pink dust - Shows exact radius with particles
             int circlePoints = 32; // More points = smoother circle
             for (int i = 0; i < circlePoints; i++) {
                 double angle = (i / (double) circlePoints) * 2 * Math.PI;
                 double x = Math.cos(angle) * radius;
                 double z = Math.sin(angle) * radius;
 
-                // Ground level circle - GREEN hearts
-                player.getWorld().spawnParticle(Particle.HEART,
+                // Ground level circle - Pink dust particles
+                player.getWorld().spawnParticle(Particle.DUST,
                     circleLocation.clone().add(x, 0.2, z),
-                    2, 0.1, 0.1, 0.1, 0);
+                    2, 0.1, 0.1, 0.1, 0.0, pinkCircleDust, true);
 
-                // Mid-height circle - SOUL particles
-                player.getWorld().spawnParticle(Particle.SCULK_SOUL,
+                // Mid-height circle - Hearts
+                player.getWorld().spawnParticle(Particle.HEART,
                     circleLocation.clone().add(x, 1.0, z),
                     1, 0.05, 0.05, 0.05, 0);
 
-                // Higher circle - Villager happy particles
-                player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
+                // Higher circle - SOUL particles
+                player.getWorld().spawnParticle(Particle.SCULK_SOUL,
                     circleLocation.clone().add(x, 1.8, z),
                     1, 0.05, 0.05, 0.05, 0);
             }

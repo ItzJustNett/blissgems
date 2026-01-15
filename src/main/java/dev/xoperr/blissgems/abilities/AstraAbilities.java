@@ -16,6 +16,8 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
+import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -70,8 +72,9 @@ public class AstraAbilities {
                 Vector spread = direction.clone().rotateAroundAxis(new Vector(0, 1, 0), Math.toRadians(index * 15 - 15));
                 for (int j = 0; j < 30; ++j) {
                     Location current = start.clone().add(spread.clone().multiply((double)j * 0.5));
-                    // Enhanced particle trail - MORE PARTICLES
-                    player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, current, 3, 0.1, 0.1, 0.1, 0.0);
+                    // Astra deep purple dust particles (RGB 106, 11, 184)
+                    Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+                    player.getWorld().spawnParticle(Particle.DUST, current, 3, 0.1, 0.1, 0.1, 0.0, purpleDust, true);
                     player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, current, 2, 0.05, 0.05, 0.05, 0.01);
                     player.getWorld().spawnParticle(Particle.WITCH, current, 1, 0.0, 0.0, 0.0, 0.0);
                     for (Entity entity : current.getWorld().getNearbyEntities(current, 0.5, 0.5, 0.5)) {
@@ -89,10 +92,11 @@ public class AstraAbilities {
 
                         double damage = this.plugin.getConfigManager().getAbilityDamage("astra-daggers");
                         target.damage(damage, (Entity)player);
-                        // MASSIVE particle burst on hit - DOUBLED PARTICLES!
-                        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0.0, 1.0, 0.0), 80, 0.9, 0.9, 0.9);
+                        // MASSIVE deep purple particle burst on hit
+                        Particle.DustOptions purpleDustHit = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.5f);
+                        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 80, 0.9, 0.9, 0.9, 0.0, purpleDustHit, true);
                         target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0.0, 1.0, 0.0), 60, 0.7, 0.7, 0.7);
-                        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0.0, 1.0, 0.0), 40, 0.7, 0.7, 0.7);
+                        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0.0, 1.0, 0.0), 40, 0.7, 0.7, 0.7);
                         target.getWorld().spawnParticle(Particle.WITCH, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
                         target.getWorld().spawnParticle(Particle.END_ROD, target.getLocation().add(0.0, 1.0, 0.0), 25, 0.5, 0.5, 0.5);
                         return;
@@ -134,10 +138,11 @@ public class AstraAbilities {
         // Set to spectator mode
         player.setGameMode(GameMode.SPECTATOR);
 
-        // Enhanced particle effects - MORE PARTICLES
-        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 100, 0.8, 1.5, 0.8);
-        player.getWorld().spawnParticle(Particle.PORTAL, origin, 80, 0.7, 1.2, 0.7);
-        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, origin, 50, 0.5, 1.0, 0.5);
+        // Deep purple projection particles (Astra color RGB 106, 11, 184)
+        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+        player.getWorld().spawnParticle(Particle.DUST, origin, 100, 0.8, 1.5, 0.8, 0.0, purpleDust, true);
+        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 80, 0.7, 1.2, 0.7);
+        player.getWorld().spawnParticle(Particle.PORTAL, origin, 50, 0.5, 1.0, 0.5);
         player.getWorld().spawnParticle(Particle.WITCH, origin, 30, 0.5, 1.0, 0.5);
         player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
         player.playSound(origin, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.2f);
@@ -200,10 +205,11 @@ public class AstraAbilities {
 
         if (origin != null) {
             player.teleport(origin);
-            // Enhanced return particle effects
-            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 100, 0.8, 1.5, 0.8);
-            player.getWorld().spawnParticle(Particle.PORTAL, origin, 80, 0.7, 1.2, 0.7);
-            player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, origin, 50, 0.5, 1.0, 0.5);
+            // Deep purple return particles (Astra color)
+            Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+            player.getWorld().spawnParticle(Particle.DUST, origin, 100, 0.8, 1.5, 0.8, 0.0, purpleDust, true);
+            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 80, 0.7, 1.2, 0.7);
+            player.getWorld().spawnParticle(Particle.PORTAL, origin, 50, 0.5, 1.0, 0.5);
             player.getWorld().spawnParticle(Particle.END_ROD, origin, 40, 0.5, 1.0, 0.5);
             player.getWorld().spawnParticle(Particle.SOUL, origin, 30, 0.5, 1.0, 0.5);
             player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);

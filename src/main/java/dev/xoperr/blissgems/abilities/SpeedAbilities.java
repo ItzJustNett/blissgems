@@ -13,6 +13,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
@@ -67,20 +68,23 @@ public class SpeedAbilities {
             hitCount++;
         }
 
-        // Visual effects on caster
+        // Visual effects on caster with yellow/lime dust (RGB 244, 255, 28)
+        Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 1.0f);
+
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_HURT, 1.0f, 0.5f);
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 0.7f);
-        player.spawnParticle(Particle.CLOUD, player.getLocation().add(0.0, 1.0, 0.0), 100, 3.5, 3.5, 3.5);
-        player.spawnParticle(Particle.SMOKE, player.getLocation().add(0.0, 1.0, 0.0), 60, 3.0, 3.0, 3.0);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 3.5, 3.5, 3.5, 0.0, yellowDust, true);
+        player.spawnParticle(Particle.CLOUD, player.getLocation().add(0.0, 1.0, 0.0), 60, 3.0, 3.0, 3.0);
+        player.spawnParticle(Particle.SMOKE, player.getLocation().add(0.0, 1.0, 0.0), 40, 3.0, 3.0, 3.0);
 
-        // Circle showing AoE range
+        // Circle showing AoE range with yellow dust
         for (int i = 0; i < 20; i++) {
             double angle = (i / 20.0) * 2 * Math.PI;
             double x = Math.cos(angle) * 10.0;
             double z = Math.sin(angle) * 10.0;
-            player.getWorld().spawnParticle(Particle.CLOUD,
+            player.getWorld().spawnParticle(Particle.DUST,
                 player.getLocation().add(x, 0.5, z),
-                3, 0.1, 0.1, 0.1, 0);
+                3, 0.1, 0.1, 0.1, 0.0, yellowDust, true);
         }
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
@@ -105,21 +109,24 @@ public class SpeedAbilities {
         // Apply MASSIVE speed boost
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 5, false, true));
 
-        // MASSIVE visual effects
+        // MASSIVE visual effects with yellow/lime dust (RGB 244, 255, 28)
+        Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 1.0f);
+
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.5f);
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 1.0f, 1.8f);
-        player.spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 1.0, 0.0), 200, 1.5, 1.5, 1.5);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 200, 1.5, 1.5, 1.5, 0.0, yellowDust, true);
+        player.spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 1.0, 0.0), 100, 1.5, 1.5, 1.5);
         player.spawnParticle(Particle.GUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 1.0, 1.0, 1.0);
-        player.spawnParticle(Particle.END_ROD, player.getLocation().add(0.0, 1.0, 0.0), 40, 1.0, 1.0, 1.0);
+        player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0.0, 1.0, 0.0), 40, 1.0, 1.0, 1.0);
 
-        // Speed trail circles
+        // Speed trail circles with yellow dust
         for (int i = 0; i < 16; i++) {
             double angle = (i / 16.0) * 2 * Math.PI;
             double x = Math.cos(angle) * 2.0;
             double z = Math.sin(angle) * 2.0;
-            player.getWorld().spawnParticle(Particle.GUST,
+            player.getWorld().spawnParticle(Particle.DUST,
                 player.getLocation().add(x, 0.5, z),
-                3, 0.1, 0.1, 0.1, 0.05);
+                3, 0.1, 0.1, 0.1, 0.0, yellowDust, true);
         }
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
