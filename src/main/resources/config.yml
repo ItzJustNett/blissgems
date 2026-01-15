@@ -1,6 +1,6 @@
 # BlissGems Configuration File
 # DO NOT modify the config-version unless you know what you're doing!
-config-version: "2.0.0"
+config-version: "1.0.0"
 
 # ==========================================
 # ENERGY SYSTEM
