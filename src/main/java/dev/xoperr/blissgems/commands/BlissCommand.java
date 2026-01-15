@@ -277,6 +277,11 @@ TabCompleter {
                 break;
             }
             case "remove": {
+                int currentEnergy = this.plugin.getEnergyManager().getEnergy(target);
+                if (currentEnergy <= 0) {
+                    sender.sendMessage("\u00a7c" + target.getName() + " already has 0 energy!");
+                    break;
+                }
                 this.plugin.getEnergyManager().removeEnergy(target, amount);
                 sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-removed", "player", target.getName(), "amount", amount));
                 break;
