@@ -13,6 +13,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
@@ -71,7 +72,11 @@ public class PuffAbilities {
             }, 5L);
         }
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 1.0f, 1.5f);
-        player.spawnParticle(Particle.CLOUD, player.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
+
+        // Puff white dust particles (RGB 255, 255, 255) + clouds
+        Particle.DustOptions whiteDust = new Particle.DustOptions(ParticleUtils.PUFF_WHITE, 1.5f);
+        player.spawnParticle(Particle.DUST, player.getLocation(), 30, 0.5, 0.5, 0.5, 0.0, whiteDust, true);
+        player.spawnParticle(Particle.CLOUD, player.getLocation(), 20, 0.5, 0.5, 0.5, 0.1);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Dash");
         if (msg != null && !msg.isEmpty()) {
@@ -92,7 +97,11 @@ public class PuffAbilities {
         velocity.setY(2.0);
         player.setVelocity(velocity);
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_JUMP, 1.0f, 1.0f);
-        player.spawnParticle(Particle.CLOUD, player.getLocation(), 50, 1.0, 1.0, 1.0, 0.2);
+
+        // Breezy Bash white dust particles (RGB 255, 255, 255) + clouds
+        Particle.DustOptions whiteDust = new Particle.DustOptions(ParticleUtils.PUFF_WHITE, 1.5f);
+        player.spawnParticle(Particle.DUST, player.getLocation(), 50, 1.0, 1.0, 1.0, 0.0, whiteDust, true);
+        player.spawnParticle(Particle.CLOUD, player.getLocation(), 40, 1.0, 1.0, 1.0, 0.2);
 
         // Add temporary fall damage immunity
         UUID uuid = player.getUniqueId();

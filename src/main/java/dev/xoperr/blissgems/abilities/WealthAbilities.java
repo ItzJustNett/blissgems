@@ -15,6 +15,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -89,7 +90,11 @@ public class WealthAbilities {
         Player targetPlayer = (Player)entity2;
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-unfortunate");
         targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.UNLUCK, duration * 20, 2, false, true));
-        targetPlayer.getWorld().spawnParticle(Particle.SMOKE, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+
+        // Unfortunate with bright green dust (RGB 0, 166, 44)
+        Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
+        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, greenDust, true);
+        targetPlayer.getWorld().spawnParticle(Particle.SMOKE, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITCH_CELEBRATE, 1.0f, 0.8f);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Unfortunate"));
@@ -107,8 +112,12 @@ public class WealthAbilities {
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-rich-rush");
         player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration * 20, 2, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, duration * 20, 3, false, true));
+
+        // Rich Rush with bright green dust (RGB 0, 166, 44)
+        Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-        player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5, 0.0, greenDust, true);
+        player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Rich Rush"));
     }
@@ -127,8 +136,12 @@ public class WealthAbilities {
             PotionEffect amplified = new PotionEffect(effect.getType(), effect.getDuration(), Math.min(effect.getAmplifier() + 1, 5), effect.isAmbient(), effect.hasParticles());
             player.addPotionEffect(amplified);
         }
+
+        // Amplification with bright green dust (RGB 0, 166, 44)
+        Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.5f);
-        player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 1.0, 0.5);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 1.0, 0.5, 0.0, greenDust, true);
+        player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0.0, 1.0, 0.0), 80, 0.5, 1.0, 0.5);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Amplification"));
     }

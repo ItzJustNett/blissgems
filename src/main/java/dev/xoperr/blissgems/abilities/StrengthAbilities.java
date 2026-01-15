@@ -13,6 +13,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
@@ -77,20 +78,23 @@ public class StrengthAbilities {
             hitCount++;
         }
 
-        // Visual effects on caster - MASSIVE
+        // Visual effects on caster with deep red dust (RGB 199, 0, 10)
+        Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.5f);
+
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT_SWEET_BERRY_BUSH, 1.0f, 0.8f);
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.2f);
-        player.spawnParticle(Particle.CRIMSON_SPORE, player.getLocation().add(0.0, 1.0, 0.0), 100, 2.5, 2.5, 2.5);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 2.5, 2.5, 2.5, 0.0, redDust, true);
+        player.spawnParticle(Particle.CRIMSON_SPORE, player.getLocation().add(0.0, 1.0, 0.0), 60, 2.5, 2.5, 2.5);
         player.spawnParticle(Particle.SWEEP_ATTACK, player.getLocation().add(0.0, 1.0, 0.0), 20, 2.0, 0.5, 2.0);
 
-        // Circle effect showing AoE range
+        // Circle effect showing AoE range with deep red
         for (int i = 0; i < 16; i++) {
             double angle = (i / 16.0) * 2 * Math.PI;
             double x = Math.cos(angle) * 5.0;
             double z = Math.sin(angle) * 5.0;
-            player.getWorld().spawnParticle(Particle.CRIMSON_SPORE,
+            player.getWorld().spawnParticle(Particle.DUST,
                 player.getLocation().add(x, 0.5, z),
-                3, 0.1, 0.1, 0.1, 0);
+                3, 0.1, 0.1, 0.1, 0.0, redDust, true);
         }
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
@@ -117,7 +121,11 @@ public class StrengthAbilities {
         }
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 200, 2, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 1, false, true));
-        target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+
+        // Frailer Power with deep red dust (RGB 199, 0, 10)
+        Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.5f);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, redDust, true);
+        target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 1.0f, 0.8f);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Frailer Power"));
@@ -134,8 +142,12 @@ public class StrengthAbilities {
         }
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 1, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 200, 1, false, true));
+
+        // Chad Strength with deep red dust (RGB 199, 0, 10)
+        Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.5f);
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 1.5f);
-        player.spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0.0, 2.0, 0.0), 30, 0.5, 0.5, 0.5);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 2.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, redDust, true);
+        player.spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0.0, 2.0, 0.0), 20, 0.5, 0.5, 0.5);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Chad Strength"));
     }

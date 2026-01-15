@@ -6,6 +6,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -143,11 +144,11 @@ public class FireAbilities {
                         playerLoc.clone().add(0, 0.8, 0), // Waist level
                         particleCount * 2, 1.2, 0.5, 1.2, 0.02); // Spread horizontally, not vertically
 
-                    // Orange dust particles around player in a larger radius - LOW
+                    // Fire gem bright orange dust particles (RGB 255, 119, 0) - LOW
+                    Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
                     player.getWorld().spawnParticle(Particle.DUST,
                         playerLoc.clone().add(0, 0.5, 0), // Lower than waist
-                        particleCount, 1.5, 0.4, 1.5, // Wide spread, low vertical
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f));
+                        particleCount, 1.5, 0.4, 1.5, 0.0, orangeDust, true); // Wide spread, low vertical
 
                     // Small fire particles on the ground around player - CIRCLE
                     for (int i = 0; i < 8; i++) {
@@ -380,22 +381,23 @@ public class FireAbilities {
                     campfireLocation.getWorld().playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 0.5f, 1.0f);
                 }
 
-                // MASSIVE VISIBLE CIRCLE showing campfire radius
+                // MASSIVE VISIBLE CIRCLE showing campfire radius with Fire gem orange color
                 if (ticksElapsed % 5 == 0) { // Every 5 ticks for more visibility
                     // DENSE fire ring to show radius - MANY MORE PARTICLES
                     int circlePoints = 48; // Much denser circle
+                    Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.0f);
                     for (int i = 0; i < circlePoints; i++) {
                         double angle = (i / (double) circlePoints) * 2 * Math.PI;
                         double x = Math.cos(angle) * radius;
                         double z = Math.sin(angle) * radius;
 
-                        // Ground level - FLAME particles
-                        campfireLocation.getWorld().spawnParticle(Particle.FLAME,
+                        // Ground level - Fire orange dust particles
+                        campfireLocation.getWorld().spawnParticle(Particle.DUST,
                             campfireLocation.clone().add(x, 0.3, z),
-                            3, 0.1, 0.1, 0.1, 0.01);
+                            3, 0.1, 0.1, 0.1, 0.0, orangeDust, true);
 
-                        // Mid level - SOUL FIRE particles
-                        campfireLocation.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
+                        // Mid level - FLAME particles
+                        campfireLocation.getWorld().spawnParticle(Particle.FLAME,
                             campfireLocation.clone().add(x, 0.8, z),
                             2, 0.1, 0.1, 0.1, 0.01);
 
