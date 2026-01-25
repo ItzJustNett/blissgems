@@ -227,19 +227,19 @@ public class CooldownDisplayManager {
     }
 
     /**
-     * Get ability icon using emojis from BlissGems-remastered resource pack
+     * Get ability icon using custom Unicode characters for resource pack
      * abilityIndex: 0 = primary ability, 1 = secondary ability
      */
     private String getAbilityIcon(GemType gemType, int abilityIndex) {
         return switch (gemType) {
-            case ASTRA -> abilityIndex == 0 ? "🔪" : "👻";      // Daggers / Projection
-            case FIRE -> abilityIndex == 0 ? "🧨" : "🥾";       // Fireball / Campfire
-            case FLUX -> abilityIndex == 0 ? "✠" : "🌀";        // Beam / Ground
-            case LIFE -> abilityIndex == 0 ? "💘" : "✨";       // Drainer / Circle
-            case PUFF -> abilityIndex == 0 ? "☁" : "⏫";         // Dash / Bash
-            case SPEED -> abilityIndex == 0 ? "🎯" : "🌩";      // Sedative / Storm
-            case STRENGTH -> abilityIndex == 0 ? "⚔" : "🤺";    // Thorns/Frailer / Chad
-            case WEALTH -> abilityIndex == 0 ? "💸" : "🍀";     // Unfortunate / Rush
+            case ASTRA -> abilityIndex == 0 ? "\uE010" : "\uE011";      // Daggers / Projection
+            case FIRE -> abilityIndex == 0 ? "\uE012" : "\uE013";       // Fireball / Campfire
+            case FLUX -> abilityIndex == 0 ? "\uE014" : "\uE015";        // Beam / Ground
+            case LIFE -> abilityIndex == 0 ? "\uE016" : "\uE017";       // Drainer / Circle
+            case PUFF -> abilityIndex == 0 ? "\uE018" : "\uE019";         // Dash / Bash
+            case SPEED -> abilityIndex == 0 ? "\uE01A" : "\uE01B";      // Sedative / Storm
+            case STRENGTH -> abilityIndex == 0 ? "\uE01C" : "\uE01D";    // Thorns/Frailer / Chad
+            case WEALTH -> abilityIndex == 0 ? "\uE01E" : "\uE01F";     // Unfortunate / Rush
         };
     }
 
