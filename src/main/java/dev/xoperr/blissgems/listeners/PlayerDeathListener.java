@@ -80,6 +80,8 @@ implements Listener {
             }
         }
 
+        // Clean up any active Astra gem abilities (projection, drift, void)
+        this.plugin.getAstraAbilities().cleanup(victim);
         // Clean up any active Fire gem charging
         this.plugin.getFireAbilities().cleanup(victim);
         // Clean up any active Flux gem charging
@@ -126,12 +128,17 @@ implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
 
+        // Clean up Astra gem abilities (projection, drift, void)
+        this.plugin.getAstraAbilities().cleanup(player);
         // Clean up Fire gem charging
         this.plugin.getFireAbilities().cleanup(player);
         // Clean up Flux gem charging
         this.plugin.getFluxAbilities().cleanup(player);
         // Clean up Speed gem Adrenaline Rush
         this.plugin.getSpeedAbilities().cleanup(player.getUniqueId());
+
+        // Clear captured souls
+        this.plugin.getSoulManager().clearSouls(player.getUniqueId());
 
         this.plugin.getEnergyManager().clearCache(player.getUniqueId());
         this.plugin.getGemManager().clearCache(player.getUniqueId());

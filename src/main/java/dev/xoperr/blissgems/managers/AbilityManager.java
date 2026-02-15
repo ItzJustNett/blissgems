@@ -67,6 +67,11 @@ public class AbilityManager {
             player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-no-energy", new Object[0]));
             return false;
         }
+        // Check if abilities are suppressed by Dimensional Void (skip check for astra abilities — void user isn't suppressed)
+        if (!abilityKey.startsWith("astra-") && this.plugin.getAstraAbilities().isAbilitySuppressed(player)) {
+            player.sendMessage("\u00a74\u00a7l\u00a7oYour gem abilities are nullified by a Dimensional Void!");
+            return false;
+        }
         if (this.isOnCooldown(player, abilityKey)) {
             // Cooldown is displayed in action bar, no need for chat message
             return false;

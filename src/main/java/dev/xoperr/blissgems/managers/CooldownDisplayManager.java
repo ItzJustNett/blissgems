@@ -25,13 +25,17 @@ public class CooldownDisplayManager {
         // Fire abilities - {key, displayName}
         GEM_ABILITIES.put(GemType.FIRE, Arrays.asList(
             new String[]{"fire-fireball", "Fireball"},
-            new String[]{"fire-campfire", "Campfire"}
+            new String[]{"fire-campfire", "Campfire"},
+            new String[]{"fire-crisp", "Crisp"},
+            new String[]{"fire-meteor-shower", "Meteor"}
         ));
 
         // Astra abilities
         GEM_ABILITIES.put(GemType.ASTRA, Arrays.asList(
             new String[]{"astra-daggers", "Daggers"},
-            new String[]{"astra-projection", "Projection"}
+            new String[]{"astra-projection", "Projection"},
+            new String[]{"astra-drift", "Drift"},
+            new String[]{"astra-void", "Void"}
         ));
 
         // Life abilities
@@ -248,18 +252,20 @@ public class CooldownDisplayManager {
                 display.append("§aReady");
             }
 
-            // Ability 2 (Secondary) - only show for Tier 2
-            if (tier == 2 && abilities.size() > 1) {
-                String[] ability2 = abilities.get(1);
-                String ability2Key = ability2[0];
-                String ability2Icon = getAbilityIcon(gemType, 1);
-                int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
+            // Additional abilities - only show for Tier 2
+            if (tier == 2) {
+                for (int i = 1; i < abilities.size(); i++) {
+                    String[] ability = abilities.get(i);
+                    String abilityKeyStr = ability[0];
+                    String abilityIcon = i < 2 ? getAbilityIcon(gemType, 1) : "§d✦";
+                    int remaining = abilityManager.getRemainingCooldown(player, abilityKeyStr);
 
-                display.append(" §7| ").append(ability2Icon).append(" ");
-                if (remaining2 > 0) {
-                    display.append("§c").append(remaining2).append("s");
-                } else {
-                    display.append("§aReady");
+                    display.append(" §7| ").append(abilityIcon).append(" ");
+                    if (remaining > 0) {
+                        display.append("§c").append(remaining).append("s");
+                    } else {
+                        display.append("§aReady");
+                    }
                 }
             }
         }

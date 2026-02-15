@@ -52,6 +52,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockReceiveGameEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -474,6 +475,68 @@ implements Listener {
                 }
             }
         }
+    }
+
+    // ==========================================================================
+    // Astra Gem — Soul Healing (passive: heal on kill)
+    // ==========================================================================
+
+    @EventHandler
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity killed = event.getEntity();
+        Player killer = killed.getKiller();
+
+        if (killer == null) return;
+
+        // Check if killer has Astra gem (offhand or mainhand)
+        boolean hasAstra = this.plugin.getGemManager().hasGemTypeInOffhand(killer, GemType.ASTRA)
+                        || isHoldingAstraGem(killer);
+        if (!hasAstra) return;
+
+        if (!this.plugin.getEnergyManager().arePassivesActive(killer)) return;
+
+        // Soul Healing — heal on kill
+        this.plugin.getSoulManager().absorbSoul(killer, killed);
+    }
+
+    // ==========================================================================
+    // Astra Gem — Soul Capture (passive: sneak + hit mob to capture)
+    // ==========================================================================
+
+    @EventHandler
+    public void onAstraSoulCapture(EntityDamageByEntityEvent event) {
+        // Only trigger on sneak + attack against non-player mobs
+        if (!(event.getDamager() instanceof Player)) return;
+
+        Player player = (Player) event.getDamager();
+        if (!player.isSneaking()) return;
+
+        Entity target = event.getEntity();
+        if (!(target instanceof LivingEntity) || target instanceof Player) return;
+
+        // Check Astra gem in offhand or mainhand
+        boolean hasAstra = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.ASTRA)
+                        || isHoldingAstraGem(player);
+        if (!hasAstra) return;
+
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Attempt soul capture — cancel the damage so the mob is captured, not killed
+        LivingEntity mob = (LivingEntity) target;
+        if (this.plugin.getSoulManager().captureMob(player, mob)) {
+            event.setCancelled(true);
+        }
+    }
+
+    private boolean isHoldingAstraGem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (mainHand != null) {
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null && oraxenId.contains("astra_gem")) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

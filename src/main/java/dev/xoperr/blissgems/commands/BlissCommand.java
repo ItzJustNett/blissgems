@@ -95,6 +95,14 @@ TabCompleter {
                 this.handleAbilitySecondary(sender, args);
                 break;
             }
+            case "ability:tertiary": {
+                this.handleAbilityTertiary(sender, args);
+                break;
+            }
+            case "ability:quaternary": {
+                this.handleAbilityQuaternary(sender, args);
+                break;
+            }
             case "trust": {
                 this.handleTrust(sender, args);
                 break;
@@ -117,6 +125,14 @@ TabCompleter {
             }
             case "stats": {
                 this.handleStats(sender, args);
+                break;
+            }
+            case "release": {
+                this.handleReleaseSouls(sender, args);
+                break;
+            }
+            case "souls": {
+                this.handleSoulsInfo(sender, args);
                 break;
             }
             default: {
@@ -560,6 +576,102 @@ TabCompleter {
         }
     }
 
+    private void handleAbilityTertiary(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        String oraxenId = CustomItemManager.getIdByItem(mainHand);
+        if (oraxenId == null || !GemType.isGem(oraxenId)) {
+            oraxenId = CustomItemManager.getIdByItem(offHand);
+            if (oraxenId == null || !GemType.isGem(oraxenId)) {
+                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                return;
+            }
+        }
+
+        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        if (tier < 2) {
+            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-tier2"));
+            return;
+        }
+
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
+        }
+
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType == null) return;
+
+        switch (gemType) {
+            case FIRE:
+                this.plugin.getFireAbilities().crisp(player);
+                break;
+            case ASTRA:
+                this.plugin.getAstraAbilities().activateDimensionalDrift(player);
+                break;
+            default:
+                player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
+                break;
+        }
+    }
+
+    private void handleAbilityQuaternary(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        String oraxenId = CustomItemManager.getIdByItem(mainHand);
+        if (oraxenId == null || !GemType.isGem(oraxenId)) {
+            oraxenId = CustomItemManager.getIdByItem(offHand);
+            if (oraxenId == null || !GemType.isGem(oraxenId)) {
+                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                return;
+            }
+        }
+
+        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        if (tier < 2) {
+            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-tier2"));
+            return;
+        }
+
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
+        }
+
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType == null) return;
+
+        switch (gemType) {
+            case FIRE:
+                this.plugin.getFireAbilities().meteorShower(player);
+                break;
+            case ASTRA:
+                this.plugin.getAstraAbilities().activateDimensionalVoid(player);
+                break;
+            default:
+                player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!");
+                break;
+        }
+    }
+
     private void handleTrust(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -728,6 +840,55 @@ TabCompleter {
         statsCommand.execute(player, args.length > 1 ? java.util.Arrays.copyOfRange(args, 1, args.length) : new String[]{});
     }
 
+    private void handleReleaseSouls(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        // Check if player has Astra gem
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
+            player.sendMessage("\u00a7c\u00a7oOnly Astra gem holders can release captured souls!");
+            return;
+        }
+
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            player.sendMessage("\u00a7c\u00a7oYour gem energy is too low to release souls!");
+            return;
+        }
+
+        this.plugin.getSoulManager().releaseAllSouls(player);
+    }
+
+    private void handleSoulsInfo(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        // Check if player has Astra gem
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
+            player.sendMessage("\u00a7c\u00a7oOnly Astra gem holders can view captured souls!");
+            return;
+        }
+
+        var souls = this.plugin.getSoulManager().getCapturedSouls(player);
+        int count = souls.size();
+        int max = 2;
+
+        player.sendMessage("\u00a7d\u00a7lCaptured Souls (" + count + "/" + max + "):");
+        if (count == 0) {
+            player.sendMessage("\u00a77  No souls captured. Sneak + hit a mob to capture it.");
+        } else {
+            for (int i = 0; i < souls.size(); i++) {
+                player.sendMessage("\u00a7d  " + (i + 1) + ". \u00a7f" + souls.get(i).getDisplayName());
+            }
+            player.sendMessage("\u00a77  Use \u00a7d/bliss release\u00a77 to release all captured souls.");
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("\u00a75\u00a7lBlissGems Commands:");
         sender.sendMessage("\u00a77/bliss give <player> <gem_type> [tier] \u00a78- Give a gem");
@@ -744,6 +905,8 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss trust <player> \u00a78- Trust player (prevent friendly fire)");
         sender.sendMessage("\u00a77/bliss untrust <player> \u00a78- Untrust player");
         sender.sendMessage("\u00a77/bliss trusted \u00a78- List trusted players");
+        sender.sendMessage("\u00a77/bliss souls \u00a78- View captured souls (Astra)");
+        sender.sendMessage("\u00a77/bliss release \u00a78- Release captured souls (Astra)");
         sender.sendMessage("\u00a77/bliss stats [top|me|gems] \u00a78- View server stats");
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
@@ -752,7 +915,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "trust", "untrust", "trusted", "stats", "bannable"));
+            completions.addAll(Arrays.asList("give", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());

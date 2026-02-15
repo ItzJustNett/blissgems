@@ -137,9 +137,15 @@ abilities:
   # Specific ability cooldowns (in seconds)
   cooldowns:
     astra-daggers: 15
-    astra-projection: 120  # 2 minutes
+    astra-projection: 60  # 1 minute (set when projection ends)
+    astra-drift: 90  # Dimensional Drift (set when drift ends)
+    astra-void: 120  # 2 minutes - Dimensional Void
+    astra-spook: 10  # Spook sub-ability during projection
+    astra-tag: 15  # Tag sub-ability during projection
     fire-fireball: 10
     fire-campfire: 60  # 1 minute
+    fire-crisp: 90  # 1.5 minutes - Evaporate water + scorch terrain
+    fire-meteor-shower: 120  # 2 minutes - Rain fire on target area
     flux-ground: 20
     flux-beam: 60  # 60 seconds (1 minute) - Very powerful armor-piercing attack
     flux-shocking-arrows: 5
@@ -163,11 +169,29 @@ abilities:
   astra-projection:
     radius: 150  # Maximum distance from origin in blocks
 
+  # Astra Spook settings
+  astra-spook:
+    radius: 8.0  # Spook AoE radius in blocks
+
+  # Astra Dimensional Void settings
+  astra-void:
+    radius: 10.0  # Void suppression radius in blocks
+
   # Fire Campfire settings
   fire-campfire:
     heal-amount: 0.4  # Health restored per second
     food-amount: 1  # Food level restored per second
     radius: 4.0  # Radius of effect in blocks
+    burn-duration: 3  # Seconds enemies burn
+
+  # Fire Crisp settings
+  fire-crisp:
+    radius: 10  # Radius in blocks (sphere) for water evaporation and block scorching
+
+  # Fire Meteor Shower settings
+  fire-meteor-shower:
+    radius: 8.0  # AoE radius of the meteor shower
+    interval-ticks: 10  # Ticks between each meteor (lower = faster rain)
 
   # Ability damage values
   damage:
@@ -176,14 +200,22 @@ abilities:
     flux-beam-base: 5.0  # 2.5 hearts uncharged (scales to 15.0 HP at 100% charge)
     flux-beam-max-armor-damage: 150  # Durability damage at 100% charge
     flux-shocking: 3.0
+    fire-campfire: 2.0  # Damage per second to enemies in range
+    fire-meteor-shower: 5.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
     strength-bloodthorns: 5.0
 
   # Ability durations (in seconds)
   durations:
-    astra-projection: 10  # Duration in spectator mode
+    astra-projection: 5  # Short spectator mode duration
+    astra-drift: 15  # Dimensional Drift invisibility duration
+    astra-void: 8  # Dimensional Void suppression duration
+    astra-spook: 3  # Spook blindness/nausea duration
+    astra-tag: 30  # Tag tracking duration
     fire-campfire: 15  # How long campfire lasts
+    fire-crisp: 15  # How long Crisp water evaporation lasts
+    fire-meteor-shower: 8  # Duration of meteor rain
     flux-ground-freeze: 3
     life-drainer: 20
     life-circle: 10

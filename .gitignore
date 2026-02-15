@@ -1,6 +1,6 @@
 # Compiled class files
 *.class
-
+CLAUDE.md
 # Log files
 *.log
 deploy.sh

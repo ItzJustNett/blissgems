@@ -173,8 +173,11 @@ extends JavaPlugin {
             this.recipeManager.unregisterRecipes();
         }
 
-        // Clean up all Fire and Flux gem charging tasks
+        // Clean up all gem ability tasks
         for (org.bukkit.entity.Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
+            if (this.astraAbilities != null) {
+                this.astraAbilities.cleanup(player);
+            }
             if (this.fireAbilities != null) {
                 this.fireAbilities.cleanup(player);
             }
