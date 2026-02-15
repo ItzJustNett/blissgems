@@ -16,6 +16,7 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.commands.StatsCommand;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,7 +44,7 @@ TabCompleter {
         if (args.length == 0) {
             // Show GUI if player, otherwise show help
             if (sender instanceof Player) {
-                this.plugin.getBlissGuiManager().openMainMenu((Player) sender);
+                this.plugin.getEnhancedGuiManager().openMainMenu((Player) sender);
             } else {
                 this.sendHelp(sender);
             }
@@ -112,6 +113,10 @@ TabCompleter {
             }
             case "autosmelt": {
                 this.handleAutoSmelt(sender, args);
+                break;
+            }
+            case "stats": {
+                this.handleStats(sender, args);
                 break;
             }
             default: {
@@ -712,6 +717,17 @@ TabCompleter {
         }
     }
 
+    private void handleStats(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+
+        Player player = (Player) sender;
+        StatsCommand statsCommand = new StatsCommand(this.plugin);
+        statsCommand.execute(player, args.length > 1 ? java.util.Arrays.copyOfRange(args, 1, args.length) : new String[]{});
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("\u00a75\u00a7lBlissGems Commands:");
         sender.sendMessage("\u00a77/bliss give <player> <gem_type> [tier] \u00a78- Give a gem");
@@ -728,6 +744,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss trust <player> \u00a78- Trust player (prevent friendly fire)");
         sender.sendMessage("\u00a77/bliss untrust <player> \u00a78- Untrust player");
         sender.sendMessage("\u00a77/bliss trusted \u00a78- List trusted players");
+        sender.sendMessage("\u00a77/bliss stats [top|me|gems] \u00a78- View server stats");
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
@@ -735,10 +752,13 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "trust", "untrust", "trusted", "bannable"));
+            completions.addAll(Arrays.asList("give", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "trust", "untrust", "trusted", "stats", "bannable"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            }
+            if (args[0].equalsIgnoreCase("stats")) {
+                return Arrays.asList("top", "me", "gems");
             }
             if (args[0].equalsIgnoreCase("bannable")) {
                 return Arrays.asList("true", "false");

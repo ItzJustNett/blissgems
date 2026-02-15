@@ -22,6 +22,7 @@ import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
 import dev.xoperr.blissgems.listeners.GemDropListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
+import dev.xoperr.blissgems.listeners.KillTrackingListener;
 import dev.xoperr.blissgems.listeners.PassiveListener;
 import dev.xoperr.blissgems.listeners.PlayerDeathListener;
 import dev.xoperr.blissgems.listeners.PlayerJoinListener;
@@ -30,14 +31,16 @@ import dev.xoperr.blissgems.listeners.ReviveBeaconListener;
 import dev.xoperr.blissgems.listeners.StunListener;
 import dev.xoperr.blissgems.listeners.UpgraderListener;
 import dev.xoperr.blissgems.managers.AbilityManager;
-import dev.xoperr.blissgems.managers.BlissGuiManager;
+import dev.xoperr.blissgems.managers.EnhancedGuiManager;
 import dev.xoperr.blissgems.managers.ClickActivationManager;
 import dev.xoperr.blissgems.managers.CooldownDisplayManager;
 import dev.xoperr.blissgems.managers.CriticalHitManager;
 import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.GemManager;
+import dev.xoperr.blissgems.managers.StatsManager;
 import dev.xoperr.blissgems.managers.PassiveManager;
+import dev.xoperr.blissgems.managers.PluginMessagingManager;
 import dev.xoperr.blissgems.managers.RecipeManager;
 import dev.xoperr.blissgems.managers.RepairKitManager;
 import dev.xoperr.blissgems.managers.ReviveBeaconManager;
@@ -45,6 +48,16 @@ import dev.xoperr.blissgems.managers.SoulManager;
 import dev.xoperr.blissgems.managers.TrustedPlayersManager;
 import dev.xoperr.blissgems.utils.ConfigManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.core.managers.ProtectionManager;
+import dev.xoperr.blissgems.core.managers.ParticleManager;
+import dev.xoperr.blissgems.core.managers.TextManager;
+import dev.xoperr.blissgems.core.managers.AutoEnchantManager;
+import dev.xoperr.blissgems.core.api.protection.GemProtectionAPI;
+import dev.xoperr.blissgems.core.api.particle.ParticleAPI;
+import dev.xoperr.blissgems.core.api.text.InventoryTextAPI;
+import dev.xoperr.blissgems.core.api.enchant.AutoEnchantAPI;
+import dev.xoperr.blissgems.core.listeners.ItemDropListener;
+import dev.xoperr.blissgems.core.listeners.InventoryInteractListener;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.event.Listener;
@@ -61,13 +74,15 @@ extends JavaPlugin {
     private ClickActivationManager clickActivationManager;
     private TrustedPlayersManager trustedPlayersManager;
     private CooldownDisplayManager cooldownDisplayManager;
-    private BlissGuiManager blissGuiManager;
+    private EnhancedGuiManager enhancedGuiManager;
+    private StatsManager statsManager;
     private RecipeManager recipeManager;
     private RepairKitManager repairKitManager;
     private ReviveBeaconManager reviveBeaconManager;
     private SoulManager soulManager;
     private FlowStateManager flowStateManager;
     private CriticalHitManager criticalHitManager;
+    private PluginMessagingManager pluginMessagingManager;
     private AstraAbilities astraAbilities;
     private FireAbilities fireAbilities;
     private FluxAbilities fluxAbilities;
@@ -76,10 +91,27 @@ extends JavaPlugin {
     private SpeedAbilities speedAbilities;
     private StrengthAbilities strengthAbilities;
     private WealthAbilities wealthAbilities;
+    private ProtectionManager protectionManager;
+    private ParticleManager particleManager;
+    private TextManager textManager;
+    private AutoEnchantManager autoEnchantManager;
 
     public void onEnable() {
         this.saveDefaultConfig();
         CustomItemManager.initialize(this);
+
+        // Initialize internal XoperrCore managers
+        this.protectionManager = new ProtectionManager(this);
+        this.particleManager = new ParticleManager(this);
+        this.textManager = new TextManager(this);
+        this.autoEnchantManager = new AutoEnchantManager(this);
+
+        // Initialize XoperrCore APIs
+        GemProtectionAPI.initialize(protectionManager);
+        ParticleAPI.initialize(particleManager);
+        InventoryTextAPI.initialize(textManager);
+        AutoEnchantAPI.initialize(autoEnchantManager);
+
         this.configManager = new ConfigManager(this);
         this.energyManager = new EnergyManager(this);
         this.gemManager = new GemManager(this);
@@ -92,6 +124,7 @@ extends JavaPlugin {
         this.soulManager = new SoulManager(this);
         this.flowStateManager = new FlowStateManager(this);
         this.criticalHitManager = new CriticalHitManager(this);
+        this.pluginMessagingManager = new PluginMessagingManager(this);
         this.astraAbilities = new AstraAbilities(this);
         this.fireAbilities = new FireAbilities(this);
         this.fluxAbilities = new FluxAbilities(this);
@@ -101,7 +134,8 @@ extends JavaPlugin {
         this.strengthAbilities = new StrengthAbilities(this);
         this.wealthAbilities = new WealthAbilities(this);
         this.cooldownDisplayManager = new CooldownDisplayManager(this);
-        this.blissGuiManager = new BlissGuiManager(this);
+        this.statsManager = new StatsManager(this);
+        this.enhancedGuiManager = new EnhancedGuiManager(this);
         this.recipeManager = new RecipeManager(this);
         this.recipeManager.registerRecipes();
         this.registerListeners();
@@ -112,6 +146,17 @@ extends JavaPlugin {
     }
 
     public void onDisable() {
+        // Cleanup XoperrCore managers
+        if (this.particleManager != null) {
+            this.particleManager.cleanup();
+        }
+        if (this.textManager != null) {
+            this.textManager.cleanup();
+        }
+        if (this.autoEnchantManager != null) {
+            this.autoEnchantManager.cleanup();
+        }
+
         if (this.cooldownDisplayManager != null) {
             this.cooldownDisplayManager.stop();
         }
@@ -120,6 +165,9 @@ extends JavaPlugin {
         }
         if (this.reviveBeaconManager != null) {
             this.reviveBeaconManager.cleanup();
+        }
+        if (this.pluginMessagingManager != null) {
+            this.pluginMessagingManager.shutdown();
         }
         if (this.recipeManager != null) {
             this.recipeManager.unregisterRecipes();
@@ -143,6 +191,11 @@ extends JavaPlugin {
     }
 
     private void registerListeners() {
+        // Register XoperrCore listeners
+        this.getServer().getPluginManager().registerEvents(new ItemDropListener(protectionManager), this);
+        this.getServer().getPluginManager().registerEvents(new InventoryInteractListener(protectionManager), this);
+
+        // Register BlissGems listeners
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerDeathListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new GemDropListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
@@ -153,7 +206,8 @@ extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new RepairKitListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new ReviveBeaconListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)this.blissGuiManager, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
     }
 
     private void registerCommands() {
@@ -246,8 +300,33 @@ extends JavaPlugin {
         return this.trustedPlayersManager;
     }
 
-    public BlissGuiManager getBlissGuiManager() {
-        return this.blissGuiManager;
+    public EnhancedGuiManager getEnhancedGuiManager() {
+        return this.enhancedGuiManager;
+    }
+
+    public StatsManager getStatsManager() {
+        return this.statsManager;
+    }
+
+    public PluginMessagingManager getPluginMessagingManager() {
+        return this.pluginMessagingManager;
+    }
+
+    // XoperrCore getters
+    public ProtectionManager getProtectionManager() {
+        return this.protectionManager;
+    }
+
+    public ParticleManager getParticleManager() {
+        return this.particleManager;
+    }
+
+    public TextManager getTextManager() {
+        return this.textManager;
+    }
+
+    public AutoEnchantManager getAutoEnchantManager() {
+        return this.autoEnchantManager;
     }
 }
 

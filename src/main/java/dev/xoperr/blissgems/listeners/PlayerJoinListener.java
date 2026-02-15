@@ -53,6 +53,14 @@ public class PlayerJoinListener implements Listener {
 
         // Load ability cooldowns from disk
         this.plugin.getAbilityManager().loadCooldowns(player.getUniqueId());
+
+        // Send gem data to client mod (if installed)
+        // Small delay to ensure player is fully loaded
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (player.isOnline()) {
+                this.plugin.getPluginMessagingManager().sendGemData(player);
+            }
+        }, 20L); // 1 second delay
     }
 
     private boolean hasReceivedFirstGem(Player player) {

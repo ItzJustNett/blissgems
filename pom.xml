@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>2.6.0</version>
+    <version>3.1</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
@@ -130,6 +130,20 @@
     public static ** valueOf(java.lang.String);
     **[] $VALUES;
     public *;
+}</option>
+
+                        <!-- Keep public API classes for other plugins -->
+                        <option>-keep public class dev.xoperr.blissgems.BlissGems {
+    public *;
+}</option>
+                        <option>-keep public class dev.xoperr.blissgems.utils.** {
+    public *;
+}</option>
+                        <option>-keep public class dev.xoperr.blissgems.managers.** {
+    public *;
+}</option>
+                        <option>-keep public enum dev.xoperr.blissgems.utils.GemType {
+    *;
 }</option>
 
                         <!-- Preserve annotations for Bukkit -->

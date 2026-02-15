@@ -356,6 +356,21 @@ public class CustomItemManager {
     }
 
     /**
+     * Public API for addon plugins to register custom items
+     * @param id The custom item ID (e.g., "allforone_gem_t1")
+     * @param material The base material
+     * @param customModelData The custom model data value
+     * @param displayName The display name with color codes
+     * @param lore The item lore (can be null)
+     */
+    public static void registerAddonItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
+        if (ITEM_REGISTRY.containsKey(id)) {
+            throw new IllegalArgumentException("Item ID '" + id + "' is already registered!");
+        }
+        ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
+    }
+
+    /**
      * Get the custom item ID from an ItemStack
      * Replaces: OraxenItems.getIdByItem(item)
      */

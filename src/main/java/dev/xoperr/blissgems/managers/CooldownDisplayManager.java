@@ -52,10 +52,11 @@ public class CooldownDisplayManager {
             new String[]{"puff-breezy-bash", "Bash"}
         ));
 
-        // Speed abilities
+        // Speed abilities (T1: Sedative, T2: Adrenaline Rush + Speed Storm)
         GEM_ABILITIES.put(GemType.SPEED, Arrays.asList(
-            new String[]{"speed-sedative", "Sedative"},
-            new String[]{"speed-storm", "Storm"}
+            new String[]{"speed-sedative", "Sedative"},        // T1 primary
+            new String[]{"adrenaline-rush", "Adrenaline"},     // T2 primary
+            new String[]{"speed-storm", "Storm"}               // T2 secondary (shift)
         ));
 
         // Strength abilities
@@ -95,6 +96,11 @@ public class CooldownDisplayManager {
 
                 // Don't override Flux gem charging display
                 if (this.plugin.getFluxAbilities().isCharging(player)) {
+                    continue;
+                }
+
+                // Don't override Speed gem Adrenaline Rush active display
+                if (this.plugin.getSpeedAbilities().isAdrenalineRushActive(player)) {
                     continue;
                 }
 
@@ -167,6 +173,11 @@ public class CooldownDisplayManager {
         GemType gemType = gemInfo.type;
         int tier = gemInfo.tier;
 
+        // Skip if gem type is null (e.g., from addon gems)
+        if (gemType == null) {
+            return "";
+        }
+
         // Get gem color from GemType
         String gemColor = gemType.getColor();
 
@@ -178,31 +189,78 @@ public class CooldownDisplayManager {
 
         // Format: (icon) Ready/countdown (icon) Ready/countdown (icon) Ready/countdown
 
-        // Ability 1 (Primary) - always show
-        String[] ability1 = abilities.get(0);
-        String ability1Key = ability1[0];
-        String ability1Icon = getAbilityIcon(gemType, 0);
-        int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
+        // Special handling for Speed gem (has different abilities for T1 vs T2)
+        if (gemType == GemType.SPEED) {
+            if (tier == 1) {
+                // T1: Show only Sedative (index 0)
+                String[] ability1 = abilities.get(0);
+                String ability1Key = ability1[0];
+                String ability1Icon = getAbilityIcon(gemType, 0);
+                int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
 
-        display.append(ability1Icon).append(" ");
-        if (remaining1 > 0) {
-            display.append("§c").append(remaining1).append("s");
+                display.append(ability1Icon).append(" ");
+                if (remaining1 > 0) {
+                    display.append("§c").append(remaining1).append("s");
+                } else {
+                    display.append("§aReady");
+                }
+            } else {
+                // T2: Show Adrenaline Rush (index 1) and Speed Storm (index 2)
+                String[] ability1 = abilities.get(1); // Adrenaline Rush
+                String ability1Key = ability1[0];
+                String ability1Icon = getAbilityIcon(gemType, 0); // Use primary icon
+                int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
+
+                display.append(ability1Icon).append(" ");
+                if (remaining1 > 0) {
+                    display.append("§c").append(remaining1).append("s");
+                } else {
+                    display.append("§aReady");
+                }
+
+                // Show Speed Storm (shift ability)
+                if (abilities.size() > 2) {
+                    String[] ability2 = abilities.get(2); // Speed Storm
+                    String ability2Key = ability2[0];
+                    String ability2Icon = getAbilityIcon(gemType, 1);
+                    int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
+
+                    display.append(" §7| ").append(ability2Icon).append(" ");
+                    if (remaining2 > 0) {
+                        display.append("§c").append(remaining2).append("s");
+                    } else {
+                        display.append("§aReady");
+                    }
+                }
+            }
         } else {
-            display.append("§aReady");
-        }
+            // Standard handling for all other gems
+            // Ability 1 (Primary) - always show
+            String[] ability1 = abilities.get(0);
+            String ability1Key = ability1[0];
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
 
-        // Ability 2 (Secondary) - only show for Tier 2
-        if (tier == 2 && abilities.size() > 1) {
-            String[] ability2 = abilities.get(1);
-            String ability2Key = ability2[0];
-            String ability2Icon = getAbilityIcon(gemType, 1);
-            int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
-
-            display.append(" §7| ").append(ability2Icon).append(" ");
-            if (remaining2 > 0) {
-                display.append("§c").append(remaining2).append("s");
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("§c").append(remaining1).append("s");
             } else {
                 display.append("§aReady");
+            }
+
+            // Ability 2 (Secondary) - only show for Tier 2
+            if (tier == 2 && abilities.size() > 1) {
+                String[] ability2 = abilities.get(1);
+                String ability2Key = ability2[0];
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
+
+                display.append(" §7| ").append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("§c").append(remaining2).append("s");
+                } else {
+                    display.append("§aReady");
+                }
             }
         }
 

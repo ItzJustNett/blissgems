@@ -130,6 +130,8 @@ implements Listener {
         this.plugin.getFireAbilities().cleanup(player);
         // Clean up Flux gem charging
         this.plugin.getFluxAbilities().cleanup(player);
+        // Clean up Speed gem Adrenaline Rush
+        this.plugin.getSpeedAbilities().cleanup(player.getUniqueId());
 
         this.plugin.getEnergyManager().clearCache(player.getUniqueId());
         this.plugin.getGemManager().clearCache(player.getUniqueId());

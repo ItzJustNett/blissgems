@@ -149,6 +149,7 @@ abilities:
     puff-breezy-bash: 10
     speed-sedative: 35
     speed-storm: 45
+    adrenaline-rush: 90  # T2 only - Speed scales with energy + instant attacks
     strength-bloodthorns: 20
     strength-frailer: 25
     strength-chad: 30
@@ -189,6 +190,13 @@ abilities:
     wealth-unfortunate: 40
     wealth-rich-rush: 120
     wealth-amplification: 45
+    adrenaline-rush: 6  # Duration of speed boost + instant attacks
+
+  # Adrenaline Rush settings
+  adrenaline-rush:
+    duration: 6  # Duration in seconds (balanced for PvP)
+    # Speed level scales with player energy (0-10)
+    # Attack speed is set to instant (no cooldown) for the duration
 
 # ==========================================
 # AUTO-ENCHANTING (TIER 2 ONLY)

@@ -282,40 +282,117 @@ public class FluxAbilities {
         if (target instanceof Player) {
             Player targetPlayer = (Player) target;
             damageArmorPieces(targetPlayer, armorDamage);
+
+            // Show damage indicator to target
+            targetPlayer.sendTitle("",
+                "§c§l-" + String.format("%.1f", finalDamage) + " HP",
+                5, 15, 10);
+
+            // Send action bar damage notification
+            targetPlayer.spigot().sendMessage(ChatMessageType.ACTION_BAR,
+                new TextComponent("§c§l⚡ FLUX BEAM HIT! -" + String.format("%.1f", finalDamage) + " HP §7(Armor: -" + armorDamage + ")"));
         }
 
         // Visual and sound effects
         drawBeamParticles(player.getEyeLocation(), target.getEyeLocation().add(0, 1, 0));
 
-        // Hit particles
-        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
-            target.getLocation().add(0, 1, 0), 50, 0.7, 0.9, 0.7);
-        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
-            target.getLocation().add(0, 1, 0), 80, 0.7, 0.9, 0.7);
-        target.getWorld().spawnParticle(Particle.CRIT,
-            target.getLocation().add(0, 1, 0), 40, 0.5, 0.7, 0.5);
+        // MASSIVE hit particle explosion - much more visible
+        Location hitLoc = target.getLocation().add(0, 1, 0);
+        Particle.DustOptions redDamage = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 50, 50), 1.5f);
+        Particle.DustOptions cyanHit = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.3f);
 
-        // Sounds
-        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.8f);
-        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.5f);
-        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.8f, 1.0f);
+        // Large cyan explosion burst
+        target.getWorld().spawnParticle(Particle.DUST, hitLoc, 150, 1.2, 1.5, 1.2, 0.0, cyanHit, true);
+
+        // Red damage indicator particles
+        target.getWorld().spawnParticle(Particle.DUST, hitLoc, 100, 0.9, 1.2, 0.9, 0.0, redDamage, true);
+
+        // Electric sparks everywhere
+        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, hitLoc, 200, 1.0, 1.3, 1.0, 0.15);
+
+        // Critical hit markers
+        target.getWorld().spawnParticle(Particle.CRIT, hitLoc, 80, 0.8, 1.0, 0.8, 0.3);
+
+        // Enchanted hit sparkles
+        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, hitLoc, 100, 0.9, 1.2, 0.9, 0.2);
+
+        // Soul fire flames for dramatic effect
+        target.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, hitLoc, 60, 0.7, 1.0, 0.7, 0.08);
+
+        // Explosion particles (no damage)
+        target.getWorld().spawnParticle(Particle.EXPLOSION, hitLoc, 5, 0.5, 0.5, 0.5, 0);
+
+        // Damage indicator ring around target
+        for (int i = 0; i < 32; i++) {
+            double angle = (i / 32.0) * 2 * Math.PI;
+            double radius = 1.5;
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            target.getWorld().spawnParticle(Particle.DUST,
+                target.getLocation().add(x, 0.5, z),
+                5, 0.1, 0.3, 0.1, 0.0, redDamage, true);
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
+                target.getLocation().add(x, 0.5, z),
+                3, 0.1, 0.2, 0.1, 0.05);
+        }
+
+        // Sounds - louder and more impactful
+        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.8f);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.5f, 1.5f);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.5f);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0f, 0.8f);
 
         this.plugin.getAbilityManager().useAbility(player, "flux-beam");
-        player.sendMessage("§b⚡ §oFired Flux Beam at " + charge + "% power! (§c" + String.format("%.1f", finalDamage) + " HP§o)");
+
+        // Enhanced feedback message
+        String targetName = target instanceof Player ? ((Player) target).getName() : target.getType().name();
+        player.sendMessage("§b⚡§l FLUX BEAM HIT! §r§o" + targetName + " §7(" + charge + "% charge)");
+        player.sendMessage("§c  ❤ Damage: " + String.format("%.1f", finalDamage) + " HP §8| §7Armor: -" + armorDamage);
     }
 
     private void drawBeamParticles(Location from, Location to) {
         double distance = from.distance(to);
-        int points = (int)(distance * 4);
+        int points = (int)(distance * 8); // Double density for visibility
+
+        // Flux cyan color for beam core
+        Particle.DustOptions cyanCore = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.2f);
+        Particle.DustOptions cyanOuter = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 0.8f);
 
         for (int i = 0; i <= points; i++) {
             double ratio = (double) i / points;
             double x = from.getX() + (to.getX() - from.getX()) * ratio;
             double y = from.getY() + (to.getY() - from.getY()) * ratio;
             double z = from.getZ() + (to.getZ() - from.getZ()) * ratio;
+            Location point = new Location(from.getWorld(), x, y, z);
 
-            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, x, y, z, 3, 0.1, 0.1, 0.1, 0.02);
-            from.getWorld().spawnParticle(Particle.END_ROD, x, y, z, 1, 0.05, 0.05, 0.05, 0);
+            // Core beam - bright electric sparks (heavy density)
+            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, x, y, z, 8, 0.08, 0.08, 0.08, 0.03);
+
+            // Inner cyan beam layer
+            from.getWorld().spawnParticle(Particle.DUST, x, y, z, 6, 0.1, 0.1, 0.1, 0.0, cyanCore, true);
+
+            // Outer cyan glow
+            from.getWorld().spawnParticle(Particle.DUST, x, y, z, 4, 0.15, 0.15, 0.15, 0.0, cyanOuter, true);
+
+            // End rod for bright core trail
+            from.getWorld().spawnParticle(Particle.END_ROD, x, y, z, 3, 0.05, 0.05, 0.05, 0.01);
+
+            // Soul fire flame for electric effect
+            from.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, x, y, z, 2, 0.08, 0.08, 0.08, 0.01);
+
+            // Add spiral electric arcs around beam for dramatic effect
+            if (i % 3 == 0) {
+                double angle = i * 0.5;
+                double arcRadius = 0.25;
+                for (int arc = 0; arc < 3; arc++) {
+                    double arcAngle = angle + (arc * Math.PI * 2 / 3);
+                    double offsetX = Math.cos(arcAngle) * arcRadius;
+                    double offsetZ = Math.sin(arcAngle) * arcRadius;
+
+                    from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK,
+                        x + offsetX, y, z + offsetZ, 1, 0.02, 0.02, 0.02, 0);
+                }
+            }
         }
     }
 
