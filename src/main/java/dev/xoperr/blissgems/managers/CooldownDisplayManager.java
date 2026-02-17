@@ -30,12 +30,10 @@ public class CooldownDisplayManager {
             new String[]{"fire-meteor-shower", "Meteor"}
         ));
 
-        // Astra abilities
+        // Astra abilities (only first two shown in display)
         GEM_ABILITIES.put(GemType.ASTRA, Arrays.asList(
             new String[]{"astra-daggers", "Daggers"},
-            new String[]{"astra-projection", "Projection"},
-            new String[]{"astra-drift", "Drift"},
-            new String[]{"astra-void", "Void"}
+            new String[]{"astra-projection", "Projection"}
         ));
 
         // Life abilities
@@ -192,6 +190,37 @@ public class CooldownDisplayManager {
         }
 
         // Format: (icon) Ready/countdown (icon) Ready/countdown (icon) Ready/countdown
+
+        // Special handling for Astra — icon Ready/Xs (✦) icon Ready/Xs
+        // ✦ separates the two abilities and turns red when ability 1 is on cooldown
+        if (gemType == GemType.ASTRA) {
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
+
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("§c").append(remaining1).append("s");
+            } else {
+                display.append("§aReady");
+            }
+
+            if (tier == 2) {
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
+
+                // ✦ separator turns red only when ability 1 is on cooldown
+                display.append(remaining1 > 0 ? " §c(✦) " : " §d(✦) ");
+
+                display.append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("§7").append(remaining2).append("s");
+                } else {
+                    display.append("§aReady");
+                }
+            }
+
+            return display.toString();
+        }
 
         // Special handling for Speed gem (has different abilities for T1 vs T2)
         if (gemType == GemType.SPEED) {
