@@ -153,9 +153,9 @@ abilities:
     life-circle-of-life: 60
     puff-dash: 5
     puff-breezy-bash: 10
-    speed-sedative: 35
+    speed-sedative: 60
     speed-storm: 45
-    adrenaline-rush: 90  # T2 only - Speed scales with energy + instant attacks
+    adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
     strength-bloodthorns: 20
     strength-frailer: 25
     strength-chad: 30
