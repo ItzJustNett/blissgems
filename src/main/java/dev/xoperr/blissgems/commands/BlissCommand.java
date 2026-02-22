@@ -139,6 +139,11 @@ TabCompleter {
                 this.handleSoulsInfo(sender, args);
                 break;
             }
+            case "normalise":
+            case "normalize": {
+                this.handleNormalise(sender, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -994,6 +999,26 @@ TabCompleter {
         }
     }
 
+    private void handleNormalise(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+
+        int count = 0;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.resetCooldown();
+            count++;
+        }
+
+        sender.sendMessage("§a§lAttack cooldown reset for " + count + " online player(s)!");
+
+        // Broadcast to all players
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.sendMessage("§e§oAttack cooldowns have been normalized by an admin.");
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("\u00a75\u00a7lBlissGems Commands:");
         sender.sendMessage("\u00a77/bliss give <player> <gem_type> [tier] \u00a78- Give a gem");
@@ -1015,13 +1040,14 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss release \u00a78- Release captured souls (Astra)");
         sender.sendMessage("\u00a77/bliss stats [top|me|gems] \u00a78- View server stats");
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
+        sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release", "normalise", "normalize"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());

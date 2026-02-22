@@ -54,11 +54,11 @@ public class CooldownDisplayManager {
             new String[]{"puff-breezy-bash", "Bash"}
         ));
 
-        // Speed abilities (T1: Sedative, T2: Adrenaline Rush + Speed Storm)
+        // Speed abilities (T1: Blur, T2: Blur + Speed Storm + Terminal Velocity)
         GEM_ABILITIES.put(GemType.SPEED, Arrays.asList(
-            new String[]{"speed-sedative", "Sedative"},        // T1 primary
-            new String[]{"adrenaline-rush", "Adrenaline"},     // T2 primary
-            new String[]{"speed-storm", "Storm"}               // T2 secondary (shift)
+            new String[]{"speed-blur", "Blur"},                // T1+T2 primary
+            new String[]{"speed-storm", "Storm"},              // T2 secondary (shift)
+            new String[]{"speed-terminal", "Terminal"}         // T2 tertiary (command)
         ));
 
         // Strength abilities
@@ -217,48 +217,34 @@ public class CooldownDisplayManager {
             return display.toString();
         }
 
-        // Special handling for Speed gem (has different abilities for T1 vs T2)
+        // Special handling for Speed gem
         if (gemType == GemType.SPEED) {
-            if (tier == 1) {
-                // T1: Show only Sedative (index 0)
-                String[] ability1 = abilities.get(0);
-                String ability1Key = ability1[0];
-                String ability1Icon = getAbilityIcon(gemType, 0);
-                int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
+            // T1: Show only Blur (index 0)
+            // T2: Show Blur (index 0) and Speed Storm (index 1)
+            String[] ability1 = abilities.get(0); // Blur
+            String ability1Key = ability1[0];
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
 
-                display.append(ability1Icon).append(" ");
-                if (remaining1 > 0) {
-                    display.append("§c").append(remaining1).append("s");
-                } else {
-                    display.append("§aReady");
-                }
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("§c").append(remaining1).append("s");
             } else {
-                // T2: Show Adrenaline Rush (index 1) and Speed Storm (index 2)
-                String[] ability1 = abilities.get(1); // Adrenaline Rush
-                String ability1Key = ability1[0];
-                String ability1Icon = getAbilityIcon(gemType, 0); // Use primary icon
-                int remaining1 = abilityManager.getRemainingCooldown(player, ability1Key);
+                display.append("§aReady");
+            }
 
-                display.append(ability1Icon).append(" ");
-                if (remaining1 > 0) {
-                    display.append("§c").append(remaining1).append("s");
+            // T2: Show Speed Storm (shift ability)
+            if (tier == 2 && abilities.size() > 1) {
+                String[] ability2 = abilities.get(1); // Speed Storm
+                String ability2Key = ability2[0];
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
+
+                display.append(" §7| ").append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
-                }
-
-                // Show Speed Storm (shift ability)
-                if (abilities.size() > 2) {
-                    String[] ability2 = abilities.get(2); // Speed Storm
-                    String ability2Key = ability2[0];
-                    String ability2Icon = getAbilityIcon(gemType, 1);
-                    int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
-
-                    display.append(" §7| ").append(ability2Icon).append(" ");
-                    if (remaining2 > 0) {
-                        display.append("§c").append(remaining2).append("s");
-                    } else {
-                        display.append("§aReady");
-                    }
                 }
             }
         } else {
@@ -325,7 +311,7 @@ public class CooldownDisplayManager {
             case FLUX -> abilityIndex == 0 ? "\uE014" : "\uE015";        // Beam / Ground
             case LIFE -> abilityIndex == 0 ? "\uE016" : "\uE017";       // Drainer / Circle
             case PUFF -> abilityIndex == 0 ? "\uE018" : "\uE019";         // Dash / Bash
-            case SPEED -> abilityIndex == 0 ? "\uE01A" : "\uE01B";      // Sedative / Storm
+            case SPEED -> abilityIndex == 0 ? "\uE01A" : "\uE01B";      // Blur / Storm
             case STRENGTH -> abilityIndex == 0 ? "\uE01C" : "\uE01D";    // Thorns/Frailer / Chad
             case WEALTH -> abilityIndex == 0 ? "\uE01E" : "\uE01F";     // Unfortunate / Rush
         };
