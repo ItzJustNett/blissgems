@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>3.1</version>
+    <version>3.4</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
