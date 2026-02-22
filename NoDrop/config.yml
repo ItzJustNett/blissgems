@@ -1,9 +1,0 @@
-# NoDrop Config #
-
-Message:
-   Enabled: true
-   Content: "&cYou cannot drop items in this world!"
-
-Worlds:
-  - "spawn"
-  - "example_world1"

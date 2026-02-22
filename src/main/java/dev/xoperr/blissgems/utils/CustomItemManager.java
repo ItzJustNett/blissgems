@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -344,7 +345,8 @@ public class CustomItemManager {
 
     public static void initialize(JavaPlugin plugin) {
         ITEM_ID_KEY = new NamespacedKey(plugin, "item_id");
-        UNDROPPABLE_KEY = new NamespacedKey(plugin, "undroppable");
+        // Use same key name as DropItemControl for compatibility
+        UNDROPPABLE_KEY = new NamespacedKey(plugin, "locked_item");
     }
 
     private static void registerItem(String id, Material material, int customModelData, String displayName) {
@@ -430,7 +432,8 @@ public class CustomItemManager {
         // Store the item ID in PDC
         meta.getPersistentDataContainer().set(ITEM_ID_KEY, PersistentDataType.STRING, id);
 
-        // Mark gems as undroppable if it's a gem item (will be checked by GemDropListener against config)
+        // Mark gems as locked/undroppable using DropItemControl's PDC key format
+        // This prevents gems from being dropped (checked by GemDropListener against config)
         if (GemType.isGem(id)) {
             meta.getPersistentDataContainer().set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte) 1);
         }
@@ -512,8 +515,8 @@ public class CustomItemManager {
     }
 
     /**
-     * Check if an item is marked as undroppable (PDC flag)
-     * Uses the same approach as DropItemControl's isItemLocked
+     * Check if an item is locked/undroppable (PDC flag)
+     * Uses EXACT same logic as DropItemControl's isItemLocked() method
      */
     public static boolean isUndroppable(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) {
@@ -529,8 +532,9 @@ public class CustomItemManager {
             return false;
         }
 
-        return meta.getPersistentDataContainer().has(UNDROPPABLE_KEY, PersistentDataType.BYTE) &&
-               meta.getPersistentDataContainer().get(UNDROPPABLE_KEY, PersistentDataType.BYTE) == 1;
+        PersistentDataContainer container = meta.getPersistentDataContainer();
+        return container.has(UNDROPPABLE_KEY, PersistentDataType.BYTE) &&
+               container.get(UNDROPPABLE_KEY, PersistentDataType.BYTE) == 1;
     }
 
     private static class CustomItemData {

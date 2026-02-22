@@ -11,7 +11,8 @@ import org.bukkit.inventory.ItemStack;
 
 /**
  * Prevents dropping of gems using PDC-based checking
- * Uses the exact same approach as DropItemControl's ItemDropListener
+ * EXACT implementation from DropItemControl's ItemDropListener
+ * integrated directly into BlissGems
  */
 public class GemDropListener implements Listener {
     private final BlissGems plugin;
@@ -30,10 +31,10 @@ public class GemDropListener implements Listener {
         Player player = event.getPlayer();
         ItemStack droppedItem = event.getItemDrop().getItemStack();
 
-        // Check if item is marked as undroppable via PDC (same as DropItemControl's isItemLocked)
-        boolean isUndroppable = CustomItemManager.isUndroppable(droppedItem);
+        // Check if item is locked using DropItemControl's exact PDC method
+        boolean isLocked = CustomItemManager.isUndroppable(droppedItem);
 
-        if (isUndroppable) {
+        if (isLocked) {
             event.setCancelled(true);
 
             // Send message to player

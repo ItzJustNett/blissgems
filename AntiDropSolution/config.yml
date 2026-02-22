@@ -1,0 +1,95 @@
+# Discord support server: https://discord.gg/4PaYftZwu3
+# DropItemControl Plugin Configuration
+
+# Maximum number of items that can be locked per player
+# Note: Can be overridden with permission dropitemcontrol.limit.<number>
+# Example: dropitemcontrol.limit.10 allows locking up to 10 items
+# Số lượng tối đa item có thể khóa cho mỗi người chơi
+# Lưu ý: Có thể ghi đè bằng quyền dropitemcontrol.limit.<số>
+# Ví dụ: dropitemcontrol.limit.10 cho phép khóa tối đa 10 item
+max-locked-items: 5
+
+# Language settings
+# Cài đặt ngôn ngữ
+language:
+  # Default language (vi or en)
+  # Ngôn ngữ mặc định (vi hoặc en)
+  default: "vi"
+  # Allow players to change their own language
+  # Cho phép người chơi thay đổi ngôn ngữ riêng
+  allow-player-language: true
+
+# Messages
+# Tin nhắn
+messages:
+  prefix: "&8[&bDropItemControl&8] &7"
+  item-locked: "&aĐã khóa item &f%item% &atrong tay của bạn!"
+  item-unlocked: "&aĐã mở khóa item &f%item%&a!"
+  item-type-locked: "&aĐã khóa tất cả các item loại &f%item%&a!"
+  item-type-unlocked: "&aĐã mở khóa tất cả các item loại &f%item%&a!"
+  all-items-locked: "&aĐã khóa &f%limit% &aitem trong túi đồ của bạn!"
+  all-items-unlocked: "&aĐã mở khóa &f%limit% &aitem trong túi đồ của bạn!"
+  item-lock-limit-reached: "&cBạn đã đạt giới hạn số lượng item có thể khóa (%limit%)!"
+  item-already-locked: "&cItem này đã được khóa!"
+  item-not-locked: "&cItem này chưa được khóa!"
+  item-lock-failed: "&cKhông thể khóa item này!"
+  item-unlock-failed: "&cKhông thể mở khóa item này!"
+  cannot-drop: "&cBạn không thể vứt item đã khóa!"
+  cannot-store: "&cBạn không thể cất item đã khóa vào container!"
+  cannot-use-tool: "&cBạn không thể đặt item đã khóa vào công cụ này!"
+  unlock-reminder: "&eNhắc nhở: Dùng &f/dic unlock &eđể mở khóa item!"
+  no-permission: "&cBạn không có quyền sử dụng lệnh này!"
+  no-item-in-hand: "&cBạn cần cầm item trên tay để thực hiện lệnh này!"
+  no-locked-items: "&cBạn chưa khóa item nào!"
+  no-items-to-lock: "&cKhông có item nào để khóa!"
+  no-items-to-unlock: "&cKhông có item nào để mở khóa!"
+  
+# Other settings
+# Cài đặt khác
+settings:
+  # Show lore on locked items
+  # Có hiển thị lore trên item đã khóa không
+  show-lock-lore: true
+  # Lore displayed on locked items
+  # Lore hiển thị trên item đã khóa
+  lock-lore: "&c&lĐã khóa - Không thể vứt"
+  # Show unlock reminder when player tries to drop locked items
+  # Có hiển thị nhắc nhở khi người chơi cố gắng vứt item đã khóa
+  show-unlock-reminder: true
+  # Allow locking by item type (all items of same type will be locked)
+  # Cho phép khóa theo loại item (tất cả item cùng loại sẽ bị khóa)
+  lock-by-item-type: true
+  # Count each item type as 1 lock slot (instead of each stack)
+  # Tính mỗi loại item là 1 slot khóa (thay vì mỗi stack)
+  count-by-item-type: true
+
+# Item limit permission guide
+# Hướng dẫn về quyền giới hạn số lượng item
+# To set up item limits for player groups, use LuckPerms with permission:
+# dropitemcontrol.limit.<number> - Allows player to lock up to <number> items
+# 
+# Examples:
+# - To allow VIP group to lock up to 10 items:
+#   /lp group vip permission set dropitemcontrol.limit.10 true
+# 
+# - To allow MVP group to lock up to 20 items:
+#   /lp group mvp permission set dropitemcontrol.limit.20 true
+# 
+# - To allow a specific player to lock up to 50 items:
+#   /lp user <player_name> permission set dropitemcontrol.limit.50 true
+#
+# Note: If a player has multiple limit permissions, the highest value will be used. 
+# Để thiết lập giới hạn số lượng item cho từng nhóm người chơi, sử dụng LuckPerms với quyền:
+# dropitemcontrol.limit.<số> - Cho phép người chơi khóa tối đa <số> item
+# 
+# Ví dụ:
+# - Để cho phép nhóm VIP khóa tối đa 10 item:
+#   /lp group vip permission set dropitemcontrol.limit.10 true
+# 
+# - Để cho phép nhóm MVP khóa tối đa 20 item:
+#   /lp group mvp permission set dropitemcontrol.limit.20 true
+# 
+# - Để cho phép người chơi cụ thể khóa tối đa 50 item:
+#   /lp user <tên_người_chơi> permission set dropitemcontrol.limit.50 true
+#
+# Lưu ý: Nếu người chơi có nhiều quyền giới hạn khác nhau, giá trị cao nhất sẽ được áp dụng. 

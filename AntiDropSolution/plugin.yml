@@ -1,0 +1,77 @@
+name: DropItemControl
+version: '1.0.1'
+main: org.hyn.dropitemcontrol.Dropitemcontrol
+api-version: '1.21'
+load: STARTUP
+authors: [ Hiyurin ]
+description: Plugin ngăn người chơi vứt các item đã được khóa
+
+commands:
+  dic:
+    description: Lệnh chính của DropItemControl
+    usage: /dic <lock|unlock|list|language|toggle>
+    permission: dropitemcontrol.use
+    aliases: [dropitemcontrol, itemlock]
+  diclockitem:
+    description: Khóa item đang cầm trên tay
+    usage: /diclockitem [type|all] - Thêm 'type' hoặc 'all' để khóa tất cả các item cùng loại
+    permission: dropitemcontrol.lock
+    aliases: [dic lock]
+  dicunlockitem:
+    description: Mở khóa item đang cầm trên tay
+    usage: /dicunlockitem [type|all] - Thêm 'type' hoặc 'all' để mở khóa tất cả các item cùng loại
+    permission: dropitemcontrol.unlock
+    aliases: [dic unlock]
+  diclist:
+    description: Xem danh sách các item đã khóa
+    usage: /diclist
+    permission: dropitemcontrol.list
+    aliases: [dic list, dic items]
+  dictoggle:
+    description: Bật/tắt plugin DropItemControl
+    usage: /dictoggle
+    permission: dropitemcontrol.admin
+    aliases: [dic toggle, dic on, dic off]
+  diclanguage:
+    description: Thay đổi ngôn ngữ hiển thị
+    usage: /diclanguage [vi|en]
+    permission: dropitemcontrol.language
+    aliases: [dic language, dic lang]
+
+permissions:
+  dropitemcontrol.use:
+    description: Cho phép sử dụng các lệnh cơ bản của plugin
+    default: true
+  dropitemcontrol.lock:
+    description: Cho phép khóa item
+    default: true
+  dropitemcontrol.unlock:
+    description: Cho phép mở khóa item
+    default: true
+  dropitemcontrol.list:
+    description: Cho phép xem danh sách item đã khóa
+    default: true
+  dropitemcontrol.language:
+    description: Cho phép thay đổi ngôn ngữ hiển thị
+    default: true
+  dropitemcontrol.admin:
+    description: Quyền quản trị plugin
+    default: op
+    children:
+      dropitemcontrol.lock: true
+      dropitemcontrol.unlock: true
+      dropitemcontrol.list: true
+      dropitemcontrol.language: true
+      dropitemcontrol.use: true
+  dropitemcontrol.limit.10:
+    description: Cho phép khóa tối đa 10 item
+    default: false
+  dropitemcontrol.limit.20:
+    description: Cho phép khóa tối đa 20 item
+    default: false
+  dropitemcontrol.limit.50:
+    description: Cho phép khóa tối đa 50 item
+    default: false
+  dropitemcontrol.limit.100:
+    description: Cho phép khóa tối đa 100 item
+    default: false
