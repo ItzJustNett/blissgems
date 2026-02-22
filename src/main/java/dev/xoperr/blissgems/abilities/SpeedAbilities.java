@@ -16,9 +16,6 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -192,31 +189,6 @@ public class SpeedAbilities {
         // Apply Speed effect based on energy
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, speedLevel, false, true));
 
-        // Apply MASSIVE attack speed boost (remove attack cooldown)
-        AttributeInstance attackSpeed = player.getAttribute(Attribute.GENERIC_ATTACK_SPEED);
-        if (attackSpeed != null) {
-            // Remove existing modifier if present
-            AttributeModifier existingModifier = null;
-            for (AttributeModifier modifier : attackSpeed.getModifiers()) {
-                if (modifier.getName().equals("adrenaline_rush_attack_speed")) {
-                    existingModifier = modifier;
-                    break;
-                }
-            }
-            if (existingModifier != null) {
-                attackSpeed.removeModifier(existingModifier);
-            }
-
-            // Add new attack speed modifier (100 = instant attacks, no cooldown)
-            AttributeModifier speedModifier = new AttributeModifier(
-                UUID.randomUUID(),
-                "adrenaline_rush_attack_speed",
-                100.0,
-                AttributeModifier.Operation.ADD_NUMBER
-            );
-            attackSpeed.addModifier(speedModifier);
-        }
-
         // MASSIVE visual effects with yellow/lime dust and electricity
         Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 1.5f);
 
@@ -262,7 +234,7 @@ public class SpeedAbilities {
 
                 // Show active timer in action bar
                 String speedLevelRoman = toRoman(speedLevel + 1);
-                String actionBar = "§e§l⚡ ADRENALINE RUSH §7- Speed " + speedLevelRoman + " + §c§lINSTANT ATTACKS §7(" + remainingSeconds + "s)";
+                String actionBar = "§e§l⚡ ADRENALINE RUSH §7- Speed " + speedLevelRoman + " §7(" + remainingSeconds + "s)";
                 player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR, new net.md_5.bungee.api.chat.TextComponent(actionBar));
 
                 // Continuous particle trail
@@ -289,26 +261,11 @@ public class SpeedAbilities {
         }
 
         String speedLevelRoman = toRoman(speedLevel + 1);
-        player.sendMessage("§e§l⚡ ADRENALINE RUSH §7- Speed " + speedLevelRoman + " §7+ §cINSTANT ATTACKS §7for §e6 seconds§7!");
+        player.sendMessage("§e§l⚡ ADRENALINE RUSH §7- Speed " + speedLevelRoman + " §7for §e6 seconds§7!");
         player.sendMessage("§7§o(Speed scales with your energy: " + energy + "/10)");
     }
 
     private void removeAdrenalineRushEffects(Player player) {
-        // Remove attack speed modifier
-        AttributeInstance attackSpeed = player.getAttribute(Attribute.GENERIC_ATTACK_SPEED);
-        if (attackSpeed != null) {
-            AttributeModifier existingModifier = null;
-            for (AttributeModifier modifier : attackSpeed.getModifiers()) {
-                if (modifier.getName().equals("adrenaline_rush_attack_speed")) {
-                    existingModifier = modifier;
-                    break;
-                }
-            }
-            if (existingModifier != null) {
-                attackSpeed.removeModifier(existingModifier);
-            }
-        }
-
         // End effects notification
         if (player.isOnline()) {
             player.sendMessage("§c§oAdrenaline Rush has worn off!");

@@ -22,6 +22,11 @@ public class GemDropListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onItemDrop(PlayerDropItemEvent event) {
+        // Check if drop prevention is enabled in config
+        if (!plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
+            return; // Drop prevention is disabled, allow dropping
+        }
+
         Player player = event.getPlayer();
         ItemStack droppedItem = event.getItemDrop().getItemStack();
 

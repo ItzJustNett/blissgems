@@ -15,7 +15,6 @@ package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.EnergyState;
-import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -26,15 +25,10 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.UUID;
 
 public class PlayerDeathListener
 implements Listener {
     private final BlissGems plugin;
-    private final Map<UUID, ItemStack> savedGems = new HashMap<>();
 
     public PlayerDeathListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -67,18 +61,7 @@ implements Listener {
             }
         }
 
-        // Keep gem on death - remove from drops and save for respawn
-        Iterator<ItemStack> iterator = event.getDrops().iterator();
-        while (iterator.hasNext()) {
-            ItemStack item = iterator.next();
-            if (item == null) continue;
-            String oraxenId = CustomItemManager.getIdByItem(item);
-            if (oraxenId != null && GemType.isGem(oraxenId)) {
-                savedGems.put(victim.getUniqueId(), item.clone());
-                iterator.remove();
-                break;
-            }
-        }
+        // Gems are now allowed to drop on death - no longer saving/removing them from drops
 
         // Clean up any active Astra gem abilities (projection, drift, void)
         this.plugin.getAstraAbilities().cleanup(victim);
@@ -96,15 +79,8 @@ implements Listener {
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
 
-        // Give back the saved gem
-        if (savedGems.containsKey(uuid)) {
-            ItemStack gem = savedGems.remove(uuid);
-            if (gem != null) {
-                player.getInventory().addItem(gem);
-            }
-        }
+        // Gems are no longer saved on death, so no need to give them back
 
         // Update active gem after respawn
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
