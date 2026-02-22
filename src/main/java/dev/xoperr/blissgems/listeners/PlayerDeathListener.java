@@ -26,9 +26,16 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 public class PlayerDeathListener
 implements Listener {
     private final BlissGems plugin;
+    private final Map<UUID, List<ItemStack>> savedGems = new HashMap<>();
 
     public PlayerDeathListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -61,7 +68,25 @@ implements Listener {
             }
         }
 
-        // Gems are now allowed to drop on death - no longer saving/removing them from drops
+        // Prevent gems from dropping on death if config enabled
+        if (this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
+            List<ItemStack> droppedItems = event.getDrops();
+            List<ItemStack> gemsToSave = new ArrayList<>();
+
+            // Find and remove all gems from drops
+            droppedItems.removeIf(item -> {
+                if (CustomItemManager.isUndroppable(item)) {
+                    gemsToSave.add(item.clone());
+                    return true; // Remove from drops
+                }
+                return false; // Keep in drops
+            });
+
+            // Save gems to give back on respawn
+            if (!gemsToSave.isEmpty()) {
+                savedGems.put(victim.getUniqueId(), gemsToSave);
+            }
+        }
 
         // Clean up any active Astra gem abilities (projection, drift, void)
         this.plugin.getAstraAbilities().cleanup(victim);
@@ -80,7 +105,14 @@ implements Listener {
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
 
-        // Gems are no longer saved on death, so no need to give them back
+        // Give saved gems back to player
+        UUID playerId = player.getUniqueId();
+        if (savedGems.containsKey(playerId)) {
+            List<ItemStack> gems = savedGems.remove(playerId);
+            for (ItemStack gem : gems) {
+                player.getInventory().addItem(gem);
+            }
+        }
 
         // Update active gem after respawn
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
@@ -115,6 +147,9 @@ implements Listener {
 
         // Clear captured souls
         this.plugin.getSoulManager().clearSouls(player.getUniqueId());
+
+        // Clear saved gems if player quits before respawning
+        savedGems.remove(player.getUniqueId());
 
         this.plugin.getEnergyManager().clearCache(player.getUniqueId());
         this.plugin.getGemManager().clearCache(player.getUniqueId());
