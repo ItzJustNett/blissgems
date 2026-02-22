@@ -38,6 +38,7 @@ import dev.xoperr.blissgems.managers.CriticalHitManager;
 import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.GemManager;
+import dev.xoperr.blissgems.managers.GemRitualManager;
 import dev.xoperr.blissgems.managers.StatsManager;
 import dev.xoperr.blissgems.managers.PassiveManager;
 import dev.xoperr.blissgems.managers.PluginMessagingManager;
@@ -56,8 +57,6 @@ import dev.xoperr.blissgems.core.api.protection.GemProtectionAPI;
 import dev.xoperr.blissgems.core.api.particle.ParticleAPI;
 import dev.xoperr.blissgems.core.api.text.InventoryTextAPI;
 import dev.xoperr.blissgems.core.api.enchant.AutoEnchantAPI;
-import dev.xoperr.blissgems.core.listeners.ItemDropListener;
-import dev.xoperr.blissgems.core.listeners.InventoryInteractListener;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.event.Listener;
@@ -95,6 +94,7 @@ extends JavaPlugin {
     private ParticleManager particleManager;
     private TextManager textManager;
     private AutoEnchantManager autoEnchantManager;
+    private GemRitualManager gemRitualManager;
 
     public void onEnable() {
         this.saveDefaultConfig();
@@ -137,6 +137,7 @@ extends JavaPlugin {
         this.statsManager = new StatsManager(this);
         this.enhancedGuiManager = new EnhancedGuiManager(this);
         this.recipeManager = new RecipeManager(this);
+        this.gemRitualManager = new GemRitualManager(this);
         this.recipeManager.registerRecipes();
         this.registerListeners();
         this.registerCommands();
@@ -195,8 +196,8 @@ extends JavaPlugin {
 
     private void registerListeners() {
         // Register XoperrCore listeners
-        this.getServer().getPluginManager().registerEvents(new ItemDropListener(protectionManager), this);
-        this.getServer().getPluginManager().registerEvents(new InventoryInteractListener(protectionManager), this);
+        // ItemDropListener removed - gems can now be dropped
+        // InventoryInteractListener removed - gems can now be moved to containers
 
         // Register BlissGems listeners
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerDeathListener(this), (Plugin)this);
@@ -241,6 +242,10 @@ extends JavaPlugin {
 
     public RecipeManager getRecipeManager() {
         return this.recipeManager;
+    }
+
+    public GemRitualManager getGemRitualManager() {
+        return this.gemRitualManager;
     }
 
     public AstraAbilities getAstraAbilities() {

@@ -55,6 +55,10 @@ TabCompleter {
                 this.handleGive(sender, args);
                 break;
             }
+            case "reroll": {
+                this.handleReroll(sender, args);
+                break;
+            }
             case "giveitem": {
                 this.handleGiveItem(sender, args);
                 break;
@@ -180,11 +184,112 @@ TabCompleter {
                 return;
             }
         }
+        // Remove old gem(s) from inventory first
+        for (int i = 0; i < target.getInventory().getSize(); i++) {
+            ItemStack item = target.getInventory().getItem(i);
+            if (item != null) {
+                String itemId = CustomItemManager.getIdByItem(item);
+                if (itemId != null && GemType.isGem(itemId)) {
+                    target.getInventory().setItem(i, null);
+                }
+            }
+        }
+
         if (this.plugin.getGemManager().giveGem(target, gemType, tier)) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-given", "player", target.getName(), "gem", gemType.getDisplayName(), "tier", tier));
         } else {
             sender.sendMessage("\u00a7cFailed to give gem!");
         }
+    }
+
+    private void handleReroll(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("\u00a7cUsage: /bliss reroll <player> [tier]");
+            return;
+        }
+        Player target = Bukkit.getPlayer((String)args[1]);
+        if (target == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+
+        // Get list of enabled gems from config
+        List<GemType> enabledGems = new ArrayList<>();
+        for (GemType type : GemType.values()) {
+            if (this.plugin.getConfig().getBoolean("gems.enabled." + type.getId(), true)) {
+                enabledGems.add(type);
+            }
+        }
+
+        if (enabledGems.isEmpty()) {
+            sender.sendMessage("\u00a7cNo gems are enabled in the config!");
+            return;
+        }
+
+        // Select random gem
+        GemType randomGem = enabledGems.get(new java.util.Random().nextInt(enabledGems.size()));
+
+        // Get tier (default to 1)
+        int tier = 1;
+        if (args.length >= 3) {
+            try {
+                tier = Integer.parseInt(args[2]);
+                if (tier < 1 || tier > 2) {
+                    sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
+                    return;
+                }
+            }
+            catch (NumberFormatException e) {
+                sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
+                return;
+            }
+        }
+
+        // Remove old gem(s) from inventory first
+        for (int i = 0; i < target.getInventory().getSize(); i++) {
+            ItemStack item = target.getInventory().getItem(i);
+            if (item != null) {
+                String itemId = CustomItemManager.getIdByItem(item);
+                if (itemId != null && GemType.isGem(itemId)) {
+                    target.getInventory().setItem(i, null);
+                }
+            }
+        }
+
+        // Notify command sender that ritual is starting
+        sender.sendMessage("\u00a7d\u00a7lInitiating gem ritual for " + target.getName() + "...");
+        target.sendMessage("\u00a7d\u00a7l\u00a7nGEM REROLL RITUAL");
+        target.sendMessage("\u00a77\u00a7oThe ancient powers are choosing your fate...");
+
+        // Start the ritual animation
+        this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false);
+
+        // Give the gem after a short delay (let ritual build up)
+        final int finalTier = tier;
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (this.plugin.getGemManager().giveGem(target, randomGem, finalTier)) {
+                String msg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled", "player", target.getName(), "gem", randomGem.getDisplayName(), "tier", finalTier);
+                if (msg != null && !msg.isEmpty()) {
+                    sender.sendMessage(msg);
+                } else {
+                    sender.sendMessage("\u00a7aRerolled " + target.getName() + "'s gem to " + randomGem.getColor() + randomGem.getDisplayName() + " \u00a7a(Tier " + finalTier + ")!");
+                }
+
+                // Notify the target player
+                String targetMsg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled-received", "gem", randomGem.getDisplayName(), "tier", finalTier);
+                if (targetMsg != null && !targetMsg.isEmpty()) {
+                    target.sendMessage(targetMsg);
+                } else {
+                    target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + randomGem.getColor() + "\u00a7l" + randomGem.getDisplayName() + " \u00a7f(Tier " + finalTier + ")\u00a7d\u00a7l \u00ab");
+                }
+            } else {
+                sender.sendMessage("\u00a7cFailed to reroll gem!");
+            }
+        }, 20L); // 1 second delay
     }
 
     private void handleGiveItem(CommandSender sender, String[] args) {
@@ -892,6 +997,7 @@ TabCompleter {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("\u00a75\u00a7lBlissGems Commands:");
         sender.sendMessage("\u00a77/bliss give <player> <gem_type> [tier] \u00a78- Give a gem");
+        sender.sendMessage("\u00a77/bliss reroll <player> [tier] \u00a78- Give a random gem");
         sender.sendMessage("\u00a77/bliss giveitem <player> <item_id> [amount] \u00a78- Give special items");
         sender.sendMessage("\u00a77/bliss energy <player> <set/add/remove> <amount> \u00a78- Manage energy");
         sender.sendMessage("\u00a77/bliss withdraw \u00a78- Extract energy into bottle");
@@ -915,9 +1021,9 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release"));
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
+            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
             if (args[0].equalsIgnoreCase("stats")) {
@@ -942,6 +1048,10 @@ TabCompleter {
             }
             if (args[0].equalsIgnoreCase("energy")) {
                 return Arrays.asList("set", "add", "remove");
+            }
+        } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("reroll")) {
+                return Arrays.asList("1", "2");
             }
         } else if (args.length == 4) {
             if (args[0].equalsIgnoreCase("give")) {

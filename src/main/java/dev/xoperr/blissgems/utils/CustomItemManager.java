@@ -430,7 +430,7 @@ public class CustomItemManager {
         // Store the item ID in PDC
         meta.getPersistentDataContainer().set(ITEM_ID_KEY, PersistentDataType.STRING, id);
 
-        // Mark gems as undroppable (like DropItemControl's locked_item flag)
+        // Mark gems as undroppable if it's a gem item (will be checked by GemDropListener against config)
         if (GemType.isGem(id)) {
             meta.getPersistentDataContainer().set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte) 1);
         }

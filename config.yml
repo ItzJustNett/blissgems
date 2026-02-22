@@ -36,6 +36,9 @@ gems:
   # Only one gem can be active at a time
   single-gem-only: true
 
+  # Prevent players from dropping gems
+  prevent-drop: true
+
 # ==========================================
 # PASSIVE EFFECTS
 # ==========================================
@@ -212,6 +215,8 @@ messages:
   invalid-gem-type: "&cInvalid gem type!"
   invalid-tier: "&cInvalid tier! Use 1 or 2."
   gem-given: "&aGave {player} a {gem} (Tier {tier})!"
+  gem-rerolled: "&aRerolled {player}'s gem to {gem} (Tier {tier})!"
+  gem-rerolled-received: "&aYour gem has been rerolled to {gem} (Tier {tier})!"
   energy-set: "&aSet {player}'s energy to {amount}!"
   energy-added: "&aAdded {amount} energy to {player}!"
   energy-removed: "&aRemoved {amount} energy from {player}!"
@@ -237,3 +242,4 @@ messages:
   no-energy: "&cYour gem has no energy! It cannot be used."
   energy-bottle-consumed: "&aConsumed energy bottle and gained 1 energy!"
   gem-energy-restored: "&d&oRepair Kit restored {amount} energy!"
+  cannot-drop-gem: "&c&lYou cannot drop your gem!"
