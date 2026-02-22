@@ -101,11 +101,6 @@ public class CooldownDisplayManager {
                     continue;
                 }
 
-                // Don't override Speed gem Adrenaline Rush active display
-                if (this.plugin.getSpeedAbilities().isAdrenalineRushActive(player)) {
-                    continue;
-                }
-
                 String cooldownDisplay = buildCooldownDisplay(player);
                 if (!cooldownDisplay.isEmpty()) {
                     player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(cooldownDisplay));
