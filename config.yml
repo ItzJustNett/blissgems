@@ -40,6 +40,19 @@ gems:
   prevent-drop: true
 
 # ==========================================
+# REVIVE BEACON SETTINGS
+# ==========================================
+revive-beacon:
+  # Duration of the revive beacon in seconds
+  duration: 300
+  # Range in blocks
+  range: 10.0
+  # Health to revive with (as fraction of max health, 0.5 = 50%)
+  revive-health: 10.0
+  # Energy to restore if player hit 0 energy
+  restore-energy: 3
+
+# ==========================================
 # PASSIVE EFFECTS
 # ==========================================
 passives:
@@ -190,8 +203,8 @@ energy-bottle:
 # REPAIR KIT / PEDESTAL
 # ==========================================
 repair-kit:
-  # Energy restored per second
-  energy-per-second: 1
+  # Energy restored per second (set to 10 for instant full restore)
+  energy-per-second: 10
   # Maximum total energy a kit can restore
   max-total-energy: 10
   # Range to heal nearby players (in blocks)

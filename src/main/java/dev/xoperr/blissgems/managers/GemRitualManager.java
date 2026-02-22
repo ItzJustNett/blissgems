@@ -245,6 +245,147 @@ public class GemRitualManager {
     }
 
     /**
+     * Performs a revive beacon ritual animation
+     * @param player The player activating the revive beacon
+     * @param location The beacon location
+     */
+    public void performReviveBeaconRitual(Player player, Location location) {
+        org.bukkit.Color ritualColor = Color.fromRGB(255, 215, 0); // Gold
+
+        // Apply levitation during ritual
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 100, 0, false, false));
+
+        // Phase 1: Ground circle formation (0-1 seconds)
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || ticks >= 20) {
+                    this.cancel();
+                    return;
+                }
+
+                // Expanding circle on ground
+                double radius = (ticks / 20.0) * 6.0;
+                for (int i = 0; i < 32; i++) {
+                    double angle = (i / 32.0) * 2 * Math.PI;
+                    double x = Math.cos(angle) * radius;
+                    double z = Math.sin(angle) * radius;
+                    Location particleLoc = location.clone().add(x, 0.1, z);
+
+                    Particle.DustOptions dust = new Particle.DustOptions(ritualColor, 2.0f);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 5, 0.1, 0.1, 0.1, 0.0, dust, true);
+                    player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, particleLoc, 2, 0.0, 0.0, 0.0, 0.02);
+                }
+
+                // Sound effects
+                if (ticks % 5 == 0) {
+                    player.playSound(location, Sound.BLOCK_BEACON_AMBIENT, 0.7f, 1.5f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Phase 2: Rising pillar effect (1-2.5 seconds)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            new BukkitRunnable() {
+                int ticks = 0;
+                final int maxTicks = 30; // 1.5 seconds
+
+                @Override
+                public void run() {
+                    if (!player.isOnline() || ticks >= maxTicks) {
+                        this.cancel();
+                        return;
+                    }
+
+                    double progress = ticks / (double) maxTicks;
+                    double height = progress * 8.0;
+
+                    // Central pillar
+                    for (double y = 0; y <= height; y += 0.3) {
+                        Particle.DustOptions pillarDust = new Particle.DustOptions(ritualColor, 1.5f);
+                        player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0, y, 0), 3, 0.2, 0.1, 0.2, 0.0, pillarDust, true);
+                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, y, 0), 1, 0.1, 0.1, 0.1, 0.01);
+                    }
+
+                    // Sound effects
+                    if (ticks % 10 == 0) {
+                        player.playSound(location, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.0f + (float) progress);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }, 20L);
+
+        // Phase 3: Explosion and beacon beam (2.5-3 seconds)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            Location center = location.clone().add(0, 8, 0);
+
+            // Massive golden explosion
+            Particle.DustOptions explosionDust = new Particle.DustOptions(ritualColor, 3.0f);
+            player.getWorld().spawnParticle(Particle.DUST, center, 300, 2.0, 2.0, 2.0, 0.0, explosionDust, true);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center, 150, 1.5, 1.5, 1.5, 0.15);
+            player.getWorld().spawnParticle(Particle.FIREWORK, center, 80, 1.0, 1.0, 1.0, 0.2);
+            player.getWorld().spawnParticle(Particle.END_ROD, center, 100, 2.0, 2.0, 2.0, 0.2);
+
+            // Beacon beam shooting up
+            for (double y = 0; y <= 20; y += 0.2) {
+                Particle.DustOptions beamDust = new Particle.DustOptions(ritualColor, 2.0f);
+                player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0, y, 0), 12, 0.3, 0.1, 0.3, 0.0, beamDust, true);
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, y, 0), 3, 0.2, 0.1, 0.2, 0.03);
+            }
+
+            // Epic sounds
+            player.playSound(location, Sound.BLOCK_BEACON_ACTIVATE, 1.5f, 1.0f);
+            player.playSound(location, Sound.ITEM_TOTEM_USE, 1.0f, 1.2f);
+            player.playSound(location, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 2.0f);
+
+        }, 50L);
+
+        // Phase 4: Lingering beacon effect (3-5 seconds)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            new BukkitRunnable() {
+                int ticks = 0;
+
+                @Override
+                public void run() {
+                    if (!player.isOnline() || ticks >= 40) {
+                        this.cancel();
+                        return;
+                    }
+
+                    // Orbiting particles around beacon
+                    double angle = (ticks / 40.0) * 4 * Math.PI;
+                    double radius = 2.0;
+
+                    for (int ring = 0; ring < 3; ring++) {
+                        double ringHeight = ring * 2.0 + 1.0;
+                        double x = Math.cos(angle + ring * Math.PI / 1.5) * radius;
+                        double z = Math.sin(angle + ring * Math.PI / 1.5) * radius;
+
+                        Location orbitLoc = location.clone().add(x, ringHeight, z);
+                        Particle.DustOptions orbitDust = new Particle.DustOptions(ritualColor, 1.2f);
+                        player.getWorld().spawnParticle(Particle.DUST, orbitLoc, 5, 0.1, 0.1, 0.1, 0.0, orbitDust, true);
+                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, orbitLoc, 1, 0.0, 0.0, 0.0, 0.01);
+                    }
+
+                    // Central glow
+                    if (ticks % 5 == 0) {
+                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, 2, 0), 5, 0.5, 0.5, 0.5, 0.02);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+
+        }, 60L);
+    }
+
+    /**
      * Get the color associated with a gem type
      */
     private org.bukkit.Color getGemColor(GemType gemType) {
