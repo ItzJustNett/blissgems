@@ -198,6 +198,16 @@ public class AutoEnchantListener implements Listener {
                         enchants.put(Enchantment.FEATHER_FALLING, 4);
                     }
                 }
+                if (plugin.getConfig().getBoolean("auto-enchant.puff.power", true)) {
+                    if (type == Material.BOW) {
+                        enchants.put(Enchantment.POWER, 5);
+                    }
+                }
+                if (plugin.getConfig().getBoolean("auto-enchant.puff.punch", true)) {
+                    if (type == Material.BOW) {
+                        enchants.put(Enchantment.PUNCH, 2);
+                    }
+                }
                 break;
 
             case STRENGTH:

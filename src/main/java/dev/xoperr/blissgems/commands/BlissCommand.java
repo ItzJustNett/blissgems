@@ -734,6 +734,9 @@ TabCompleter {
             case LIFE:
                 this.plugin.getLifeAbilities().vitalityVortex(player);
                 break;
+            case PUFF:
+                this.plugin.getPuffAbilities().groupBreezyBash(player);
+                break;
             default:
                 player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
                 break;

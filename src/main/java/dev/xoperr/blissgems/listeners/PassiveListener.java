@@ -78,6 +78,7 @@ import dev.xoperr.blissgems.utils.ParticleUtils;
 public class PassiveListener
 implements Listener {
     private final BlissGems plugin;
+    private final Map<UUID, Integer> jumpsRemaining = new HashMap<>();
 
     public PassiveListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -227,43 +228,111 @@ implements Listener {
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) && !isHoldingPuffGem(player)) {
+
+        // Only handle triple jump for survival/adventure mode
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
-            return;
-        }
-        if (player.isOnGround()) {
-            this.doubleJumpReady.put(player.getUniqueId(), true);
+
+        boolean hasPuff = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) || isHoldingPuffGem(player);
+        boolean passivesActive = hasPuff && this.plugin.getEnergyManager().arePassivesActive(player);
+
+        if (passivesActive && player.isOnGround()) {
+            // Reset jump counter on landing: 2 extra midair jumps = triple jump
+            jumpsRemaining.put(player.getUniqueId(), 2);
+            if (!player.getAllowFlight()) {
+                player.setAllowFlight(true);
+            }
+        } else if (!passivesActive && player.getAllowFlight() && player.getGameMode() == GameMode.SURVIVAL) {
+            player.setAllowFlight(false);
+            jumpsRemaining.remove(player.getUniqueId());
         }
     }
 
     @EventHandler
-    public void onPlayerSneak(PlayerToggleSneakEvent event) {
+    public void onTripleJumpFlight(PlayerToggleFlightEvent event) {
         Player player = event.getPlayer();
-        if (!event.isSneaking()) {
+
+        // Don't interfere with creative/spectator flight
+        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
             return;
         }
-        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) && !isHoldingPuffGem(player)) {
+
+        boolean hasPuff = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) || isHoldingPuffGem(player);
+        if (!hasPuff) {
             return;
         }
         if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
             return;
         }
-        if (!player.isOnGround() && this.doubleJumpReady.getOrDefault(player.getUniqueId(), false).booleanValue()) {
-            long now = System.currentTimeMillis();
-            Long lastJump = this.lastJumpTime.get(player.getUniqueId());
-            if (lastJump == null || now - lastJump > 500L) {
-                int tier = this.plugin.getGemManager().getTierFromOffhand(player);
-                double jumpVelocity = this.plugin.getConfigManager().getDoubleJumpVelocity(tier);
-                Vector velocity = player.getVelocity();
-                velocity.setY(jumpVelocity);
-                player.setVelocity(velocity);
-                this.doubleJumpReady.put(player.getUniqueId(), false);
-                this.lastJumpTime.put(player.getUniqueId(), now);
-                player.sendMessage("\u00a7b\u00a7oDouble jump!");
+
+        // Skip if player is stunned/frozen
+        UUID uuid = player.getUniqueId();
+        if (FluxAbilities.isPlayerStunned(uuid) || SpeedAbilities.isPlayerFrozen(uuid)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        int remaining = jumpsRemaining.getOrDefault(uuid, 0);
+        if (remaining <= 0) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // Cancel the flight — this is a midair jump, not actual flight
+        event.setCancelled(true);
+        player.setAllowFlight(false);
+        jumpsRemaining.put(uuid, remaining - 1);
+
+        // Apply jump velocity
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
             }
         }
+        if (tier == 0) tier = 1;
+
+        double jumpVelocity = this.plugin.getConfigManager().getDoubleJumpVelocity(tier);
+        Vector velocity = player.getVelocity();
+        velocity.setY(jumpVelocity);
+        player.setVelocity(velocity);
+
+        // Cloud particles + sound
+        player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 20, 0.3, 0.1, 0.3, 0.05);
+        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 0.5f, 1.5f);
+
+        // Re-enable flight for next jump if jumps remain
+        if (remaining - 1 > 0) {
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                if (player.isOnline() && !player.isOnGround()
+                    && player.getGameMode() != GameMode.CREATIVE
+                    && player.getGameMode() != GameMode.SPECTATOR) {
+                    player.setAllowFlight(true);
+                }
+            }, 2L);
+        }
+    }
+
+    @EventHandler
+    public void onFarmlandTrample(PlayerInteractEvent event) {
+        if (event.getAction() != Action.PHYSICAL) {
+            return;
+        }
+        if (event.getClickedBlock() == null || event.getClickedBlock().getType() != Material.FARMLAND) {
+            return;
+        }
+        Player player = event.getPlayer();
+        boolean hasPuff = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) || isHoldingPuffGem(player);
+        if (!hasPuff) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+        event.setCancelled(true);
     }
 
     @EventHandler
