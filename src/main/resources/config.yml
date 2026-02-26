@@ -159,6 +159,7 @@ abilities:
     life-heart-lock: 60
     puff-dash: 5
     puff-breezy-bash: 10
+    puff-group-bash: 30
     speed-sedative: 60
     speed-storm: 45
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
@@ -211,6 +212,11 @@ abilities:
   flux-kinetic-burst:
     radius: 6.0  # AoE radius of the knockback burst
     knockback: 2.5  # Knockback power multiplier
+
+  # Puff Group Breezy Bash settings
+  puff-group-bash:
+    radius: 10.0
+    knockback: 2.5
 
   # Life Circle of Life settings
   life-circle:

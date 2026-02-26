@@ -55,7 +55,8 @@ public class CooldownDisplayManager {
         // Puff abilities
         GEM_ABILITIES.put(GemType.PUFF, Arrays.asList(
             new String[]{"puff-dash", "Dash"},
-            new String[]{"puff-breezy-bash", "Bash"}
+            new String[]{"puff-breezy-bash", "Bash"},
+            new String[]{"puff-group-bash", "Group"}
         ));
 
         // Speed abilities (T1: Blur, T2: Blur + Speed Storm + Terminal Velocity)
@@ -301,6 +302,44 @@ public class CooldownDisplayManager {
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
                     display.append("\u00a77").append(remaining2).append("s");
+                } else {
+                    display.append("\u00a7aReady");
+                }
+            }
+
+            return display.toString();
+        }
+
+        // Special handling for Puff — Astra-style layout
+        // icon1 Ready/Xs (💨) icon2 Ready/Xs
+        // Separator shows Group Bash cooldown when active
+        if (gemType == GemType.PUFF) {
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
+
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("\u00a7c").append(remaining1).append("s");
+            } else {
+                display.append("\u00a7aReady");
+            }
+
+            if (tier == 2) {
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
+
+                // Separator — shows Group Bash cooldown when active
+                int remainingGroup = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
+
+                if (remainingGroup > 0) {
+                    display.append(" \u00a7c(").append(remainingGroup).append("s) ");
+                } else {
+                    display.append(remaining1 > 0 ? " \u00a7c(\u2728) " : " \u00a7f(\u2728) ");
+                }
+
+                display.append("\u00a7f").append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("\u00a7c").append(remaining2).append("s");
                 } else {
                     display.append("\u00a7aReady");
                 }

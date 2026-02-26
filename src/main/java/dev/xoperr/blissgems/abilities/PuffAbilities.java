@@ -118,5 +118,54 @@ public class PuffAbilities {
             player.sendMessage(msg);
         }
     }
+
+    public void groupBreezyBash(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            return;
+        }
+        String abilityKey = "puff-group-bash";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        double radius = this.plugin.getConfig().getDouble("abilities.puff-group-bash.radius", 10.0);
+        double knockback = this.plugin.getConfig().getDouble("abilities.puff-group-bash.knockback", 2.5);
+
+        int hitCount = 0;
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (!(entity instanceof Player)) continue;
+            Player target = (Player) entity;
+
+            // Skip trusted players
+            if (this.plugin.getTrustedPlayersManager().isTrusted(player, target)) {
+                continue;
+            }
+
+            // Calculate knockback direction: caster → target
+            Vector direction = target.getLocation().toVector().subtract(player.getLocation().toVector());
+            if (direction.lengthSquared() < 0.01) {
+                direction = new Vector(1, 0, 0); // Fallback if on same block
+            }
+            direction.normalize().multiply(knockback);
+            direction.setY(1.5);
+            target.setVelocity(direction);
+
+            target.sendMessage("\u00a7f\u00a7oA gust of wind blows you away!");
+            hitCount++;
+        }
+
+        // Particles + sound
+        Particle.DustOptions whiteDust = new Particle.DustOptions(ParticleUtils.PUFF_WHITE, 1.5f);
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 60, 2.0, 1.0, 2.0, 0.0, whiteDust, true);
+        player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0), 50, 2.0, 0.5, 2.0, 0.1);
+        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.8f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Group Breezy Bash"));
+        if (hitCount > 0) {
+            player.sendMessage("\u00a7f\u00a7o" + hitCount + " player(s) knocked away!");
+        }
+    }
 }
 

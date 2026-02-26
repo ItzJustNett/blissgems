@@ -631,12 +631,12 @@ public class FireAbilities {
 
     private void endCrisp(Player player) {
         UUID uuid = player.getUniqueId();
-        crispActivePlayers.remove(uuid);
+        boolean wasActive = crispActivePlayers.remove(uuid);
 
         BukkitTask task = crispTasks.remove(uuid);
         if (task != null) task.cancel();
 
-        if (player.isOnline()) {
+        if (wasActive && player.isOnline()) {
             player.sendMessage("\u00a76\u00a7oCrisp faded.");
         }
     }
