@@ -56,27 +56,31 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.GameMode;
+import dev.xoperr.blissgems.abilities.FluxAbilities;
+import dev.xoperr.blissgems.abilities.SpeedAbilities;
+import org.bukkit.block.Block;
+import org.bukkit.Location;
+import org.bukkit.entity.Creeper;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 import org.bukkit.plugin.Plugin;
+import dev.xoperr.blissgems.utils.ParticleUtils;
 
 public class PassiveListener
 implements Listener {
     private final BlissGems plugin;
-    private final Map<UUID, Boolean> doubleJumpReady;
-    private final Map<UUID, Long> lastJumpTime;
-    private final Map<UUID, Long> lastShockingArrowTime;
 
     public PassiveListener(BlissGems plugin) {
         this.plugin = plugin;
-        this.doubleJumpReady = new HashMap<UUID, Boolean>();
-        this.lastJumpTime = new HashMap<UUID, Long>();
-        this.lastShockingArrowTime = new HashMap<UUID, Long>();
     }
 
     private boolean isHoldingPuffGem(Player player) {
@@ -359,21 +363,11 @@ implements Listener {
             return;
         }
 
-        // Check cooldown for shocking arrows
-        UUID playerId = player.getUniqueId();
-        long currentTime = System.currentTimeMillis();
-        long cooldownMillis = this.plugin.getConfig().getInt("abilities.cooldowns.flux-shocking-arrows", 8) * 1000L;
-
-        if (lastShockingArrowTime.containsKey(playerId)) {
-            long timeSinceLastShock = currentTime - lastShockingArrowTime.get(playerId);
-            if (timeSinceLastShock < cooldownMillis) {
-                // Still on cooldown - arrow hits but doesn't apply shock effect
-                return;
-            }
+        // 15% chance to trigger shocking arrow
+        double chance = this.plugin.getConfig().getDouble("gems.passives.flux.shocking-chance", 0.15);
+        if (Math.random() > chance) {
+            return;
         }
-
-        // Update last shock time
-        lastShockingArrowTime.put(playerId, currentTime);
 
         LivingEntity target = (LivingEntity) hitEntity;
 
@@ -382,7 +376,12 @@ implements Listener {
         double shockDamage = this.plugin.getConfigManager().getShockingArrowDamage(tier);
         target.damage(shockDamage, player);
 
-        // Spawn electric particles - MORE PARTICLES
+        // Apply 1-second stun (Slowness 255 + Mining Fatigue 255)
+        int stunDuration = this.plugin.getConfig().getInt("abilities.durations.flux-shocking-stun", 1) * 20;
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 255, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 255, false, false));
+
+        // Spawn electric particles
         target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 60, 0.7, 0.7, 0.7);
         target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5);
         target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5);
@@ -390,7 +389,7 @@ implements Listener {
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.5f);
 
         // Notify player about the shock
-        player.sendMessage("§b§oShocking Arrow hit!");
+        player.sendMessage("\u00a7b\u00a7oShocking Arrow hit!");
     }
 
     @EventHandler
@@ -537,6 +536,126 @@ implements Listener {
             }
         }
         return false;
+    }
+
+    private boolean isHoldingFluxGem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (mainHand != null) {
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null && oraxenId.contains("flux_gem")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ==========================================================================
+    // Flux Gem — Conduction (passive: sneak + left click to teleport to copper)
+    // ==========================================================================
+
+    @EventHandler
+    public void onFluxConduction(PlayerInteractEvent event) {
+        if (event.getAction() != Action.LEFT_CLICK_AIR && event.getAction() != Action.LEFT_CLICK_BLOCK) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        if (!player.isSneaking()) return;
+
+        // Check Flux gem in offhand or mainhand
+        boolean hasFlux = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)
+                        || isHoldingFluxGem(player);
+        if (!hasFlux) return;
+
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Check cooldown
+        String abilityKey = "flux-conduction";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        // Find nearest copper block within range
+        int range = this.plugin.getConfig().getInt("abilities.flux-conduction.range", 10);
+        Location playerLoc = player.getLocation();
+        Block closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (int x = -range; x <= range; x++) {
+            for (int y = -range; y <= range; y++) {
+                for (int z = -range; z <= range; z++) {
+                    Block block = playerLoc.getBlock().getRelative(x, y, z);
+                    if (block.getType().name().contains("COPPER") && !block.getType().name().contains("COPPERHEAD")) {
+                        double dist = block.getLocation().distanceSquared(playerLoc);
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            closest = block;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (closest == null) {
+            return; // No copper nearby, silently fail
+        }
+
+        // Teleport on top of the copper block
+        Location departure = player.getLocation().clone();
+        Location tpLoc = closest.getLocation().add(0.5, 1, 0.5);
+        tpLoc.setYaw(player.getLocation().getYaw());
+        tpLoc.setPitch(player.getLocation().getPitch());
+        player.teleport(tpLoc);
+
+        // Particles at departure
+        Particle.DustOptions cyan = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.2f);
+        departure.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, departure.add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+        departure.getWorld().spawnParticle(Particle.DUST, departure, 40, 0.5, 0.5, 0.5, 0.0, cyan, true);
+
+        // Particles at arrival
+        tpLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, tpLoc.clone().add(0, 0.5, 0), 50, 0.5, 0.5, 0.5, 0.1);
+        tpLoc.getWorld().spawnParticle(Particle.DUST, tpLoc.clone().add(0, 0.5, 0), 40, 0.5, 0.5, 0.5, 0.0, cyan, true);
+
+        // Sound
+        player.playSound(departure, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
+        player.playSound(tpLoc, Sound.BLOCK_COPPER_BULB_TURN_ON, 1.0f, 1.2f);
+
+        player.sendMessage("\u00a7b\u26a1 \u00a7oConducted to copper!");
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+    }
+
+    // ==========================================================================
+    // Flux Gem — Charged Creeper Immunity
+    // ==========================================================================
+
+    @EventHandler
+    public void onChargedCreeperDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
+        if (!(event.getDamager() instanceof Creeper)) return;
+
+        Creeper creeper = (Creeper) event.getDamager();
+        if (!creeper.isPowered()) return;
+
+        Player player = (Player) event.getEntity();
+
+        // Check Flux gem
+        boolean hasFlux = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)
+                        || isHoldingFluxGem(player);
+        if (!hasFlux) return;
+
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Reduce damage
+        double reduction = this.plugin.getConfig().getDouble("gems.passives.flux.charged-creeper-reduction", 1.0);
+        event.setDamage(event.getDamage() * (1.0 - reduction));
+
+        // Protective particles
+        Particle.DustOptions cyan = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.2f);
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.0, cyan, true);
+        player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+
+        player.sendMessage("\u00a7b\u26a1 \u00a7oFlux gem absorbed the charged creeper blast!");
     }
 }
 

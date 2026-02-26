@@ -98,49 +98,259 @@ extends JavaPlugin {
 
     public void onEnable() {
         this.saveDefaultConfig();
-        CustomItemManager.initialize(this);
+
+        try {
+            CustomItemManager.initialize(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CustomItemManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
 
         // Initialize internal XoperrCore managers
-        this.protectionManager = new ProtectionManager(this);
-        this.particleManager = new ParticleManager(this);
-        this.textManager = new TextManager(this);
-        this.autoEnchantManager = new AutoEnchantManager(this);
+        try {
+            this.protectionManager = new ProtectionManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ProtectionManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.particleManager = new ParticleManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ParticleManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.textManager = new TextManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: TextManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.autoEnchantManager = new AutoEnchantManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AutoEnchantManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
 
         // Initialize XoperrCore APIs
-        GemProtectionAPI.initialize(protectionManager);
-        ParticleAPI.initialize(particleManager);
-        InventoryTextAPI.initialize(textManager);
-        AutoEnchantAPI.initialize(autoEnchantManager);
+        try {
+            GemProtectionAPI.initialize(protectionManager);
+            ParticleAPI.initialize(particleManager);
+            InventoryTextAPI.initialize(textManager);
+            AutoEnchantAPI.initialize(autoEnchantManager);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Core APIs ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
 
-        this.configManager = new ConfigManager(this);
-        this.energyManager = new EnergyManager(this);
-        this.gemManager = new GemManager(this);
-        this.abilityManager = new AbilityManager(this);
-        this.passiveManager = new PassiveManager(this);
-        this.clickActivationManager = new ClickActivationManager(this);
-        this.trustedPlayersManager = new TrustedPlayersManager(this);
-        this.repairKitManager = new RepairKitManager(this);
-        this.reviveBeaconManager = new ReviveBeaconManager(this);
-        this.soulManager = new SoulManager(this);
-        this.flowStateManager = new FlowStateManager(this);
-        this.criticalHitManager = new CriticalHitManager(this);
-        this.pluginMessagingManager = new PluginMessagingManager(this);
-        this.astraAbilities = new AstraAbilities(this);
-        this.fireAbilities = new FireAbilities(this);
-        this.fluxAbilities = new FluxAbilities(this);
-        this.lifeAbilities = new LifeAbilities(this);
-        this.puffAbilities = new PuffAbilities(this);
-        this.speedAbilities = new SpeedAbilities(this);
-        this.strengthAbilities = new StrengthAbilities(this);
-        this.wealthAbilities = new WealthAbilities(this);
-        this.cooldownDisplayManager = new CooldownDisplayManager(this);
-        this.statsManager = new StatsManager(this);
-        this.enhancedGuiManager = new EnhancedGuiManager(this);
-        this.recipeManager = new RecipeManager(this);
-        this.gemRitualManager = new GemRitualManager(this);
-        this.recipeManager.registerRecipes();
-        this.registerListeners();
-        this.registerCommands();
+        try {
+            this.configManager = new ConfigManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ConfigManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.energyManager = new EnergyManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: EnergyManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.gemManager = new GemManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GemManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.abilityManager = new AbilityManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AbilityManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.passiveManager = new PassiveManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PassiveManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.clickActivationManager = new ClickActivationManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ClickActivationManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.trustedPlayersManager = new TrustedPlayersManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: TrustedPlayersManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.repairKitManager = new RepairKitManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RepairKitManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.reviveBeaconManager = new ReviveBeaconManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ReviveBeaconManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.soulManager = new SoulManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SoulManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.flowStateManager = new FlowStateManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FlowStateManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.criticalHitManager = new CriticalHitManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CriticalHitManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.pluginMessagingManager = new PluginMessagingManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PluginMessagingManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.astraAbilities = new AstraAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AstraAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.fireAbilities = new FireAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FireAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.fluxAbilities = new FluxAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FluxAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.lifeAbilities = new LifeAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: LifeAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.puffAbilities = new PuffAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PuffAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.speedAbilities = new SpeedAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SpeedAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.strengthAbilities = new StrengthAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: StrengthAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.wealthAbilities = new WealthAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: WealthAbilities ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.cooldownDisplayManager = new CooldownDisplayManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CooldownDisplayManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.statsManager = new StatsManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: StatsManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.enhancedGuiManager = new EnhancedGuiManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: EnhancedGuiManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.recipeManager = new RecipeManager(this);
+            this.gemRitualManager = new GemRitualManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RecipeManager/GemRitualManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            if (this.recipeManager != null) {
+                this.recipeManager.registerRecipes();
+            }
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Recipe Registration ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.registerListeners();
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Listener Registration ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Command registration — MUST always run so /bliss doesn't show bare usage message
+        try {
+            this.registerCommands();
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Command Registration ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+
         this.getLogger().info("BlissGems has been enabled!");
         this.getLogger().info("Version: " + this.getDescription().getVersion());
         this.getLogger().info("Using custom item system with vanilla Minecraft items");

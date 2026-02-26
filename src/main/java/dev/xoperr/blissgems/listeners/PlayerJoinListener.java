@@ -4,8 +4,10 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -76,6 +78,34 @@ public class PlayerJoinListener implements Listener {
             }
         }
 
+        // One-time migration: ensure all existing gems have the undroppable PDC tag
+        if (!hasBeenGemLockChecked(player)) {
+            boolean fixed = false;
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                ItemStack item = player.getInventory().getItem(i);
+                if (item == null) continue;
+                String itemId = CustomItemManager.getIdByItem(item);
+                if (itemId != null && GemType.isGem(itemId)) {
+                    if (CustomItemManager.markAsUndroppable(item)) {
+                        fixed = true;
+                    }
+                }
+            }
+            ItemStack offHand = player.getInventory().getItemInOffHand();
+            if (offHand != null) {
+                String itemId = CustomItemManager.getIdByItem(offHand);
+                if (itemId != null && GemType.isGem(itemId)) {
+                    if (CustomItemManager.markAsUndroppable(offHand)) {
+                        fixed = true;
+                    }
+                }
+            }
+            markGemLockChecked(player);
+            if (fixed) {
+                this.plugin.getLogger().info("Fixed undroppable tags on gems for " + player.getName());
+            }
+        }
+
         // Update active gem status
         this.plugin.getGemManager().updateActiveGem(player);
 
@@ -129,6 +159,42 @@ public class PlayerJoinListener implements Listener {
             data.save(file);
         } catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save first gem status for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    private boolean hasBeenGemLockChecked(Player player) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        File file = new File(dataFolder, player.getUniqueId() + ".yml");
+
+        if (!file.exists()) {
+            return false;
+        }
+
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        return data.getBoolean("gems-lock-checked", false);
+    }
+
+    private void markGemLockChecked(Player player) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+
+        File file = new File(dataFolder, player.getUniqueId() + ".yml");
+        FileConfiguration data;
+
+        if (file.exists()) {
+            data = YamlConfiguration.loadConfiguration(file);
+        } else {
+            data = new YamlConfiguration();
+        }
+
+        data.set("gems-lock-checked", true);
+
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save gem-lock-checked for " + player.getName() + ": " + e.getMessage());
         }
     }
 

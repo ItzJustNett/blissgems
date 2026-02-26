@@ -208,6 +208,14 @@ public class AutoEnchantListener implements Listener {
                 }
                 break;
 
+            case LIFE:
+                if (plugin.getConfig().getBoolean("auto-enchant.life.unbreaking", true)) {
+                    if (isTool(type) || isWeapon(type) || isArmor(type)) {
+                        enchants.put(Enchantment.UNBREAKING, 3);
+                    }
+                }
+                break;
+
             default:
                 break;
         }

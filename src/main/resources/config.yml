@@ -76,6 +76,8 @@ passives:
       golden-apple-absorption-level: 1  # Absorption II (4 hearts)
 
   flux:
+    shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
+    charged-creeper-reduction: 1.0  # 1.0 = full immunity, 0.5 = 50% reduction
     tier1:
       shocking-arrow-damage: 2.0  # Electric arrow damage
       flow-state-speed-boost: 0.15  # Additional speed boost in flow state
@@ -148,9 +150,13 @@ abilities:
     fire-meteor-shower: 120  # 2 minutes - Rain fire on target area
     flux-ground: 20
     flux-beam: 60  # 60 seconds (1 minute) - Very powerful armor-piercing attack
-    flux-shocking-arrows: 5
+    flux-conduction: 3  # Copper teleport cooldown
+    flux-flashbang: 45  # Flashbang AOE blindness
+    flux-kinetic-burst: 30  # Radial knockback
     life-heart-drainer: 30
     life-circle-of-life: 60
+    life-vitality-vortex: 45
+    life-heart-lock: 60
     puff-dash: 5
     puff-breezy-bash: 10
     speed-sedative: 60
@@ -193,6 +199,29 @@ abilities:
     radius: 8.0  # AoE radius of the meteor shower
     interval-ticks: 10  # Ticks between each meteor (lower = faster rain)
 
+  # Flux Conduction settings
+  flux-conduction:
+    range: 10  # Search radius for copper blocks in blocks
+
+  # Flux Flashbang settings
+  flux-flashbang:
+    radius: 8.0  # AoE radius of the flashbang
+
+  # Flux Kinetic Burst settings
+  flux-kinetic-burst:
+    radius: 6.0  # AoE radius of the knockback burst
+    knockback: 2.5  # Knockback power multiplier
+
+  # Life Circle of Life settings
+  life-circle:
+    radius: 8.0
+    max-health-increase: 4.0  # +2 hearts for trusted/self
+    max-health-decrease: 4.0  # -2 hearts for untrusted
+
+  # Life Heart Lock settings
+  life-heart-lock:
+    range: 15
+
   # Ability damage values
   damage:
     astra-daggers: 4.0
@@ -217,8 +246,12 @@ abilities:
     fire-crisp: 15  # How long Crisp water evaporation lasts
     fire-meteor-shower: 8  # Duration of meteor rain
     flux-ground-freeze: 3
+    flux-shocking-stun: 1  # Shocking arrow stun duration in seconds
+    flux-flashbang: 5  # Flashbang blindness/nausea duration in seconds
     life-drainer: 20
     life-circle: 10
+    life-vitality-vortex: 15
+    life-heart-lock: 10
     wealth-unfortunate: 40
     wealth-rich-rush: 120
     wealth-amplification: 45
@@ -247,6 +280,8 @@ auto-enchant:
     efficiency: true
   strength:
     sharpness: true
+  life:
+    unbreaking: true
   wealth:
     fortune: true
     looting: true

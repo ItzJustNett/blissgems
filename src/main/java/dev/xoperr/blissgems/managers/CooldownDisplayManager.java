@@ -39,13 +39,17 @@ public class CooldownDisplayManager {
         // Life abilities
         GEM_ABILITIES.put(GemType.LIFE, Arrays.asList(
             new String[]{"life-drainer", "Drainer"},
-            new String[]{"life-circle-of-life", "Circle"}
+            new String[]{"life-circle-of-life", "Circle"},
+            new String[]{"life-vitality-vortex", "Vortex"},
+            new String[]{"life-heart-lock", "Lock"}
         ));
 
         // Flux abilities
         GEM_ABILITIES.put(GemType.FLUX, Arrays.asList(
             new String[]{"flux-beam", "Beam"},
-            new String[]{"flux-ground", "Ground"}
+            new String[]{"flux-ground", "Ground"},
+            new String[]{"flux-flashbang", "Flash"},
+            new String[]{"flux-kinetic-burst", "Kinetic"}
         ));
 
         // Puff abilities
@@ -211,6 +215,94 @@ public class CooldownDisplayManager {
                     display.append("§7").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
+                }
+            }
+
+            return display.toString();
+        }
+
+        // Special handling for Flux — same layout as Astra
+        // icon1 Ready/Xs (separator) icon2 Ready/Xs
+        // Separator shows tertiary/quaternary cooldowns when active
+        if (gemType == GemType.FLUX) {
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
+
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("§c").append(remaining1).append("s");
+            } else {
+                display.append("§aReady");
+            }
+
+            if (tier == 2) {
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
+
+                // Build separator — shows flashbang/kinetic cooldowns when active
+                int remainingFlash = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
+                int remainingKinetic = abilityManager.getRemainingCooldown(player, abilities.get(3)[0]);
+
+                if (remainingFlash > 0 && remainingKinetic > 0) {
+                    // Both on cooldown — show both in separator
+                    display.append(" §c(").append(remainingFlash).append("s§7|§c").append(remainingKinetic).append("s) ");
+                } else if (remainingFlash > 0) {
+                    display.append(" §c(").append(remainingFlash).append("s) ");
+                } else if (remainingKinetic > 0) {
+                    display.append(" §c(").append(remainingKinetic).append("s) ");
+                } else {
+                    // No tertiary/quaternary cooldowns — show icon, color based on ability 1
+                    display.append(remaining1 > 0 ? " §c(⚡) " : " §b(⚡) ");
+                }
+
+                display.append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("§7").append(remaining2).append("s");
+                } else {
+                    display.append("§aReady");
+                }
+            }
+
+            return display.toString();
+        }
+
+        // Special handling for Life — same layout as Flux
+        // icon1 Ready/Xs (separator) icon2 Ready/Xs
+        // Separator shows vortex/heartlock cooldowns when active
+        if (gemType == GemType.LIFE) {
+            String ability1Icon = getAbilityIcon(gemType, 0);
+            int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
+
+            display.append(ability1Icon).append(" ");
+            if (remaining1 > 0) {
+                display.append("\u00a7c").append(remaining1).append("s");
+            } else {
+                display.append("\u00a7aReady");
+            }
+
+            if (tier == 2) {
+                String ability2Icon = getAbilityIcon(gemType, 1);
+                int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
+
+                // Build separator — shows vortex/heartlock cooldowns when active
+                int remainingVortex = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
+                int remainingLock = abilityManager.getRemainingCooldown(player, abilities.get(3)[0]);
+
+                if (remainingVortex > 0 && remainingLock > 0) {
+                    display.append(" \u00a7c(").append(remainingVortex).append("s\u00a77|\u00a7c").append(remainingLock).append("s) ");
+                } else if (remainingVortex > 0) {
+                    display.append(" \u00a7c(").append(remainingVortex).append("s) ");
+                } else if (remainingLock > 0) {
+                    display.append(" \u00a7c(").append(remainingLock).append("s) ");
+                } else {
+                    display.append(remaining1 > 0 ? " \u00a7c(\u2764) " : " \u00a7d(\u2764) ");
+                }
+
+                display.append(ability2Icon).append(" ");
+                if (remaining2 > 0) {
+                    display.append("\u00a77").append(remaining2).append("s");
+                } else {
+                    display.append("\u00a7aReady");
                 }
             }
 

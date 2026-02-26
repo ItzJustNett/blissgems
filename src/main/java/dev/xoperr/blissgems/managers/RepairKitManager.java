@@ -106,7 +106,9 @@ public class RepairKitManager {
                                     energyRestored += toRestore;
 
                                     // Visual feedback for player
-                                    player.spawnParticle(Particle.HAPPY_VILLAGER,
+                                    Particle feedbackParticle = Particle.valueOf(
+                                        plugin.getConfig().getString("repair-kit.particle", "HAPPY_VILLAGER"));
+                                    player.spawnParticle(feedbackParticle,
                                         player.getLocation().add(0, 1, 0),
                                         10, 0.3, 0.5, 0.3, 0);
                                     player.playSound(player.getLocation(),
