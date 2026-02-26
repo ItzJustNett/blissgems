@@ -37,8 +37,32 @@ public class SpeedAbilities {
     private final Set<UUID> speedStormActivePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> speedStormTasks = new HashMap<>();
 
+    // Track frozen players (for Speed Storm freeze effect)
+    private static final Set<UUID> frozenPlayers = new HashSet<>();
+
     public SpeedAbilities(BlissGems plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Check if a player is frozen by Speed Storm
+     */
+    public static boolean isPlayerFrozen(UUID playerId) {
+        return frozenPlayers.contains(playerId);
+    }
+
+    /**
+     * Freeze a player (add to frozen set)
+     */
+    public static void freezePlayer(UUID playerId) {
+        frozenPlayers.add(playerId);
+    }
+
+    /**
+     * Unfreeze a player (remove from frozen set)
+     */
+    public static void unfreezePlayer(UUID playerId) {
+        frozenPlayers.remove(playerId);
     }
 
     // ========================================================================
@@ -250,11 +274,43 @@ public class SpeedAbilities {
                             // Grant Speed and Haste to allies
                             target.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 2, false, true));
                             target.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 40, 1, false, true));
+                            // Make sure allies aren't frozen
+                            unfreezePlayer(target.getUniqueId());
                         } else {
-                            // Freeze enemies
+                            // Freeze enemies - add to frozen set and apply effects
+                            freezePlayer(target.getUniqueId());
                             target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 255, false, true));
                             target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 255, false, true));
+                            target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 40, 128, false, true)); // Negative jump
                             target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
+
+                            // Schedule unfreeze after effects wear off
+                            final UUID targetId = target.getUniqueId();
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    // Only unfreeze if player is outside the field
+                                    Player p = plugin.getServer().getPlayer(targetId);
+                                    if (p == null || !p.isOnline()) {
+                                        unfreezePlayer(targetId);
+                                        return;
+                                    }
+                                    // Check if still in any Speed Storm field
+                                    boolean stillInField = false;
+                                    for (UUID stormOwner : speedStormActivePlayers) {
+                                        Player owner = plugin.getServer().getPlayer(stormOwner);
+                                        if (owner != null && owner.isOnline()) {
+                                            if (p.getLocation().distance(owner.getLocation()) <= radius) {
+                                                stillInField = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!stillInField) {
+                                        unfreezePlayer(targetId);
+                                    }
+                                }
+                            }.runTaskLater(plugin, 42L); // Slightly after effect wears off
                         }
                     }
                 }
@@ -317,7 +373,33 @@ public class SpeedAbilities {
         BukkitTask task = speedStormTasks.remove(uuid);
         if (task != null) task.cancel();
 
+        // Unfreeze all players who were frozen by this storm
+        // Check each frozen player if they're still in another storm field
+        double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 8.0);
         if (player.isOnline()) {
+            for (Entity entity : player.getLocation().getWorld().getNearbyEntities(player.getLocation(), radius + 5, radius + 5, radius + 5)) {
+                if (entity instanceof Player target && !target.equals(player)) {
+                    UUID targetId = target.getUniqueId();
+                    if (isPlayerFrozen(targetId)) {
+                        // Check if still in another Speed Storm field
+                        boolean stillInOtherField = false;
+                        for (UUID stormOwner : speedStormActivePlayers) {
+                            Player owner = plugin.getServer().getPlayer(stormOwner);
+                            if (owner != null && owner.isOnline() && !owner.equals(player)) {
+                                if (target.getLocation().distance(owner.getLocation()) <= radius) {
+                                    stillInOtherField = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!stillInOtherField) {
+                            unfreezePlayer(targetId);
+                            target.sendMessage("§e§oYou are no longer frozen.");
+                        }
+                    }
+                }
+            }
+
             player.sendMessage("§e§oSpeed Storm faded.");
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.6f, 1.5f);
         }
@@ -385,6 +467,15 @@ public class SpeedAbilities {
             speedStormTasks.remove(playerId);
         }
         speedStormActivePlayers.remove(playerId);
+        // Also unfreeze the player if they were frozen
+        unfreezePlayer(playerId);
+    }
+
+    /**
+     * Cleanup all frozen players (called on plugin disable)
+     */
+    public static void cleanupAllFrozen() {
+        frozenPlayers.clear();
     }
 }
 

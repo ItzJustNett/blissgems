@@ -515,6 +515,31 @@ public class CustomItemManager {
     }
 
     /**
+     * Mark an existing item as undroppable by adding the locked_item PDC tag.
+     * Returns true if the tag was added (item was missing it), false if already tagged or invalid.
+     */
+    public static boolean markAsUndroppable(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) {
+            return false;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+
+        PersistentDataContainer container = meta.getPersistentDataContainer();
+        if (container.has(UNDROPPABLE_KEY, PersistentDataType.BYTE) &&
+            container.get(UNDROPPABLE_KEY, PersistentDataType.BYTE) == 1) {
+            return false; // Already tagged
+        }
+
+        container.set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return true;
+    }
+
+    /**
      * Check if an item is locked/undroppable (PDC flag)
      * Uses EXACT same logic as DropItemControl's isItemLocked() method
      */

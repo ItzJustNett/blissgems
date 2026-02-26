@@ -25,6 +25,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import org.bukkit.util.Vector;
+
 import java.util.*;
 
 public class FluxAbilities {
@@ -483,14 +485,11 @@ public class FluxAbilities {
         int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 5);
         int stunDuration = stunDurationSeconds * 20; // Convert to ticks
 
-        // Apply stun effects to ALL living entities (players and mobs)
-        // Slowness 255 freezes horizontal movement
+        // Apply freeze effects to ALL living entities (same as Speed Storm freeze)
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 255, false, true));
-        // Slow Falling prevents them from jumping or falling - keeps them grounded
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, stunDuration, 0, false, true));
-        // Mining Fatigue and Weakness to prevent actions
         target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 255, false, true));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 255, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, stunDuration, 128, false, true)); // Negative jump
+        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 1, false, true));
 
         // Add to stunned players list (only if it's a player)
         if (target instanceof Player) {
@@ -545,6 +544,143 @@ public class FluxAbilities {
         // Feedback for caster
         String targetName = target instanceof Player ? ((Player) target).getName() : target.getType().name();
         player.sendMessage("§b⚡ §oGrounded " + targetName + " for " + stunDurationSeconds + " seconds!");
+    }
+
+    // ==========================================================================
+    // Flashbang (Tier 2 — ability:tertiary)
+    // ==========================================================================
+
+    public void flashbang(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            return;
+        }
+
+        String abilityKey = "flux-flashbang";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        double radius = this.plugin.getConfig().getDouble("abilities.flux-flashbang.radius", 8.0);
+        int duration = this.plugin.getConfigManager().getAbilityDuration("flux-flashbang") * 20;
+
+        Location center = player.getLocation();
+        int affectedCount = 0;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity) || entity.equals(player)) continue;
+
+            LivingEntity target = (LivingEntity) entity;
+
+            // Skip trusted players
+            if (target instanceof Player) {
+                Player targetPlayer = (Player) target;
+                if (this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+                    continue;
+                }
+            }
+
+            target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, duration, 0, false, true));
+            target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, duration, 1, false, true));
+
+            // White flash on target
+            Particle.DustOptions white = new Particle.DustOptions(org.bukkit.Color.WHITE, 1.5f);
+            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 80, 0.5, 0.5, 0.5, 0.0, white, true);
+
+            affectedCount++;
+
+            if (target instanceof Player) {
+                ((Player) target).sendMessage("\u00a7f\u00a7lFLASHBANGED! \u00a77You are blinded!");
+            }
+        }
+
+        // Bright flash explosion at center
+        Particle.DustOptions brightWhite = new Particle.DustOptions(org.bukkit.Color.WHITE, 2.0f);
+        center.getWorld().spawnParticle(Particle.DUST, center.clone().add(0, 1, 0), 200, radius / 2, radius / 2, radius / 2, 0.0, brightWhite, true);
+        center.getWorld().spawnParticle(Particle.FIREWORK, center.clone().add(0, 1, 0), 50, radius / 3, radius / 3, radius / 3, 0.2);
+        center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center.clone().add(0, 1, 0), 80, radius / 2, radius / 2, radius / 2, 0.1);
+
+        // Sound
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 1.8f);
+        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 2.0f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Flashbang");
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+        player.sendMessage("\u00a7b\u26a1 \u00a7oFlashbang! Blinded " + affectedCount + " enemies!");
+    }
+
+    // ==========================================================================
+    // Kinetic Burst (Tier 2 — ability:quaternary)
+    // ==========================================================================
+
+    public void kineticBurst(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            return;
+        }
+
+        String abilityKey = "flux-kinetic-burst";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        double radius = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.radius", 6.0);
+        double knockbackPower = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.knockback", 2.5);
+
+        Location center = player.getLocation();
+        int affectedCount = 0;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity.equals(player)) continue;
+
+            // Skip trusted players
+            if (entity instanceof Player) {
+                Player targetPlayer = (Player) entity;
+                if (this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+                    continue;
+                }
+            }
+
+            // Calculate knockback vector away from player
+            Vector direction = entity.getLocation().toVector().subtract(center.toVector());
+            if (direction.lengthSquared() > 0) {
+                direction.normalize();
+            }
+            direction.setY(0.5);
+            direction.multiply(knockbackPower);
+
+            entity.setVelocity(direction);
+            affectedCount++;
+        }
+
+        // Sonic boom particle
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
+
+        // Cyan electric burst
+        Particle.DustOptions cyan = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.5f);
+        player.getWorld().spawnParticle(Particle.DUST, center.clone().add(0, 1, 0), 150, radius / 2, radius / 2, radius / 2, 0.0, cyan, true);
+        player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center.clone().add(0, 1, 0), 100, radius / 2, radius / 2, radius / 2, 0.2);
+
+        // Expanding shockwave rings
+        ParticleUtils.drawRing(center, ParticleUtils.FLUX_CYAN, 1.2f, radius * 0.33, 0.1, 32);
+        ParticleUtils.drawRing(center, ParticleUtils.FLUX_CYAN, 1.2f, radius * 0.66, 0.1, 32);
+        ParticleUtils.drawRing(center, ParticleUtils.FLUX_CYAN, 1.2f, radius, 0.1, 32);
+
+        // Sound - deep sonic boom
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.5f, 0.8f);
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.2f, 0.5f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Kinetic Burst");
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+        player.sendMessage("\u00a7b\u26a1 \u00a7oKinetic Burst! Knocked back " + affectedCount + " entities!");
     }
 
     private LivingEntity getTargetEntity(Player player, int range) {
