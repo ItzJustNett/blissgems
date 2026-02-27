@@ -177,13 +177,22 @@ public class SpeedAbilities {
                     // Deal damage
                     target.damage(damage, player);
 
-                    // Apply knockback
-                    org.bukkit.util.Vector knockback = target.getLocation().toVector()
-                        .subtract(strikeLoc.toVector())
-                        .normalize()
-                        .multiply(knockbackPower)
-                        .setY(0.4);
-                    target.setVelocity(knockback);
+                    // Apply knockback 1 tick later so it doesn't get overridden by damage knockback
+                    final LivingEntity knockTarget = target;
+                    final Location knockOrigin = strikeLoc.clone();
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            if (knockTarget.isValid() && !knockTarget.isDead()) {
+                                org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
+                                    .subtract(knockOrigin.toVector())
+                                    .normalize()
+                                    .multiply(knockbackPower)
+                                    .setY(0.5);
+                                knockTarget.setVelocity(knockback);
+                            }
+                        }
+                    }.runTaskLater(plugin, 1L);
 
                     // Hit particles
                     target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, strikeDust, true);

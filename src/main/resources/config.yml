@@ -239,6 +239,7 @@ abilities:
     fire-meteor-shower: 5.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
+    blur: 4.0  # Damage per lightning strike (3 strikes by default)
     strength-bloodthorns: 5.0
 
   # Ability durations (in seconds)
