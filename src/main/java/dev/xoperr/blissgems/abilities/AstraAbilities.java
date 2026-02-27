@@ -3,7 +3,7 @@
  *
  * Tier 1:
  *   - Astral Daggers (Primary): Fire 3 phantom daggers that deal damage
- *   - Soul Capture passive + Soul Healing (handled by SoulManager)
+ *   - Soul Capture passive + Soul Absorption (temporary max hearts on kill, handled by SoulManager)
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Astral Daggers (Primary, no shift): Same as T1

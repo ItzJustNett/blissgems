@@ -5,6 +5,8 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.*;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.NamespacedKey;
@@ -13,7 +15,7 @@ import java.util.*;
 
 /**
  * Manages the Astra Gem soul system:
- * - Soul Absorption: Heal when killing mobs/players
+ * - Soul Absorption: Temporarily add extra max hearts on kill
  * - Soul Capture: Capture up to 2 mobs in the gem and release them
  */
 public class SoulManager {
@@ -22,6 +24,9 @@ public class SoulManager {
     private final Map<UUID, List<CapturedMob>> playerSouls = new HashMap<>();
     private static final int MAX_CAPTURED_SOULS = 2;
 
+    // Track active soul absorption modifiers per player (for stacking/cleanup)
+    private int soulModifierCounter = 0;
+
     public SoulManager(BlissGems plugin) {
         this.plugin = plugin;
         this.capturedMobKey = new NamespacedKey(plugin, "captured_mob");
@@ -29,23 +34,34 @@ public class SoulManager {
 
     /**
      * Called when a player with Astra gem kills an entity
-     * Heals the player based on what was killed
+     * Temporarily adds extra max hearts based on what was killed
      */
     public void absorbSoul(Player player, Entity killedEntity) {
         boolean isPlayer = killedEntity instanceof Player;
-        double healAmount;
+        double bonusHealth;
 
         if (isPlayer) {
-            healAmount = 10.0; // 5 hearts for player kills
+            bonusHealth = plugin.getConfig().getDouble("abilities.soul-absorption.player-kill-hearts", 10.0); // 5 hearts
         } else {
-            healAmount = 5.0; // 2.5 hearts for mob kills
+            bonusHealth = plugin.getConfig().getDouble("abilities.soul-absorption.mob-kill-hearts", 4.0); // 2 hearts
         }
 
-        // Heal the player
-        double currentHealth = player.getHealth();
-        double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
-        double newHealth = Math.min(currentHealth + healAmount, maxHealth);
-        player.setHealth(newHealth);
+        int durationSeconds = plugin.getConfig().getInt("abilities.soul-absorption.duration", 60);
+
+        // Add temporary max health via attribute modifier
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        NamespacedKey modifierKey = new NamespacedKey(plugin, "soul_absorb_" + (soulModifierCounter++));
+        AttributeModifier modifier = new AttributeModifier(modifierKey, bonusHealth, AttributeModifier.Operation.ADD_NUMBER);
+        maxHealthAttr.addTransientModifier(modifier);
+
+        // Schedule removal after duration
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                maxHealthAttr.removeModifier(modifier);
+            }
+        }, durationSeconds * 20L);
 
         // Visual and sound effects
         player.getWorld().spawnParticle(Particle.SOUL,
@@ -59,7 +75,7 @@ public class SoulManager {
 
         String entityName = isPlayer ? ((Player) killedEntity).getName() :
             killedEntity.getType().toString().toLowerCase().replace("_", " ");
-        player.sendMessage("§d§oAbsorbed soul from " + entityName + "! +" + (healAmount / 2) + " hearts");
+        player.sendMessage("§d§oAbsorbed soul from " + entityName + "! +" + (bonusHealth / 2) + " hearts for " + durationSeconds + "s");
     }
 
     /**
