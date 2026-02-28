@@ -15,6 +15,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -55,6 +56,9 @@ public class AstraAbilities {
     // Tagged players (Astral Projection sub-ability)
     private final Map<UUID, UUID> taggedPlayers = new HashMap<>(); // tagger -> tagged
     private final Map<UUID, BukkitTask> tagTasks = new HashMap<>();
+
+    // Achievement: Piercing Precision — consecutive dagger hits on players
+    private final Map<UUID, Integer> consecutiveDaggerHits = new HashMap<>();
 
     public AstraAbilities(BlissGems plugin) {
         this.plugin = plugin;
@@ -144,6 +148,7 @@ public class AstraAbilities {
             this.plugin.getServer().getScheduler().runTaskLater((Plugin) this.plugin, () -> {
                 Location start = eyeLoc.clone().add(direction.clone().multiply(1));
                 Vector spread = direction.clone().rotateAroundAxis(new Vector(0, 1, 0), Math.toRadians(index * 15 - 15));
+                boolean hitPlayer = false;
 
                 for (int j = 0; j < 30; ++j) {
                     Location current = start.clone().add(spread.clone().multiply((double) j * 0.5));
@@ -170,6 +175,14 @@ public class AstraAbilities {
                         double damage = this.plugin.getConfigManager().getAbilityDamage("astra-daggers");
                         target.damage(damage, (Entity) player);
 
+                        // Achievement: Piercing Precision — count consecutive player hits
+                        if (target instanceof Player && this.plugin.getAchievementManager() != null) {
+                            UUID uid = player.getUniqueId();
+                            int hits = consecutiveDaggerHits.getOrDefault(uid, 0) + 1;
+                            consecutiveDaggerHits.put(uid, hits);
+                            this.plugin.getAchievementManager().setProgress(player, Achievement.PIERCING_PRECISION, hits);
+                        }
+
                         // MASSIVE deep purple particle burst on hit
                         Particle.DustOptions purpleDustHit = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.5f);
                         target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 80, 0.9, 0.9, 0.9, 0.0, purpleDustHit, true);
@@ -177,9 +190,15 @@ public class AstraAbilities {
                         target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0.0, 1.0, 0.0), 40, 0.7, 0.7, 0.7);
                         target.getWorld().spawnParticle(Particle.WITCH, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
                         target.getWorld().spawnParticle(Particle.END_ROD, target.getLocation().add(0.0, 1.0, 0.0), 25, 0.5, 0.5, 0.5);
+                        hitPlayer = true;
                         return;
                     }
                     if (current.getBlock().getType().isSolid()) break;
+                }
+
+                // Dagger missed — reset consecutive counter
+                if (!hitPlayer) {
+                    consecutiveDaggerHits.put(player.getUniqueId(), 0);
                 }
             }, (long) i * 5L);
         }

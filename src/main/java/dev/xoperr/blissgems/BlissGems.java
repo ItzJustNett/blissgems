@@ -39,6 +39,7 @@ import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.managers.GemRitualManager;
+import dev.xoperr.blissgems.managers.AchievementManager;
 import dev.xoperr.blissgems.managers.StatsManager;
 import dev.xoperr.blissgems.managers.PassiveManager;
 import dev.xoperr.blissgems.managers.PluginMessagingManager;
@@ -96,6 +97,7 @@ extends JavaPlugin {
     private ParticleManager particleManager;
     private TextManager textManager;
     private AutoEnchantManager autoEnchantManager;
+    private AchievementManager achievementManager;
     private GemRitualManager gemRitualManager;
 
     public void onEnable() {
@@ -320,6 +322,13 @@ extends JavaPlugin {
             e.printStackTrace();
         }
         try {
+            this.achievementManager = new AchievementManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AchievementManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
             this.enhancedGuiManager = new EnhancedGuiManager(this);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: EnhancedGuiManager ===");
@@ -412,6 +421,9 @@ extends JavaPlugin {
         this.energyManager.saveAll();
         if (this.abilityManager != null) {
             this.abilityManager.saveAllCooldowns();
+        }
+        if (this.achievementManager != null) {
+            this.achievementManager.saveAll();
         }
         this.getLogger().info("BlissGems has been disabled!");
     }
@@ -543,6 +555,10 @@ extends JavaPlugin {
 
     public StatsManager getStatsManager() {
         return this.statsManager;
+    }
+
+    public AchievementManager getAchievementManager() {
+        return this.achievementManager;
     }
 
     public PluginMessagingManager getPluginMessagingManager() {

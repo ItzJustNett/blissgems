@@ -21,6 +21,7 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.ArrayList;
@@ -245,6 +246,10 @@ implements Listener {
                 player.getInventory().setItemInMainHand(null);
             }
             this.traderCooldowns.put(player.getUniqueId(), now);
+            // Achievement: Time For A Change
+            if (this.plugin.getAchievementManager() != null) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.TIME_FOR_A_CHANGE);
+            }
             if (this.plugin.getConfigManager().shouldPlayTradeEffects()) {
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 player.spawnParticle(Particle.PORTAL, player.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);

@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -31,6 +32,8 @@ public class StrengthAbilities {
     // Shadow Stalker tracking state
     private final Map<UUID, UUID> trackingTargets = new HashMap<>();   // tracker -> tracked
     private final Map<UUID, BukkitTask> trackingTasks = new HashMap<>();
+    // Achievement: tracks per-target stalk count (trackerUUID -> (targetUUID -> count))
+    private final Map<UUID, Map<UUID, Integer>> stalkCounts = new HashMap<>();
 
     public StrengthAbilities(BlissGems plugin) {
         this.plugin = plugin;
@@ -251,6 +254,16 @@ public class StrengthAbilities {
         UUID trackerId = player.getUniqueId();
         UUID trackedId = targetUUID;
         trackingTargets.put(trackerId, trackedId);
+
+        // Achievement: It's Rabbit Season (track same player 17 times)
+        if (this.plugin.getAchievementManager() != null) {
+            Map<UUID, Integer> targetCounts = stalkCounts.computeIfAbsent(trackerId, k -> new HashMap<>());
+            int count = targetCounts.getOrDefault(trackedId, 0) + 1;
+            targetCounts.put(trackedId, count);
+            if (count >= 17) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.ITS_RABBIT_SEASON);
+            }
+        }
 
         // Notify victim
         targetPlayer.sendMessage("\u00a7c\u00a7l\u26a0 \u00a7c\u00a7oYou are being hunted...");

@@ -9,6 +9,7 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.EnergyState;
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +48,16 @@ public class EnergyManager {
         this.savePlayerEnergy(player, energy);
         // Update gem textures to reflect new energy state
         this.plugin.getGemManager().updateGemTextures(player);
+
+        // Achievement checks
+        if (this.plugin.getAchievementManager() != null) {
+            if (energy == 0) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.SHATTERED);
+            }
+            if (energy == maxEnergy) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.OVERFLOWING);
+            }
+        }
     }
 
     public void addEnergy(Player player, int amount) {
