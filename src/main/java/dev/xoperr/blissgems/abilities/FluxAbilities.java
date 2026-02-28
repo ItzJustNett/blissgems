@@ -281,6 +281,15 @@ public class FluxAbilities {
         int maxArmorDamage = plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 150);
         int armorDamage = (int)((charge / 100.0) * maxArmorDamage); // 0 to max at 100%
 
+        // Skip creative/spectator players
+        if (target instanceof Player) {
+            Player tp = (Player) target;
+            if (tp.getGameMode() == org.bukkit.GameMode.CREATIVE || tp.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+                player.sendMessage("§cCannot hit players in creative/spectator mode!");
+                return;
+            }
+        }
+
         // Apply health damage (bypasses armor using setHealth)
         double currentHealth = target.getHealth();
         double newHealth = Math.max(0, currentHealth - finalDamage);
