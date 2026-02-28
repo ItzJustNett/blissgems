@@ -781,20 +781,20 @@ public class FireAbilities {
                         for (double d = 0; d < totalDist; d += 0.8) {
                             Location trailLoc = spawnLoc.clone().add(trajectory.clone().multiply(d));
                             finalTarget.getWorld().spawnParticle(Particle.FLAME,
-                                trailLoc, 3, 0.1, 0.1, 0.1, 0.03);
+                                trailLoc, 30, 0.3, 0.3, 0.3, 0.03);
                             finalTarget.getWorld().spawnParticle(Particle.LAVA,
-                                trailLoc, 1, 0.05, 0.05, 0.05, 0);
+                                trailLoc, 10, 0.15, 0.15, 0.15, 0);
                         }
 
                         // Impact explosion visuals
                         finalTarget.getWorld().spawnParticle(Particle.FLAME,
-                            impactLoc, 40, 1.0, 0.5, 1.0, 0.1);
+                            impactLoc, 400, 3.0, 1.5, 3.0, 0.1);
                         finalTarget.getWorld().spawnParticle(Particle.LAVA,
-                            impactLoc, 15, 0.5, 0.2, 0.5, 0);
+                            impactLoc, 150, 1.5, 0.6, 1.5, 0);
                         finalTarget.getWorld().spawnParticle(Particle.EXPLOSION,
-                            impactLoc, 3, 0.3, 0.1, 0.3, 0.0);
+                            impactLoc, 30, 0.9, 0.3, 0.9, 0.0);
                         finalTarget.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
-                            impactLoc, 10, 0.5, 0.3, 0.5, 0.05);
+                            impactLoc, 100, 1.5, 0.9, 1.5, 0.05);
 
                         // Impact sound
                         finalTarget.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.5f);
@@ -821,7 +821,7 @@ public class FireAbilities {
 
                             livingTarget.getWorld().spawnParticle(Particle.FLAME,
                                 livingTarget.getLocation().add(0, 1, 0),
-                                15, 0.4, 0.6, 0.4, 0.05);
+                                150, 1.2, 1.8, 1.2, 0.05);
                         }
 
                         // Set ground blocks on fire if exposed to sky
@@ -844,7 +844,7 @@ public class FireAbilities {
                         double x = Math.cos(angle) * aoeRadius;
                         double z = Math.sin(angle) * aoeRadius;
                         finalTarget.getWorld().spawnParticle(Particle.DUST,
-                            finalTarget.clone().add(x, 0.3, z), 2, 0.1, 0.1, 0.1, 0.0, warningDust, true);
+                            finalTarget.clone().add(x, 0.3, z), 20, 0.3, 0.3, 0.3, 0.0, warningDust, true);
                     }
                 }
             }
