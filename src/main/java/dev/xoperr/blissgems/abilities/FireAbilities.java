@@ -45,6 +45,7 @@ public class FireAbilities {
     // Crisp state
     private final Set<UUID> crispActivePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> crispTasks = new HashMap<>();
+    private final Map<UUID, Set<Location>> crispProtectedBlocks = new HashMap<>();
 
     // Meteor Shower state
     private final Set<UUID> meteorShowersActive = new HashSet<>();
@@ -80,6 +81,15 @@ public class FireAbilities {
         return crispActivePlayers.contains(player.getUniqueId());
     }
 
+    public boolean isProtectedBlock(Location loc) {
+        for (Set<Location> blocks : crispProtectedBlocks.values()) {
+            if (blocks.contains(loc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void onRightClick(Player player, int tier) {
         if (tier == 2 && player.isSneaking()) {
             this.cozyCampfire(player);
@@ -109,10 +119,11 @@ public class FireAbilities {
         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.5f);
         player.sendMessage("\u00a76\u00a7oCharging fireball... Right-click again to fire!");
 
-        // Charging task - increases charge over 15 seconds
+        // Charging task - increases charge over 15 seconds, then decays
         BukkitTask task = new BukkitRunnable() {
             int ticksElapsed = 0;
             boolean maxChargeNotified = false;
+            boolean decaying = false;
 
             @Override
             public void run() {
@@ -124,8 +135,38 @@ public class FireAbilities {
 
                 ticksElapsed++;
 
-                // Calculate charge based on elapsed time (15 seconds = 300 ticks for 100%)
-                int newCharge = Math.min((ticksElapsed * MAX_CHARGE) / CHARGE_DURATION_TICKS, MAX_CHARGE);
+                int currentCharge = chargingPlayers.getOrDefault(uuid, 0);
+                int newCharge;
+
+                if (!decaying) {
+                    // Charging phase: increase charge over 15 seconds
+                    newCharge = Math.min((ticksElapsed * MAX_CHARGE) / CHARGE_DURATION_TICKS, MAX_CHARGE);
+
+                    if (newCharge >= MAX_CHARGE) {
+                        decaying = true;
+                        newCharge = MAX_CHARGE;
+                    }
+                } else {
+                    // Decay phase: check if standing on obsidian
+                    Block blockBelow = player.getLocation().subtract(0, 1, 0).getBlock();
+                    if (blockBelow.getType() == Material.OBSIDIAN || blockBelow.getType() == Material.CRYING_OBSIDIAN) {
+                        // Standing on obsidian — hold charge
+                        newCharge = currentCharge;
+                    } else {
+                        // Decay ~1% per tick (100 ticks = 5 seconds to drain)
+                        newCharge = currentCharge - 1;
+                    }
+
+                    // Charge fizzled out
+                    if (newCharge <= 0) {
+                        player.sendMessage("\u00a7c\u00a7oFireball charge fizzled!");
+                        player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
+                        cancelCharging(player);
+                        this.cancel();
+                        return;
+                    }
+                }
+
                 chargingPlayers.put(uuid, newCharge);
 
                 // Show charge bar in action bar
@@ -223,13 +264,6 @@ public class FireAbilities {
         }.runTaskTimer(this.plugin, 0L, 1L);
 
         chargingTasks.put(uuid, task);
-
-        // Auto-fire after 15 seconds (when fully charged)
-        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
-            if (isCharging(player)) {
-                fireChargedShot(player);
-            }
-        }, CHARGE_DURATION_TICKS + 20L); // Extra 1 second grace period
     }
 
     private void showChargeBar(Player player, int charge) {
@@ -522,7 +556,8 @@ public class FireAbilities {
         player.sendMessage("\u00a76\u00a7lCrisp! \u00a7eEvaporating water and scorching the earth for " + durationSeconds + "s!");
 
         // --- Initial pass: replace water and surrounding blocks ---
-        evaporateAndScorch(center, radius);
+        crispProtectedBlocks.put(uuid, new HashSet<>());
+        evaporateAndScorch(center, radius, uuid);
 
         // Activation visual — expanding ring of fire
         for (int i = 0; i < 36; i++) {
@@ -587,8 +622,10 @@ public class FireAbilities {
     /**
      * Evaporates all water blocks in radius and replaces surrounding solid blocks with nether blocks.
      */
-    private void evaporateAndScorch(Location center, int radius) {
+    private void evaporateAndScorch(Location center, int radius, UUID ownerUuid) {
         evaporateWater(center, radius);
+
+        Set<Location> protectedSet = crispProtectedBlocks.get(ownerUuid);
 
         // Replace surface-level solid blocks around center with nether blocks
         for (int x = -radius; x <= radius; x++) {
@@ -602,6 +639,10 @@ public class FireAbilities {
                     // Replace with random nether block
                     Material netherMat = NETHER_BLOCKS[random.nextInt(NETHER_BLOCKS.length)];
                     surface.setType(netherMat);
+                    // Track this block as protected
+                    if (protectedSet != null) {
+                        protectedSet.add(surface.getLocation());
+                    }
                 }
             }
         }
@@ -635,6 +676,9 @@ public class FireAbilities {
 
         BukkitTask task = crispTasks.remove(uuid);
         if (task != null) task.cancel();
+
+        // Remove block protection — blocks become normal breakable blocks
+        crispProtectedBlocks.remove(uuid);
 
         if (wasActive && player.isOnline()) {
             player.sendMessage("\u00a76\u00a7oCrisp faded.");
@@ -839,6 +883,7 @@ public class FireAbilities {
         endCrisp(player);
 
         UUID uuid = player.getUniqueId();
+        crispProtectedBlocks.remove(uuid);
         meteorShowersActive.remove(uuid);
         BukkitTask meteorTask = meteorTasks.remove(uuid);
         if (meteorTask != null) meteorTask.cancel();

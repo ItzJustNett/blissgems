@@ -99,9 +99,9 @@ abilities:
     puff-breezy-bash: 15
     speed-sedative: 50
     speed-storm: 60
-    strength-bloodthorns: 30
-    strength-frailer: 35
-    strength-chad: 45
+    strength-nullify: 30
+    strength-frailer: 45
+    strength-shadow-stalker: 120
     wealth-durability-chip: 40
     wealth-pockets: 0  # No cooldown for opening
     wealth-unfortunate: 60
@@ -116,7 +116,7 @@ abilities:
     flux-shocking: 3.0
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
-    strength-bloodthorns: 5.0
+    strength-chad-bonus: 7.0
 
   # Fire campfire settings
   fire-campfire:

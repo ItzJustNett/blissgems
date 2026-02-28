@@ -336,6 +336,16 @@ implements Listener {
     }
 
     @EventHandler
+    public void onCrispBlockBreak(BlockBreakEvent event) {
+        // Prevent breaking Crisp-protected nether blocks
+        if (this.plugin.getFireAbilities() != null
+                && this.plugin.getFireAbilities().isProtectedBlock(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("\u00a7c\u00a7oThis block is scorched and cannot be broken!");
+        }
+    }
+
+    @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
 
@@ -725,6 +735,111 @@ implements Listener {
         player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
 
         player.sendMessage("\u00a7b\u26a1 \u00a7oFlux gem absorbed the charged creeper blast!");
+    }
+
+    // ==========================================================================
+    // Strength Gem — Bloodthorns (passive: bonus damage at low health)
+    // ==========================================================================
+
+    private boolean isHoldingStrengthGem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (mainHand != null) {
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null && oraxenId.contains("strength_gem")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @EventHandler
+    public void onStrengthBloodthorns(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player player = (Player) event.getDamager();
+        if (!(event.getEntity() instanceof LivingEntity)) return;
+
+        boolean hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH)
+                            || isHoldingStrengthGem(player);
+        if (!hasStrength) return;
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Get tier
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
+            }
+        }
+        if (tier == 0) tier = 1;
+
+        // Linear inverse scaling: less health = more bonus damage
+        double maxBonus = this.plugin.getConfigManager().getBloodthornsMaxBonusDamage(tier);
+        double currentHealth = player.getHealth();
+        double maxHealth = player.getMaxHealth();
+        double healthRatio = currentHealth / maxHealth;
+        double bonusDamage = maxBonus * (1.0 - healthRatio);
+
+        if (bonusDamage > 0.1) {
+            event.setDamage(event.getDamage() + bonusDamage);
+
+            // Subtle red particles on hit proportional to bonus
+            LivingEntity target = (LivingEntity) event.getEntity();
+            Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.0f);
+            int particleCount = Math.min((int) (bonusDamage * 3), 30);
+            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                particleCount, 0.3, 0.3, 0.3, 0.0, redDust, true);
+            target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
+                Math.min((int) (bonusDamage * 2), 15), 0.3, 0.3, 0.3);
+        }
+    }
+
+    // ==========================================================================
+    // Strength Gem — Chad Strength (passive: every 4th hit bonus damage, T2)
+    // ==========================================================================
+
+    @EventHandler
+    public void onStrengthChadHit(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player player = (Player) event.getDamager();
+        if (!(event.getEntity() instanceof LivingEntity)) return;
+
+        boolean hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH)
+                            || isHoldingStrengthGem(player);
+        if (!hasStrength) return;
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Chad Strength is T2 only
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
+            }
+        }
+        if (tier < 2) return;
+
+        // Register hit with CriticalHitManager
+        boolean triggered = this.plugin.getCriticalHitManager().registerHit(player);
+        if (triggered) {
+            double bonusDamage = this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 7.0);
+            event.setDamage(event.getDamage() + bonusDamage);
+
+            // Big visual effect on target
+            LivingEntity target = (LivingEntity) event.getEntity();
+            Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 2.0f);
+            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                50, 0.8, 0.8, 0.8, 0.0, redDust, true);
+            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                30, 0.5, 0.5, 0.5, 0.3);
+            target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 1, 0),
+                10, 0.5, 0.5, 0.5);
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
+
+            player.sendMessage("\u00a7c\u00a7l\u2694 CHAD STRENGTH! \u00a7c+3.5 hearts bonus damage!");
+        }
     }
 }
 

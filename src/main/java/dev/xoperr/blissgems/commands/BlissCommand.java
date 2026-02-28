@@ -606,7 +606,7 @@ TabCompleter {
                 this.plugin.getSpeedAbilities().onRightClick(player, tier);
                 break;
             case STRENGTH:
-                this.plugin.getStrengthAbilities().bloodthorns(player);
+                this.plugin.getStrengthAbilities().nullify(player);
                 break;
             case WEALTH:
                 this.plugin.getWealthAbilities().durabilityChip(player);
@@ -678,7 +678,7 @@ TabCompleter {
                 this.plugin.getSpeedAbilities().speedStorm(player);
                 break;
             case STRENGTH:
-                this.plugin.getStrengthAbilities().chadStrength(player);
+                this.plugin.getStrengthAbilities().frailer(player);
                 break;
             case WEALTH:
                 this.plugin.getWealthAbilities().richRush(player);
@@ -736,6 +736,9 @@ TabCompleter {
                 break;
             case PUFF:
                 this.plugin.getPuffAbilities().groupBreezyBash(player);
+                break;
+            case STRENGTH:
+                this.plugin.getStrengthAbilities().shadowStalker(player);
                 break;
             default:
                 player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
