@@ -70,6 +70,8 @@ import org.bukkit.GameMode;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
 import dev.xoperr.blissgems.abilities.WealthAbilities;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.block.Block;
 import org.bukkit.Location;
 import org.bukkit.entity.Creeper;
@@ -1088,6 +1090,58 @@ implements Listener {
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
 
             player.sendMessage("\u00a7c\u00a7l\u2694 CHAD STRENGTH! \u00a7c+3.5 hearts bonus damage!");
+        }
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Rich Rush (double ore drops on block break)
+    // ==========================================================================
+
+    @EventHandler
+    public void onRichRushBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        if (!WealthAbilities.hasRichRush(player.getUniqueId())) return;
+        if (event.isCancelled()) return;
+
+        // Only multiply drops for ore-type blocks
+        Material type = event.getBlock().getType();
+        if (!isOreBlock(type)) return;
+
+        // Duplicate each drop item
+        List<ItemStack> drops = new ArrayList<>(event.getBlock().getDrops(player.getInventory().getItemInMainHand(), player));
+        for (ItemStack drop : drops) {
+            event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), drop.clone());
+        }
+    }
+
+    private boolean isOreBlock(Material type) {
+        return type == Material.COAL_ORE || type == Material.DEEPSLATE_COAL_ORE
+            || type == Material.IRON_ORE || type == Material.DEEPSLATE_IRON_ORE
+            || type == Material.GOLD_ORE || type == Material.DEEPSLATE_GOLD_ORE
+            || type == Material.NETHER_GOLD_ORE
+            || type == Material.COPPER_ORE || type == Material.DEEPSLATE_COPPER_ORE
+            || type == Material.DIAMOND_ORE || type == Material.DEEPSLATE_DIAMOND_ORE
+            || type == Material.EMERALD_ORE || type == Material.DEEPSLATE_EMERALD_ORE
+            || type == Material.LAPIS_ORE || type == Material.DEEPSLATE_LAPIS_ORE
+            || type == Material.REDSTONE_ORE || type == Material.DEEPSLATE_REDSTONE_ORE
+            || type == Material.NETHER_QUARTZ_ORE
+            || type == Material.ANCIENT_DEBRIS;
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Rich Rush (double mob drops on entity death)
+    // ==========================================================================
+
+    @EventHandler
+    public void onRichRushEntityDeath(EntityDeathEvent event) {
+        Player killer = event.getEntity().getKiller();
+        if (killer == null) return;
+        if (!WealthAbilities.hasRichRush(killer.getUniqueId())) return;
+
+        // Double all mob drops
+        List<ItemStack> originalDrops = new ArrayList<>(event.getDrops());
+        for (ItemStack drop : originalDrops) {
+            event.getDrops().add(drop.clone());
         }
     }
 }
