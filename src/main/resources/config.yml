@@ -177,6 +177,7 @@ abilities:
     puff-group-bash: 30
     speed-sedative: 60
     speed-storm: 45
+    speed-terminal: 60  # Terminal Velocity cooldown
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
     strength-nullify: 30
     strength-frailer: 45
@@ -305,6 +306,7 @@ abilities:
     wealth-rich-rush: 120
     wealth-amplification: 45
     wealth-item-lock: 10
+    terminal-velocity: 10  # Terminal Velocity Speed III + Haste II duration
     adrenaline-rush: 6  # Duration of speed boost + instant attacks
 
   # Adrenaline Rush settings

@@ -36,6 +36,9 @@ public class WealthAbilities {
     // Amplification: stores original enchantment levels for reverting
     private final Map<UUID, Map<Integer, Map<Enchantment, Integer>>> amplifiedPlayers = new HashMap<>();
 
+    // Rich Rush: tracks players with active Rich Rush (increased drops)
+    private static final Set<UUID> richRushPlayers = new HashSet<>();
+
     public WealthAbilities(BlissGems plugin) {
         this.plugin = plugin;
         this.pocketsInventories = new HashMap<UUID, Inventory>();
@@ -170,8 +173,21 @@ public class WealthAbilities {
             return;
         }
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-rich-rush");
+        UUID uuid = player.getUniqueId();
+
+        // Apply Haste (faster mining) and Luck
         player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration * 20, 2, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, duration * 20, 3, false, true));
+
+        // Track active Rich Rush for drop multiplication in listeners
+        richRushPlayers.add(uuid);
+        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            richRushPlayers.remove(uuid);
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null && p.isOnline()) {
+                p.sendMessage("\u00a7e\u00a7oRich Rush has worn off.");
+            }
+        }, duration * 20L);
 
         // Rich Rush with bright green dust (RGB 0, 166, 44)
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
@@ -180,6 +196,14 @@ public class WealthAbilities {
         player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Rich Rush"));
+        player.sendMessage("\u00a76\u00a7lRich Rush! \u00a7eMob and ore drops doubled for " + duration + "s!");
+    }
+
+    /**
+     * Check if a player has Rich Rush active (for drop multiplication in listeners)
+     */
+    public static boolean hasRichRush(UUID uuid) {
+        return richRushPlayers.contains(uuid);
     }
 
     public void amplification(Player player) {

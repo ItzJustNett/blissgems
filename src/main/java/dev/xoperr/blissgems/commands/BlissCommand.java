@@ -757,6 +757,9 @@ TabCompleter {
             case STRENGTH:
                 this.plugin.getStrengthAbilities().shadowStalker(player);
                 break;
+            case SPEED:
+                this.plugin.getSpeedAbilities().activateTerminalVelocity(player);
+                break;
             case WEALTH:
                 this.plugin.getWealthAbilities().itemLock(player);
                 break;
