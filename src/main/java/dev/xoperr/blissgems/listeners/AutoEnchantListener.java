@@ -11,12 +11,17 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -56,6 +61,58 @@ public class AutoEnchantListener implements Listener {
                 applyAutoEnchants(player, heldSlot);
             }
         }.runTaskLater(plugin, 5L);
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        scheduleRefresh((Player) event.getWhoClicked());
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        scheduleRefresh((Player) event.getWhoClicked());
+    }
+
+    @EventHandler
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        scheduleRefresh(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPlayerSwapHand(PlayerSwapHandItemsEvent event) {
+        scheduleRefresh(event.getPlayer());
+    }
+
+    /**
+     * Strip all tracked auto-enchants and re-apply only to the currently held slot.
+     * Handles items moved via inventory clicks, drags, drops, or hand swaps.
+     */
+    private void scheduleRefresh(Player player) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+                refreshAutoEnchants(player);
+            }
+        }.runTaskLater(plugin, 1L);
+    }
+
+    private void refreshAutoEnchants(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Remove from all tracked slots
+        Map<Integer, Map<Enchantment, Integer>> playerEnchants = addedEnchants.get(uuid);
+        if (playerEnchants != null) {
+            for (int slot : new ArrayList<>(playerEnchants.keySet())) {
+                removeAutoEnchants(player, slot);
+            }
+        }
+
+        // Re-apply to current held slot
+        int heldSlot = player.getInventory().getHeldItemSlot();
+        applyAutoEnchants(player, heldSlot);
     }
 
     public void applyAutoEnchants(Player player, int slot) {

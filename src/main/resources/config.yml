@@ -40,6 +40,13 @@ gems:
   single-gem-only: true
 
 # ==========================================
+# SMP START SYSTEM
+# ==========================================
+smp:
+  started: false
+  auto-start-threshold: 10
+
+# ==========================================
 # CRAFTING RECIPES
 # ==========================================
 crafting:
@@ -562,3 +569,8 @@ messages:
   no-gem-types-available: "&cNo other gem types available!"
   trade-failed: "&cFailed to trade gem!"
   upgrade-failed: "&cFailed to upgrade gem!"
+
+  # SMP Start Messages
+  smp-already-started: "&cSMP has already started!"
+  smp-started: "&a&lSMP Started! All online players are receiving their gems!"
+  smp-not-started: "&cThe SMP hasn't started yet! Gems will be given when an admin runs /bliss smp start."

@@ -311,7 +311,7 @@ public class AstraAbilities {
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("\u00a7d\u00a7oYou have " + durationSeconds + "s. Right-click to Tag, Shift+Right-click to Spook.");
+        player.sendMessage("\u00a7d\u00a7oYou have " + durationSeconds + "s. /bliss ability:main to Tag, /bliss ability:secondary to Spook.");
     }
 
     public void endProjection(Player player) {
@@ -359,7 +359,7 @@ public class AstraAbilities {
     //     Scares nearby players (Blindness + Nausea + spooky effects)
     // ========================================================================
 
-    private void spook(Player player) {
+    public void spook(Player player) {
         if (!isInProjection(player)) return;
 
         String abilityKey = "astra-spook";
@@ -413,7 +413,7 @@ public class AstraAbilities {
     //     Marks a player, giving the Astra user a compass-like indicator
     // ========================================================================
 
-    private void tag(Player player) {
+    public void tag(Player player) {
         if (!isInProjection(player)) return;
 
         String abilityKey = "astra-tag";
@@ -767,6 +767,14 @@ public class AstraAbilities {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if the player has an active tag tracking HUD (used by CooldownDisplayManager
+     * to avoid overwriting the TAG action bar display).
+     */
+    public boolean isTagTrackingActive(Player player) {
+        return taggedPlayers.containsKey(player.getUniqueId());
     }
 
     // ========================================================================

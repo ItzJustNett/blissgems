@@ -68,8 +68,9 @@ public class CooldownDisplayManager {
 
         // Strength abilities
         GEM_ABILITIES.put(GemType.STRENGTH, Arrays.asList(
-            new String[]{"strength-bloodthorns", "Thorns"},
-            new String[]{"strength-chad", "Chad"}
+            new String[]{"strength-nullify", "Nullify"},
+            new String[]{"strength-frailer", "Frailer"},
+            new String[]{"strength-shadow-stalker", "Stalker"}
         ));
 
         // Wealth abilities
@@ -103,6 +104,16 @@ public class CooldownDisplayManager {
 
                 // Don't override Flux gem charging display
                 if (this.plugin.getFluxAbilities().isCharging(player)) {
+                    continue;
+                }
+
+                // Don't override Tag tracking display
+                if (this.plugin.getAstraAbilities().isTagTrackingActive(player)) {
+                    continue;
+                }
+
+                // Don't override Shadow Stalker tracking display
+                if (this.plugin.getStrengthAbilities().isTrackingActive(player)) {
                     continue;
                 }
 

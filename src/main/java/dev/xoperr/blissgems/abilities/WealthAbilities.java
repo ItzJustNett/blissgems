@@ -306,7 +306,7 @@ public class WealthAbilities {
 
     // Static accessors for PassiveListener
     public static boolean isUnfortunate(UUID uuid) {
-        return unfortunatePlayers.contains(uuid);
+        return unfortunatePlayers.contains(uuid) && Math.random() < 0.5;
     }
 
     public static boolean isItemLocked(UUID uuid) {

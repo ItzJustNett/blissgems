@@ -4,14 +4,14 @@
 package dev.xoperr.blissgems.utils;
 
 public enum GemType {
-    ASTRA("astra", "Astra", "Phase through attacks and teleport with astral daggers"),
+    ASTRA("astra", "Astra", "Wield phantom daggers and explore astral dimensions"),
     FIRE("fire", "Fire", "Burn your enemies with charged fireballs and cozy campfires"),
     FLUX("flux", "Flux", "Stun enemies and unleash electric power"),
     LIFE("life", "Life", "Heal yourself and drain the life from enemies"),
     PUFF("puff", "Puff", "Defy gravity with double jumps and immunity to fall damage"),
-    SPEED("speed", "Speed", "Move faster and sedatate your foes"),
-    STRENGTH("strength", "Strength", "Empower your attacks and weaken your enemies"),
-    WEALTH("wealth", "Wealth", "Find fortune and unlock hidden riches");
+    SPEED("speed", "Speed", "Move faster and sedate your foes"),
+    STRENGTH("strength", "Strength", "Empower your strikes and hunt your enemies"),
+    WEALTH("wealth", "Wealth", "Find fortune and fuel an empire");
 
     private final String id;
     private final String displayName;
