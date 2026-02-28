@@ -102,7 +102,7 @@ passives:
   fire:
     tier1:
       auto-smelt: true  # Auto-smelt ores
-      fire-resistance: false  # Tier 1 doesn't have fire resistance
+      fire-resistance: true  # Tier 1 has fire resistance
     tier2:
       auto-smelt: true  # Auto-smelt ores
       fire-resistance: true  # Tier 2 has fire resistance
@@ -118,8 +118,10 @@ passives:
   strength:
     tier1:
       strength-level: 0  # Strength I
+      bloodthorns-max-bonus-damage: 7.0  # Max bonus damage (3.5 hearts) at lowest HP
     tier2:
       strength-level: 1  # Strength II
+      bloodthorns-max-bonus-damage: 10.0  # Max bonus damage (5 hearts) at lowest HP
 
   wealth:
     tier1:
@@ -163,9 +165,9 @@ abilities:
     speed-sedative: 60
     speed-storm: 45
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
-    strength-bloodthorns: 20
-    strength-frailer: 25
-    strength-chad: 30
+    strength-nullify: 30
+    strength-frailer: 45
+    strength-shadow-stalker: 120
     wealth-durability-chip: 30
     wealth-pockets: 0  # No cooldown for opening
     wealth-unfortunate: 40
@@ -219,6 +221,24 @@ abilities:
     radius: 6.0  # AoE radius of the knockback burst
     knockback: 2.5  # Knockback power multiplier
 
+  # Strength Nullify settings
+  strength-nullify:
+    range: 20  # Raycast range in blocks
+
+  # Strength Frailer settings
+  strength-frailer:
+    range: 15  # Raycast range in blocks
+
+  # Strength Shadow Stalker settings
+  strength-shadow-stalker:
+    duration: 60  # Tracking duration in seconds
+    invisibility-max-range: 2500  # Track invisible targets only within this range
+
+  # Strength Chad Strength settings (passive every-4th-hit)
+  strength-chad:
+    hit-threshold: 4  # Every Nth hit triggers bonus damage
+    bonus-damage: 7.0  # Bonus damage in HP (3.5 hearts)
+
   # Puff Group Breezy Bash settings
   puff-group-bash:
     radius: 10.0
@@ -246,7 +266,7 @@ abilities:
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
     blur: 4.0  # Damage per lightning strike (3 strikes by default)
-    strength-bloodthorns: 5.0
+    strength-chad-bonus: 7.0  # Chad Strength bonus damage on every 4th hit (3.5 hearts)
 
   # Ability durations (in seconds)
   durations:
@@ -265,6 +285,9 @@ abilities:
     life-circle: 10
     life-vitality-vortex: 15
     life-heart-lock: 10
+    strength-frailer-weakness: 20  # Weakness I duration in seconds
+    strength-frailer-wither: 40  # Wither I duration in seconds
+    strength-shadow-stalker: 60  # Tracking duration in seconds
     wealth-unfortunate: 40
     wealth-rich-rush: 120
     wealth-amplification: 45

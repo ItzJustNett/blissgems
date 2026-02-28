@@ -45,6 +45,7 @@ import dev.xoperr.blissgems.managers.PluginMessagingManager;
 import dev.xoperr.blissgems.managers.RecipeManager;
 import dev.xoperr.blissgems.managers.RepairKitManager;
 import dev.xoperr.blissgems.managers.ReviveBeaconManager;
+import dev.xoperr.blissgems.managers.ItemOwnershipManager;
 import dev.xoperr.blissgems.managers.SoulManager;
 import dev.xoperr.blissgems.managers.TrustedPlayersManager;
 import dev.xoperr.blissgems.utils.ConfigManager;
@@ -81,6 +82,7 @@ extends JavaPlugin {
     private SoulManager soulManager;
     private FlowStateManager flowStateManager;
     private CriticalHitManager criticalHitManager;
+    private ItemOwnershipManager itemOwnershipManager;
     private PluginMessagingManager pluginMessagingManager;
     private AstraAbilities astraAbilities;
     private FireAbilities fireAbilities;
@@ -230,6 +232,13 @@ extends JavaPlugin {
             this.criticalHitManager = new CriticalHitManager(this);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CriticalHitManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.itemOwnershipManager = new ItemOwnershipManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ItemOwnershipManager ===");
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
@@ -395,6 +404,9 @@ extends JavaPlugin {
             if (this.fluxAbilities != null) {
                 this.fluxAbilities.cleanup(player);
             }
+            if (this.strengthAbilities != null) {
+                this.strengthAbilities.cleanup(player);
+            }
         }
 
         this.energyManager.saveAll();
@@ -422,6 +434,9 @@ extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents((Listener)new ReviveBeaconListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
+        if (this.itemOwnershipManager != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)this.itemOwnershipManager, (Plugin)this);
+        }
     }
 
     private void registerCommands() {
@@ -508,6 +523,10 @@ extends JavaPlugin {
 
     public CriticalHitManager getCriticalHitManager() {
         return this.criticalHitManager;
+    }
+
+    public ItemOwnershipManager getItemOwnershipManager() {
+        return this.itemOwnershipManager;
     }
 
     public ClickActivationManager getClickActivationManager() {

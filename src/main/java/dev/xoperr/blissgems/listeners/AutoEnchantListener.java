@@ -64,7 +64,11 @@ public class AutoEnchantListener implements Listener {
         }
 
         GemManager.ActiveGem activeGem = plugin.getGemManager().getActiveGem(player);
-        if (activeGem == null || activeGem.getTier() < 2) {
+        if (activeGem == null) {
+            return;
+        }
+        // Most gems require T2 for auto-enchant, but Strength gets Sharpness at both tiers
+        if (activeGem.getTier() < 2 && activeGem.getType() != GemType.STRENGTH) {
             return;
         }
 
@@ -78,7 +82,8 @@ public class AutoEnchantListener implements Listener {
         }
 
         GemType gemType = activeGem.getType();
-        Map<Enchantment, Integer> enchantsToAdd = getEnchantsForGem(gemType, item);
+        int tier = activeGem.getTier();
+        Map<Enchantment, Integer> enchantsToAdd = getEnchantsForGem(gemType, item, tier);
 
         if (enchantsToAdd.isEmpty()) {
             return;
@@ -148,7 +153,7 @@ public class AutoEnchantListener implements Listener {
         item.setItemMeta(meta);
     }
 
-    private Map<Enchantment, Integer> getEnchantsForGem(GemType gemType, ItemStack item) {
+    private Map<Enchantment, Integer> getEnchantsForGem(GemType gemType, ItemStack item, int tier) {
         Map<Enchantment, Integer> enchants = new HashMap<>();
         Material type = item.getType();
 
@@ -213,7 +218,8 @@ public class AutoEnchantListener implements Listener {
             case STRENGTH:
                 if (plugin.getConfig().getBoolean("auto-enchant.strength.sharpness", true)) {
                     if (isSword(type) || isAxe(type)) {
-                        enchants.put(Enchantment.SHARPNESS, 5);
+                        int sharpnessLevel = (tier >= 2) ? 5 : 2;
+                        enchants.put(Enchantment.SHARPNESS, sharpnessLevel);
                     }
                 }
                 break;

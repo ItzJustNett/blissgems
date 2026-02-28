@@ -287,6 +287,11 @@ public class ConfigManager {
         return this.config.getInt(path, tier == 1 ? 0 : 1);
     }
 
+    public double getBloodthornsMaxBonusDamage(int tier) {
+        String path = "passives.strength.tier" + tier + ".bloodthorns-max-bonus-damage";
+        return this.config.getDouble(path, tier == 1 ? 7.0 : 10.0);
+    }
+
     // Wealth Passives
     public int getLuckLevel(int tier) {
         String path = "passives.wealth.tier" + tier + ".luck-level";
