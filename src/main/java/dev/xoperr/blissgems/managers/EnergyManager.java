@@ -65,7 +65,11 @@ public class EnergyManager {
     }
 
     public void removeEnergy(Player player, int amount) {
-        this.setEnergy(player, this.getEnergy(player) - amount);
+        int current = this.getEnergy(player);
+        if (current <= 0) {
+            return;
+        }
+        this.setEnergy(player, current - amount);
     }
 
     public EnergyState getEnergyState(Player player) {

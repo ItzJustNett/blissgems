@@ -52,7 +52,9 @@ public class EnhancedGuiManager implements Listener {
         // Row 2: Gem Info, Energy, Reroll (centered)
         gui.setItem(11, createGemInfoItem(player));
         gui.setItem(13, createEnergyInfoItem(player));
-        gui.setItem(15, createRerollItem(player));
+        if (player.hasPermission("blissgems.admin")) {
+            gui.setItem(15, createRerollItem(player));
+        }
 
         // Row 3: Abilities, Passives, Cooldowns (centered)
         gui.setItem(20, createAbilitiesItem(player));
@@ -741,6 +743,12 @@ public class EnhancedGuiManager implements Listener {
     }
 
     private void handleRerollGem(Player player) {
+        if (!player.hasPermission("blissgems.admin")) {
+            player.sendMessage("§c§lNo Permission! §7Only admins can reroll gems.");
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            return;
+        }
+
         int currentEnergy = plugin.getEnergyManager().getEnergy(player);
 
         if (currentEnergy < 2) {
