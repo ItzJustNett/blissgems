@@ -149,6 +149,10 @@ TabCompleter {
                 this.handleNormalise(sender, args);
                 break;
             }
+            case "smp": {
+                this.handleSmp(sender, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -593,7 +597,11 @@ TabCompleter {
         // Trigger primary ability (non-sneaking behavior)
         switch (gemType) {
             case ASTRA:
-                this.plugin.getAstraAbilities().astralDaggers(player);
+                if (this.plugin.getAstraAbilities().isInProjection(player)) {
+                    this.plugin.getAstraAbilities().tag(player);
+                } else {
+                    this.plugin.getAstraAbilities().astralDaggers(player);
+                }
                 break;
             case FIRE:
                 this.plugin.getFireAbilities().chargedFireball(player);
@@ -665,7 +673,11 @@ TabCompleter {
         // Trigger secondary ability (sneaking behavior for Tier 2)
         switch (gemType) {
             case ASTRA:
-                this.plugin.getAstraAbilities().astralProjection(player);
+                if (this.plugin.getAstraAbilities().isInProjection(player)) {
+                    this.plugin.getAstraAbilities().spook(player);
+                } else {
+                    this.plugin.getAstraAbilities().astralProjection(player);
+                }
                 break;
             case FIRE:
                 this.plugin.getFireAbilities().cozyCampfire(player);
@@ -1048,6 +1060,118 @@ TabCompleter {
         }
     }
 
+    private void handleSmp(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+
+        if (args.length < 2 || !args[1].equalsIgnoreCase("start")) {
+            sender.sendMessage("\u00a7cUsage: /bliss smp start");
+            return;
+        }
+
+        if (this.plugin.getConfigManager().isSmpStarted()) {
+            this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-already-started");
+            return;
+        }
+
+        // Set SMP as started
+        this.plugin.getConfigManager().setSmpStarted(true);
+
+        // Notify sender
+        this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-started");
+
+        // Give gems to all online players who haven't received one yet
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (!hasReceivedFirstGem(online)) {
+                GemType randomGem = getRandomEnabledGem();
+                if (randomGem != null) {
+                    final GemType finalGem = randomGem;
+                    final Player target = online;
+
+                    // Welcome messages
+                    target.sendMessage("");
+                    target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+                    target.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
+                    target.sendMessage("");
+                    target.sendMessage("\u00a77\u00a7oThe ancient gem ritual begins...");
+                    target.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
+                    target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+                    target.sendMessage("");
+
+                    // Start the ritual animation
+                    this.plugin.getGemRitualManager().performGemRitual(target, finalGem, true);
+
+                    // Give the gem after a short delay (let ritual build up)
+                    this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                        if (target.isOnline() && this.plugin.getGemManager().giveGem(target, finalGem, 1)) {
+                            markFirstGemReceived(target);
+
+                            String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
+                                "gem", finalGem.getDisplayName());
+                            if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
+                                target.sendMessage(welcomeMsg);
+                            } else {
+                                target.sendMessage("");
+                                target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + finalGem.getColor() + "\u00a7l" + finalGem.getDisplayName() + "\u00a7d\u00a7l \u00ab");
+                                target.sendMessage("");
+                            }
+
+                            this.plugin.getLogger().info("SMP Start: Gave " + target.getName() + " their first gem: " + finalGem.getDisplayName());
+                        }
+                    }, 20L);
+                }
+            }
+        }
+    }
+
+    private boolean hasReceivedFirstGem(Player player) {
+        java.io.File dataFolder = new java.io.File(this.plugin.getDataFolder(), "playerdata");
+        java.io.File file = new java.io.File(dataFolder, player.getUniqueId() + ".yml");
+        if (!file.exists()) {
+            return false;
+        }
+        org.bukkit.configuration.file.FileConfiguration data = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
+        return data.getBoolean("received-first-gem", false);
+    }
+
+    private void markFirstGemReceived(Player player) {
+        java.io.File dataFolder = new java.io.File(this.plugin.getDataFolder(), "playerdata");
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        java.io.File file = new java.io.File(dataFolder, player.getUniqueId() + ".yml");
+        org.bukkit.configuration.file.FileConfiguration data;
+        if (file.exists()) {
+            data = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
+        } else {
+            data = new org.bukkit.configuration.file.YamlConfiguration();
+        }
+        data.set("received-first-gem", true);
+        if (!data.contains("energy")) {
+            data.set("energy", this.plugin.getConfigManager().getStartingEnergy());
+        }
+        try {
+            data.save(file);
+        } catch (java.io.IOException e) {
+            this.plugin.getLogger().warning("Failed to save first gem status for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    private GemType getRandomEnabledGem() {
+        java.util.ArrayList<GemType> enabledGems = new java.util.ArrayList<>();
+        for (GemType type : GemType.values()) {
+            if (this.plugin.getConfigManager().isGemEnabled(type)) {
+                enabledGems.add(type);
+            }
+        }
+        if (enabledGems.isEmpty()) {
+            return null;
+        }
+        return enabledGems.get(new java.util.Random().nextInt(enabledGems.size()));
+    }
+
     private void handleAchievements(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -1099,6 +1223,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss achievements \u00a78- View your achievements");
         sender.sendMessage("\u00a77/bliss stats [top|me|gems] \u00a78- View server stats");
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
+        sender.sendMessage("\u00a77/bliss smp start \u00a78- Start the SMP and distribute gems (Admin)");
         sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
@@ -1106,7 +1231,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize", "smp"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
@@ -1116,6 +1241,9 @@ TabCompleter {
             }
             if (args[0].equalsIgnoreCase("bannable")) {
                 return Arrays.asList("true", "false");
+            }
+            if (args[0].equalsIgnoreCase("smp")) {
+                return Arrays.asList("start");
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("give")) {

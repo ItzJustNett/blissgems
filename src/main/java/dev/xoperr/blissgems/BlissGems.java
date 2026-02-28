@@ -352,6 +352,15 @@ extends JavaPlugin {
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
+        // Auto-detect SMP start based on existing playerdata
+        try {
+            this.checkAutoStartSmp();
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SMP Auto-Start Check ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+
         try {
             this.registerListeners();
         } catch (Exception e) {
@@ -426,6 +435,38 @@ extends JavaPlugin {
             this.achievementManager.saveAll();
         }
         this.getLogger().info("BlissGems has been disabled!");
+    }
+
+    private void checkAutoStartSmp() {
+        if (this.configManager == null || this.configManager.isSmpStarted()) {
+            return;
+        }
+
+        java.io.File playerDataFolder = new java.io.File(getDataFolder(), "playerdata");
+        if (!playerDataFolder.exists() || !playerDataFolder.isDirectory()) {
+            return;
+        }
+
+        int threshold = this.configManager.getSmpAutoStartThreshold();
+        int count = 0;
+
+        java.io.File[] files = playerDataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files == null) {
+            return;
+        }
+
+        for (java.io.File file : files) {
+            org.bukkit.configuration.file.FileConfiguration data =
+                org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
+            if (data.getBoolean("received-first-gem", false)) {
+                count++;
+                if (count >= threshold) {
+                    this.configManager.setSmpStarted(true);
+                    this.getLogger().info("SMP auto-started! Found " + count + " players with gems (threshold: " + threshold + ").");
+                    return;
+                }
+            }
+        }
     }
 
     private void registerListeners() {

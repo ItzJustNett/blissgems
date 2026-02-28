@@ -31,50 +31,59 @@ public class PlayerJoinListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        // Check if player has received their first gem
+        // Check if player has received their first gem and SMP has started
         if (!hasReceivedFirstGem(player)) {
-            // Give random gem
-            GemType randomGem = getRandomEnabledGem();
-            if (randomGem != null) {
-                // Delay to ensure player is fully loaded
-                final GemType finalGem = randomGem;
+            if (!this.plugin.getConfigManager().isSmpStarted()) {
+                // SMP hasn't started yet, notify the player
                 this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
                     if (player.isOnline()) {
-                        // Welcome messages
-                        player.sendMessage("");
-                        player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
-                        player.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
-                        player.sendMessage("");
-                        player.sendMessage("\u00a77\u00a7oThe ancient gem ritual begins...");
-                        player.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
-                        player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
-                        player.sendMessage("");
-
-                        // Start the ritual animation
-                        this.plugin.getGemRitualManager().performGemRitual(player, finalGem, true);
-
-                        // Give the gem after a short delay (let ritual build up)
-                        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                            if (this.plugin.getGemManager().giveGem(player, finalGem, 1)) {
-                                // Mark that player has received their first gem
-                                markFirstGemReceived(player);
-
-                                // Send welcome message
-                                String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
-                                    "gem", finalGem.getDisplayName());
-                                if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
-                                    player.sendMessage(welcomeMsg);
-                                } else {
-                                    player.sendMessage("");
-                                    player.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + finalGem.getColor() + "\u00a7l" + finalGem.getDisplayName() + "\u00a7d\u00a7l \u00ab");
-                                    player.sendMessage("");
-                                }
-
-                                this.plugin.getLogger().info("Gave " + player.getName() + " their first gem: " + finalGem.getDisplayName());
-                            }
-                        }, 20L); // 1 second delay
+                        this.plugin.getConfigManager().sendFormattedMessage(player, "smp-not-started");
                     }
-                }, 40L); // 2 second delay after join
+                }, 40L);
+            } else {
+                // Give random gem
+                GemType randomGem = getRandomEnabledGem();
+                if (randomGem != null) {
+                    // Delay to ensure player is fully loaded
+                    final GemType finalGem = randomGem;
+                    this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                        if (player.isOnline()) {
+                            // Welcome messages
+                            player.sendMessage("");
+                            player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+                            player.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
+                            player.sendMessage("");
+                            player.sendMessage("\u00a77\u00a7oThe ancient gem ritual begins...");
+                            player.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
+                            player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+                            player.sendMessage("");
+
+                            // Start the ritual animation
+                            this.plugin.getGemRitualManager().performGemRitual(player, finalGem, true);
+
+                            // Give the gem after a short delay (let ritual build up)
+                            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                                if (this.plugin.getGemManager().giveGem(player, finalGem, 1)) {
+                                    // Mark that player has received their first gem
+                                    markFirstGemReceived(player);
+
+                                    // Send welcome message
+                                    String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
+                                        "gem", finalGem.getDisplayName());
+                                    if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
+                                        player.sendMessage(welcomeMsg);
+                                    } else {
+                                        player.sendMessage("");
+                                        player.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + finalGem.getColor() + "\u00a7l" + finalGem.getDisplayName() + "\u00a7d\u00a7l \u00ab");
+                                        player.sendMessage("");
+                                    }
+
+                                    this.plugin.getLogger().info("Gave " + player.getName() + " their first gem: " + finalGem.getDisplayName());
+                                }
+                            }, 20L); // 1 second delay
+                        }
+                    }, 40L); // 2 second delay after join
+                }
             }
         }
 

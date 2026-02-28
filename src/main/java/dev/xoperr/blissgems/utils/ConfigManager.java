@@ -174,6 +174,23 @@ public class ConfigManager {
         }
     }
 
+    public boolean isSmpStarted() {
+        return this.config.getBoolean("smp.started", false);
+    }
+
+    public void setSmpStarted(boolean started) {
+        this.config.set("smp.started", started);
+        try {
+            this.config.save(new File(plugin.getDataFolder(), "config.yml"));
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to save config: " + e.getMessage());
+        }
+    }
+
+    public int getSmpAutoStartThreshold() {
+        return this.config.getInt("smp.auto-start-threshold", 10);
+    }
+
     public boolean isGemEnabled(GemType type) {
         return this.config.getBoolean("gems.enabled." + type.getId(), true);
     }

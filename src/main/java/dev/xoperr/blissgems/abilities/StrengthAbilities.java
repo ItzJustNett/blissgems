@@ -375,6 +375,14 @@ public class StrengthAbilities {
         }
     }
 
+    /**
+     * Check if the player has an active Shadow Stalker tracking HUD (used by CooldownDisplayManager
+     * to avoid overwriting the TRACKING action bar display).
+     */
+    public boolean isTrackingActive(Player player) {
+        return trackingTargets.containsKey(player.getUniqueId());
+    }
+
     // ========================================================================
     // Utility methods
     // ========================================================================

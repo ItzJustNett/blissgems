@@ -49,8 +49,11 @@ public class ItemOwnershipManager implements Listener {
         Item itemEntity = event.getItem();
         ItemStack item = itemEntity.getItemStack();
 
-        setItemOwner(item, player.getUniqueId());
-        itemEntity.setItemStack(item);
+        // Only stamp ownership if the item doesn't already have an owner
+        if (getItemOwner(item) == null) {
+            setItemOwner(item, player.getUniqueId());
+            itemEntity.setItemStack(item);
+        }
     }
 
     /**
