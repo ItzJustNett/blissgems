@@ -127,9 +127,15 @@ passives:
     tier1:
       luck-level: 0  # Luck I
       villager-discount: 0.10  # 10% discount
+      durability-chip-extra-damage: 1  # Extra durability damage per hit per armor piece
+      armor-mend-amount: 2  # Durability restored per hit per armor piece
+      double-debris: true  # 2x netherite scrap from furnaces
     tier2:
       luck-level: 1  # Luck II
       villager-discount: 0.20  # 20% discount
+      durability-chip-extra-damage: 1  # Extra durability damage per hit per armor piece
+      armor-mend-amount: 2  # Durability restored per hit per armor piece
+      double-debris: true  # 2x netherite scrap from furnaces
 
 # ==========================================
 # ABILITIES
@@ -168,8 +174,8 @@ abilities:
     strength-nullify: 30
     strength-frailer: 45
     strength-shadow-stalker: 120
-    wealth-durability-chip: 30
     wealth-pockets: 0  # No cooldown for opening
+    wealth-item-lock: 45
     wealth-unfortunate: 40
     wealth-rich-rush: 540  # 9 minutes
     wealth-amplification: 180  # 3 minutes
@@ -291,6 +297,7 @@ abilities:
     wealth-unfortunate: 40
     wealth-rich-rush: 120
     wealth-amplification: 45
+    wealth-item-lock: 10
     adrenaline-rush: 6  # Duration of speed boost + instant attacks
 
   # Adrenaline Rush settings
@@ -542,7 +549,12 @@ messages:
   sloth-sedative-info: "&e&oSloth's Sedative slows all nearby enemies with Slowness IV!"
   sloth-sedative-hit: "{message} &7(Slowed {count} enemies!)"
   speed-storm-info: "&a&oSpeed Storm grants you Speed VI for 10 seconds!"
-  durability-chip-info: "&6&lDurability Chip &7(Toggles 2x durability damage on tools)"
+  durability-chip-info: "&6&lDurability Chip &7(Passive: extra armor damage per hit)"
+  unfortunate-afflicted: "&c&oYou've been afflicted with Unfortunate! Actions disabled for {duration}s!"
+  unfortunate-blocked: "&c&oYou can't do that while Unfortunate!"
+  item-locked: "&c&oYour {item} has been locked for {duration}s!"
+  item-locked-blocked: "&c&oThis item is locked!"
+  double-debris: "&a&oDouble Debris! Extra netherite scrap!"
   wealth-no-target: "&e&oNo target found! &7(Aim at a player to use Unfortunate)"
   wealth-no-player: "&cNo player target found!"
   bloodthorns-hit: "{message} &7({count} targets hit!)"
