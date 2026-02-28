@@ -609,7 +609,7 @@ TabCompleter {
                 this.plugin.getStrengthAbilities().nullify(player);
                 break;
             case WEALTH:
-                this.plugin.getWealthAbilities().durabilityChip(player);
+                this.plugin.getWealthAbilities().unfortunate(player);
                 break;
         }
     }
@@ -740,6 +740,9 @@ TabCompleter {
             case STRENGTH:
                 this.plugin.getStrengthAbilities().shadowStalker(player);
                 break;
+            case WEALTH:
+                this.plugin.getWealthAbilities().itemLock(player);
+                break;
             default:
                 player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
                 break;
@@ -793,6 +796,9 @@ TabCompleter {
                 break;
             case LIFE:
                 this.plugin.getLifeAbilities().heartLock(player);
+                break;
+            case WEALTH:
+                this.plugin.getWealthAbilities().amplification(player);
                 break;
             default:
                 player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!");

@@ -58,12 +58,17 @@ import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.FurnaceExtractEvent;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.GameMode;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
+import dev.xoperr.blissgems.abilities.WealthAbilities;
 import org.bukkit.block.Block;
 import org.bukkit.Location;
 import org.bukkit.entity.Creeper;
@@ -792,6 +797,231 @@ implements Listener {
                 particleCount, 0.3, 0.3, 0.3, 0.0, redDust, true);
             target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
                 Math.min((int) (bonusDamage * 2), 15), 0.3, 0.3, 0.3);
+        }
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Helper
+    // ==========================================================================
+
+    private boolean isHoldingWealthGem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (mainHand != null) {
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null && oraxenId.contains("wealth_gem")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Durability Chip (passive: extra armor damage on enemies)
+    // ==========================================================================
+
+    @EventHandler
+    public void onWealthDurabilityChip(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player player = (Player) event.getDamager();
+        if (!(event.getEntity() instanceof LivingEntity)) return;
+        LivingEntity target = (LivingEntity) event.getEntity();
+
+        boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
+                          || isHoldingWealthGem(player);
+        if (!hasWealth) return;
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        // Get tier for config lookup
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
+            }
+        }
+        if (tier == 0) tier = 1;
+
+        String tierKey = tier == 2 ? "tier2" : "tier1";
+        int extraDamage = this.plugin.getConfig().getInt("passives.wealth." + tierKey + ".durability-chip-extra-damage", 1);
+
+        // Only apply to entities with equipment (players)
+        if (!(target instanceof Player)) return;
+        Player targetPlayer = (Player) target;
+
+        // Deal extra durability damage to each armor piece
+        ItemStack[] armor = targetPlayer.getInventory().getArmorContents();
+        boolean damaged = false;
+        for (int i = 0; i < armor.length; i++) {
+            if (armor[i] != null && !armor[i].getType().isAir() && armor[i].getItemMeta() instanceof Damageable) {
+                Damageable damageable = (Damageable) armor[i].getItemMeta();
+                damageable.setDamage(damageable.getDamage() + extraDamage);
+                armor[i].setItemMeta((org.bukkit.inventory.meta.ItemMeta) damageable);
+                damaged = true;
+            }
+        }
+        if (damaged) {
+            targetPlayer.getInventory().setArmorContents(armor);
+            // Green particles on target
+            Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.0f);
+            targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0, 1, 0),
+                10, 0.3, 0.3, 0.3, 0.0, greenDust, true);
+        }
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Armor Mend (passive: restore own armor durability on hit)
+    // ==========================================================================
+
+    @EventHandler
+    public void onWealthArmorMend(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player player = (Player) event.getDamager();
+        if (!(event.getEntity() instanceof LivingEntity)) return;
+        if (event.getEntity() == player) return; // Don't trigger on self-damage
+
+        boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
+                          || isHoldingWealthGem(player);
+        if (!hasWealth) return;
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
+            }
+        }
+        if (tier == 0) tier = 1;
+
+        String tierKey = tier == 2 ? "tier2" : "tier1";
+        int repairAmount = this.plugin.getConfig().getInt("passives.wealth." + tierKey + ".armor-mend-amount", 2);
+
+        // Restore durability on attacker's armor
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean repaired = false;
+        for (int i = 0; i < armor.length; i++) {
+            if (armor[i] != null && !armor[i].getType().isAir() && armor[i].getItemMeta() instanceof Damageable) {
+                Damageable damageable = (Damageable) armor[i].getItemMeta();
+                int currentDamage = damageable.getDamage();
+                if (currentDamage > 0) {
+                    damageable.setDamage(Math.max(0, currentDamage - repairAmount));
+                    armor[i].setItemMeta((org.bukkit.inventory.meta.ItemMeta) damageable);
+                    repaired = true;
+                }
+            }
+        }
+        if (repaired) {
+            player.getInventory().setArmorContents(armor);
+            // Subtle green particles on self
+            Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 0.8f);
+            player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                8, 0.3, 0.3, 0.3, 0.0, greenDust, true);
+        }
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Double Debris (passive: 2x netherite scrap from furnaces)
+    // ==========================================================================
+
+    @EventHandler
+    public void onWealthDoubleDebris(FurnaceExtractEvent event) {
+        Player player = event.getPlayer();
+
+        boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
+                          || isHoldingWealthGem(player);
+        if (!hasWealth) return;
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        if (tier == 0) {
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            String oraxenId = CustomItemManager.getIdByItem(mainHand);
+            if (oraxenId != null) {
+                tier = GemType.getTierFromOraxenId(oraxenId);
+            }
+        }
+        if (tier == 0) tier = 1;
+
+        String tierKey = tier == 2 ? "tier2" : "tier1";
+        boolean enabled = this.plugin.getConfig().getBoolean("passives.wealth." + tierKey + ".double-debris", true);
+        if (!enabled) return;
+
+        if (event.getItemType() != Material.NETHERITE_SCRAP) return;
+
+        // Drop additional scrap at player location
+        player.getWorld().dropItemNaturally(player.getLocation(), new ItemStack(Material.NETHERITE_SCRAP, 1));
+
+        // Green particle + sound
+        Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.2f);
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3, 0.0, greenDust, true);
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
+        player.sendMessage("\u00a7a\u00a7oDouble Debris! Extra netherite scrap!");
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Unfortunate action blocks
+    // ==========================================================================
+
+    @EventHandler
+    public void onUnfortunateAttack(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) return;
+        Player player = (Player) event.getDamager();
+        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateBlockPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateEat(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    // ==========================================================================
+    // Wealth Gem — Item Lock handlers
+    // ==========================================================================
+
+    @EventHandler
+    public void onItemLockUse(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (!WealthAbilities.isItemLocked(player.getUniqueId())) return;
+
+        ItemStack heldItem = player.getInventory().getItemInMainHand();
+        ItemStack lockedItem = WealthAbilities.getLockedItem(player.getUniqueId());
+        if (lockedItem == null || heldItem == null) return;
+
+        if (heldItem.isSimilar(lockedItem)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oThis item is locked!");
+        }
+    }
+
+    @EventHandler
+    public void onItemLockSwitch(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        if (!WealthAbilities.isItemLocked(player.getUniqueId())) return;
+
+        ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
+        ItemStack lockedItem = WealthAbilities.getLockedItem(player.getUniqueId());
+        if (lockedItem == null || newItem == null) return;
+
+        if (newItem.isSimilar(lockedItem)) {
+            player.sendMessage("\u00a7c\u00a7oWarning: This item is locked!");
         }
     }
 
