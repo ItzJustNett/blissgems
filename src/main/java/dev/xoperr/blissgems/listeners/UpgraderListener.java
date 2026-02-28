@@ -14,6 +14,7 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import org.bukkit.Particle;
@@ -88,6 +89,10 @@ implements Listener {
                 }
             }
             player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("upgrade-success", new Object[0]));
+            // Achievement: The Next Level
+            if (this.plugin.getAchievementManager() != null) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.THE_NEXT_LEVEL);
+            }
         } else {
             player.sendMessage("\u00a7cFailed to upgrade gem!");
         }

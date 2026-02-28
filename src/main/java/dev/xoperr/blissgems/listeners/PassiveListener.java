@@ -30,6 +30,7 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.HashMap;
@@ -118,6 +119,11 @@ implements Listener {
         if (Math.random() < phaseChance) {
             event.setCancelled(true);
             player.sendMessage("\u00a7d\u00a7oYou phased through the attack!");
+
+            // Achievement: Saved By The Dice (phasing avoids a fatal blow)
+            if (this.plugin.getAchievementManager() != null && player.getHealth() <= event.getDamage()) {
+                this.plugin.getAchievementManager().unlock(player, Achievement.SAVED_BY_THE_DICE);
+            }
         }
     }
 
@@ -228,6 +234,12 @@ implements Listener {
             return;
         }
         event.setCancelled(true);
+
+        // Achievement: Almost Fell From Grace (cumulative fall damage prevented)
+        if (this.plugin.getAchievementManager() != null) {
+            int prevented = (int) event.getDamage();
+            this.plugin.getAchievementManager().addProgress(player, Achievement.ALMOST_FELL_FROM_GRACE, prevented);
+        }
     }
 
     @EventHandler
@@ -689,6 +701,13 @@ implements Listener {
         Location tpLoc = closest.getLocation().add(0.5, 1, 0.5);
         tpLoc.setYaw(player.getLocation().getYaw());
         tpLoc.setPitch(player.getLocation().getPitch());
+
+        // Achievement: Zip Away (cumulative distance via Conduction)
+        if (this.plugin.getAchievementManager() != null) {
+            int distance = (int) departure.distance(tpLoc);
+            this.plugin.getAchievementManager().addProgress(player, Achievement.ZIP_AWAY, distance);
+        }
+
         player.teleport(tpLoc);
 
         // Particles at departure

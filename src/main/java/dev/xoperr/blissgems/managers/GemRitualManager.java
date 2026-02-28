@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -29,6 +30,11 @@ public class GemRitualManager {
      * @param isFirstGem Whether this is the player's first gem
      */
     public void performGemRitual(Player player, GemType gemType, boolean isFirstGem) {
+        // Achievement: Reawakening (complete a restoration ritual)
+        if (!isFirstGem && this.plugin.getAchievementManager() != null) {
+            this.plugin.getAchievementManager().unlock(player, Achievement.REAWAKENING);
+        }
+
         Location loc = player.getLocation().clone();
         org.bukkit.Color gemColor = getGemColor(gemType);
 

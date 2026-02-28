@@ -6,6 +6,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -230,6 +231,11 @@ public class FluxAbilities {
     private void fireChargedBeam(Player player) {
         UUID uuid = player.getUniqueId();
         int charge = chargingPlayers.getOrDefault(uuid, 0);
+
+        // Achievement: Overcharged (fired at 100W)
+        if (charge >= MAX_CHARGE && this.plugin.getAchievementManager() != null) {
+            this.plugin.getAchievementManager().unlock(player, Achievement.OVERCHARGED);
+        }
 
         // Cancel charging task
         BukkitTask task = chargingTasks.remove(uuid);

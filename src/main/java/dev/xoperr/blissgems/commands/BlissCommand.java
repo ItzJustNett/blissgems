@@ -13,6 +13,7 @@
 package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
@@ -137,6 +138,10 @@ TabCompleter {
             }
             case "souls": {
                 this.handleSoulsInfo(sender, args);
+                break;
+            }
+            case "achievements": {
+                this.handleAchievements(sender, args);
                 break;
             }
             case "normalise":
@@ -1043,6 +1048,35 @@ TabCompleter {
         }
     }
 
+    private void handleAchievements(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+
+        java.util.Set<Achievement> unlocked = this.plugin.getAchievementManager().getUnlocked(player);
+        int total = Achievement.values().length;
+        int unlockedCount = unlocked.size();
+
+        player.sendMessage("\u00a76\u00a7l\u2b50 Achievements (" + unlockedCount + "/" + total + ")");
+        player.sendMessage("");
+
+        for (Achievement achievement : Achievement.values()) {
+            boolean isUnlocked = unlocked.contains(achievement);
+            int progress = this.plugin.getAchievementManager().getProgress(player, achievement);
+            int target = achievement.getTargetProgress();
+
+            if (isUnlocked) {
+                player.sendMessage("\u00a7a\u2714 \u00a7e" + achievement.getDisplayName() + " \u00a77- " + achievement.getDescription());
+            } else if (target > 1 && progress > 0) {
+                player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription() + " \u00a7e(" + progress + "/" + target + ")");
+            } else {
+                player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription());
+            }
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("\u00a75\u00a7lBlissGems Commands:");
         sender.sendMessage("\u00a77/bliss give <player> <gem_type> [tier] \u00a78- Give a gem");
@@ -1062,6 +1096,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss trusted \u00a78- List trusted players");
         sender.sendMessage("\u00a77/bliss souls \u00a78- View captured souls (Astra)");
         sender.sendMessage("\u00a77/bliss release \u00a78- Release captured souls (Astra)");
+        sender.sendMessage("\u00a77/bliss achievements \u00a78- View your achievements");
         sender.sendMessage("\u00a77/bliss stats [top|me|gems] \u00a78- View server stats");
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
         sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
@@ -1071,7 +1106,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "bannable", "souls", "release", "normalise", "normalize"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());

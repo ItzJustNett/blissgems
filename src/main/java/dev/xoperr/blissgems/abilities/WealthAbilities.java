@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -294,6 +295,11 @@ public class WealthAbilities {
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.5f);
         player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 1.0, 0.5, 0.0, greenDust, true);
         player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0.0, 1.0, 0.0), 80, 0.5, 1.0, 0.5);
+        // Achievement: Boundary Break
+        if (this.plugin.getAchievementManager() != null && !originalEnchants.isEmpty()) {
+            this.plugin.getAchievementManager().unlock(player, Achievement.BOUNDARY_BREAK);
+        }
+
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
         player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Amplification"));
     }

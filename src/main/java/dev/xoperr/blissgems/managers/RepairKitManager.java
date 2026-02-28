@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Achievement;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -104,6 +105,11 @@ public class RepairKitManager {
                                     plugin.getEnergyManager().addEnergy(player, toRestore);
                                     pedestal.consumeEnergy(toRestore);
                                     energyRestored += toRestore;
+
+                                    // Achievement: Good As New! (cumulative energy from repair kits)
+                                    if (plugin.getAchievementManager() != null) {
+                                        plugin.getAchievementManager().addProgress(player, Achievement.GOOD_AS_NEW, toRestore);
+                                    }
 
                                     // Visual feedback for player
                                     Particle feedbackParticle = Particle.valueOf(
