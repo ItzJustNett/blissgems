@@ -43,17 +43,9 @@ public class ItemOwnershipManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Player player = (Player) event.getEntity();
-
-        Item itemEntity = event.getItem();
-        ItemStack item = itemEntity.getItemStack();
-
-        // Only stamp ownership if the item doesn't already have an owner
-        if (getItemOwner(item) == null) {
-            setItemOwner(item, player.getUniqueId());
-            itemEntity.setItemStack(item);
-        }
+        // Only track ownership for items that were crafted by a specific player
+        // Skip general item pickups to allow proper stacking
+        // (Ownership is already tracked when items are CRAFTED via CraftItemEvent)
     }
 
     /**

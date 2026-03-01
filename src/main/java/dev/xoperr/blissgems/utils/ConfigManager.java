@@ -284,7 +284,7 @@ public class ConfigManager {
 
     public boolean isFireResistanceEnabled(int tier) {
         String path = "passives.fire.tier" + tier + ".fire-resistance";
-        return this.config.getBoolean(path, tier == 2);
+        return this.config.getBoolean(path, true);
     }
 
     // Speed Passives

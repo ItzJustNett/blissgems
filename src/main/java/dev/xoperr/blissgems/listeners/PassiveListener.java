@@ -63,6 +63,8 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
 import org.bukkit.inventory.meta.Damageable;
@@ -1143,6 +1145,116 @@ implements Listener {
         for (ItemStack drop : originalDrops) {
             event.getDrops().add(drop.clone());
         }
+    }
+
+    // ==========================================================================
+    // Flux Gem — Flow State (passive: speed/haste on repeated actions)
+    // ==========================================================================
+
+    @EventHandler
+    public void onFluxFlowBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+
+        this.plugin.getFlowStateManager().registerAction(
+            player,
+            dev.xoperr.blissgems.managers.FlowStateManager.ActionType.BLOCK_BREAK
+        );
+    }
+
+    @EventHandler
+    public void onFluxFlowAttack(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) {
+            return;
+        }
+        Player player = (Player) event.getDamager();
+        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+
+        this.plugin.getFlowStateManager().registerAction(
+            player,
+            dev.xoperr.blissgems.managers.FlowStateManager.ActionType.ATTACK
+        );
+    }
+
+    @EventHandler
+    public void onFluxFlowArrowShoot(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+        if (!(projectile instanceof Arrow)) {
+            return;
+        }
+
+        ProjectileSource shooter = projectile.getShooter();
+        if (!(shooter instanceof Player)) {
+            return;
+        }
+        Player player = (Player) shooter;
+
+        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+
+        this.plugin.getFlowStateManager().registerAction(
+            player,
+            dev.xoperr.blissgems.managers.FlowStateManager.ActionType.ARROW_SHOOT
+        );
+    }
+
+    @EventHandler
+    public void onFluxFlowSprint(PlayerToggleSprintEvent event) {
+        Player player = event.getPlayer();
+        if (!event.isSprinting()) {
+            return; // Only trigger when starting to sprint, not stopping
+        }
+
+        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+
+        this.plugin.getFlowStateManager().registerAction(
+            player,
+            dev.xoperr.blissgems.managers.FlowStateManager.ActionType.SPRINT
+        );
+    }
+
+    @EventHandler
+    public void onFluxFlowJump(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+
+        // Only trigger when player jumps (velocity Y > 0 and was on ground last tick)
+        if (event.getTo().getY() <= event.getFrom().getY()) {
+            return; // Not jumping upward
+        }
+        if (!player.isOnGround()) {
+            return; // Already in air, not a fresh jump
+        }
+
+        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
+            return;
+        }
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+            return;
+        }
+
+        this.plugin.getFlowStateManager().registerAction(
+            player,
+            dev.xoperr.blissgems.managers.FlowStateManager.ActionType.JUMP
+        );
     }
 }
 
