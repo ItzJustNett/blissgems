@@ -85,7 +85,10 @@ public class PassiveManager {
     private void applyFirePassives(Player player) {
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         if (this.plugin.getConfigManager().isFireResistanceEnabled(tier)) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0, true, false));
+            int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
+            // Duration must be >= interval + buffer to avoid stacking overlap
+            // Add 10 ticks buffer to ensure no gaps between applications
+            player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, interval + 10, 0, true, false), true);
         }
     }
 
@@ -112,21 +115,30 @@ public class PassiveManager {
     private void applySpeedPassives(Player player) {
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         int speedLevel = this.plugin.getConfigManager().getSpeedLevel(tier);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, speedLevel, true, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, 60, 0, true, false));
+        int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
+        // Duration must be >= interval + buffer to avoid stacking overlap
+        int duration = interval + 10;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, speedLevel, true, false), true);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, duration, 0, true, false), true);
     }
 
     private void applyStrengthPassives(Player player) {
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         int strengthLevel = this.plugin.getConfigManager().getStrengthLevel(tier);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 60, strengthLevel, true, false));
+        int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
+        // Duration must be >= interval + buffer to avoid stacking overlap
+        int duration = interval + 10;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, duration, strengthLevel, true, false), true);
     }
 
     private void applyWealthPassives(Player player) {
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         int luckLevel = this.plugin.getConfigManager().getLuckLevel(tier);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, 60, luckLevel, true, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, 60, 0, true, false));
+        int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
+        // Duration must be >= interval + buffer to avoid stacking overlap
+        int duration = interval + 10;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, duration, luckLevel, true, false), true);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, duration, 0, true, false), true);
     }
 }
 
