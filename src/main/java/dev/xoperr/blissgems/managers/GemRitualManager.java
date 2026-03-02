@@ -38,44 +38,170 @@ public class GemRitualManager {
         Location loc = player.getLocation().clone();
         org.bukkit.Color gemColor = getGemColor(gemType);
 
-        // Apply slow falling during ritual
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 100, 0, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20, 1, false, false));
+        // Apply slow falling during ritual (extends for full 15-second sequence)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 300, 0, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 40, 1, false, false));
 
-        // Phase 1: Ground circle formation (0-1 seconds)
+        // Phase 0: All 8 gems spinning orbit (0-4 seconds)
         new BukkitRunnable() {
             int ticks = 0;
+            final int maxTicks = 80; // 4 seconds
 
             @Override
             public void run() {
-                if (!player.isOnline() || ticks >= 20) {
+                if (!player.isOnline() || ticks >= maxTicks) {
                     this.cancel();
                     return;
                 }
 
-                // Expanding circle on ground
-                double radius = (ticks / 20.0) * 5.0;
-                for (int i = 0; i < 32; i++) {
-                    double angle = (i / 32.0) * 2 * Math.PI;
+                // All 8 gem types orbit simultaneously
+                GemType[] allGems = GemType.values();
+                for (int i = 0; i < allGems.length; i++) {
+                    double angleOffset = (i / 8.0) * 2 * Math.PI;
+                    double angle = (ticks / 20.0) * Math.PI + angleOffset; // 2 rotations in 4s
+                    double radius = 2.5; // 2.5 blocks from player
+                    double height = 1.5 + Math.sin(ticks / 10.0) * 0.3; // Gentle bob
+
                     double x = Math.cos(angle) * radius;
                     double z = Math.sin(angle) * radius;
-                    Location particleLoc = loc.clone().add(x, 0.1, z);
+                    Location gemLoc = player.getLocation().add(x, height, z);
 
-                    Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.5f);
-                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0.0, dust, true);
-                    player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 1, 0.0, 0.0, 0.0, 0.01);
+                    Color color = getGemColor(allGems[i]);
+                    Particle.DustOptions dust = new Particle.DustOptions(color, 2.0f);
+                    player.getWorld().spawnParticle(Particle.DUST, gemLoc, 15, 0.15, 0.15, 0.15, 0.0, dust, true);
+                    player.getWorld().spawnParticle(Particle.END_ROD, gemLoc, 3, 0.1, 0.1, 0.1, 0.01);
+                    player.getWorld().spawnParticle(Particle.ENCHANT, gemLoc, 5, 0.1, 0.1, 0.1, 0.3);
                 }
 
-                // Sound effects
-                if (ticks % 5 == 0) {
-                    player.playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.5f);
+                // Sound every half second
+                if (ticks % 10 == 0) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.0f + (ticks / 80.0f));
                 }
 
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
 
-        // Phase 2: Spiral totem effect (1-3 seconds)
+        // Phase 1: Selection and divergence - winner goes to player, others fall (4-6 seconds)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            Location playerCenter = player.getLocation().add(0, 1.5, 0);
+            GemType[] allGems = GemType.values();
+
+            new BukkitRunnable() {
+                int ticks = 0;
+                final int maxTicks = 40; // 2 seconds
+
+                @Override
+                public void run() {
+                    if (!player.isOnline() || ticks >= maxTicks) {
+                        this.cancel();
+                        return;
+                    }
+
+                    double progress = ticks / (double) maxTicks;
+
+                    for (int i = 0; i < allGems.length; i++) {
+                        GemType currentGem = allGems[i];
+                        Color color = getGemColor(currentGem);
+
+                        // Starting orbit position (where phase 0 ended)
+                        double angleOffset = (i / 8.0) * 2 * Math.PI;
+                        double startAngle = (4.0) * Math.PI + angleOffset; // Where orbit ended
+                        double startRadius = 2.5;
+                        double startHeight = 1.5;
+
+                        Location startLoc = player.getLocation().add(
+                            Math.cos(startAngle) * startRadius,
+                            startHeight,
+                            Math.sin(startAngle) * startRadius
+                        );
+
+                        Location targetLoc;
+                        if (currentGem == gemType) {
+                            // Winner gem: move to player center
+                            targetLoc = playerCenter.clone();
+                        } else {
+                            // Loser gems: move down and outward slightly
+                            targetLoc = startLoc.clone().add(0, -3.0, 0);
+                        }
+
+                        // Interpolate position
+                        Location currentLoc = startLoc.clone().add(
+                            (targetLoc.getX() - startLoc.getX()) * progress,
+                            (targetLoc.getY() - startLoc.getY()) * progress,
+                            (targetLoc.getZ() - startLoc.getZ()) * progress
+                        );
+
+                        // Particles
+                        Particle.DustOptions dust = new Particle.DustOptions(color,
+                            currentGem == gemType ? 2.5f : 1.5f);
+                        int amount = currentGem == gemType ? 20 : 10;
+                        player.getWorld().spawnParticle(Particle.DUST, currentLoc, amount,
+                            0.1, 0.1, 0.1, 0.0, dust, true);
+
+                        if (currentGem == gemType) {
+                            // Winner gets extra sparkle
+                            player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 5,
+                                0.1, 0.1, 0.1, 0.05);
+                            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 3,
+                                0.1, 0.1, 0.1, 0.01);
+                        }
+                    }
+
+                    // Sound progression
+                    if (ticks % 5 == 0) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE,
+                            0.7f, 1.0f + (float) progress);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+
+            // Final selection sound
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
+            }, 40L);
+
+        }, 80L); // Start after 4-second orbit
+
+        // Phase 2: Ground circle formation (6-7 seconds)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            new BukkitRunnable() {
+                int ticks = 0;
+
+                @Override
+                public void run() {
+                    if (!player.isOnline() || ticks >= 20) {
+                        this.cancel();
+                        return;
+                    }
+
+                    // Expanding circle on ground
+                    double radius = (ticks / 20.0) * 5.0;
+                    for (int i = 0; i < 32; i++) {
+                        double angle = (i / 32.0) * 2 * Math.PI;
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        Location particleLoc = loc.clone().add(x, 0.1, z);
+
+                        Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.5f);
+                        player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0.0, dust, true);
+                        player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 1, 0.0, 0.0, 0.0, 0.01);
+                    }
+
+                    // Sound effects
+                    if (ticks % 5 == 0) {
+                        player.playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.5f);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }, 120L);
+
+        // Phase 3: Spiral totem effect (7-9 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             new BukkitRunnable() {
                 int ticks = 0;
@@ -122,11 +248,12 @@ public class GemRitualManager {
                     ticks++;
                 }
             }.runTaskTimer(plugin, 0L, 1L);
-        }, 20L);
+        }, 140L);
 
-        // Phase 3: Explosion and convergence (3-4 seconds)
+        // Phase 4: Explosion and convergence (9-10 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             Location center = loc.clone().add(0, 5, 0);
+
 
             // Massive totem-like explosion
             Particle.DustOptions explosionDust = new Particle.DustOptions(gemColor, 2.5f);
@@ -179,9 +306,9 @@ public class GemRitualManager {
                 }
             }.runTaskTimer(plugin, 0L, 1L);
 
-        }, 60L);
+        }, 180L);
 
-        // Phase 4: Final burst at player (4 seconds)
+        // Phase 5: Final burst at player (10 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             Location playerCenter = player.getLocation().add(0, 1, 0);
 
@@ -212,9 +339,9 @@ public class GemRitualManager {
             // Give glowing effect briefly
             player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, false, false));
 
-        }, 80L);
+        }, 200L);
 
-        // Phase 5: Lingering particles (4-6 seconds)
+        // Phase 6: Lingering particles (10-12 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             new BukkitRunnable() {
                 int ticks = 0;
@@ -247,7 +374,7 @@ public class GemRitualManager {
                 }
             }.runTaskTimer(plugin, 0L, 1L);
 
-        }, 80L);
+        }, 200L);
     }
 
     /**
