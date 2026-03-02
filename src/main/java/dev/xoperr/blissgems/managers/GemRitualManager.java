@@ -2,15 +2,25 @@ package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
+import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.entity.Display;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages elaborate ritual animations for gem-related events
@@ -43,6 +53,31 @@ public class GemRitualManager {
         player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 40, 1, false, false));
 
         // Phase 0: All 8 gems spinning orbit (0-4 seconds)
+        List<ItemDisplay> orbitingGems = new ArrayList<>();
+        GemType[] allGems = GemType.values();
+        Location playerLoc = player.getLocation();
+
+        // Spawn ItemDisplay entities for each gem
+        for (int i = 0; i < allGems.length; i++) {
+            String gemItemId = getGemItemId(allGems[i]);
+            ItemStack gemItem = CustomItemManager.getItemById(gemItemId); // Use base texture like strength gem
+            if (gemItem == null) continue; // Skip if gem item creation fails
+
+            double angleOffset = (i / 8.0) * 2 * Math.PI;
+            double radius = 2.5;
+            double height = 1.5;
+
+            double x = Math.cos(angleOffset) * radius;
+            double z = Math.sin(angleOffset) * radius;
+            Location gemLoc = playerLoc.clone().add(x, height, z);
+
+            ItemDisplay itemDisplay = player.getWorld().spawn(gemLoc, ItemDisplay.class);
+            itemDisplay.setItemStack(gemItem);
+            itemDisplay.setBillboard(Display.Billboard.FIXED);
+            itemDisplay.setViewRange(100);
+            orbitingGems.add(itemDisplay);
+        }
+
         new BukkitRunnable() {
             int ticks = 0;
             final int maxTicks = 80; // 4 seconds
@@ -50,27 +85,41 @@ public class GemRitualManager {
             @Override
             public void run() {
                 if (!player.isOnline() || ticks >= maxTicks) {
+                    // Clean up gem entities
+                    for (ItemDisplay gem : orbitingGems) {
+                        if (gem != null && gem.isValid()) {
+                            gem.remove();
+                        }
+                    }
+                    orbitingGems.clear();
                     this.cancel();
                     return;
                 }
 
-                // All 8 gem types orbit simultaneously
-                GemType[] allGems = GemType.values();
-                for (int i = 0; i < allGems.length; i++) {
+                // Update positions of all 8 gem items
+                for (int i = 0; i < orbitingGems.size(); i++) {
+                    ItemDisplay gem = orbitingGems.get(i);
+                    if (gem == null || !gem.isValid()) continue;
+
                     double angleOffset = (i / 8.0) * 2 * Math.PI;
                     double angle = (ticks / 20.0) * Math.PI + angleOffset; // 2 rotations in 4s
-                    double radius = 2.5; // 2.5 blocks from player
+                    double radius = 2.5;
                     double height = 1.5 + Math.sin(ticks / 10.0) * 0.3; // Gentle bob
 
                     double x = Math.cos(angle) * radius;
                     double z = Math.sin(angle) * radius;
-                    Location gemLoc = player.getLocation().add(x, height, z);
+                    Location newLoc = player.getLocation().clone().add(x, height, z);
+                    gem.teleport(newLoc);
 
-                    Color color = getGemColor(allGems[i]);
-                    Particle.DustOptions dust = new Particle.DustOptions(color, 2.0f);
-                    player.getWorld().spawnParticle(Particle.DUST, gemLoc, 15, 0.15, 0.15, 0.15, 0.0, dust, true);
-                    player.getWorld().spawnParticle(Particle.END_ROD, gemLoc, 3, 0.1, 0.1, 0.1, 0.01);
-                    player.getWorld().spawnParticle(Particle.ENCHANT, gemLoc, 5, 0.1, 0.1, 0.1, 0.3);
+                    // Rotate gem for visual effect
+                    float rotation = (ticks * 5) % 360;
+                    Transformation transform = new Transformation(
+                        new Vector3f(0, 0, 0),
+                        new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
+                        new Vector3f(1.2f, 1.2f, 1.2f),
+                        new AxisAngle4f(0, 0, 0, 1)
+                    );
+                    gem.setTransformation(transform);
                 }
 
                 // Sound every half second
@@ -85,7 +134,29 @@ public class GemRitualManager {
         // Phase 1: Selection and divergence - winner goes to player, others fall (4-6 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             Location playerCenter = player.getLocation().add(0, 1.5, 0);
-            GemType[] allGems = GemType.values();
+            List<ItemDisplay> selectionGems = new ArrayList<>();
+
+            // Spawn fresh gem entities for selection phase
+            for (int i = 0; i < allGems.length; i++) {
+                String gemItemId = getGemItemId(allGems[i]);
+                ItemStack gemItem = CustomItemManager.getItemById(gemItemId); // Use base texture like strength gem
+                if (gemItem == null) continue; // Skip if gem item creation fails
+
+                double angleOffset = (i / 8.0) * 2 * Math.PI;
+                double startAngle = (4.0) * Math.PI + angleOffset;
+                double radius = 2.5;
+                double height = 1.5;
+
+                double x = Math.cos(startAngle) * radius;
+                double z = Math.sin(startAngle) * radius;
+                Location startLoc = player.getLocation().clone().add(x, height, z);
+
+                ItemDisplay itemDisplay = player.getWorld().spawn(startLoc, ItemDisplay.class);
+                itemDisplay.setItemStack(gemItem);
+                itemDisplay.setBillboard(Display.Billboard.FIXED);
+                itemDisplay.setViewRange(100);
+                selectionGems.add(itemDisplay);
+            }
 
             new BukkitRunnable() {
                 int ticks = 0;
@@ -94,19 +165,28 @@ public class GemRitualManager {
                 @Override
                 public void run() {
                     if (!player.isOnline() || ticks >= maxTicks) {
+                        // Clean up selection gem entities
+                        for (ItemDisplay gem : selectionGems) {
+                            if (gem != null && gem.isValid()) {
+                                gem.remove();
+                            }
+                        }
+                        selectionGems.clear();
                         this.cancel();
                         return;
                     }
 
                     double progress = ticks / (double) maxTicks;
 
-                    for (int i = 0; i < allGems.length; i++) {
+                    for (int i = 0; i < selectionGems.size(); i++) {
+                        ItemDisplay gem = selectionGems.get(i);
+                        if (gem == null || !gem.isValid()) continue;
+
                         GemType currentGem = allGems[i];
-                        Color color = getGemColor(currentGem);
 
                         // Starting orbit position (where phase 0 ended)
                         double angleOffset = (i / 8.0) * 2 * Math.PI;
-                        double startAngle = (4.0) * Math.PI + angleOffset; // Where orbit ended
+                        double startAngle = (4.0) * Math.PI + angleOffset;
                         double startRadius = 2.5;
                         double startHeight = 1.5;
 
@@ -121,7 +201,7 @@ public class GemRitualManager {
                             // Winner gem: move to player center
                             targetLoc = playerCenter.clone();
                         } else {
-                            // Loser gems: move down and outward slightly
+                            // Loser gems: move down and outward
                             targetLoc = startLoc.clone().add(0, -3.0, 0);
                         }
 
@@ -131,20 +211,23 @@ public class GemRitualManager {
                             (targetLoc.getY() - startLoc.getY()) * progress,
                             (targetLoc.getZ() - startLoc.getZ()) * progress
                         );
+                        gem.teleport(currentLoc);
 
-                        // Particles
-                        Particle.DustOptions dust = new Particle.DustOptions(color,
-                            currentGem == gemType ? 2.5f : 1.5f);
-                        int amount = currentGem == gemType ? 20 : 10;
-                        player.getWorld().spawnParticle(Particle.DUST, currentLoc, amount,
-                            0.1, 0.1, 0.1, 0.0, dust, true);
+                        // Rotate winner gem faster
+                        float rotation = currentGem == gemType ? (ticks * 15) % 360 : (ticks * 3) % 360;
+                        Transformation transform = new Transformation(
+                            new Vector3f(0, 0, 0),
+                            new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
+                            currentGem == gemType ? new Vector3f(1.5f, 1.5f, 1.5f) : new Vector3f(1.0f, 1.0f, 1.0f),
+                            new AxisAngle4f(0, 0, 0, 1)
+                        );
+                        gem.setTransformation(transform);
 
+                        // Particle effect for winner only
                         if (currentGem == gemType) {
-                            // Winner gets extra sparkle
-                            player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 5,
-                                0.1, 0.1, 0.1, 0.05);
-                            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 3,
-                                0.1, 0.1, 0.1, 0.01);
+                            Color color = getGemColor(currentGem);
+                            player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 3, 0.1, 0.1, 0.1, 0.05);
+                            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 2, 0.1, 0.1, 0.1, 0.01);
                         }
                     }
 
@@ -516,6 +599,22 @@ public class GemRitualManager {
             }.runTaskTimer(plugin, 0L, 1L);
 
         }, 60L);
+    }
+
+    /**
+     * Get the custom item ID for displaying a gem (Tier 1)
+     */
+    private String getGemItemId(GemType gemType) {
+        return switch (gemType) {
+            case ASTRA -> "astra_gem_t1";
+            case FIRE -> "fire_gem_t1";
+            case FLUX -> "flux_gem_t1";
+            case LIFE -> "life_gem_t1";
+            case PUFF -> "puff_gem_t1";
+            case SPEED -> "speed_gem_t1";
+            case STRENGTH -> "strength_gem_t1";
+            case WEALTH -> "wealth_gem_t1";
+        };
     }
 
     /**
