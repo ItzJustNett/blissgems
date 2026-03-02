@@ -203,13 +203,13 @@ public class StrengthAbilities {
 
         ItemStack heldItem = player.getInventory().getItemInMainHand();
         if (heldItem == null || heldItem.getType() == Material.AIR) {
-            player.sendMessage("\u00a7c\u00a7oHold a player head or an item owned by another player!");
+            player.sendMessage("\u00a7c\u00a7oHold a player head!");
             return;
         }
 
         UUID targetUUID = null;
 
-        // Check 1: Player head with skull meta
+        // Check: Player head with skull meta
         if (heldItem.getType() == Material.PLAYER_HEAD && heldItem.hasItemMeta()) {
             SkullMeta skullMeta = (SkullMeta) heldItem.getItemMeta();
             if (skullMeta.getOwningPlayer() != null) {
@@ -217,13 +217,8 @@ public class StrengthAbilities {
             }
         }
 
-        // Check 2: Item with PDC ownership data
         if (targetUUID == null) {
-            targetUUID = this.plugin.getItemOwnershipManager().getItemOwner(heldItem);
-        }
-
-        if (targetUUID == null) {
-            player.sendMessage("\u00a7c\u00a7oThis item has no trackable ownership! Use a player head or an item owned by another player.");
+            player.sendMessage("\u00a7c\u00a7oThis is not a valid player head!");
             return;
         }
 
