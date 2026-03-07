@@ -98,7 +98,7 @@ public class RecipeManager {
         NamespacedKey key = new NamespacedKey(plugin, "gem_trader");
         ShapedRecipe recipe = new ShapedRecipe(key, gemTrader);
 
-        recipe.shape("BDB", "DSB", "BDB");
+        recipe.shape("BDB", "DSD", "BDB");
         recipe.setIngredient('B', Material.DIAMOND_BLOCK);
         recipe.setIngredient('D', Material.DRAGON_BREATH);
         recipe.setIngredient('S', Material.SCULK_CATALYST);

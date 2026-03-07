@@ -642,7 +642,8 @@ TabCompleter {
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(offHand);
             if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
                 return;
             }
         }
@@ -651,7 +652,8 @@ TabCompleter {
 
         // Check tier requirement for secondary abilities
         if (tier < 2) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-tier2"));
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
         }
 
@@ -717,14 +719,16 @@ TabCompleter {
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(offHand);
             if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
                 return;
             }
         }
 
         int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
         if (tier < 2) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-tier2"));
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
         }
 
@@ -783,14 +787,16 @@ TabCompleter {
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(offHand);
             if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
                 return;
             }
         }
 
         int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
         if (tier < 2) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-tier2"));
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
         }
 

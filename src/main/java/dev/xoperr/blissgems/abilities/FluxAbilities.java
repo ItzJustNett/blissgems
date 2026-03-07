@@ -203,13 +203,6 @@ public class FluxAbilities {
         }.runTaskTimer(this.plugin, 0L, 1L);
 
         chargingTasks.put(uuid, task);
-
-        // Auto-fire after 15 seconds (when fully charged)
-        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-            if (isCharging(player)) {
-                fireChargedBeam(player);
-            }
-        }, CHARGE_DURATION_TICKS + 20L); // Extra 1 second grace period
     }
 
     private void showChargeBar(Player player, int charge) {
