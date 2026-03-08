@@ -45,7 +45,7 @@ public class FireAbilities {
     // Crisp state
     private final Set<UUID> crispActivePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> crispTasks = new HashMap<>();
-    private final Map<UUID, Set<Location>> crispProtectedBlocks = new HashMap<>();
+    private final Map<UUID, Map<Location, Material>> crispOriginalBlocks = new HashMap<>();
 
     // Meteor Shower state
     private final Set<UUID> meteorShowersActive = new HashSet<>();
@@ -82,8 +82,8 @@ public class FireAbilities {
     }
 
     public boolean isProtectedBlock(Location loc) {
-        for (Set<Location> blocks : crispProtectedBlocks.values()) {
-            if (blocks.contains(loc)) {
+        for (Map<Location, Material> blocks : crispOriginalBlocks.values()) {
+            if (blocks.containsKey(loc)) {
                 return true;
             }
         }
@@ -556,7 +556,7 @@ public class FireAbilities {
         player.sendMessage("\u00a76\u00a7lCrisp! \u00a7eEvaporating water and scorching the earth for " + durationSeconds + "s!");
 
         // --- Initial pass: replace water and surrounding blocks ---
-        crispProtectedBlocks.put(uuid, new HashSet<>());
+        crispOriginalBlocks.put(uuid, new HashMap<>());
         evaporateAndScorch(center, radius, uuid);
 
         // Activation visual — expanding ring of fire
@@ -625,7 +625,7 @@ public class FireAbilities {
     private void evaporateAndScorch(Location center, int radius, UUID ownerUuid) {
         evaporateWater(center, radius);
 
-        Set<Location> protectedSet = crispProtectedBlocks.get(ownerUuid);
+        Map<Location, Material> originalBlocks = crispOriginalBlocks.get(ownerUuid);
 
         // Replace surface-level solid blocks around center with nether blocks
         for (int x = -radius; x <= radius; x++) {
@@ -636,13 +636,14 @@ public class FireAbilities {
                 Block surface = loc.getWorld().getHighestBlockAt(loc);
                 if (surface.getType().isSolid() && !surface.getType().name().startsWith("NETHER") &&
                         surface.getType() != Material.MAGMA_BLOCK && surface.getType() != Material.SOUL_SAND) {
+                    // Store original block type before replacing
+                    Location blockLoc = surface.getLocation();
+                    if (originalBlocks != null) {
+                        originalBlocks.put(blockLoc, surface.getType());
+                    }
                     // Replace with random nether block
                     Material netherMat = NETHER_BLOCKS[random.nextInt(NETHER_BLOCKS.length)];
                     surface.setType(netherMat);
-                    // Track this block as protected
-                    if (protectedSet != null) {
-                        protectedSet.add(surface.getLocation());
-                    }
                 }
             }
         }
@@ -677,11 +678,22 @@ public class FireAbilities {
         BukkitTask task = crispTasks.remove(uuid);
         if (task != null) task.cancel();
 
-        // Remove block protection — blocks become normal breakable blocks
-        crispProtectedBlocks.remove(uuid);
+        // Restore all blocks to their original materials
+        Map<Location, Material> originalBlocks = crispOriginalBlocks.remove(uuid);
+        if (originalBlocks != null) {
+            for (Map.Entry<Location, Material> entry : originalBlocks.entrySet()) {
+                Block block = entry.getKey().getBlock();
+                // Only restore if the block is still a nether block (hasn't been broken/changed by player)
+                String blockName = block.getType().name();
+                if (blockName.startsWith("NETHER") || block.getType() == Material.MAGMA_BLOCK ||
+                        block.getType() == Material.SOUL_SAND) {
+                    block.setType(entry.getValue());
+                }
+            }
+        }
 
         if (wasActive && player.isOnline()) {
-            player.sendMessage("\u00a76\u00a7oCrisp faded.");
+            player.sendMessage("\u00a76\u00a7oCrisp faded. Terrain restored.");
         }
     }
 
@@ -883,7 +895,7 @@ public class FireAbilities {
         endCrisp(player);
 
         UUID uuid = player.getUniqueId();
-        crispProtectedBlocks.remove(uuid);
+        crispOriginalBlocks.remove(uuid);
         meteorShowersActive.remove(uuid);
         BukkitTask meteorTask = meteorTasks.remove(uuid);
         if (meteorTask != null) meteorTask.cancel();
