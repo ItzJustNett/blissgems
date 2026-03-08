@@ -59,7 +59,7 @@ public class PlayerJoinListener implements Listener {
                             player.sendMessage("");
 
                             // Start the ritual animation
-                            this.plugin.getGemRitualManager().performGemRitual(player, finalGem, true);
+                            this.plugin.getGemRitualManager().performGemRitual(player, finalGem, true, 1);
 
                             // Give the gem after a short delay (let ritual build up)
                             this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {

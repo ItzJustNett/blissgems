@@ -180,7 +180,7 @@ public class StrengthAbilities {
 
     // ========================================================================
     // SHADOW STALKER — Tier 2 Tertiary
-    // Consume player head or owned item to track a player
+    // Consume a player head to track that player
     // ========================================================================
 
     public void shadowStalker(Player player) {
