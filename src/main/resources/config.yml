@@ -175,6 +175,7 @@ abilities:
     puff-dash: 5
     puff-breezy-bash: 10
     puff-group-bash: 30
+    speed-blur: 15
     speed-sedative: 60
     speed-storm: 45
     speed-terminal: 60  # Terminal Velocity cooldown

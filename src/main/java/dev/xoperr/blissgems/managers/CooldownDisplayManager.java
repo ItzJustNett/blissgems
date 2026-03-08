@@ -117,7 +117,17 @@ public class CooldownDisplayManager {
                     continue;
                 }
 
+                // Show BROKEN indicator when energy is 0
+                int energy = this.plugin.getEnergyManager().getEnergy(player);
                 String cooldownDisplay = buildCooldownDisplay(player);
+                if (energy == 0) {
+                    String brokenPrefix = "\u00a7c\u00a7lBROKEN \u00a78| ";
+                    if (!cooldownDisplay.isEmpty()) {
+                        cooldownDisplay = brokenPrefix + cooldownDisplay;
+                    } else {
+                        cooldownDisplay = "\u00a7c\u00a7lBROKEN";
+                    }
+                }
                 if (!cooldownDisplay.isEmpty()) {
                     player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(cooldownDisplay));
                 }
