@@ -280,10 +280,10 @@ TabCompleter {
         target.sendMessage("\u00a77\u00a7oThe ancient powers are choosing your fate...");
 
         // Start the ritual animation
-        this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false);
+        final int finalTier = tier;
+        this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false, finalTier);
 
         // Give the gem after a short delay (let ritual build up)
-        final int finalTier = tier;
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
             if (this.plugin.getGemManager().giveGem(target, randomGem, finalTier)) {
                 String msg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled", "player", target.getName(), "gem", randomGem.getDisplayName(), "tier", finalTier);
@@ -1110,7 +1110,7 @@ TabCompleter {
                     target.sendMessage("");
 
                     // Start the ritual animation
-                    this.plugin.getGemRitualManager().performGemRitual(target, finalGem, true);
+                    this.plugin.getGemRitualManager().performGemRitual(target, finalGem, true, 1);
 
                     // Give the gem after a short delay (let ritual build up)
                     this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {

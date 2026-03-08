@@ -38,8 +38,9 @@ public class GemRitualManager {
      * @param player The player receiving the gem
      * @param gemType The gem type being received
      * @param isFirstGem Whether this is the player's first gem
+     * @param tier The gem tier (1 or 2) — spinning gems match this tier
      */
-    public void performGemRitual(Player player, GemType gemType, boolean isFirstGem) {
+    public void performGemRitual(Player player, GemType gemType, boolean isFirstGem, int tier) {
         // Achievement: Reawakening (complete a restoration ritual)
         if (!isFirstGem && this.plugin.getAchievementManager() != null) {
             this.plugin.getAchievementManager().unlock(player, Achievement.REAWAKENING);
@@ -57,11 +58,11 @@ public class GemRitualManager {
         GemType[] allGems = GemType.values();
         Location playerLoc = player.getLocation();
 
-        // Spawn ItemDisplay entities for each gem
+        // Spawn ItemDisplay entities for each gem (pristine+ texture, glowing)
         for (int i = 0; i < allGems.length; i++) {
-            String gemItemId = getGemItemId(allGems[i]);
-            ItemStack gemItem = CustomItemManager.getItemById(gemItemId); // Use base texture like strength gem
-            if (gemItem == null) continue; // Skip if gem item creation fails
+            String gemItemId = getGemItemId(allGems[i], tier);
+            ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
+            if (gemItem == null) continue;
 
             double angleOffset = (i / 8.0) * 2 * Math.PI;
             double radius = 2.5;
@@ -75,6 +76,7 @@ public class GemRitualManager {
             itemDisplay.setItemStack(gemItem);
             itemDisplay.setBillboard(Display.Billboard.FIXED);
             itemDisplay.setViewRange(100);
+            itemDisplay.setGlowing(true);
             orbitingGems.add(itemDisplay);
         }
 
@@ -116,7 +118,7 @@ public class GemRitualManager {
                     Transformation transform = new Transformation(
                         new Vector3f(0, 0, 0),
                         new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
-                        new Vector3f(1.2f, 1.2f, 1.2f),
+                        new Vector3f(0.7f, 0.7f, 0.7f),
                         new AxisAngle4f(0, 0, 0, 1)
                     );
                     gem.setTransformation(transform);
@@ -136,11 +138,11 @@ public class GemRitualManager {
             Location playerCenter = player.getLocation().add(0, 1.5, 0);
             List<ItemDisplay> selectionGems = new ArrayList<>();
 
-            // Spawn fresh gem entities for selection phase
+            // Spawn fresh gem entities for selection phase (pristine+, glowing)
             for (int i = 0; i < allGems.length; i++) {
-                String gemItemId = getGemItemId(allGems[i]);
-                ItemStack gemItem = CustomItemManager.getItemById(gemItemId); // Use base texture like strength gem
-                if (gemItem == null) continue; // Skip if gem item creation fails
+                String gemItemId = getGemItemId(allGems[i], tier);
+                ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
+                if (gemItem == null) continue;
 
                 double angleOffset = (i / 8.0) * 2 * Math.PI;
                 double startAngle = (4.0) * Math.PI + angleOffset;
@@ -155,6 +157,7 @@ public class GemRitualManager {
                 itemDisplay.setItemStack(gemItem);
                 itemDisplay.setBillboard(Display.Billboard.FIXED);
                 itemDisplay.setViewRange(100);
+                itemDisplay.setGlowing(true);
                 selectionGems.add(itemDisplay);
             }
 
@@ -218,7 +221,7 @@ public class GemRitualManager {
                         Transformation transform = new Transformation(
                             new Vector3f(0, 0, 0),
                             new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
-                            currentGem == gemType ? new Vector3f(1.5f, 1.5f, 1.5f) : new Vector3f(1.0f, 1.0f, 1.0f),
+                            currentGem == gemType ? new Vector3f(1.0f, 1.0f, 1.0f) : new Vector3f(0.7f, 0.7f, 0.7f),
                             new AxisAngle4f(0, 0, 0, 1)
                         );
                         gem.setTransformation(transform);
@@ -602,19 +605,10 @@ public class GemRitualManager {
     }
 
     /**
-     * Get the custom item ID for displaying a gem (Tier 1)
+     * Get the custom item ID for displaying a gem at the given tier
      */
-    private String getGemItemId(GemType gemType) {
-        return switch (gemType) {
-            case ASTRA -> "astra_gem_t1";
-            case FIRE -> "fire_gem_t1";
-            case FLUX -> "flux_gem_t1";
-            case LIFE -> "life_gem_t1";
-            case PUFF -> "puff_gem_t1";
-            case SPEED -> "speed_gem_t1";
-            case STRENGTH -> "strength_gem_t1";
-            case WEALTH -> "wealth_gem_t1";
-        };
+    private String getGemItemId(GemType gemType, int tier) {
+        return GemType.buildOraxenId(gemType, tier);
     }
 
     /**
