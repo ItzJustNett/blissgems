@@ -28,6 +28,12 @@
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
         </repository>
+        <!-- FastStats -->
+        <repository>
+            <id>thenextlvl-releases</id>
+            <name>TheNextLvl</name>
+            <url>https://repo.thenextlvl.net/releases</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -45,6 +51,13 @@
             <artifactId>placeholderapi</artifactId>
             <version>2.11.6</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- FastStats Metrics -->
+        <dependency>
+            <groupId>dev.faststats.metrics</groupId>
+            <artifactId>bukkit</artifactId>
+            <version>0.17.2</version>
         </dependency>
     </dependencies>
 
@@ -79,6 +92,29 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <!-- Shade FastStats into the JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>dev.faststats</pattern>
+                                    <shadedPattern>dev.xoperr.blissgems.libs.faststats</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- ProGuard Obfuscation Plugin - Standalone -->
@@ -145,6 +181,9 @@
                         <option>-keep public enum dev.xoperr.blissgems.utils.GemType {
     *;
 }</option>
+
+                        <!-- Keep relocated FastStats classes (uses reflection) -->
+                        <option>-keep class dev.xoperr.blissgems.libs.faststats.** { *; }</option>
 
                         <!-- Preserve annotations for Bukkit -->
                         <option>-keepattributes *Annotation*</option>

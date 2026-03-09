@@ -37,6 +37,7 @@ public class FluxAbilities {
     // Charging system (similar to Fire gem)
     private final Map<UUID, Integer> chargingPlayers = new HashMap<>();
     private final Map<UUID, BukkitTask> chargingTasks = new HashMap<>();
+    private final Map<UUID, Long> chargingStartTimes = new HashMap<>();
     private static final int MAX_CHARGE = 100;
     private static final int CHARGE_DURATION_TICKS = 300; // 15 seconds
 
@@ -68,8 +69,12 @@ public class FluxAbilities {
     public void fluxBeam(Player player) {
         String abilityKey = "flux-beam";
 
-        // If already charging, fire the shot
+        // If already charging, fire the shot (with minimum charge time to prevent dual-hand event)
         if (isCharging(player)) {
+            long startTime = chargingStartTimes.getOrDefault(player.getUniqueId(), 0L);
+            if (System.currentTimeMillis() - startTime < 250) {
+                return; // Too soon, ignore duplicate event from other hand
+            }
             fireChargedBeam(player);
             return;
         }
@@ -82,6 +87,7 @@ public class FluxAbilities {
         // Start charging
         UUID uuid = player.getUniqueId();
         chargingPlayers.put(uuid, 0);
+        chargingStartTimes.put(uuid, System.currentTimeMillis());
 
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 1.5f);
         player.sendMessage("§b⚡ §oCharging Flux Beam... Right-click again to fire!");
@@ -236,6 +242,7 @@ public class FluxAbilities {
             task.cancel();
         }
         chargingPlayers.remove(uuid);
+        chargingStartTimes.remove(uuid);
 
         if (charge < 10) {
             player.sendMessage("§c§oNot enough charge!");
@@ -456,6 +463,7 @@ public class FluxAbilities {
             task.cancel();
         }
         chargingPlayers.remove(uuid);
+        chargingStartTimes.remove(uuid);
     }
 
     public void cleanup(Player player) {

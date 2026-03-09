@@ -58,6 +58,9 @@ import dev.xoperr.blissgems.core.api.protection.GemProtectionAPI;
 import dev.xoperr.blissgems.core.api.particle.ParticleAPI;
 import dev.xoperr.blissgems.core.api.text.InventoryTextAPI;
 import dev.xoperr.blissgems.core.api.enchant.AutoEnchantAPI;
+import dev.faststats.bukkit.BukkitMetrics;
+import dev.faststats.core.Metrics;
+import dev.faststats.core.data.Metric;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.event.Listener;
@@ -97,6 +100,7 @@ extends JavaPlugin {
     private AutoEnchantManager autoEnchantManager;
     private AchievementManager achievementManager;
     private GemRitualManager gemRitualManager;
+    private Metrics metrics;
 
     public void onEnable() {
         this.saveDefaultConfig();
@@ -369,6 +373,25 @@ extends JavaPlugin {
             e.printStackTrace();
         }
 
+        // Initialize FastStats metrics (if enabled in config)
+        if (this.getConfig().getBoolean("send-anonymous-metrics", true)) {
+            try {
+                this.metrics = BukkitMetrics.factory()
+                    .token("33b82f6ed2f61ee4be22345da22fbf24")
+                    .addMetric(Metric.number("active_gem_players", () -> {
+                        int count = 0;
+                        for (org.bukkit.entity.Player p : getServer().getOnlinePlayers()) {
+                            if (gemManager != null && gemManager.hasGemInOffhand(p)) count++;
+                        }
+                        return count;
+                    }))
+                    .create(this);
+                this.metrics.ready();
+            } catch (Exception e) {
+                this.getLogger().warning("FastStats metrics failed to initialize: " + e.getMessage());
+            }
+        }
+
         this.getLogger().info("BlissGems has been enabled!");
         this.getLogger().info("Version: " + this.getDescription().getVersion());
         this.getLogger().info("Using custom item system with vanilla Minecraft items");
@@ -418,6 +441,9 @@ extends JavaPlugin {
             }
         }
 
+        if (this.metrics != null) {
+            this.metrics.shutdown();
+        }
         this.energyManager.saveAll();
         if (this.abilityManager != null) {
             this.abilityManager.saveAllCooldowns();

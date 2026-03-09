@@ -188,7 +188,11 @@ implements Listener {
         if (item.getAmount() > 1) {
             item.setAmount(item.getAmount() - 1);
         } else {
-            player.getInventory().setItemInMainHand(null);
+            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) {
+                player.getInventory().setItemInOffHand(null);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
         }
         if (this.plugin.getConfigManager().isEnergyBottleDropEnabled()) {
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
@@ -310,6 +314,39 @@ implements Listener {
                             player.sendMessage("§c§lYou cannot swap items with your gem when inventory is full!");
                             return;
                         }
+                    }
+                }
+            }
+
+            // Prevent gems from being placed into the 2x2 crafting grid (slots 1-4)
+            if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
+                if (event.getClickedInventory() == event.getView().getTopInventory()) {
+                    int slot = event.getRawSlot();
+                    if (slot >= 1 && slot <= 4) {
+                        // Block cursor gem placement into crafting grid
+                        if (cursorItem != null && cursorItem.getType() != Material.AIR) {
+                            String cursorId = CustomItemManager.getIdByItem(cursorItem);
+                            if (cursorId != null && GemType.isGem(cursorId)) {
+                                event.setCancelled(true);
+                                return;
+                            }
+                        }
+                        // Block hotbar swap with gem into crafting grid
+                        if (hotbarItem != null) {
+                            String hotbarId = CustomItemManager.getIdByItem(hotbarItem);
+                            if (hotbarId != null && GemType.isGem(hotbarId)) {
+                                event.setCancelled(true);
+                                return;
+                            }
+                        }
+                    }
+                }
+                // Block shift-click gem into crafting grid
+                if (event.isShiftClick() && event.getClickedInventory() == player.getInventory() && clickedItem != null) {
+                    String clickedOraxenId = CustomItemManager.getIdByItem(clickedItem);
+                    if (clickedOraxenId != null && GemType.isGem(clickedOraxenId)) {
+                        event.setCancelled(true);
+                        return;
                     }
                 }
             }
@@ -653,6 +690,21 @@ implements Listener {
         }
 
         Player player = (Player) event.getPlayer();
+
+        // Safety net: recover gems from crafting grid slots on close
+        if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
+            for (int i = 1; i <= 4; i++) {
+                ItemStack craftSlot = event.getView().getTopInventory().getItem(i);
+                if (craftSlot != null && !craftSlot.getType().isAir()) {
+                    String craftId = CustomItemManager.getIdByItem(craftSlot);
+                    if (craftId != null && GemType.isGem(craftId)) {
+                        event.getView().getTopInventory().setItem(i, null);
+                        forceGemIntoInventory(player, craftSlot);
+                    }
+                }
+            }
+        }
+
         ItemStack cursorItem = player.getItemOnCursor();
 
         // Check if player has a gem on their cursor when closing inventory
@@ -661,69 +713,61 @@ implements Listener {
             if (cursorId != null && GemType.isGem(cursorId)) {
                 // Player is closing inventory with a gem on cursor
                 // GEMS ARE UNDROPPABLE - must force it back into inventory
-                PlayerInventory inv = player.getInventory();
-                int emptySlot = inv.firstEmpty();
+                player.setItemOnCursor(null);
+                forceGemIntoInventory(player, cursorItem);
+            }
+        }
+    }
 
-                if (emptySlot != -1) {
-                    // Found an empty slot, put the gem there
-                    inv.setItem(emptySlot, cursorItem);
-                    player.setItemOnCursor(null);
-                } else {
-                    // No empty slots - find any non-gem item and replace it with the gem
-                    // The non-gem item will be dropped instead
-                    boolean gemPlaced = false;
+    /**
+     * Forces a gem item back into a player's inventory, displacing a non-gem item if necessary.
+     */
+    private void forceGemIntoInventory(Player player, ItemStack gem) {
+        PlayerInventory inv = player.getInventory();
+        int emptySlot = inv.firstEmpty();
 
-                    // Try to replace item in main inventory first (skip hotbar to avoid disrupting quick access)
-                    for (int i = 9; i < 36; i++) {
-                        ItemStack slotItem = inv.getItem(i);
-                        if (slotItem != null && slotItem.getType() != Material.AIR) {
-                            String slotId = CustomItemManager.getIdByItem(slotItem);
-                            if (slotId == null || !GemType.isGem(slotId)) {
-                                // This is a non-gem item, replace it
-                                ItemStack replacedItem = slotItem.clone();
-                                inv.setItem(i, cursorItem);
-                                player.setItemOnCursor(null);
+        if (emptySlot != -1) {
+            inv.setItem(emptySlot, gem);
+            return;
+        }
 
-                                // Drop the replaced item
-                                player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
-                                String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
-                                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                                gemPlaced = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    // If still not placed, try hotbar
-                    if (!gemPlaced) {
-                        for (int i = 0; i < 9; i++) {
-                            ItemStack slotItem = inv.getItem(i);
-                            if (slotItem != null && slotItem.getType() != Material.AIR) {
-                                String slotId = CustomItemManager.getIdByItem(slotItem);
-                                if (slotId == null || !GemType.isGem(slotId)) {
-                                    ItemStack replacedItem = slotItem.clone();
-                                    inv.setItem(i, cursorItem);
-                                    player.setItemOnCursor(null);
-                                    player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
-                                    String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
-                                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                                    gemPlaced = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // If still not placed (somehow entire inventory is gems?), force it into first slot
-                    if (!gemPlaced) {
-                        inv.setItem(0, cursorItem);
-                        player.setItemOnCursor(null);
-                        String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-hotbar");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                    }
+        // No empty slots - find any non-gem item and replace it with the gem
+        // Try main inventory first (skip hotbar to avoid disrupting quick access)
+        for (int i = 9; i < 36; i++) {
+            ItemStack slotItem = inv.getItem(i);
+            if (slotItem != null && slotItem.getType() != Material.AIR) {
+                String slotId = CustomItemManager.getIdByItem(slotItem);
+                if (slotId == null || !GemType.isGem(slotId)) {
+                    ItemStack replacedItem = slotItem.clone();
+                    inv.setItem(i, gem);
+                    player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
+                    String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
+                    if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                    return;
                 }
             }
         }
+
+        // Try hotbar
+        for (int i = 0; i < 9; i++) {
+            ItemStack slotItem = inv.getItem(i);
+            if (slotItem != null && slotItem.getType() != Material.AIR) {
+                String slotId = CustomItemManager.getIdByItem(slotItem);
+                if (slotId == null || !GemType.isGem(slotId)) {
+                    ItemStack replacedItem = slotItem.clone();
+                    inv.setItem(i, gem);
+                    player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
+                    String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
+                    if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                    return;
+                }
+            }
+        }
+
+        // Last resort: force into slot 0
+        inv.setItem(0, gem);
+        String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-hotbar");
+        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
     }
 
     /**
