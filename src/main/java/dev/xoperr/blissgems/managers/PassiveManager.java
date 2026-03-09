@@ -32,6 +32,7 @@ public class PassiveManager {
 
             public void run() {
                 for (Player player : PassiveManager.this.plugin.getServer().getOnlinePlayers()) {
+                    if (player.isDead()) continue;
                     if (!PassiveManager.this.plugin.getGemManager().hasGemInOffhand(player) || !PassiveManager.this.plugin.getEnergyManager().arePassivesActive(player)) continue;
                     PassiveManager.this.applyPassiveEffects(player);
                 }
@@ -96,9 +97,14 @@ public class PassiveManager {
         player.removePotionEffect(PotionEffectType.WEAKNESS);
         player.removePotionEffect(PotionEffectType.SLOWNESS);
         player.removePotionEffect(PotionEffectType.HUNGER);
+        // Keep flow state alive while sprinting
+        if (player.isSprinting()) {
+            plugin.getFlowStateManager().registerAction(player, FlowStateManager.ActionType.SPRINT);
+        }
     }
 
     private void applyLifePassives(Player player) {
+        if (player.isDead()) return;
         player.removePotionEffect(PotionEffectType.WITHER);
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         double healAmount = this.plugin.getConfigManager().getLifeHealAmount(tier);

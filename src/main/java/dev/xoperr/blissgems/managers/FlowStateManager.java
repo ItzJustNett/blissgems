@@ -97,7 +97,7 @@ public class FlowStateManager {
 
         player.addPotionEffect(new PotionEffect(
             PotionEffectType.SPEED,
-            80, // 4 seconds
+            100, // 5 seconds — exceeds 3s action timeout with buffer
             speedLevel,
             false,
             false
@@ -108,7 +108,7 @@ public class FlowStateManager {
             int hasteLevel = level >= 4 ? 1 : 0; // Haste I at level 3-4, Haste II at level 5
             player.addPotionEffect(new PotionEffect(
                 PotionEffectType.HASTE,
-                80,
+                100,
                 hasteLevel,
                 false,
                 false

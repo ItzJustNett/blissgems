@@ -577,3 +577,8 @@ messages:
   smp-already-started: "&cSMP has already started!"
   smp-started: "&a&lSMP Started! All online players are receiving their gems!"
   smp-not-started: "&cThe SMP hasn't started yet! Gems will be given when an admin runs /bliss smp start."
+
+# ==========================================
+# METRICS
+# ==========================================
+send-anonymous-metrics: true
