@@ -668,8 +668,9 @@ implements Listener {
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
 
-        // Check if placing gem in item frame
-        if (event.getRightClicked() instanceof ItemFrame) {
+        // Check if placing gem in item frame or giving to Allay
+        if (event.getRightClicked() instanceof ItemFrame ||
+            event.getRightClicked() instanceof org.bukkit.entity.Allay) {
             // Check both mainhand and offhand for gems
             String mainHandId = CustomItemManager.getIdByItem(mainHand);
             String offHandId = CustomItemManager.getIdByItem(offHand);

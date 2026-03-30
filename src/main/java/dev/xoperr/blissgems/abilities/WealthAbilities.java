@@ -414,7 +414,17 @@ public class WealthAbilities {
 
     // Static accessors for PassiveListener
     public static boolean isUnfortunate(UUID uuid) {
-        return unfortunatePlayers.contains(uuid) && Math.random() < 0.5;
+        return unfortunatePlayers.contains(uuid);
+    }
+
+    /**
+     * Check if unfortunate player's action should fail based on config chance
+     * @param uuid Player UUID
+     * @param failChance Chance of failure (0.0 to 1.0)
+     * @return true if action should be blocked
+     */
+    public static boolean shouldUnfortunateFail(UUID uuid, double failChance) {
+        return unfortunatePlayers.contains(uuid) && Math.random() < failChance;
     }
 
     public static boolean isItemLocked(UUID uuid) {

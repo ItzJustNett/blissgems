@@ -144,7 +144,14 @@ public class GemManager {
     }
 
     public ItemStack findGemInInventory(Player player) {
+        // Check main inventory
         for (ItemStack item : player.getInventory().getContents()) {
+            String itemId;
+            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null || !GemType.isGem(itemId)) continue;
+            return item;
+        }
+        // Check ender chest
+        for (ItemStack item : player.getEnderChest().getContents()) {
             String itemId;
             if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null || !GemType.isGem(itemId)) continue;
             return item;

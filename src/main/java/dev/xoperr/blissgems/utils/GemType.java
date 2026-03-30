@@ -63,7 +63,7 @@ public enum GemType {
         if (oraxenId == null) {
             return 1;
         }
-        if (oraxenId.endsWith("_t2")) {
+        if (oraxenId.endsWith("_gem_t2")) {
             return 2;
         }
         return 1;

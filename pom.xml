@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>3.9</version>
+    <version>3.9.3</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
@@ -34,6 +34,11 @@
             <name>TheNextLvl</name>
             <url>https://repo.thenextlvl.net/releases</url>
         </repository>
+        <!-- WorldGuard -->
+        <repository>
+            <id>enginehub-maven</id>
+            <url>https://maven.enginehub.org/repo/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -58,6 +63,14 @@
             <groupId>dev.faststats.metrics</groupId>
             <artifactId>bukkit</artifactId>
             <version>0.17.2</version>
+        </dependency>
+
+        <!-- WorldGuard (soft dependency) -->
+        <dependency>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-bukkit</artifactId>
+            <version>7.0.11</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -182,8 +195,9 @@
     *;
 }</option>
 
-                        <!-- Keep relocated FastStats classes (uses reflection) -->
+                        <!-- Keep relocated FastStats classes and Gson (uses reflection) -->
                         <option>-keep class dev.xoperr.blissgems.libs.faststats.** { *; }</option>
+                        <option>-keep class com.google.gson.** { *; }</option>
 
                         <!-- Preserve annotations for Bukkit -->
                         <option>-keepattributes *Annotation*</option>
@@ -197,6 +211,10 @@
 
                         <!-- Print mapping file for debugging (if needed) -->
                         <option>-printmapping ${project.build.directory}/proguard-mapping.txt</option>
+
+                        <!-- Keep WorldGuard API classes (soft dependency) -->
+                        <option>-dontwarn com.sk89q.worldguard.**</option>
+                        <option>-dontwarn com.sk89q.worldedit.**</option>
                     </options>
                 </configuration>
             </plugin>

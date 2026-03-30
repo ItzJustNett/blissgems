@@ -115,7 +115,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.ASTRA)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
@@ -146,7 +146,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.LIFE)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
         if (Tag.ENTITY_TYPES_SENSITIVE_TO_SMITE.isTagged(victim.getType())) {
@@ -180,7 +180,7 @@ implements Listener {
         if (oraxenId == null || !oraxenId.contains("puff_gem")) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -234,7 +234,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) && !isHoldingPuffGem(player)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
         event.setCancelled(true);
@@ -256,7 +256,7 @@ implements Listener {
         }
 
         boolean hasPuff = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) || isHoldingPuffGem(player);
-        boolean passivesActive = hasPuff && this.plugin.getEnergyManager().arePassivesActive(player);
+        boolean passivesActive = hasPuff && this.canUsePassives(player);
 
         if (passivesActive && player.isOnGround()) {
             // Reset jump counter on landing: 2 extra midair jumps = triple jump
@@ -283,7 +283,7 @@ implements Listener {
         if (!hasPuff) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -350,7 +350,7 @@ implements Listener {
         if (!hasPuff) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
         event.setCancelled(true);
@@ -387,7 +387,7 @@ implements Listener {
             return;
         }
 
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -424,7 +424,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.LIFE)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
         int foodLevelBefore = player.getFoodLevel();
@@ -454,7 +454,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -504,7 +504,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -535,7 +535,7 @@ implements Listener {
             return;
         }
 
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -618,7 +618,7 @@ implements Listener {
                         || isHoldingAstraGem(player);
         if (!hasAstra) return;
 
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Attempt soul capture — cancel the damage so the mob is captured, not killed
         LivingEntity mob = (LivingEntity) target;
@@ -667,7 +667,7 @@ implements Listener {
                         || isHoldingFluxGem(player);
         if (!hasFlux) return;
 
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Check cooldown
         String abilityKey = "flux-conduction";
@@ -751,7 +751,7 @@ implements Listener {
                         || isHoldingFluxGem(player);
         if (!hasFlux) return;
 
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Reduce damage
         double reduction = this.plugin.getConfig().getDouble("gems.passives.flux.charged-creeper-reduction", 1.0);
@@ -789,7 +789,7 @@ implements Listener {
         boolean hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH)
                             || isHoldingStrengthGem(player);
         if (!hasStrength) return;
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Get tier
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
@@ -852,7 +852,7 @@ implements Listener {
         boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
                           || isHoldingWealthGem(player);
         if (!hasWealth) return;
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Get tier for config lookup
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
@@ -906,7 +906,7 @@ implements Listener {
         boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
                           || isHoldingWealthGem(player);
         if (!hasWealth) return;
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         if (tier == 0) {
@@ -955,7 +955,7 @@ implements Listener {
         boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
                           || isHoldingWealthGem(player);
         if (!hasWealth) return;
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
         if (tier == 0) {
@@ -991,7 +991,8 @@ implements Listener {
     public void onUnfortunateAttack(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player)) return;
         Player player = (Player) event.getDamager();
-        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+        double attackFailChance = plugin.getConfig().getDouble("passives.unfortunate.attack-fail-chance", 0.75);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), attackFailChance)) {
             event.setCancelled(true);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
@@ -1000,7 +1001,8 @@ implements Listener {
     @EventHandler
     public void onUnfortunateBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+        double blockPlaceFailChance = plugin.getConfig().getDouble("passives.unfortunate.block-place-fail-chance", 1.0);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockPlaceFailChance)) {
             event.setCancelled(true);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
@@ -1009,7 +1011,18 @@ implements Listener {
     @EventHandler
     public void onUnfortunateEat(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
-        if (WealthAbilities.isUnfortunate(player.getUniqueId())) {
+        double eatFailChance = plugin.getConfig().getDouble("passives.unfortunate.eat-fail-chance", 1.0);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), eatFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        double blockBreakFailChance = plugin.getConfig().getDouble("passives.unfortunate.block-break-fail-chance", 0.5);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockBreakFailChance)) {
             event.setCancelled(true);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
@@ -1061,7 +1074,7 @@ implements Listener {
         boolean hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH)
                             || isHoldingStrengthGem(player);
         if (!hasStrength) return;
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) return;
+        if (!this.canUsePassives(player)) return;
 
         // Chad Strength is T2 only
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
@@ -1157,7 +1170,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -1176,7 +1189,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -1202,7 +1215,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -1222,7 +1235,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -1247,7 +1260,7 @@ implements Listener {
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FLUX)) {
             return;
         }
-        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.canUsePassives(player)) {
             return;
         }
 
@@ -1255,6 +1268,22 @@ implements Listener {
             player,
             dev.xoperr.blissgems.managers.FlowStateManager.ActionType.JUMP
         );
+    }
+
+    /**
+     * Check if passives are allowed for this player (energy + region check)
+     */
+    private boolean canUsePassives(Player player) {
+        // Energy check
+        if (!plugin.getEnergyManager().arePassivesActive(player)) {
+            return false;
+        }
+        // Region check (WorldGuard integration)
+        if (plugin.getRegionManager() != null &&
+            plugin.getRegionManager().areGemsDisabled(player)) {
+            return false;
+        }
+        return true;
     }
 }
 

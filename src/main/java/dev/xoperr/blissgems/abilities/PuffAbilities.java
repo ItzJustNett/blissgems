@@ -162,7 +162,10 @@ public class PuffAbilities {
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.8f);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Group Breezy Bash"));
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Group Breezy Bash");
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
         if (hitCount > 0) {
             player.sendMessage("\u00a7f\u00a7o" + hitCount + " player(s) knocked away!");
         }

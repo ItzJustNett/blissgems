@@ -7,7 +7,7 @@
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Astral Daggers (Primary, no shift): Same as T1
- *   - Astral Projection (Shift): Short spectator mode, stay where you end up, ghost trail at origin
+ *   - Astral Projection (Shift): Invisible mule ride, stay where you end up, ghost trail at origin
  *     - Sub-abilities during projection: Spook (scare nearby players) and Tag (mark a player)
  *   - Dimensional Drift (Double-shift / secondary command): Invisible horse + player invisibility
  *   - Dimensional Void (Sneak + Swap / tertiary): Nullify enemy gem abilities in radius
@@ -26,6 +26,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mule;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -41,7 +42,7 @@ public class AstraAbilities {
 
     // Astral Projection state
     private final Map<UUID, Location> projectionOrigins = new HashMap<>();
-    private final Map<UUID, GameMode> previousGameModes = new HashMap<>();
+    private final Map<UUID, Mule> projectionMules = new HashMap<>();
     private final Map<UUID, BukkitTask> projectionTasks = new HashMap<>();
 
     // Dimensional Drift state
@@ -214,7 +215,7 @@ public class AstraAbilities {
 
     // ========================================================================
     // 2. ASTRAL PROJECTION — Tier 2 Secondary (Shift)
-    //    Short spectator, ghost trail at origin, stay where you end up
+    //    Invisible mule ride, ghost trail at origin, stay where you end up
     // ========================================================================
 
     public void astralProjection(Player player) {
@@ -230,15 +231,36 @@ public class AstraAbilities {
             return;
         }
 
-        // Store original location and gamemode
+        // Store original location
         Location origin = player.getLocation().clone();
-        GameMode previousMode = player.getGameMode();
+        UUID uuid = player.getUniqueId();
 
-        projectionOrigins.put(player.getUniqueId(), origin);
-        previousGameModes.put(player.getUniqueId(), previousMode);
+        projectionOrigins.put(uuid, origin);
 
-        // Set to spectator mode
-        player.setGameMode(GameMode.SPECTATOR);
+        // Spawn invisible mule with saddle
+        Mule mule = player.getWorld().spawn(origin, Mule.class, m -> {
+            m.setTamed(true);
+            m.setOwner(player);
+            m.setAdult();
+            m.setInvisible(true);
+            m.setSilent(true);
+            m.setInvulnerable(true);
+            m.setAI(false); // Player controls it
+            m.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
+            m.getInventory().setSaddle(new org.bukkit.inventory.ItemStack(org.bukkit.Material.SADDLE));
+        });
+
+        // Mount player on mule
+        mule.addPassenger(player);
+        projectionMules.put(uuid, mule);
+
+        // Config values
+        double maxRadius = this.plugin.getConfig().getDouble("abilities.astra-projection.radius", 150.0);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-projection", 5);
+        int duration = durationSeconds * 20; // Convert to ticks
+
+        // Make player invisible for the duration
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, duration + 20, 0, false, false));
 
         // Deep purple projection particles at departure
         Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
@@ -248,11 +270,6 @@ public class AstraAbilities {
         player.getWorld().spawnParticle(Particle.WITCH, origin, 30, 0.5, 1.0, 0.5);
         player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
         player.playSound(origin, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.2f);
-
-        // Config values
-        double maxRadius = this.plugin.getConfig().getDouble("abilities.astra-projection.radius", 150.0);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-projection", 5);
-        int duration = durationSeconds * 20; // Convert to ticks
 
         // Start monitoring task — ghost trail at origin + radius/duration enforcement
         BukkitTask task = new BukkitRunnable() {
@@ -319,14 +336,24 @@ public class AstraAbilities {
             return;
         }
 
-        Location origin = projectionOrigins.remove(player.getUniqueId());
-        GameMode previousMode = previousGameModes.remove(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        Location origin = projectionOrigins.remove(uuid);
 
         // Cancel monitoring task
-        BukkitTask task = projectionTasks.remove(player.getUniqueId());
+        BukkitTask task = projectionTasks.remove(uuid);
         if (task != null) {
             task.cancel();
         }
+
+        // Remove mule
+        Mule mule = projectionMules.remove(uuid);
+        if (mule != null) {
+            mule.removePassenger(player);
+            mule.remove();
+        }
+
+        // Remove invisibility
+        player.removePotionEffect(PotionEffectType.INVISIBILITY);
 
         // Stay where you are (no teleport back) — arrival particles
         Location arrivalLoc = player.getLocation().clone();
@@ -337,13 +364,6 @@ public class AstraAbilities {
         arrivalLoc.getWorld().spawnParticle(Particle.SOUL, arrivalLoc, 20, 0.5, 1.0, 0.5);
         player.playSound(arrivalLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
         player.playSound(arrivalLoc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 0.8f);
-
-        // Restore gamemode
-        if (previousMode != null) {
-            player.setGameMode(previousMode);
-        } else {
-            player.setGameMode(GameMode.SURVIVAL);
-        }
 
         // Set cooldown when projection ends
         this.plugin.getAbilityManager().useAbility(player, "astra-projection");

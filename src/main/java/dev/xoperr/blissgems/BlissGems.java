@@ -29,7 +29,9 @@ import dev.xoperr.blissgems.listeners.PlayerJoinListener;
 import dev.xoperr.blissgems.listeners.RepairKitListener;
 import dev.xoperr.blissgems.listeners.ReviveBeaconListener;
 import dev.xoperr.blissgems.listeners.StunListener;
+import dev.xoperr.blissgems.listeners.TeleportListener;
 import dev.xoperr.blissgems.listeners.UpgraderListener;
+import dev.xoperr.blissgems.listeners.VillagerTradeListener;
 import dev.xoperr.blissgems.managers.AbilityManager;
 import dev.xoperr.blissgems.managers.EnhancedGuiManager;
 import dev.xoperr.blissgems.managers.ClickActivationManager;
@@ -54,10 +56,12 @@ import dev.xoperr.blissgems.core.managers.ProtectionManager;
 import dev.xoperr.blissgems.core.managers.ParticleManager;
 import dev.xoperr.blissgems.core.managers.TextManager;
 import dev.xoperr.blissgems.core.managers.AutoEnchantManager;
+import dev.xoperr.blissgems.core.managers.RegionManager;
 import dev.xoperr.blissgems.core.api.protection.GemProtectionAPI;
 import dev.xoperr.blissgems.core.api.particle.ParticleAPI;
 import dev.xoperr.blissgems.core.api.text.InventoryTextAPI;
 import dev.xoperr.blissgems.core.api.enchant.AutoEnchantAPI;
+import dev.xoperr.blissgems.core.api.region.RegionAPI;
 import dev.faststats.bukkit.BukkitMetrics;
 import dev.faststats.core.Metrics;
 import dev.faststats.core.data.Metric;
@@ -98,6 +102,7 @@ extends JavaPlugin {
     private ParticleManager particleManager;
     private TextManager textManager;
     private AutoEnchantManager autoEnchantManager;
+    private RegionManager regionManager;
     private AchievementManager achievementManager;
     private GemRitualManager gemRitualManager;
     private Metrics metrics;
@@ -142,6 +147,13 @@ extends JavaPlugin {
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
+        try {
+            this.regionManager = new RegionManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RegionManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
 
         // Initialize XoperrCore APIs
         try {
@@ -149,6 +161,7 @@ extends JavaPlugin {
             ParticleAPI.initialize(particleManager);
             InventoryTextAPI.initialize(textManager);
             AutoEnchantAPI.initialize(autoEnchantManager);
+            RegionAPI.initialize(regionManager);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Core APIs ===");
             this.getLogger().severe(e.getMessage());
@@ -503,6 +516,8 @@ extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents((Listener)new RepairKitListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new ReviveBeaconListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
     }
 
@@ -631,6 +646,10 @@ extends JavaPlugin {
 
     public AutoEnchantManager getAutoEnchantManager() {
         return this.autoEnchantManager;
+    }
+
+    public RegionManager getRegionManager() {
+        return this.regionManager;
     }
 }
 

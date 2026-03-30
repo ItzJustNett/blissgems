@@ -19,13 +19,18 @@ import dev.xoperr.blissgems.utils.CustomItemManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +46,7 @@ implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
@@ -82,9 +87,11 @@ implements Listener {
                 return false; // Keep in drops
             });
 
-            // Save gems to give back on respawn
+            // Save gems to give back on respawn (both memory and disk)
             if (!gemsToSave.isEmpty()) {
                 savedGems.put(victim.getUniqueId(), gemsToSave);
+                // Also save to disk to persist across disconnects/restarts
+                saveGemsToDisk(victim.getUniqueId(), gemsToSave);
             }
         }
 
@@ -107,10 +114,29 @@ implements Listener {
 
         // Give saved gems back to player
         UUID playerId = player.getUniqueId();
+        List<ItemStack> gems = null;
+
+        // Check memory first (for immediate respawns)
         if (savedGems.containsKey(playerId)) {
-            List<ItemStack> gems = savedGems.remove(playerId);
-            for (ItemStack gem : gems) {
-                player.getInventory().addItem(gem);
+            gems = savedGems.remove(playerId);
+        }
+        // If not in memory, check disk (for respawns after disconnect/restart)
+        else {
+            gems = loadGemsFromDisk(playerId);
+        }
+
+        if (gems != null && !gems.isEmpty()) {
+            // Safety check: If single-gem-only is enabled, only return the first gem
+            // This prevents duplication bugs
+            boolean singleGemOnly = this.plugin.getConfig().getBoolean("gems.single-gem-only", true);
+            if (singleGemOnly && gems.size() > 1) {
+                this.plugin.getLogger().warning("Player " + player.getName() + " had " + gems.size() +
+                    " gems saved! Only returning first gem due to single-gem-only config.");
+                player.getInventory().addItem(gems.get(0));
+            } else {
+                for (ItemStack gem : gems) {
+                    player.getInventory().addItem(gem);
+                }
             }
         }
 
@@ -125,6 +151,63 @@ implements Listener {
         if (bottle != null) {
             location.getWorld().dropItemNaturally(location, bottle);
         }
+    }
+
+    /**
+     * Save gems to disk so they persist across server restarts/disconnects
+     */
+    private void saveGemsToDisk(UUID playerId, List<ItemStack> gems) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+
+        File file = new File(dataFolder, playerId + ".yml");
+        FileConfiguration data;
+
+        if (file.exists()) {
+            data = YamlConfiguration.loadConfiguration(file);
+        } else {
+            data = new YamlConfiguration();
+        }
+
+        // Save gem items as serialized data
+        data.set("saved-gems", gems);
+
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().severe("Failed to save gems for player " + playerId + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Load saved gems from disk
+     */
+    private List<ItemStack> loadGemsFromDisk(UUID playerId) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        File file = new File(dataFolder, playerId + ".yml");
+
+        if (!file.exists()) {
+            return null;
+        }
+
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+
+        @SuppressWarnings("unchecked")
+        List<ItemStack> gems = (List<ItemStack>) data.get("saved-gems");
+
+        // Clear the saved gems from disk after loading
+        if (gems != null) {
+            data.set("saved-gems", null);
+            try {
+                data.save(file);
+            } catch (IOException e) {
+                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + playerId);
+            }
+        }
+
+        return gems;
     }
 
     @EventHandler
@@ -148,8 +231,8 @@ implements Listener {
         // Clear captured souls
         this.plugin.getSoulManager().clearSouls(player.getUniqueId());
 
-        // Clear saved gems if player quits before respawning
-        savedGems.remove(player.getUniqueId());
+        // No need to clear saved gems - they're persisted to disk now!
+        // If player quits before respawning, gems will be loaded from disk on next login
 
         this.plugin.getEnergyManager().clearCache(player.getUniqueId());
         this.plugin.getGemManager().clearCache(player.getUniqueId());

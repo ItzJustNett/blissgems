@@ -3,6 +3,13 @@
 config-version: "1.0.0"
 
 # ==========================================
+# GENERAL SETTINGS
+# ==========================================
+# Disable optional chat messages (ability activations, click errors, etc.)
+# Set to true to reduce chat spam
+disable-optional-messages: true
+
+# ==========================================
 # ENERGY SYSTEM
 # ==========================================
 energy:
@@ -38,6 +45,28 @@ gems:
 
   # Only one gem can be active at a time
   single-gem-only: true
+
+# ==========================================
+# WORLDGUARD INTEGRATION
+# ==========================================
+worldguard:
+  # Enable/disable WorldGuard region checks
+  enabled: true
+
+  # Mode for region checking:
+  # - "blacklist": Disable gems ONLY in listed regions
+  # - "whitelist": Disable gems EVERYWHERE except listed regions
+  mode: "blacklist"
+
+  # List of region IDs (depends on mode)
+  # Blacklist mode: gems disabled in these regions
+  # Whitelist mode: gems enabled ONLY in these regions
+  regions:
+    - "spawn"
+    - "safe-zone"
+
+  # Message shown when abilities are blocked
+  disabled-message: "&c&lGem abilities are disabled in this region!"
 
 # ==========================================
 # SMP START SYSTEM
@@ -144,6 +173,13 @@ passives:
       armor-mend-amount: 2  # Durability restored per hit per armor piece
       double-debris: true  # 2x netherite scrap from furnaces
 
+  # Unfortunate ability chances (0.0 = never fail, 1.0 = always fail)
+  unfortunate:
+    attack-fail-chance: 0.75  # 75% chance attacks fail
+    block-break-fail-chance: 0.50  # 50% chance block breaking fails
+    block-place-fail-chance: 1.0  # 100% chance block placing fails
+    eat-fail-chance: 1.0  # 100% chance eating fails
+
 # ==========================================
 # ABILITIES
 # ==========================================
@@ -177,7 +213,7 @@ abilities:
     puff-group-bash: 30
     speed-blur: 15
     speed-sedative: 60
-    speed-storm: 45
+    speed-storm: 135  # 2.25 minutes (tripled from 45)
     speed-terminal: 60  # Terminal Velocity cooldown
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
     strength-nullify: 30
@@ -271,7 +307,7 @@ abilities:
 
   # Ability damage values
   damage:
-    astra-daggers: 4.0
+    astra-daggers: 12.0  # 6 hearts (tripled from 4.0)
     fire-fireball: 6.0
     flux-beam-base: 5.0  # 2.5 hearts uncharged (scales to 15.0 HP at 100% charge)
     flux-beam-max-armor-damage: 150  # Durability damage at 100% charge

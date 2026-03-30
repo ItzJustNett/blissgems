@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
@@ -63,6 +64,15 @@ public class AbilityManager {
     }
 
     public boolean canUseAbility(Player player, String abilityKey) {
+        // Check if gems are disabled in this region (WorldGuard integration)
+        if (this.plugin.getRegionManager() != null &&
+            this.plugin.getRegionManager().areGemsDisabled(player)) {
+            String message = this.plugin.getRegionManager().getDisabledMessage();
+            if (message != null && !message.isEmpty()) {
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+            }
+            return false;
+        }
         if (!this.plugin.getEnergyManager().canUseAbilities(player)) {
             player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-no-energy", new Object[0]));
             return false;
