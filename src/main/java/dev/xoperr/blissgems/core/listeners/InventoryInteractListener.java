@@ -29,6 +29,7 @@ public class InventoryInteractListener implements Listener {
         // Inventories where gems cannot be stored
         this.restrictedInventories = new HashSet<>(Arrays.asList(
                 InventoryType.CHEST,
+                InventoryType.ENDER_CHEST,
                 InventoryType.DISPENSER,
                 InventoryType.DROPPER,
                 InventoryType.HOPPER,

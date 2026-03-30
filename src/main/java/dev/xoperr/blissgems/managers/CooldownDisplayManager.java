@@ -213,7 +213,7 @@ public class CooldownDisplayManager {
         // Format: (icon) Ready/countdown (icon) Ready/countdown (icon) Ready/countdown
 
         // Special handling for Astra — icon Ready/Xs (✦) icon Ready/Xs
-        // ✦ separator color indicates primary ability status
+        // Static purple color like Wealth
         if (gemType == GemType.ASTRA) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -229,12 +229,12 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // ✦ separator color indicates primary ability status
-                display.append(remaining1 > 0 ? " §c(✦) " : " §5(✦) ");
+                // Static purple separator (like Wealth)
+                display.append(" §5(✦) ");
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("§5").append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }
@@ -245,7 +245,7 @@ public class CooldownDisplayManager {
 
         // Special handling for Flux — new layout
         // icon1 Ready/Xs (gem-sign) icon2 Ready/Xs
-        // Gem sign shows tertiary/quaternary cooldowns when active
+        // Static blue color like Wealth
         if (gemType == GemType.FLUX) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -266,12 +266,12 @@ public class CooldownDisplayManager {
                 int remainingKinetic = abilityManager.getRemainingCooldown(player, abilities.get(3)[0]);
 
                 if (remainingFlash > 0 && remainingKinetic > 0) {
-                    // Both on cooldown — show both in separator
-                    display.append(" §c(").append(remainingFlash).append("s§7|§c").append(remainingKinetic).append("s) ");
+                    // Both on cooldown — show both in separator (static blue color)
+                    display.append(" §b(").append(remainingFlash).append("s§7|").append(remainingKinetic).append("s) ");
                 } else if (remainingFlash > 0) {
-                    display.append(" §c(").append(remainingFlash).append("s) ");
+                    display.append(" §b(").append(remainingFlash).append("s) ");
                 } else if (remainingKinetic > 0) {
-                    display.append(" §c(").append(remainingKinetic).append("s) ");
+                    display.append(" §b(").append(remainingKinetic).append("s) ");
                 } else {
                     // No tertiary/quaternary cooldowns — show icon, always blue for Flux
                     display.append(" §b(⚡) ");
@@ -279,7 +279,7 @@ public class CooldownDisplayManager {
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("§b").append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }
@@ -290,7 +290,7 @@ public class CooldownDisplayManager {
 
         // Special handling for Life — new layout
         // icon1 Ready/Xs (gem-sign) icon2 Ready/Xs
-        // Gem sign shows vortex/heartlock cooldowns when active
+        // Static magenta color like Wealth
         if (gemType == GemType.LIFE) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -306,16 +306,16 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // Build separator — shows vortex/heartlock cooldowns when active
+                // Build separator — shows vortex/heartlock cooldowns when active (static magenta color)
                 int remainingVortex = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
                 int remainingLock = abilityManager.getRemainingCooldown(player, abilities.get(3)[0]);
 
                 if (remainingVortex > 0 && remainingLock > 0) {
-                    display.append(" \u00a7c(").append(remainingVortex).append("s\u00a77|\u00a7c").append(remainingLock).append("s) ");
+                    display.append(" \u00a7d(").append(remainingVortex).append("s\u00a77|").append(remainingLock).append("s) ");
                 } else if (remainingVortex > 0) {
-                    display.append(" \u00a7c(").append(remainingVortex).append("s) ");
+                    display.append(" \u00a7d(").append(remainingVortex).append("s) ");
                 } else if (remainingLock > 0) {
-                    display.append(" \u00a7c(").append(remainingLock).append("s) ");
+                    display.append(" \u00a7d(").append(remainingLock).append("s) ");
                 } else {
                     // No tertiary/quaternary cooldowns — show icon, always magenta for Life
                     display.append(" \u00a7d(\u2764) ");
@@ -323,7 +323,7 @@ public class CooldownDisplayManager {
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("\u00a7d").append(remaining2).append("s");
+                    display.append("\u00a7c").append(remaining2).append("s");
                 } else {
                     display.append("\u00a7aReady");
                 }
@@ -334,7 +334,7 @@ public class CooldownDisplayManager {
 
         // Special handling for Puff — new layout
         // icon1 Ready/Xs (💨) icon2 Ready/Xs
-        // Separator shows Group Bash cooldown when active
+        // Static white color like Wealth
         if (gemType == GemType.PUFF) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -350,18 +350,18 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // Separator — shows Group Bash cooldown when active
+                // Separator — shows Group Bash cooldown when active (static white color)
                 int remainingGroup = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
 
                 if (remainingGroup > 0) {
-                    display.append(" \u00a7c(").append(remainingGroup).append("s) ");
+                    display.append(" \u00a7f(").append(remainingGroup).append("s) ");
                 } else {
-                    display.append(remaining1 > 0 ? " \u00a7c(\u2728) " : " \u00a7f(\u2728) ");
+                    display.append(" \u00a7f(\u2728) ");
                 }
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("\u00a7f").append(remaining2).append("s");
+                    display.append("\u00a7c").append(remaining2).append("s");
                 } else {
                     display.append("\u00a7aReady");
                 }
@@ -372,6 +372,7 @@ public class CooldownDisplayManager {
 
         // Special handling for Speed gem
         // Format: icon1 Ready/Xs (⚡) icon2 Ready/Xs
+        // Static green color like Wealth
         if (gemType == GemType.SPEED) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -387,18 +388,18 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // Separator showing tertiary cooldown when active
+                // Separator showing tertiary cooldown when active (static green color)
                 int remainingTertiary = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
 
                 if (remainingTertiary > 0) {
-                    display.append(" §c(").append(remainingTertiary).append("s) ");
+                    display.append(" §a(").append(remainingTertiary).append("s) ");
                 } else {
                     display.append(" §a(⚡) ");
                 }
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("§a").append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }
@@ -446,6 +447,7 @@ public class CooldownDisplayManager {
 
         // Special handling for Strength gem
         // Format: icon1 Ready/Xs (💪) icon2 Ready/Xs
+        // Static gold color like Wealth
         if (gemType == GemType.STRENGTH) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
@@ -461,18 +463,18 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // Separator showing tertiary cooldown when active
+                // Separator showing tertiary cooldown when active (static gold color)
                 int remainingTertiary = abilities.size() > 2 ? abilityManager.getRemainingCooldown(player, abilities.get(2)[0]) : 0;
 
                 if (remainingTertiary > 0) {
-                    display.append(" §c(").append(remainingTertiary).append("s) ");
+                    display.append(" §6(").append(remainingTertiary).append("s) ");
                 } else {
                     display.append(" §6(💪) ");
                 }
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("§6").append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }
@@ -482,6 +484,7 @@ public class CooldownDisplayManager {
         }
 
         // Standard handling for remaining gems (Fire)
+        // Static gem color like Wealth
         {
             // Standard handling for remaining gems (Fire)
             // Ability 1 (Primary) - always show
@@ -505,9 +508,9 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, ability2Key);
 
-                display.append(" §7| ").append(ability2Icon).append(" ");
+                display.append(" ").append(gemColor).append("| ").append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append(gemColor).append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }
@@ -518,7 +521,7 @@ public class CooldownDisplayManager {
                     String abilityKeyStr = ability[0];
                     int remaining = abilityManager.getRemainingCooldown(player, abilityKeyStr);
 
-                    display.append(" §7| §d✦ ");
+                    display.append(" ").append(gemColor).append("| ").append(gemColor).append("✦ ");
                     if (remaining > 0) {
                         display.append("§c").append(remaining).append("s");
                     } else {

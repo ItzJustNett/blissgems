@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -45,6 +46,16 @@ public class GemDropListener implements Listener {
                 // Fallback message if config not set
                 player.sendMessage("§c§lYou cannot drop your gem!");
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onInventoryMoveItem(InventoryMoveItemEvent event) {
+        // Prevent hoppers and other automated systems from moving gems
+        ItemStack item = event.getItem();
+
+        if (CustomItemManager.isUndroppable(item)) {
+            event.setCancelled(true);
         }
     }
 }

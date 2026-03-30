@@ -41,6 +41,11 @@ public class PassiveManager {
     }
 
     private void applyPassiveEffects(Player player) {
+        // Check if gems are disabled in this region (WorldGuard integration)
+        if (this.plugin.getRegionManager() != null &&
+            this.plugin.getRegionManager().areGemsDisabled(player)) {
+            return; // Silently skip passives in disabled regions
+        }
         GemType gemType = this.plugin.getGemManager().getGemTypeFromOffhand(player);
         if (gemType == null) {
             return;

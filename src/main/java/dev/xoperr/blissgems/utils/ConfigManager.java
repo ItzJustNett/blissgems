@@ -426,6 +426,14 @@ public class ConfigManager {
     }
 
     public String getFormattedMessage(String key, Object ... replacements) {
+        // Check if this is an optional message and they're disabled
+        if (areOptionalMessagesDisabled()) {
+            // List of optional message keys that can be suppressed
+            if (key.equals("ability-activated") || key.equals("click-activation-disabled")) {
+                return null; // Suppress the message
+            }
+        }
+
         String message = this.getMessage(key);
 
         // If message is empty or just whitespace, return NULL (not empty string)
@@ -457,6 +465,15 @@ public class ConfigManager {
         if (message != null && !message.isEmpty()) {
             sender.sendMessage(message);
         }
+    }
+
+    /**
+     * Check if optional messages are disabled.
+     * Optional messages include: ability activation confirmations, click activation errors, etc.
+     * @return true if optional messages should NOT be sent
+     */
+    public boolean areOptionalMessagesDisabled() {
+        return this.config.getBoolean("disable-optional-messages", true);
     }
 }
 

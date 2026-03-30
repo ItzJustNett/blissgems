@@ -65,6 +65,28 @@ public class FireAbilities {
 
     private final Random random = new Random();
 
+    /**
+     * Check if a block is a container (chest, shulker, barrel, etc.)
+     * to prevent data loss when transforming blocks.
+     */
+    private static boolean isContainer(Material material) {
+        String name = material.name();
+        // Check for all container types
+        return name.contains("CHEST") ||
+               name.contains("SHULKER_BOX") ||
+               name.contains("BARREL") ||
+               name.contains("HOPPER") ||
+               name.contains("FURNACE") ||
+               name.contains("BLAST_FURNACE") ||
+               name.contains("SMOKER") ||
+               name.contains("DROPPER") ||
+               name.contains("DISPENSER") ||
+               name.contains("BREWING_STAND") ||
+               material == Material.JUKEBOX ||
+               material == Material.LECTERN ||
+               material == Material.CHISELED_BOOKSHELF;
+    }
+
     public FireAbilities(BlissGems plugin) {
         this.plugin = plugin;
     }
@@ -634,6 +656,12 @@ public class FireAbilities {
                 Location loc = center.clone().add(x, 0, z);
                 // Find the surface block
                 Block surface = loc.getWorld().getHighestBlockAt(loc);
+
+                // Skip containers and tile entities to preserve their contents
+                if (isContainer(surface.getType())) {
+                    continue;
+                }
+
                 if (surface.getType().isSolid() && !surface.getType().name().startsWith("NETHER") &&
                         surface.getType() != Material.MAGMA_BLOCK && surface.getType() != Material.SOUL_SAND) {
                     // Store original block type before replacing

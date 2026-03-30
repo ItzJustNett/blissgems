@@ -32,7 +32,8 @@ public class PlayerJoinListener implements Listener {
         Player player = event.getPlayer();
 
         // Check if player has received their first gem and SMP has started
-        if (!hasReceivedFirstGem(player)) {
+        // IMPORTANT: Check both file flag AND actual gem presence to prevent duplication
+        if (!hasReceivedFirstGem(player) && this.plugin.getGemManager().findGemInInventory(player) == null) {
             if (!this.plugin.getConfigManager().isSmpStarted()) {
                 // SMP hasn't started yet, notify the player
                 this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
