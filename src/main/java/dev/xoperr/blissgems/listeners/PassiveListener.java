@@ -1160,11 +1160,84 @@ implements Listener {
         if (killer == null) return;
         if (!WealthAbilities.hasRichRush(killer.getUniqueId())) return;
 
-        // Double all mob drops
+        // Double ONLY natural mob drops (not equipment, armor, or player items)
+        // This prevents duplication exploits with donkey chests, piglin held items, etc.
         List<ItemStack> originalDrops = new ArrayList<>(event.getDrops());
         for (ItemStack drop : originalDrops) {
-            event.getDrops().add(drop.clone());
+            // Skip items that are clearly equipment/player items
+            if (isNaturalMobDrop(drop)) {
+                event.getDrops().add(drop.clone());
+            }
         }
+    }
+
+    /**
+     * Check if an item is a natural mob drop (not equipment or player items)
+     * This prevents Rich Rush from duplicating armor, saddles, chest contents, etc.
+     */
+    private boolean isNaturalMobDrop(ItemStack item) {
+        if (item == null || item.getType().isAir()) return false;
+
+        Material type = item.getType();
+
+        // Exclude all armor, weapons, and tools (prevent equipment duping)
+        if (type.name().contains("HELMET") || type.name().contains("CHESTPLATE") ||
+            type.name().contains("LEGGINGS") || type.name().contains("BOOTS") ||
+            type.name().contains("SWORD") || type.name().contains("AXE") ||
+            type.name().contains("PICKAXE") || type.name().contains("SHOVEL") ||
+            type.name().contains("HOE") || type.name().contains("BOW") ||
+            type.name().contains("CROSSBOW") || type.name().contains("TRIDENT") ||
+            type.name().contains("SHIELD")) {
+            return false;
+        }
+
+        // Exclude containers and storage items (prevent shulker/chest duping)
+        if (type.name().contains("SHULKER") || type.name().contains("CHEST") ||
+            type.name().contains("BARREL") || type.name().contains("BUNDLE") ||
+            type == Material.SADDLE || type.name().contains("HORSE_ARMOR")) {
+            return false;
+        }
+
+        // Exclude items with custom names or lore (likely player items)
+        if (item.hasItemMeta()) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta.hasDisplayName() || meta.hasLore()) {
+                return false;
+            }
+        }
+
+        // Whitelist: Only duplicate known natural mob drops
+        return switch (type) {
+            // Meat and food
+            case ROTTEN_FLESH, BONE, SPIDER_EYE, STRING, GUNPOWDER,
+                 ENDER_PEARL, BLAZE_ROD, GHAST_TEAR, MAGMA_CREAM,
+                 SLIME_BALL, PRISMARINE_SHARD, PRISMARINE_CRYSTALS,
+                 RABBIT_HIDE, RABBIT_FOOT, PHANTOM_MEMBRANE,
+                 NAUTILUS_SHELL, HEART_OF_THE_SEA, SCUTE,
+                 // Raw meat
+                 BEEF, PORKCHOP, MUTTON, CHICKEN, RABBIT, COD, SALMON,
+                 TROPICAL_FISH, PUFFERFISH,
+                 // Cooked meat (from fire damage kills)
+                 COOKED_BEEF, COOKED_PORKCHOP, COOKED_MUTTON,
+                 COOKED_CHICKEN, COOKED_RABBIT, COOKED_COD, COOKED_SALMON,
+                 // Materials
+                 LEATHER, FEATHER, WOOL, INK_SAC, GLOW_INK_SAC,
+                 // Nether
+                 NETHER_STAR, WITHER_SKELETON_SKULL, SKELETON_SKULL,
+                 ZOMBIE_HEAD, CREEPER_HEAD, DRAGON_HEAD, PLAYER_HEAD,
+                 // Rare drops
+                 TOTEM_OF_UNDYING, ELYTRA, DRAGON_BREATH,
+                 // Common drops
+                 ARROW, BONE_MEAL, EGG, SNOWBALL,
+                 // Warden drops
+                 ECHO_SHARD, SCULK_CATALYST,
+                 // Sniffer drops
+                 SNIFFER_EGG,
+                 // Frog drops
+                 FROGLIGHT, OCHRE_FROGLIGHT, PEARLESCENT_FROGLIGHT, VERDANT_FROGLIGHT
+                 -> true;
+            default -> false;
+        };
     }
 
     // ==========================================================================
