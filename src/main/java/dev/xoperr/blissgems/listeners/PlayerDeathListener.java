@@ -50,6 +50,11 @@ implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
+
+        // Check victim's energy state BEFORE death to determine if killer can gain energy
+        EnergyState victimState = this.plugin.getEnergyManager().getEnergyState(victim);
+        boolean victimHadEnergy = victimState != EnergyState.BROKEN;
+
         int energyLoss = this.plugin.getConfigManager().getEnergyLossOnDeath();
         this.plugin.getEnergyManager().removeEnergy(victim, energyLoss);
 
@@ -64,7 +69,8 @@ implements Listener {
             victim.ban(banMessage, (java.util.Date)null, (String)null);
         }
 
-        if (killer != null) {
+        if (killer != null && victimHadEnergy) {
+            // Only give killer energy if victim had energy to drop (not BROKEN)
             int energyGain = this.plugin.getConfigManager().getEnergyGainOnKill();
             this.plugin.getEnergyManager().addEnergy(killer, energyGain);
             EnergyState killerState = this.plugin.getEnergyManager().getEnergyState(killer);
