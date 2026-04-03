@@ -40,6 +40,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.Tag;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -388,6 +389,12 @@ implements Listener {
         }
 
         if (!this.canUsePassives(player)) {
+            return;
+        }
+
+        // Check if player is using Silk Touch - if so, skip auto-smelt to prevent duping
+        ItemStack tool = player.getInventory().getItemInMainHand();
+        if (tool != null && tool.hasItemMeta() && tool.getItemMeta().hasEnchant(Enchantment.SILK_TOUCH)) {
             return;
         }
 

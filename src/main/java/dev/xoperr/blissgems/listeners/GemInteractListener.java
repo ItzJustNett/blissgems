@@ -692,6 +692,11 @@ implements Listener {
 
         Player player = (Player) event.getPlayer();
 
+        // Save Pockets inventory if closing a Pockets inventory
+        if (event.getView().getTitle().equals("\u00a76\u00a7lPockets")) {
+            this.plugin.getWealthAbilities().savePocketsInventory(player.getUniqueId());
+        }
+
         // Safety net: recover gems from crafting grid slots on close
         if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
             for (int i = 1; i <= 4; i++) {

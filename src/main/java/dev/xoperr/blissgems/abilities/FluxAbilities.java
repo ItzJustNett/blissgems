@@ -504,7 +504,7 @@ public class FluxAbilities {
         // Apply freeze effects to ALL living entities (same as Speed Storm freeze)
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 255, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 255, false, true));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, stunDuration, 128, false, true)); // Negative jump
+        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, stunDuration, 250, false, true)); // Prevent jumping (high amplifier wraps to negative)
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 1, false, true));
 
         // Add to stunned players list (only if it's a player)
