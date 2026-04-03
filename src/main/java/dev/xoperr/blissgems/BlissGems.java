@@ -458,6 +458,9 @@ extends JavaPlugin {
             this.metrics.shutdown();
         }
         this.energyManager.saveAll();
+        if (this.wealthAbilities != null) {
+            this.wealthAbilities.saveAllPockets();
+        }
         if (this.abilityManager != null) {
             this.abilityManager.saveAllCooldowns();
         }

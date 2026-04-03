@@ -3,12 +3,16 @@ package dev.xoperr.blissgems.abilities;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -29,6 +33,7 @@ public class WealthAbilities {
     private final BlissGems plugin;
     private final Map<UUID, Inventory> pocketsInventories;
     private final Map<UUID, Boolean> autoSmeltEnabled;
+    private final File pocketsDataFolder;
 
     // Unfortunate: tracks players whose actions are disabled
     private static final Set<UUID> unfortunatePlayers = new HashSet<>();
@@ -51,6 +56,10 @@ public class WealthAbilities {
         this.plugin = plugin;
         this.pocketsInventories = new HashMap<UUID, Inventory>();
         this.autoSmeltEnabled = new HashMap<UUID, Boolean>();
+        this.pocketsDataFolder = new File(plugin.getDataFolder(), "pockets");
+        if (!this.pocketsDataFolder.exists()) {
+            this.pocketsDataFolder.mkdirs();
+        }
     }
 
     public void onRightClick(Player player, int tier) {
@@ -70,7 +79,11 @@ public class WealthAbilities {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;
         }
-        Inventory pockets = this.pocketsInventories.computeIfAbsent(player.getUniqueId(), uuid -> Bukkit.createInventory(null, (int)9, (String)"\u00a76\u00a7lPockets"));
+        Inventory pockets = this.pocketsInventories.computeIfAbsent(player.getUniqueId(), uuid -> {
+            Inventory inv = Bukkit.createInventory(null, (int)9, (String)"\u00a76\u00a7lPockets");
+            loadPocketsInventory(player.getUniqueId(), inv);
+            return inv;
+        });
         player.openInventory(pockets);
         player.playSound(player.getLocation(), Sound.BLOCK_CHEST_OPEN, 1.0f, 1.0f);
     }
@@ -445,5 +458,64 @@ public class WealthAbilities {
 
     public void setAutoSmelt(Player player, boolean enabled) {
         this.autoSmeltEnabled.put(player.getUniqueId(), enabled);
+    }
+
+    /**
+     * Save a player's pockets inventory to disk
+     */
+    public void savePocketsInventory(UUID uuid) {
+        Inventory inv = this.pocketsInventories.get(uuid);
+        if (inv == null) return;
+
+        File file = new File(this.pocketsDataFolder, uuid.toString() + ".yml");
+        FileConfiguration data = new YamlConfiguration();
+
+        // Save each item stack with its index
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item != null && !item.getType().isAir()) {
+                data.set("items." + i, item);
+            }
+        }
+
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save pockets inventory for " + uuid + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Load a player's pockets inventory from disk
+     */
+    private void loadPocketsInventory(UUID uuid, Inventory inv) {
+        File file = new File(this.pocketsDataFolder, uuid.toString() + ".yml");
+        if (!file.exists()) return;
+
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+
+        // Load each saved item
+        if (data.contains("items")) {
+            for (String key : data.getConfigurationSection("items").getKeys(false)) {
+                try {
+                    int slot = Integer.parseInt(key);
+                    ItemStack item = data.getItemStack("items." + key);
+                    if (item != null && slot >= 0 && slot < inv.getSize()) {
+                        inv.setItem(slot, item);
+                    }
+                } catch (NumberFormatException e) {
+                    plugin.getLogger().warning("Invalid slot key in pockets data: " + key);
+                }
+            }
+        }
+    }
+
+    /**
+     * Save all loaded pockets inventories to disk (call on plugin disable)
+     */
+    public void saveAllPockets() {
+        for (UUID uuid : this.pocketsInventories.keySet()) {
+            savePocketsInventory(uuid);
+        }
     }
 }
