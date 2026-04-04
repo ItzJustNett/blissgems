@@ -69,10 +69,24 @@ implements Listener {
 
         // Upgrade the gem (universal upgrader works for any gem type)
         if (this.plugin.getGemManager().upgradeGem(player, currentGemType)) {
+            // Determine which hand has the upgrader and remove from correct hand
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            ItemStack offHand = player.getInventory().getItemInOffHand();
+
+            boolean upgraderInMainHand = mainHand != null &&
+                "gem_upgrader".equals(CustomItemManager.getIdByItem(mainHand));
+            boolean upgraderInOffHand = offHand != null &&
+                "gem_upgrader".equals(CustomItemManager.getIdByItem(offHand));
+
             if (item.getAmount() > 1) {
                 item.setAmount(item.getAmount() - 1);
             } else {
-                player.getInventory().setItemInMainHand(null);
+                // Remove upgrader from the correct hand
+                if (upgraderInMainHand) {
+                    player.getInventory().setItemInMainHand(null);
+                } else if (upgraderInOffHand) {
+                    player.getInventory().setItemInOffHand(null);
+                }
             }
             if (this.plugin.getConfigManager().shouldPlayUpgradeEffects()) {
                 try {
