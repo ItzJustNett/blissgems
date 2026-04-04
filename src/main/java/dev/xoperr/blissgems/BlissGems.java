@@ -20,7 +20,7 @@ import dev.xoperr.blissgems.abilities.StrengthAbilities;
 import dev.xoperr.blissgems.abilities.WealthAbilities;
 import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
-import dev.xoperr.blissgems.listeners.GemDropListener;
+import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
 import dev.xoperr.blissgems.listeners.KillTrackingListener;
 import dev.xoperr.blissgems.listeners.PassiveListener;
@@ -509,7 +509,7 @@ extends JavaPlugin {
 
         // Register BlissGems listeners
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerDeathListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new GemDropListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);

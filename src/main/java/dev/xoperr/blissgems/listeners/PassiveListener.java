@@ -69,6 +69,7 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
 import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.GameMode;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
@@ -1207,37 +1208,58 @@ implements Listener {
         }
 
         // Whitelist: Only duplicate known natural mob drops
-        return switch (type) {
-            // Meat and food
-            case ROTTEN_FLESH, BONE, SPIDER_EYE, STRING, GUNPOWDER,
-                 ENDER_PEARL, BLAZE_ROD, GHAST_TEAR, MAGMA_CREAM,
-                 SLIME_BALL, PRISMARINE_SHARD, PRISMARINE_CRYSTALS,
-                 RABBIT_HIDE, RABBIT_FOOT, PHANTOM_MEMBRANE,
-                 NAUTILUS_SHELL, HEART_OF_THE_SEA, SCUTE,
-                 // Raw meat
-                 BEEF, PORKCHOP, MUTTON, CHICKEN, RABBIT, COD, SALMON,
-                 TROPICAL_FISH, PUFFERFISH,
-                 // Cooked meat (from fire damage kills)
-                 COOKED_BEEF, COOKED_PORKCHOP, COOKED_MUTTON,
-                 COOKED_CHICKEN, COOKED_RABBIT, COOKED_COD, COOKED_SALMON,
-                 // Materials
-                 LEATHER, FEATHER, WOOL, INK_SAC, GLOW_INK_SAC,
-                 // Nether
-                 NETHER_STAR, WITHER_SKELETON_SKULL, SKELETON_SKULL,
-                 ZOMBIE_HEAD, CREEPER_HEAD, DRAGON_HEAD, PLAYER_HEAD,
-                 // Rare drops
-                 TOTEM_OF_UNDYING, ELYTRA, DRAGON_BREATH,
-                 // Common drops
-                 ARROW, BONE_MEAL, EGG, SNOWBALL,
-                 // Warden drops
-                 ECHO_SHARD, SCULK_CATALYST,
-                 // Sniffer drops
-                 SNIFFER_EGG,
-                 // Frog drops
-                 FROGLIGHT, OCHRE_FROGLIGHT, PEARLESCENT_FROGLIGHT, VERDANT_FROGLIGHT
-                 -> true;
-            default -> false;
-        };
+        // Using if-else instead of switch to avoid enum constant issues
+        if (type == Material.ROTTEN_FLESH || type == Material.BONE || type == Material.SPIDER_EYE ||
+            type == Material.STRING || type == Material.GUNPOWDER || type == Material.ENDER_PEARL ||
+            type == Material.BLAZE_ROD || type == Material.GHAST_TEAR || type == Material.MAGMA_CREAM ||
+            type == Material.SLIME_BALL || type == Material.PRISMARINE_SHARD || type == Material.PRISMARINE_CRYSTALS ||
+            type == Material.RABBIT_HIDE || type == Material.RABBIT_FOOT || type == Material.PHANTOM_MEMBRANE ||
+            type == Material.NAUTILUS_SHELL) {
+            return true;
+        }
+        // Raw meat
+        if (type == Material.BEEF || type == Material.PORKCHOP || type == Material.MUTTON ||
+            type == Material.CHICKEN || type == Material.RABBIT || type == Material.COD ||
+            type == Material.SALMON || type == Material.TROPICAL_FISH || type == Material.PUFFERFISH) {
+            return true;
+        }
+        // Cooked meat (from fire damage kills)
+        if (type == Material.COOKED_BEEF || type == Material.COOKED_PORKCHOP || type == Material.COOKED_MUTTON ||
+            type == Material.COOKED_CHICKEN || type == Material.COOKED_RABBIT || type == Material.COOKED_COD ||
+            type == Material.COOKED_SALMON) {
+            return true;
+        }
+        // Materials
+        if (type == Material.LEATHER || type == Material.FEATHER ||
+            type == Material.INK_SAC || type == Material.GLOW_INK_SAC) {
+            return true;
+        }
+        // Nether
+        if (type == Material.NETHER_STAR || type == Material.WITHER_SKELETON_SKULL || type == Material.SKELETON_SKULL ||
+            type == Material.ZOMBIE_HEAD || type == Material.CREEPER_HEAD || type == Material.DRAGON_HEAD) {
+            return true;
+        }
+        // Rare drops
+        if (type == Material.TOTEM_OF_UNDYING || type == Material.ELYTRA || type == Material.DRAGON_BREATH) {
+            return true;
+        }
+        // Common drops
+        if (type == Material.ARROW || type == Material.EGG || type == Material.SNOWBALL) {
+            return true;
+        }
+        // Warden drops
+        if (type == Material.ECHO_SHARD || type == Material.SCULK_CATALYST) {
+            return true;
+        }
+        // Sniffer drops
+        if (type == Material.SNIFFER_EGG) {
+            return true;
+        }
+        // Frog drops
+        if (type == Material.OCHRE_FROGLIGHT || type == Material.PEARLESCENT_FROGLIGHT || type == Material.VERDANT_FROGLIGHT) {
+            return true;
+        }
+        return false;
     }
 
     // ==========================================================================

@@ -46,6 +46,11 @@ gems:
   # Only one gem can be active at a time
   single-gem-only: true
 
+  # Prevent gems from being dropped or moved out of inventory
+  # When enabled, gems cannot be: dropped (Q), placed in containers/frames,
+  # given to entities, moved by hoppers, or lost in any other way
+  prevent-drop: true
+
 # ==========================================
 # WORLDGUARD INTEGRATION
 # ==========================================
@@ -495,6 +500,7 @@ messages:
   inventory-full-with-gem: "&c&lYour inventory is full! Cannot move items while carrying a gem."
   gem-forced-into-inventory: "&e&lYour gem was forced into inventory. A non-gem item was dropped."
   gem-forced-into-hotbar: "&c&lYour gem was forced into your hotbar!"
+  cannot-use-gem-in-composter: "&c&lYou cannot use your gem in a composter!"
 
   # Trust System Messages
   cannot-trust-self: "&cYou already trust yourself!"

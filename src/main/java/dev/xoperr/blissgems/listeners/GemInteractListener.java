@@ -524,26 +524,14 @@ implements Listener {
 
         String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
 
-        // If player has a gem, prevent picking up any items if inventory is full
-        // This prevents gems from being pushed out when inventory is full
-        if (countGemsInInventory(player) > 0) {
+        // If player has a gem, only prevent picking up OTHER GEMS if inventory is full
+        // This prevents having multiple gems when single-gem-only is enabled
+        // Normal items can still be picked up if there's space
+        if (oraxenId != null && GemType.isGem(oraxenId) && countGemsInInventory(player) > 0) {
             PlayerInventory inv = player.getInventory();
             // Check if inventory has no empty slots
             if (inv.firstEmpty() == -1) {
-                // Inventory is full, cancel pickup to prevent gem loss
-                event.setCancelled(true);
-                return;
-            }
-            // Also check if adding this item would fill the last slot
-            // and potentially cause issues
-            int emptySlots = 0;
-            for (ItemStack slot : inv.getStorageContents()) {
-                if (slot == null || slot.getType() == Material.AIR) {
-                    emptySlots++;
-                }
-            }
-            // If only one empty slot left, be extra cautious
-            if (emptySlots <= 1) {
+                // Inventory is full, prevent picking up additional gems
                 event.setCancelled(true);
                 return;
             }
@@ -569,26 +557,6 @@ implements Listener {
         Player player = event.getPlayer();
         Item itemEntity = event.getItem();
         ItemStack item = itemEntity.getItemStack();
-
-        // If player has a gem, prevent picking up items when inventory is full
-        if (countGemsInInventory(player) > 0) {
-            PlayerInventory inv = player.getInventory();
-            if (inv.firstEmpty() == -1) {
-                event.setCancelled(true);
-                return;
-            }
-            // Extra check for nearly full inventory
-            int emptySlots = 0;
-            for (ItemStack slot : inv.getStorageContents()) {
-                if (slot == null || slot.getType() == Material.AIR) {
-                    emptySlots++;
-                }
-            }
-            if (emptySlots <= 1) {
-                event.setCancelled(true);
-                return;
-            }
-        }
 
         // Check if trying to pick up a gem when already has one
         String oraxenId = CustomItemManager.getIdByItem(item);
