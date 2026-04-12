@@ -65,9 +65,12 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.GameMode;
@@ -1036,6 +1039,73 @@ implements Listener {
         }
     }
 
+    @EventHandler
+    public void onUnfortunateSprint(PlayerToggleSprintEvent event) {
+        if (!event.isSprinting()) return; // Only check when trying to start sprinting
+        Player player = event.getPlayer();
+        double sprintFailChance = plugin.getConfig().getDouble("passives.unfortunate.sprint-fail-chance", 0.5);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), sprintFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateJump(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        // Check if player is jumping (Y velocity > 0 and on ground previously)
+        if (event.getFrom().getY() < event.getTo().getY() && player.isOnGround()) {
+            double jumpFailChance = plugin.getConfig().getDouble("passives.unfortunate.jump-fail-chance", 0.3);
+            if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), jumpFailChance)) {
+                // Cancel vertical movement by setting location back
+                event.setTo(event.getFrom());
+                player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateDropItem(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        double dropItemFailChance = plugin.getConfig().getDouble("passives.unfortunate.drop-item-fail-chance", 0.8);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), dropItemFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunatePickupItem(EntityPickupItemEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
+        Player player = (Player) event.getEntity();
+        double pickupItemFailChance = plugin.getConfig().getDouble("passives.unfortunate.pickup-item-fail-chance", 0.7);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), pickupItemFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        double interactFailChance = plugin.getConfig().getDouble("passives.unfortunate.interact-fail-chance", 0.6);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), interactFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
+    @EventHandler
+    public void onUnfortunateCraft(CraftItemEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+        double craftFailChance = plugin.getConfig().getDouble("passives.unfortunate.craft-fail-chance", 0.9);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), craftFailChance)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+        }
+    }
+
     // ==========================================================================
     // Wealth Gem — Item Lock handlers
     // ==========================================================================
@@ -1161,8 +1231,16 @@ implements Listener {
         if (killer == null) return;
         if (!WealthAbilities.hasRichRush(killer.getUniqueId())) return;
 
+        // Skip duplication for entities with inventories (donkeys, llamas, etc.)
+        // This prevents exploit of duplicating chest contents
+        EntityType entityType = event.getEntity().getType();
+        if (entityType == EntityType.DONKEY || entityType == EntityType.MULE ||
+            entityType == EntityType.LLAMA || entityType == EntityType.TRADER_LLAMA) {
+            return;  // Don't duplicate any drops from chest-bearing entities
+        }
+
         // Double ONLY natural mob drops (not equipment, armor, or player items)
-        // This prevents duplication exploits with donkey chests, piglin held items, etc.
+        // This prevents duplication exploits with piglin held items, zombie equipment, etc.
         List<ItemStack> originalDrops = new ArrayList<>(event.getDrops());
         for (ItemStack drop : originalDrops) {
             // Skip items that are clearly equipment/player items
