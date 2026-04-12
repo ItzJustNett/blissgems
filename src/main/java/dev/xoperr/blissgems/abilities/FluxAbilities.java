@@ -290,10 +290,46 @@ public class FluxAbilities {
             }
         }
 
-        // Apply health damage (bypasses armor using setHealth)
+        // Apply health damage (bypasses armor but respects totem)
+        // Check if target would die and has totem of undying
         double currentHealth = target.getHealth();
-        double newHealth = Math.max(0, currentHealth - finalDamage);
-        target.setHealth(newHealth);
+        boolean wouldDie = currentHealth <= finalDamage;
+        boolean hasTotem = false;
+
+        if (wouldDie && target instanceof Player) {
+            Player targetPlayer = (Player) target;
+            ItemStack mainHand = targetPlayer.getInventory().getItemInMainHand();
+            ItemStack offHand = targetPlayer.getInventory().getItemInOffHand();
+
+            if (mainHand.getType() == Material.TOTEM_OF_UNDYING) {
+                hasTotem = true;
+                targetPlayer.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+            } else if (offHand.getType() == Material.TOTEM_OF_UNDYING) {
+                hasTotem = true;
+                targetPlayer.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
+            }
+
+            if (hasTotem) {
+                // Trigger totem effect
+                targetPlayer.setHealth(1.0);
+                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40 * 20, 1));
+                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 5 * 20, 1));
+                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 40 * 20, 0));
+
+                // Totem particles and sound
+                targetPlayer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING,
+                    targetPlayer.getLocation().add(0, 1, 0), 100, 0.5, 0.5, 0.5, 0.5);
+                targetPlayer.playSound(targetPlayer.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+
+                player.sendMessage("§e⚡ Totem of Undying activated!");
+            }
+        }
+
+        if (!hasTotem) {
+            // Apply damage normally (bypasses armor)
+            double newHealth = Math.max(0, currentHealth - finalDamage);
+            target.setHealth(newHealth);
+        }
 
         // Apply armor damage if target is a player
         if (target instanceof Player) {
