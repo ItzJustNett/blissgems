@@ -104,6 +104,13 @@ implements Listener {
             return;
         }
 
+        // Block opening bundles that contain gems
+        if (item != null && item.getType() == Material.BUNDLE && bundleContainsGem(item)) {
+            event.setCancelled(true);
+            player.sendMessage("§c§lThis bundle contains a gem! Remove the gem first before using it.");
+            return;
+        }
+
         String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
         if (oraxenId == null) {
             return;
@@ -620,12 +627,47 @@ implements Listener {
         int count = 0;
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
+
+            // Check if item itself is a gem
             String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
             if (oraxenId != null && GemType.isGem(oraxenId)) {
                 count++;
+                continue;
+            }
+
+            // Check if item is a bundle containing gems
+            if (item.getType() == Material.BUNDLE) {
+                if (bundleContainsGem(item)) {
+                    count++;
+                }
             }
         }
         return count;
+    }
+
+    /**
+     * Check if a bundle contains any gems
+     */
+    private boolean bundleContainsGem(ItemStack bundle) {
+        if (bundle == null || bundle.getType() != Material.BUNDLE) {
+            return false;
+        }
+
+        // Get bundle meta to check contents
+        if (bundle.getItemMeta() instanceof org.bukkit.inventory.meta.BundleMeta) {
+            org.bukkit.inventory.meta.BundleMeta bundleMeta = (org.bukkit.inventory.meta.BundleMeta) bundle.getItemMeta();
+            if (bundleMeta.hasItems()) {
+                for (ItemStack bundledItem : bundleMeta.getItems()) {
+                    if (bundledItem != null) {
+                        String itemId = CustomItemManager.getIdByItem(bundledItem);
+                        if (itemId != null && GemType.isGem(itemId)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // Drop prevention moved to GemDropListener (uses DropItemControl's PDC-based approach)
@@ -691,6 +733,111 @@ implements Listener {
                 forceGemIntoInventory(player, cursorItem);
             }
         }
+
+        // STRICT SINGLE-GEM ENFORCEMENT
+        // Check if player somehow has multiple gems and drop extras
+        enforceOneGemOnly(player);
+    }
+
+    /**
+     * Enforces that player can only have one gem in their inventory.
+     * If multiple gems are found, keeps the first one and drops the rest.
+     * Also extracts gems from bundles and drops them.
+     */
+    private void enforceOneGemOnly(Player player) {
+        PlayerInventory inv = player.getInventory();
+        boolean foundFirstGem = false;
+        java.util.List<ItemStack> gemsToDrop = new java.util.ArrayList<>();
+
+        // First pass: find all gems and mark extras for dropping
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType() == Material.AIR) continue;
+
+            String itemId = CustomItemManager.getIdByItem(item);
+
+            // Check if item is a gem
+            if (itemId != null && GemType.isGem(itemId)) {
+                if (!foundFirstGem) {
+                    // This is the first gem - keep it
+                    foundFirstGem = true;
+                } else {
+                    // This is an extra gem - remove it and drop it
+                    gemsToDrop.add(item.clone());
+                    inv.setItem(i, null);
+                }
+                continue;
+            }
+
+            // Check if item is a bundle containing gems
+            if (item.getType() == Material.BUNDLE) {
+                java.util.List<ItemStack> extractedGems = extractGemsFromBundle(item, i, inv);
+                if (!extractedGems.isEmpty()) {
+                    // Add extracted gems to drop list (unless it's the first gem)
+                    for (ItemStack extractedGem : extractedGems) {
+                        if (!foundFirstGem) {
+                            // Keep this gem as the first gem - add it to inventory
+                            foundFirstGem = true;
+                            forceGemIntoInventory(player, extractedGem);
+                        } else {
+                            // Extra gem - mark for dropping
+                            gemsToDrop.add(extractedGem);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Drop all extra gems
+        if (!gemsToDrop.isEmpty()) {
+            for (ItemStack gemToDrop : gemsToDrop) {
+                player.getWorld().dropItemNaturally(player.getLocation(), gemToDrop);
+            }
+            player.sendMessage("§c§lYou can only have one gem! Extra gems have been dropped.");
+        }
+    }
+
+    /**
+     * Extracts all gems from a bundle and returns them.
+     * Also updates the bundle in the inventory to remove the extracted gems.
+     */
+    private java.util.List<ItemStack> extractGemsFromBundle(ItemStack bundle, int slotIndex, PlayerInventory inv) {
+        java.util.List<ItemStack> extractedGems = new java.util.ArrayList<>();
+
+        if (bundle == null || bundle.getType() != Material.BUNDLE) {
+            return extractedGems;
+        }
+
+        if (bundle.getItemMeta() instanceof org.bukkit.inventory.meta.BundleMeta) {
+            org.bukkit.inventory.meta.BundleMeta bundleMeta = (org.bukkit.inventory.meta.BundleMeta) bundle.getItemMeta();
+
+            if (bundleMeta.hasItems()) {
+                java.util.List<ItemStack> remainingItems = new java.util.ArrayList<>();
+
+                // Separate gems from non-gems
+                for (ItemStack bundledItem : bundleMeta.getItems()) {
+                    if (bundledItem != null) {
+                        String itemId = CustomItemManager.getIdByItem(bundledItem);
+                        if (itemId != null && GemType.isGem(itemId)) {
+                            // This is a gem - extract it
+                            extractedGems.add(bundledItem.clone());
+                        } else {
+                            // Not a gem - keep it in the bundle
+                            remainingItems.add(bundledItem);
+                        }
+                    }
+                }
+
+                // Update the bundle to remove extracted gems
+                if (!extractedGems.isEmpty()) {
+                    bundleMeta.setItems(remainingItems);
+                    bundle.setItemMeta(bundleMeta);
+                    inv.setItem(slotIndex, bundle);
+                }
+            }
+        }
+
+        return extractedGems;
     }
 
     /**

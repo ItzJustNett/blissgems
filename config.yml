@@ -99,6 +99,8 @@ abilities:
     puff-breezy-bash: 15
     speed-sedative: 50
     speed-storm: 60
+    speed-terminal: 45  # Terminal Velocity (Tier 2 secondary ability)
+    speed-blur: 15  # Blur ability cooldown
     strength-nullify: 30
     strength-frailer: 45
     strength-shadow-stalker: 120
