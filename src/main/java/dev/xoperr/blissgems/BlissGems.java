@@ -29,6 +29,7 @@ import dev.xoperr.blissgems.listeners.PlayerJoinListener;
 import dev.xoperr.blissgems.listeners.RepairKitListener;
 import dev.xoperr.blissgems.listeners.ReviveBeaconListener;
 import dev.xoperr.blissgems.listeners.StunListener;
+import dev.xoperr.blissgems.listeners.SwapHandAbilityListener;
 import dev.xoperr.blissgems.listeners.TeleportListener;
 import dev.xoperr.blissgems.listeners.UpgraderListener;
 import dev.xoperr.blissgems.listeners.VillagerTradeListener;
@@ -74,6 +75,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class BlissGems
 extends JavaPlugin {
     private ConfigManager configManager;
+    private BlissCommand blissCommand;
     private EnergyManager energyManager;
     private GemManager gemManager;
     private AbilityManager abilityManager;
@@ -521,13 +523,18 @@ extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
     }
 
     private void registerCommands() {
-        BlissCommand blissCommand = new BlissCommand(this);
-        this.getCommand("bliss").setExecutor((CommandExecutor)blissCommand);
-        this.getCommand("bliss").setTabCompleter((TabCompleter)blissCommand);
+        this.blissCommand = new BlissCommand(this);
+        this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
+        this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
+    }
+
+    public BlissCommand getBlissCommand() {
+        return this.blissCommand;
     }
 
     public ConfigManager getConfigManager() {

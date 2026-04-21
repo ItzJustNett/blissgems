@@ -181,10 +181,10 @@ passives:
   speed:
     tier1:
       soul-sand-immunity: true
-      speed-level: 0  # Speed I
+      speed-level: 1  # Speed II
     tier2:
       soul-sand-immunity: true
-      speed-level: 1  # Speed II
+      speed-level: 2  # Speed III
 
   strength:
     tier1:
@@ -257,7 +257,7 @@ abilities:
     speed-storm: 135  # 2.25 minutes (tripled from 45)
     speed-terminal: 60  # Terminal Velocity cooldown
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
-    strength-nullify: 30
+    strength-nullify: 60
     strength-frailer: 45
     strength-shadow-stalker: 120
     wealth-pockets: 0  # No cooldown for opening
@@ -299,6 +299,8 @@ abilities:
   fire-meteor-shower:
     radius: 8.0  # AoE radius of the meteor shower
     interval-ticks: 10  # Ticks between each meteor (lower = faster rain)
+    yield: 2.0  # Explosion yield per meteor (0 = no explosion)
+    break-blocks: true  # Whether meteor explosions can break blocks
 
   # Flux Conduction settings
   flux-conduction:
@@ -320,6 +322,7 @@ abilities:
   # Strength Frailer settings
   strength-frailer:
     range: 15  # Raycast range in blocks
+    slowness-level: 2  # Slowness amplifier applied to target (1 = I, 2 = II, ...)
 
   # Strength Shadow Stalker settings
   strength-shadow-stalker:
@@ -329,7 +332,13 @@ abilities:
   # Strength Chad Strength settings (passive every-4th-hit)
   strength-chad:
     hit-threshold: 4  # Every Nth hit triggers bonus damage
-    bonus-damage: 7.0  # Bonus damage in HP (3.5 hearts)
+    bonus-damage: 4.0  # Bonus damage in HP (2 hearts)
+
+  # Fire Charged Fireball settings
+  fire-fireball:
+    charge-duration-ticks: 200  # Ticks to reach full charge (20 = 1s; 200 = 10s)
+    yield-base: 1.5  # Explosion yield at 0% charge
+    yield-per-percent: 0.025  # Yield added per 1% charge (at 100% = yield-base + 100*this)
 
   # Puff Group Breezy Bash settings
   puff-group-bash:
@@ -349,22 +358,22 @@ abilities:
   # Ability damage values
   damage:
     astra-daggers: 12.0  # 6 hearts (tripled from 4.0)
-    fire-fireball: 6.0
-    flux-beam-base: 5.0  # 2.5 hearts uncharged (scales to 15.0 HP at 100% charge)
-    flux-beam-max-armor-damage: 150  # Durability damage at 100% charge
+    fire-fireball: 9.0
+    flux-beam-base: 4.0  # 2 hearts uncharged (scales to 12.0 HP / 6 hearts at 100% charge)
+    flux-beam-max-armor-damage: 100  # Durability damage at 100% charge
     flux-shocking: 3.0
     fire-campfire: 2.0  # Damage per second to enemies in range
-    fire-meteor-shower: 5.0  # Damage per meteor impact
+    fire-meteor-shower: 8.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
     blur: 4.0  # Damage per lightning strike (3 strikes by default)
-    strength-chad-bonus: 7.0  # Chad Strength bonus damage on every 4th hit (3.5 hearts)
+    strength-chad-bonus: 4.0  # Chad Strength bonus damage on every 4th hit (2 hearts)
 
   # Ability durations (in seconds)
   durations:
     astra-projection: 5  # Short spectator mode duration
     astra-drift: 15  # Dimensional Drift invisibility duration
-    astra-void: 8  # Dimensional Void suppression duration
+    astra-void: 12  # Dimensional Void suppression duration
     astra-spook: 3  # Spook blindness/nausea duration
     astra-tag: 30  # Tag tracking duration
     fire-campfire: 15  # How long campfire lasts
@@ -379,6 +388,7 @@ abilities:
     life-heart-lock: 10
     strength-frailer-weakness: 20  # Weakness I duration in seconds
     strength-frailer-wither: 40  # Wither I duration in seconds
+    strength-frailer-slowness: 20  # Slowness duration in seconds
     strength-shadow-stalker: 60  # Tracking duration in seconds
     wealth-unfortunate: 40
     wealth-rich-rush: 120

@@ -146,16 +146,14 @@ public class StrengthAbilities {
             }
         }
 
-        // Strip ALL potion effects first
-        for (PotionEffect effect : target.getActivePotionEffects()) {
-            target.removePotionEffect(effect.getType());
-        }
-
-        // Apply Weakness I for 20 seconds and Wither I for 40 seconds
+        // Apply Weakness I, Slowness (configurable), and Wither I — no longer strips existing effects
         int weaknessDuration = this.plugin.getConfig().getInt("abilities.durations.strength-frailer-weakness", 20) * 20;
         int witherDuration = this.plugin.getConfig().getInt("abilities.durations.strength-frailer-wither", 40) * 20;
+        int slownessDuration = this.plugin.getConfig().getInt("abilities.durations.strength-frailer-slowness", 20) * 20;
+        int slownessLevel = this.plugin.getConfig().getInt("abilities.strength-frailer.slowness-level", 2);
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, weaknessDuration, 0, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, witherDuration, 0, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, slownessDuration, Math.max(0, slownessLevel - 1), false, true));
 
         // Particles
         Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.5f);

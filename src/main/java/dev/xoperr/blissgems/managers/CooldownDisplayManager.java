@@ -107,11 +107,6 @@ public class CooldownDisplayManager {
                     continue;
                 }
 
-                // Don't override Tag tracking display
-                if (this.plugin.getAstraAbilities().isTagTrackingActive(player)) {
-                    continue;
-                }
-
                 // Don't override Shadow Stalker tracking display
                 if (this.plugin.getStrengthAbilities().isTrackingActive(player)) {
                     continue;
