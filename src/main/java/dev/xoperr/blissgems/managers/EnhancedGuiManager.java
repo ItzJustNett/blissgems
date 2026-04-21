@@ -492,8 +492,8 @@ public class EnhancedGuiManager implements Listener {
         // Tier 1 ability cooldowns (row 3)
         gui.setItem(19, createEditableConfigItem("Astra Daggers", "abilities.cooldowns.astra-daggers", 15));
         gui.setItem(20, createEditableConfigItem("Fire Fireball", "abilities.cooldowns.fire-fireball", 10));
-        gui.setItem(21, createEditableConfigItem("Flux Ground", "abilities.cooldowns.flux-ground", 20));
-        gui.setItem(22, createEditableConfigItem("Life Drainer", "abilities.cooldowns.life-heart-drainer", 30));
+        gui.setItem(21, createEditableConfigItem("Flux Ground", "abilities.cooldowns.flux-ground", 45));
+        gui.setItem(22, createEditableConfigItem("Life Drainer", "abilities.cooldowns.life-heart-drainer", 60));
         gui.setItem(23, createEditableConfigItem("Puff Dash", "abilities.cooldowns.puff-dash", 5));
         gui.setItem(24, createEditableConfigItem("Speed Sedative", "abilities.cooldowns.speed-sedative", 35));
         gui.setItem(25, createEditableConfigItem("Strength Thorns", "abilities.cooldowns.strength-bloodthorns", 20));
@@ -501,7 +501,7 @@ public class EnhancedGuiManager implements Listener {
         // Tier 2 ability cooldowns (row 4)
         gui.setItem(28, createEditableConfigItem("Astral Projection", "abilities.cooldowns.astra-projection", 120));
         gui.setItem(29, createEditableConfigItem("Fire Campfire", "abilities.cooldowns.fire-campfire", 60));
-        gui.setItem(30, createEditableConfigItem("Flux Beam", "abilities.cooldowns.flux-beam", 60));
+        gui.setItem(30, createEditableConfigItem("Flux Beam", "abilities.cooldowns.flux-beam", 240));
         gui.setItem(31, createEditableConfigItem("Circle of Life", "abilities.cooldowns.life-circle-of-life", 60));
         gui.setItem(32, createEditableConfigItem("Breezy Bash", "abilities.cooldowns.puff-breezy-bash", 10));
         gui.setItem(33, createEditableConfigItem("Adrenaline Rush", "abilities.cooldowns.adrenaline-rush", 90));
@@ -511,7 +511,7 @@ public class EnhancedGuiManager implements Listener {
         gui.setItem(37, createEditableConfigItem("Frailer", "abilities.cooldowns.strength-frailer", 25));
         gui.setItem(38, createEditableConfigItem("Chad Strength", "abilities.cooldowns.strength-chad", 30));
         gui.setItem(39, createEditableConfigItem("Durability Chip", "abilities.cooldowns.wealth-durability-chip", 30));
-        gui.setItem(40, createEditableConfigItem("Unfortunate", "abilities.cooldowns.wealth-unfortunate", 40));
+        gui.setItem(40, createEditableConfigItem("Unfortunate", "abilities.cooldowns.wealth-unfortunate", 90));
         gui.setItem(41, createEditableConfigItem("Rich Rush", "abilities.cooldowns.wealth-rich-rush", 540));
         gui.setItem(42, createEditableConfigItem("Amplification", "abilities.cooldowns.wealth-amplification", 180));
 
@@ -1037,8 +1037,8 @@ public class EnhancedGuiManager implements Listener {
             // Tier 1 ability cooldowns (row 3)
             case 19: configPath = "abilities.cooldowns.astra-daggers"; defaultValue = 15; displayName = "Astra Daggers"; break;
             case 20: configPath = "abilities.cooldowns.fire-fireball"; defaultValue = 10; displayName = "Fire Fireball"; break;
-            case 21: configPath = "abilities.cooldowns.flux-ground"; defaultValue = 20; displayName = "Flux Ground"; break;
-            case 22: configPath = "abilities.cooldowns.life-heart-drainer"; defaultValue = 30; displayName = "Life Drainer"; break;
+            case 21: configPath = "abilities.cooldowns.flux-ground"; defaultValue = 45; displayName = "Flux Ground"; break;
+            case 22: configPath = "abilities.cooldowns.life-heart-drainer"; defaultValue = 60; displayName = "Life Drainer"; break;
             case 23: configPath = "abilities.cooldowns.puff-dash"; defaultValue = 5; displayName = "Puff Dash"; break;
             case 24: configPath = "abilities.cooldowns.speed-sedative"; defaultValue = 35; displayName = "Speed Sedative"; break;
             case 25: configPath = "abilities.cooldowns.strength-bloodthorns"; defaultValue = 20; displayName = "Strength Thorns"; break;
@@ -1046,7 +1046,7 @@ public class EnhancedGuiManager implements Listener {
             // Tier 2 ability cooldowns (row 4)
             case 28: configPath = "abilities.cooldowns.astra-projection"; defaultValue = 120; displayName = "Astral Projection"; break;
             case 29: configPath = "abilities.cooldowns.fire-campfire"; defaultValue = 60; displayName = "Fire Campfire"; break;
-            case 30: configPath = "abilities.cooldowns.flux-beam"; defaultValue = 60; displayName = "Flux Beam"; break;
+            case 30: configPath = "abilities.cooldowns.flux-beam"; defaultValue = 240; displayName = "Flux Beam"; break;
             case 31: configPath = "abilities.cooldowns.life-circle-of-life"; defaultValue = 60; displayName = "Circle of Life"; break;
             case 32: configPath = "abilities.cooldowns.puff-breezy-bash"; defaultValue = 10; displayName = "Breezy Bash"; break;
             case 33: configPath = "abilities.cooldowns.adrenaline-rush"; defaultValue = 90; displayName = "Adrenaline Rush"; break;
@@ -1056,7 +1056,7 @@ public class EnhancedGuiManager implements Listener {
             case 37: configPath = "abilities.cooldowns.strength-frailer"; defaultValue = 25; displayName = "Frailer"; break;
             case 38: configPath = "abilities.cooldowns.strength-chad"; defaultValue = 30; displayName = "Chad Strength"; break;
             case 39: configPath = "abilities.cooldowns.wealth-durability-chip"; defaultValue = 30; displayName = "Durability Chip"; break;
-            case 40: configPath = "abilities.cooldowns.wealth-unfortunate"; defaultValue = 40; displayName = "Unfortunate"; break;
+            case 40: configPath = "abilities.cooldowns.wealth-unfortunate"; defaultValue = 90; displayName = "Unfortunate"; break;
             case 41: configPath = "abilities.cooldowns.wealth-rich-rush"; defaultValue = 540; displayName = "Rich Rush"; break;
             case 42: configPath = "abilities.cooldowns.wealth-amplification"; defaultValue = 180; displayName = "Amplification"; break;
         }
