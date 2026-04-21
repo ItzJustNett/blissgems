@@ -491,6 +491,7 @@ messages:
   already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
   projection-boundary: "&cYou've reached the projection boundary!"
   projection-ended: "&dAstral Projection ended. You've returned to your body."
+  projection-blocked: "&dPath blocked! Astral Projection needs 5 clear blocks ahead."
   click-activation-disabled: "&cClick activation is disabled! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
   ban-enabled: "&aBan-on-zero-energy has been &aenabled&a! Players who reach 0 energy will be banned."
   ban-disabled: "&cBan-on-zero-energy has been &cdisabled&c."

@@ -215,120 +215,55 @@ public class AstraAbilities {
 
     // ========================================================================
     // 2. ASTRAL PROJECTION — Tier 2 Secondary (Shift)
-    //    Invisible mule ride, ghost trail at origin, stay where you end up
+    //    Short 5-block blink in the facing direction. Refuses to fire if any
+    //    block along the path is not passable at feet or head level.
     // ========================================================================
 
     public void astralProjection(Player player) {
         String abilityKey = "astra-projection";
 
-        // If already in projection, end it early
-        if (isInProjection(player)) {
-            endProjection(player);
-            return;
-        }
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        // Store original location
         Location origin = player.getLocation().clone();
-        UUID uuid = player.getUniqueId();
+        Vector direction = origin.getDirection().normalize();
 
-        projectionOrigins.put(uuid, origin);
-
-        // Spawn invisible mule with saddle
-        Mule mule = player.getWorld().spawn(origin, Mule.class, m -> {
-            m.setTamed(true);
-            m.setOwner(player);
-            m.setAdult();
-            m.setInvisible(true);
-            m.setSilent(true);
-            m.setInvulnerable(true);
-            m.setAI(false); // Player controls it
-            m.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
-            m.getInventory().setSaddle(new org.bukkit.inventory.ItemStack(org.bukkit.Material.SADDLE));
-        });
-
-        // Mount player on mule
-        mule.addPassenger(player);
-        projectionMules.put(uuid, mule);
-
-        // Config values
-        double maxRadius = this.plugin.getConfig().getDouble("abilities.astra-projection.radius", 150.0);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-projection", 5);
-        int duration = durationSeconds * 20; // Convert to ticks
-
-        // Make player invisible for the duration
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, duration + 20, 0, false, false));
-
-        // Deep purple projection particles at departure
-        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
-        player.getWorld().spawnParticle(Particle.DUST, origin, 100, 0.8, 1.5, 0.8, 0.0, purpleDust, true);
-        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 80, 0.7, 1.2, 0.7);
-        player.getWorld().spawnParticle(Particle.PORTAL, origin, 50, 0.5, 1.0, 0.5);
-        player.getWorld().spawnParticle(Particle.WITCH, origin, 30, 0.5, 1.0, 0.5);
-        player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
-        player.playSound(origin, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.2f);
-
-        // Start monitoring task — ghost trail at origin + radius/duration enforcement
-        BukkitTask task = new BukkitRunnable() {
-            int ticksElapsed = 0;
-
-            @Override
-            public void run() {
-                if (!player.isOnline() || player.isDead() || !isInProjection(player)) {
-                    if (player.isDead() && isInProjection(player)) {
-                        endProjection(player);
-                    }
-                    this.cancel();
-                    return;
+        // Require all 5 blocks of the path (feet + head level) to be passable
+        for (int step = 1; step <= 5; step++) {
+            Location check = origin.clone().add(direction.clone().multiply(step));
+            if (!check.getBlock().isPassable() || !check.clone().add(0, 1, 0).getBlock().isPassable()) {
+                String blockedMsg = this.plugin.getConfigManager().getFormattedMessage("projection-blocked", new Object[0]);
+                if (blockedMsg != null && !blockedMsg.isEmpty()) {
+                    player.sendMessage(blockedMsg);
+                } else {
+                    player.sendMessage("\u00a7dPath blocked! Astral Projection needs 5 clear blocks ahead.");
                 }
-
-                ticksElapsed++;
-
-                // Ghost trail at origin every 10 ticks (0.5s)
-                if (ticksElapsed % 10 == 0) {
-                    Particle.DustOptions ghostDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.2f);
-                    origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 15, 0.4, 0.8, 0.4, 0.0, ghostDust, true);
-                    origin.getWorld().spawnParticle(Particle.SOUL, origin.clone().add(0, 1.5, 0), 5, 0.3, 0.5, 0.3, 0.02);
-                    origin.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin.clone().add(0, 0.5, 0), 8, 0.3, 0.6, 0.3, 0.01);
-                }
-
-                // Particle trail following projection player
-                if (ticksElapsed % 5 == 0) {
-                    Location projLoc = player.getLocation();
-                    Particle.DustOptions trailDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.7f);
-                    projLoc.getWorld().spawnParticle(Particle.DUST, projLoc, 5, 0.2, 0.2, 0.2, 0.0, trailDust, true);
-                    projLoc.getWorld().spawnParticle(Particle.END_ROD, projLoc, 2, 0.1, 0.1, 0.1, 0.01);
-                }
-
-                // Check distance from origin
-                double distance = player.getLocation().distance(origin);
-                if (distance > maxRadius) {
-                    Vector direction = player.getLocation().toVector().subtract(origin.toVector()).normalize();
-                    Location edgeLocation = origin.clone().add(direction.multiply(maxRadius - 1));
-                    edgeLocation.setYaw(player.getLocation().getYaw());
-                    edgeLocation.setPitch(player.getLocation().getPitch());
-                    player.teleport(edgeLocation);
-                    player.sendMessage(plugin.getConfigManager().getFormattedMessage("projection-boundary", new Object[0]));
-                }
-
-                // Check duration
-                if (ticksElapsed >= duration) {
-                    endProjection(player);
-                    this.cancel();
-                }
+                return;
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
+        }
 
-        projectionTasks.put(player.getUniqueId(), task);
+        Location target = origin.clone().add(direction.multiply(5));
+        target.setYaw(origin.getYaw());
+        target.setPitch(origin.getPitch());
+
+        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+        origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
+        origin.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+        player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+
+        player.teleport(target);
+
+        target.getWorld().spawnParticle(Particle.DUST, target.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+        player.playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Astral Projection");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("\u00a7d\u00a7oYou have " + durationSeconds + "s. /bliss ability:main to Tag, /bliss ability:secondary to Spook.");
     }
 
     public void endProjection(Player player) {

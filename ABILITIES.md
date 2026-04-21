@@ -23,7 +23,7 @@ Dimensional stealth and ranged daggers. Color: **Purple** (`RGB 106, 11, 184`)
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
 | Astral Daggers | T1+T2 | Right-click | 15s | Fire 3 phantom purple daggers that spread 15 degrees apart, travel 15 blocks, deal 4 HP each. Massive purple burst on hit. |
-| Astral Projection | T2 | Shift + Right-click | 60s | Enter spectator mode for 5s. Ghost trail at origin. Stay where you end up. During projection: Right-click to Tag, Shift+Right-click to Spook. |
+| Astral Projection | T2 | Shift + Right-click | 60s | Instant 5-block blink in the direction you're facing. Fails (no cooldown consumed) if any block along the path is not passable at feet or head level. |
 | Spook | T2 (sub) | Shift + Right-click (during Projection) | 10s | Blindness + Nausea to enemies in 8-block radius for 3s. Spooky soul particles and warden sounds. |
 | Tag | T2 (sub) | Right-click (during Projection) | 15s | Mark a player. Directional arrow + distance tracker in action bar for 30s. |
 | Dimensional Drift | T2 | `/bliss ability:tertiary` | 90s | Invisible horse mount + player invisibility for 15s. Subtle purple particle trail hints at presence. Toggle off early. |
