@@ -109,6 +109,15 @@ public class FireAbilities {
                 return true;
             }
         }
+        for (Location campfire : activeCampfires.values()) {
+            if (campfire != null
+                && campfire.getWorld().equals(loc.getWorld())
+                && campfire.getBlockX() == loc.getBlockX()
+                && campfire.getBlockY() == loc.getBlockY()
+                && campfire.getBlockZ() == loc.getBlockZ()) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -160,9 +169,11 @@ public class FireAbilities {
                 int currentCharge = chargingPlayers.getOrDefault(uuid, 0);
                 int newCharge;
 
+                int chargeDurationTicks = Math.max(1,
+                    plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", CHARGE_DURATION_TICKS));
                 if (!decaying) {
-                    // Charging phase: increase charge over 15 seconds
-                    newCharge = Math.min((ticksElapsed * MAX_CHARGE) / CHARGE_DURATION_TICKS, MAX_CHARGE);
+                    // Charging phase: increase charge over configured duration
+                    newCharge = Math.min((ticksElapsed * MAX_CHARGE) / chargeDurationTicks, MAX_CHARGE);
 
                     if (newCharge >= MAX_CHARGE) {
                         decaying = true;
@@ -322,9 +333,11 @@ public class FireAbilities {
         }
 
         // Calculate damage and yield based on charge
-        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.fire-fireball", 8.0);
+        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.fire-fireball", 9.0);
         double damageMultiplier = charge / 100.0;
-        float yield = 1.0f + (charge / 50.0f); // 1.0 to 3.0
+        double yieldBase = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-base", 1.5);
+        double yieldPerPercent = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-per-percent", 0.025);
+        float yield = (float) (yieldBase + (yieldPerPercent * charge));
 
         Location eyeLoc = player.getEyeLocation();
         Vector direction = eyeLoc.getDirection();
@@ -864,7 +877,14 @@ public class FireAbilities {
                                 150, 1.2, 1.8, 1.2, 0.05);
                         }
 
-                        // Set ground blocks on fire if exposed to sky
+                        // Create a small explosion that breaks blocks and spreads fire
+                        float meteorYield = (float) plugin.getConfig().getDouble("abilities.fire-meteor-shower.yield", 2.0);
+                        boolean breakBlocks = plugin.getConfig().getBoolean("abilities.fire-meteor-shower.break-blocks", true);
+                        if (meteorYield > 0) {
+                            impactLoc.getWorld().createExplosion(impactLoc, meteorYield, true, breakBlocks, player);
+                        }
+
+                        // Set ground blocks on fire if exposed to sky (fallback after explosion)
                         Block impactBlock = impactLoc.getBlock();
                         if (impactBlock.getType() == Material.AIR || impactBlock.getType() == Material.CAVE_AIR) {
                             Block below = impactBlock.getRelative(0, -1, 0);

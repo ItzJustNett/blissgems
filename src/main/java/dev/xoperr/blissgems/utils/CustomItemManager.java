@@ -2,6 +2,8 @@ package dev.xoperr.blissgems.utils;
 
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -442,8 +444,10 @@ public class CustomItemManager {
         // Set display name
         meta.setDisplayName(data.displayName);
 
-        // Set lore if available
-        if (data.lore != null && !data.lore.isEmpty()) {
+        // Set lore and, for Pristine+ gems, append the state badge + enchant glint
+        if (GemType.isGem(id)) {
+            applyPristinePlusVisuals(meta, data.lore, energy);
+        } else if (data.lore != null && !data.lore.isEmpty()) {
             meta.setLore(data.lore);
         }
 
@@ -505,7 +509,37 @@ public class CustomItemManager {
 
         int pristineModelData = getPristineModelData(data.customModelData, energy, id);
         meta.setCustomModelData(pristineModelData);
+        applyPristinePlusVisuals(meta, data.lore, energy);
         item.setItemMeta(meta);
+    }
+
+    /**
+     * Rebuild the gem's lore from its base lore and add a Pristine+ badge line
+     * plus an enchantment glint when the energy level is 6 or higher.
+     * Glint/badge are removed when the energy drops back below that threshold.
+     */
+    private static void applyPristinePlusVisuals(ItemMeta meta, List<String> baseLore, int energy) {
+        EnergyState state = EnergyState.fromEnergy(energy);
+        boolean enhanced = state.isEnhanced();
+
+        List<String> lore = new ArrayList<>();
+        if (baseLore != null) {
+            lore.addAll(baseLore);
+        }
+        if (enhanced) {
+            if (!lore.isEmpty()) {
+                lore.add("");
+            }
+            lore.add("§5✮ " + state.getDisplayName());
+        }
+        meta.setLore(lore.isEmpty() ? null : lore);
+
+        if (enhanced) {
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        } else {
+            meta.removeEnchant(Enchantment.UNBREAKING);
+        }
     }
 
     /**
