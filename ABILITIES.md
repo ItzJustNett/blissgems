@@ -26,8 +26,8 @@ Dimensional stealth and ranged daggers. Color: **Purple** (`RGB 106, 11, 184`)
 | Astral Projection | T2 | Shift + Right-click | 60s | Instant 5-block blink in the direction you're facing. Fails (no cooldown consumed) if any block along the path is not passable at feet or head level. |
 | Spook | T2 (sub) | Shift + Right-click (during Projection) | 10s | Blindness + Nausea to enemies in 8-block radius for 3s. Spooky soul particles and warden sounds. |
 | Tag | T2 (sub) | Right-click (during Projection) | 15s | Mark a player. Directional arrow + distance tracker in action bar for 30s. |
-| Dimensional Drift | T2 | `/bliss ability:tertiary` | 90s | Invisible horse mount + player invisibility for 15s. Subtle purple particle trail hints at presence. Toggle off early. |
-| Dimensional Void | T2 | `/bliss ability:quaternary` | 120s | Nullify ALL enemy gem abilities in 10-block radius for 8s. Purple dome visual. Mining Fatigue + Weakness applied to enemies inside. |
+| Dimensional Drift | T2 | `/bliss ability:tertiary` / F | 90s | Invisible horse mount + player invisibility for 15s. Subtle purple particle trail hints at presence. Toggle off early. |
+| Dimensional Void | T2 | `/bliss ability:quaternary` / Shift+F | 120s | Nullify ALL enemy gem abilities in 10-block radius for 12s. Purple dome visual. Mining Fatigue + Weakness applied to enemies inside. |
 
 ### Passives
 
@@ -47,10 +47,10 @@ Explosive fireballs and area denial. Color: **Orange** (`RGB 255, 119, 0`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Charged Fireball | T1+T2 | Right-click | 10s | Hold to charge (15s max). Charge bar in action bar. Damage scales 6-18 HP with charge. Auto-fires at 100%. Creates fire on impact. |
+| Charged Fireball | T1+T2 | Right-click | 10s | Hold to charge (~10s max, configurable). Charge bar in action bar. Damage scales ~9 HP base up to high yield explosion at 100%. Auto-fires at 100%. Creates fire and breakage on impact. |
 | Cozy Campfire | T2 | Shift + Right-click | 60s | Place campfire that heals allies (Regen IV) and burns enemies (2 HP/s + fire) in 5-block radius for 15s. |
-| Crisp | T2 | `/bliss ability:tertiary` | 90s | Evaporate all water and replace terrain with nether blocks in 10-block radius for 15s. Keeps evaporating newly placed water. |
-| Meteor Shower | T2 | `/bliss ability:quaternary` | 120s | Rain meteors on target area (8-block AoE) for 8s. Each meteor deals 5 HP, sets enemies on fire. Targets where you're looking (50 block range). |
+| Crisp | T2 | `/bliss ability:tertiary` / F | 90s | Evaporate all water and replace terrain with nether blocks in 10-block radius for 15s. Keeps evaporating newly placed water. |
+| Meteor Shower | T2 | `/bliss ability:quaternary` / Shift+F | 120s | Rain meteors on target area (8-block AoE) for 8s. Each meteor deals 8 HP, creates a small block-breaking explosion, and sets enemies on fire. Targets where you're looking (50 block range). |
 
 ### Passives
 
@@ -69,7 +69,7 @@ Electrical beams and charge mechanics. Color: **Cyan** (`RGB 94, 215, 255`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Flux Beam | T1+T2 | Right-click | 240s | Hold to charge (15s max). Raycast beam up to 30 blocks. Damage: 5 HP base x charge multiplier. Deals up to 150 armor durability damage at 100%. On trusted allies: repairs armor instead. |
+| Flux Beam | T1+T2 | Right-click | 240s | Hold to charge (15s max). Raycast beam up to 30 blocks. Damage: 4 HP base x charge multiplier (up to ~12 HP / 6 hearts at 100%). Deals up to 100 armor durability damage at 100%. On trusted allies: repairs armor instead. |
 | Ground | T2 | Shift + Right-click | 45s | Stun target (15 blocks): Slowness 255 + Mining Fatigue 255 + Weakness 255 for 3-5s. Completely freezes them. |
 
 ### Passives
@@ -141,7 +141,7 @@ Lightning strikes and velocity boosts. Color: **Yellow** (`RGB 244, 255, 28`)
 
 | Passive | Tier | How |
 |---|---|---|
-| Speed | T1+T2 | Speed I (T1) / Speed II (T2) + Dolphin's Grace |
+| Speed | T1+T2 | Speed II (T1) / Speed III (T2) + Dolphin's Grace |
 
 ---
 
@@ -154,7 +154,7 @@ Raw combat power and player debuffs. Color: **Red** (`RGB 199, 0, 10`)
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
 | Bloodthorns | T1+T2 | Right-click | 20s | AoE damage (5-block radius). Damage = 5 HP x (your health %). More health = more damage. |
-| Frailer Power | T2 | Right-click (aiming at target) | 25s | Target (15 blocks): Weakness III for 10s + Wither II for 5s. |
+| Frailer Power | T2 | Right-click (aiming at target) | 25s | Target (15 blocks): Weakness I + Slowness II + Wither I. Stacks on top of the target's existing effects (no longer strips them). |
 | Chad Strength | T2 | Shift + Right-click | 30s | Self-buff: Strength II + Resistance II for 10s. |
 
 ### Passives
@@ -200,7 +200,7 @@ All passives require gem in offhand and energy above Ruined threshold (2+).
 | Flux | Removes Weakness, Slowness, Hunger |
 | Life | Removes Wither, passive healing |
 | Puff | *(none from manager — event-based: fall immunity, double jump, launch)* |
-| Speed | Speed I-II, Dolphin's Grace |
+| Speed | Speed II-III, Dolphin's Grace |
 | Strength | Strength I-II |
 | Wealth | Luck I-II, Hero of the Village |
 
@@ -212,8 +212,8 @@ All passives require gem in offhand and energy above Ruined threshold (2+).
 |---|---|---|
 | `/bliss ability:main` | All | Trigger primary ability |
 | `/bliss ability:secondary` | All T2 | Trigger secondary ability (shift) |
-| `/bliss ability:tertiary` | Astra T2, Fire T2 | Dimensional Drift / Crisp |
-| `/bliss ability:quaternary` | Astra T2, Fire T2 | Dimensional Void / Meteor Shower |
+| `/bliss ability:tertiary` / F (swap-hand) | All T2 with a tertiary | Tertiary ability |
+| `/bliss ability:quaternary` / Shift+F | All T2 with a quaternary | Quaternary ability |
 | `/bliss souls` | Astra | View captured souls |
 | `/bliss release` | Astra | Release all captured souls |
 | `/bliss pockets` | Wealth T2 | Open personal inventory |
