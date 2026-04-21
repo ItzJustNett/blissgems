@@ -95,6 +95,36 @@ passives:
   # How often to apply passive effects (in ticks, 20 ticks = 1 second)
   update-interval: 20
 
+  # Extra potion effects applied to the player every passive tick while the
+  # gem is held in the offhand (stacks on top of built-in passives).
+  # Use Bukkit PotionEffectType names (SPEED, NIGHT_VISION, JUMP_BOOST, etc.).
+  # Level is 1-based (level: 1 = "I", level: 2 = "II", ...).
+  # Leave a list empty to grant no extra effect for that gem/tier.
+  extra-effects:
+    astra:
+      t1: []
+      t2: []
+    fire:
+      t1: []
+      t2: []
+    flux:
+      t1: []
+      t2: []
+    life:
+      t1: []
+      t2: []
+    puff:
+      t1: []
+      t2: []
+    speed:
+      t1: []
+      t2: []
+    strength:
+      t1: []
+      t2: []
+    wealth:
+      t1: []
+      t2: []
   # Tier-specific passive values (tier1 = weaker, tier2 = stronger)
   astra:
     tier1:

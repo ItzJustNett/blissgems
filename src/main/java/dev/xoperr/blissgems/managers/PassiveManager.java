@@ -18,6 +18,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.List;
+import java.util.Map;
+
 public class PassiveManager {
     private final BlissGems plugin;
 
@@ -82,6 +85,30 @@ public class PassiveManager {
             case WEALTH: {
                 this.applyWealthPassives(player);
             }
+        }
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        this.applyConfiguredExtraEffects(player, gemType, tier);
+    }
+
+    private void applyConfiguredExtraEffects(Player player, GemType gemType, int tier) {
+        String path = "passives.extra-effects." + gemType.name().toLowerCase() + ".t" + tier;
+        List<Map<?, ?>> entries = this.plugin.getConfig().getMapList(path);
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+        int duration = this.plugin.getConfigManager().getPassiveUpdateInterval() + 10;
+        for (Map<?, ?> entry : entries) {
+            Object typeObj = entry.get("type");
+            if (typeObj == null) continue;
+            PotionEffectType type = PotionEffectType.getByName(typeObj.toString().toUpperCase());
+            if (type == null) {
+                this.plugin.getLogger().warning("Unknown potion effect '" + typeObj + "' in " + path);
+                continue;
+            }
+            Object levelObj = entry.get("level");
+            int level = levelObj instanceof Number ? ((Number) levelObj).intValue() : 1;
+            int amplifier = Math.max(0, level - 1);
+            player.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false), true);
         }
     }
 
