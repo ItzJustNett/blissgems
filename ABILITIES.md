@@ -69,8 +69,8 @@ Electrical beams and charge mechanics. Color: **Cyan** (`RGB 94, 215, 255`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Flux Beam | T1+T2 | Right-click | 60s | Hold to charge (15s max). Raycast beam up to 30 blocks. Damage: 5 HP base x charge multiplier. Deals up to 150 armor durability damage at 100%. On trusted allies: repairs armor instead. |
-| Ground | T2 | Shift + Right-click | 20s | Stun target (15 blocks): Slowness 255 + Mining Fatigue 255 + Weakness 255 for 3-5s. Completely freezes them. |
+| Flux Beam | T1+T2 | Right-click | 240s | Hold to charge (15s max). Raycast beam up to 30 blocks. Damage: 5 HP base x charge multiplier. Deals up to 150 armor durability damage at 100%. On trusted allies: repairs armor instead. |
+| Ground | T2 | Shift + Right-click | 45s | Stun target (15 blocks): Slowness 255 + Mining Fatigue 255 + Weakness 255 for 3-5s. Completely freezes them. |
 
 ### Passives
 
@@ -89,7 +89,7 @@ Health manipulation for allies and enemies. Color: **Pink** (`RGB 255, 0, 180`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Heart Drainer | T1+T2 | Right-click | 30s | Target entity (15 blocks). Apply Wither II for 20s. Pink particles + sculk soul effects. |
+| Heart Drainer | T1+T2 | Right-click | 60s | Target entity (15 blocks). Apply Wither II for 20s. Pink particles + sculk soul effects. |
 | Circle of Life | T2 | Shift + Right-click | 60s | Create 8-block radius zone for 10s. You get Regen III. Enemies inside get Wither II. Pink circle border with hearts. |
 
 ### Passives
@@ -173,7 +173,7 @@ Economic advantage and item control. Color: **Green** (`RGB 0, 166, 44`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Unfortunate | T1+T2 | Right-click (aiming at player) | 40s | Apply Unluck III to target player for 40s. |
+| Unfortunate | T1+T2 | Right-click (aiming at player) | 90s | Apply Unluck III to target player for 40s. |
 | Durability Chip | T1+T2 | Right-click (no target) | 30s | Toggle 2x durability damage on tools. |
 | Rich Rush | T2 | Shift + Right-click | 540s (9 min) | Haste III + Luck IV for 2 minutes. |
 | Amplification | T2 | `/bliss amplify` | 180s (3 min) | Amplify all active potion effects by +1 level (max 5). |
