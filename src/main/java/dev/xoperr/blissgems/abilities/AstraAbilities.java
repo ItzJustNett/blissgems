@@ -26,7 +26,6 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mule;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -40,11 +39,6 @@ import java.util.*;
 public class AstraAbilities {
     private final BlissGems plugin;
 
-    // Astral Projection state
-    private final Map<UUID, Location> projectionOrigins = new HashMap<>();
-    private final Map<UUID, Mule> projectionMules = new HashMap<>();
-    private final Map<UUID, BukkitTask> projectionTasks = new HashMap<>();
-
     // Dimensional Drift state
     private final Map<UUID, Horse> driftHorses = new HashMap<>();
     private final Map<UUID, BukkitTask> driftTasks = new HashMap<>();
@@ -53,10 +47,6 @@ public class AstraAbilities {
     // Dimensional Void state
     private final Set<UUID> voidActivePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> voidTasks = new HashMap<>();
-
-    // Tagged players (Astral Projection sub-ability)
-    private final Map<UUID, UUID> taggedPlayers = new HashMap<>(); // tagger -> tagged
-    private final Map<UUID, BukkitTask> tagTasks = new HashMap<>();
 
     // Achievement: Piercing Precision — consecutive dagger hits on players
     private final Map<UUID, Integer> consecutiveDaggerHits = new HashMap<>();
@@ -70,23 +60,8 @@ public class AstraAbilities {
     // ========================================================================
 
     public void onRightClick(Player player, int tier) {
-        if (tier == 2) {
-            if (player.isSneaking()) {
-                // If in projection, use sub-abilities
-                if (isInProjection(player)) {
-                    // Shift right-click during projection = Spook
-                    spook(player);
-                } else {
-                    this.astralProjection(player);
-                }
-            } else {
-                // If in projection, Tag on non-shift right-click
-                if (isInProjection(player)) {
-                    tag(player);
-                } else {
-                    this.astralDaggers(player);
-                }
-            }
+        if (tier == 2 && player.isSneaking()) {
+            this.astralProjection(player);
         } else {
             this.astralDaggers(player);
         }
@@ -119,9 +94,6 @@ public class AstraAbilities {
     // State checkers
     // ========================================================================
 
-    public boolean isInProjection(Player player) {
-        return projectionOrigins.containsKey(player.getUniqueId());
-    }
 
     public boolean isDrifting(Player player) {
         return driftingPlayers.contains(player.getUniqueId());
@@ -215,306 +187,64 @@ public class AstraAbilities {
 
     // ========================================================================
     // 2. ASTRAL PROJECTION — Tier 2 Secondary (Shift)
-    //    Invisible mule ride, ghost trail at origin, stay where you end up
+    //    Short 5-block blink in the facing direction. Refuses to fire if any
+    //    block along the path is not passable at feet or head level.
     // ========================================================================
 
     public void astralProjection(Player player) {
         String abilityKey = "astra-projection";
 
-        // If already in projection, end it early
-        if (isInProjection(player)) {
-            endProjection(player);
-            return;
-        }
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        // Store original location
         Location origin = player.getLocation().clone();
-        UUID uuid = player.getUniqueId();
+        Vector direction = origin.getDirection().normalize();
 
-        projectionOrigins.put(uuid, origin);
-
-        // Spawn invisible mule with saddle
-        Mule mule = player.getWorld().spawn(origin, Mule.class, m -> {
-            m.setTamed(true);
-            m.setOwner(player);
-            m.setAdult();
-            m.setInvisible(true);
-            m.setSilent(true);
-            m.setInvulnerable(true);
-            m.setAI(false); // Player controls it
-            m.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
-            m.getInventory().setSaddle(new org.bukkit.inventory.ItemStack(org.bukkit.Material.SADDLE));
-        });
-
-        // Mount player on mule
-        mule.addPassenger(player);
-        projectionMules.put(uuid, mule);
-
-        // Config values
-        double maxRadius = this.plugin.getConfig().getDouble("abilities.astra-projection.radius", 150.0);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-projection", 5);
-        int duration = durationSeconds * 20; // Convert to ticks
-
-        // Make player invisible for the duration
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, duration + 20, 0, false, false));
-
-        // Deep purple projection particles at departure
-        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
-        player.getWorld().spawnParticle(Particle.DUST, origin, 100, 0.8, 1.5, 0.8, 0.0, purpleDust, true);
-        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin, 80, 0.7, 1.2, 0.7);
-        player.getWorld().spawnParticle(Particle.PORTAL, origin, 50, 0.5, 1.0, 0.5);
-        player.getWorld().spawnParticle(Particle.WITCH, origin, 30, 0.5, 1.0, 0.5);
-        player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
-        player.playSound(origin, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.2f);
-
-        // Start monitoring task — ghost trail at origin + radius/duration enforcement
-        BukkitTask task = new BukkitRunnable() {
-            int ticksElapsed = 0;
-
-            @Override
-            public void run() {
-                if (!player.isOnline() || player.isDead() || !isInProjection(player)) {
-                    if (player.isDead() && isInProjection(player)) {
-                        endProjection(player);
-                    }
-                    this.cancel();
-                    return;
+        // Require all 5 blocks of the path (feet + head level) to be passable
+        for (int step = 1; step <= 5; step++) {
+            Location check = origin.clone().add(direction.clone().multiply(step));
+            if (!check.getBlock().isPassable() || !check.clone().add(0, 1, 0).getBlock().isPassable()) {
+                String blockedMsg = this.plugin.getConfigManager().getFormattedMessage("projection-blocked", new Object[0]);
+                if (blockedMsg != null && !blockedMsg.isEmpty()) {
+                    player.sendMessage(blockedMsg);
+                } else {
+                    player.sendMessage("\u00a7dPath blocked! Astral Projection needs 5 clear blocks ahead.");
                 }
-
-                ticksElapsed++;
-
-                // Ghost trail at origin every 10 ticks (0.5s)
-                if (ticksElapsed % 10 == 0) {
-                    Particle.DustOptions ghostDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.2f);
-                    origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 15, 0.4, 0.8, 0.4, 0.0, ghostDust, true);
-                    origin.getWorld().spawnParticle(Particle.SOUL, origin.clone().add(0, 1.5, 0), 5, 0.3, 0.5, 0.3, 0.02);
-                    origin.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin.clone().add(0, 0.5, 0), 8, 0.3, 0.6, 0.3, 0.01);
-                }
-
-                // Particle trail following projection player
-                if (ticksElapsed % 5 == 0) {
-                    Location projLoc = player.getLocation();
-                    Particle.DustOptions trailDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.7f);
-                    projLoc.getWorld().spawnParticle(Particle.DUST, projLoc, 5, 0.2, 0.2, 0.2, 0.0, trailDust, true);
-                    projLoc.getWorld().spawnParticle(Particle.END_ROD, projLoc, 2, 0.1, 0.1, 0.1, 0.01);
-                }
-
-                // Check distance from origin
-                double distance = player.getLocation().distance(origin);
-                if (distance > maxRadius) {
-                    Vector direction = player.getLocation().toVector().subtract(origin.toVector()).normalize();
-                    Location edgeLocation = origin.clone().add(direction.multiply(maxRadius - 1));
-                    edgeLocation.setYaw(player.getLocation().getYaw());
-                    edgeLocation.setPitch(player.getLocation().getPitch());
-                    player.teleport(edgeLocation);
-                    player.sendMessage(plugin.getConfigManager().getFormattedMessage("projection-boundary", new Object[0]));
-                }
-
-                // Check duration
-                if (ticksElapsed >= duration) {
-                    endProjection(player);
-                    this.cancel();
-                }
+                return;
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
+        }
 
-        projectionTasks.put(player.getUniqueId(), task);
+        Location target = origin.clone().add(direction.multiply(5));
+        target.setYaw(origin.getYaw());
+        target.setPitch(origin.getPitch());
+
+        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+        origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
+        origin.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+        player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+
+        player.teleport(target);
+
+        target.getWorld().spawnParticle(Particle.DUST, target.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+        player.playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Astral Projection");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("\u00a7d\u00a7oYou have " + durationSeconds + "s. /bliss ability:main to Tag, /bliss ability:secondary to Spook.");
     }
 
-    public void endProjection(Player player) {
-        if (!isInProjection(player)) {
-            return;
-        }
 
-        UUID uuid = player.getUniqueId();
-        Location origin = projectionOrigins.remove(uuid);
-
-        // Cancel monitoring task
-        BukkitTask task = projectionTasks.remove(uuid);
-        if (task != null) {
-            task.cancel();
-        }
-
-        // Remove mule
-        Mule mule = projectionMules.remove(uuid);
-        if (mule != null) {
-            mule.removePassenger(player);
-            mule.remove();
-        }
-
-        // Remove invisibility
-        player.removePotionEffect(PotionEffectType.INVISIBILITY);
-
-        // Stay where you are (no teleport back) — arrival particles
-        Location arrivalLoc = player.getLocation().clone();
-        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
-        arrivalLoc.getWorld().spawnParticle(Particle.DUST, arrivalLoc, 80, 0.8, 1.5, 0.8, 0.0, purpleDust, true);
-        arrivalLoc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, arrivalLoc, 60, 0.7, 1.2, 0.7);
-        arrivalLoc.getWorld().spawnParticle(Particle.END_ROD, arrivalLoc, 30, 0.5, 1.0, 0.5);
-        arrivalLoc.getWorld().spawnParticle(Particle.SOUL, arrivalLoc, 20, 0.5, 1.0, 0.5);
-        player.playSound(arrivalLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-        player.playSound(arrivalLoc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 0.8f);
-
-        // Set cooldown when projection ends
-        this.plugin.getAbilityManager().useAbility(player, "astra-projection");
-
-        String msg = this.plugin.getConfigManager().getFormattedMessage("projection-ended", new Object[0]);
-        if (msg != null && !msg.isEmpty()) {
-            player.sendMessage(msg);
-        }
-    }
-
-    // ========================================================================
-    // 2a. SPOOK — Sub-ability during Astral Projection
-    //     Scares nearby players (Blindness + Nausea + spooky effects)
-    // ========================================================================
-
-    public void spook(Player player) {
-        if (!isInProjection(player)) return;
-
-        String abilityKey = "astra-spook";
-        if (this.plugin.getAbilityManager().isOnCooldown(player, abilityKey)) {
-            return;
-        }
-
-        Location loc = player.getLocation();
-        double radius = this.plugin.getConfig().getDouble("abilities.astra-spook.radius", 8.0);
-        int duration = this.plugin.getConfig().getInt("abilities.durations.astra-spook", 3) * 20;
-
-        int spookCount = 0;
-        for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
-            if (!(entity instanceof Player)) continue;
-            Player target = (Player) entity;
-            if (target.equals(player)) continue;
-            if (plugin.getTrustedPlayersManager().isTrusted(player, target)) continue;
-
-            // Apply blindness + nausea
-            target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, duration, 0, false, true));
-            target.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, duration, 0, false, true));
-
-            // Spooky particles on target
-            target.getWorld().spawnParticle(Particle.SOUL, target.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.05);
-            target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0, 1, 0), 40, 0.5, 0.8, 0.5, 0.02);
-            target.playSound(target.getLocation(), Sound.ENTITY_WARDEN_HEARTBEAT, 1.5f, 0.5f);
-            target.playSound(target.getLocation(), Sound.ENTITY_GHAST_SCREAM, 0.6f, 0.7f);
-            target.sendMessage("\u00a74\u00a7l\u00a7oSomething is watching you...");
-            spookCount++;
-        }
-
-        // AoE visual
-        Particle.DustOptions ghostDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.5f);
-        for (int i = 0; i < 32; i++) {
-            double angle = (i / 32.0) * 2 * Math.PI;
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
-            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0.5, z), 3, 0.1, 0.1, 0.1, 0.0, ghostDust, true);
-            loc.getWorld().spawnParticle(Particle.SOUL, loc.clone().add(x, 1, z), 1, 0.1, 0.1, 0.1, 0.01);
-        }
-
-        player.playSound(loc, Sound.ENTITY_WARDEN_ROAR, 0.7f, 1.5f);
-        this.plugin.getAbilityManager().setCooldown(player, abilityKey,
-            this.plugin.getConfig().getInt("abilities.cooldowns.astra-spook", 10));
-
-        player.sendMessage("\u00a7d\u00a7oSpooked " + spookCount + " player(s)!");
-    }
 
     // ========================================================================
     // 2b. TAG — Sub-ability during Astral Projection
     //     Marks a player, giving the Astra user a compass-like indicator
     // ========================================================================
 
-    public void tag(Player player) {
-        if (!isInProjection(player)) return;
-
-        String abilityKey = "astra-tag";
-        if (this.plugin.getAbilityManager().isOnCooldown(player, abilityKey)) {
-            return;
-        }
-
-        // Raycast to find target
-        LivingEntity target = getTargetEntity(player, 20);
-        if (target == null || !(target instanceof Player)) {
-            player.sendMessage("\u00a7c\u00a7oNo player target found! Aim at a player.");
-            return;
-        }
-
-        Player targetPlayer = (Player) target;
-        if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-            player.sendMessage("\u00a7c\u00a7oYou cannot tag a trusted player!");
-            return;
-        }
-
-        UUID taggerId = player.getUniqueId();
-        UUID taggedId = targetPlayer.getUniqueId();
-
-        // Cancel existing tag task
-        BukkitTask oldTask = tagTasks.remove(taggerId);
-        if (oldTask != null) oldTask.cancel();
-
-        taggedPlayers.put(taggerId, taggedId);
-
-        int tagDuration = this.plugin.getConfig().getInt("abilities.durations.astra-tag", 30) * 20;
-
-        // Tag visual on target
-        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.2f);
-        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0, 2.2, 0), 20, 0.2, 0.2, 0.2, 0.0, purpleDust, true);
-        targetPlayer.getWorld().spawnParticle(Particle.END_ROD, targetPlayer.getLocation().add(0, 2.5, 0), 10, 0.1, 0.1, 0.1, 0.01);
-        targetPlayer.playSound(targetPlayer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 0.5f);
-        targetPlayer.sendMessage("\u00a7d\u00a7oYou have been tagged by an astral presence...");
-
-        // Start tracking task — shows directional indicator in action bar
-        BukkitTask tagTask = new BukkitRunnable() {
-            int ticksElapsed = 0;
-
-            @Override
-            public void run() {
-                ticksElapsed++;
-
-                if (!player.isOnline() || !targetPlayer.isOnline() || ticksElapsed >= tagDuration) {
-                    taggedPlayers.remove(taggerId);
-                    tagTasks.remove(taggerId);
-                    if (player.isOnline()) {
-                        player.sendMessage("\u00a7d\u00a7oTag on " + targetPlayer.getName() + " expired.");
-                    }
-                    this.cancel();
-                    return;
-                }
-
-                // Show directional indicator every 20 ticks (1 second)
-                if (ticksElapsed % 20 == 0 && player.isOnline() && targetPlayer.isOnline()) {
-                    if (player.getWorld().equals(targetPlayer.getWorld())) {
-                        double distance = player.getLocation().distance(targetPlayer.getLocation());
-                        String direction = getDirectionArrow(player.getLocation(), targetPlayer.getLocation());
-                        net.md_5.bungee.api.chat.TextComponent tagMsg = new net.md_5.bungee.api.chat.TextComponent(
-                            "\u00a7d\u00a7lTAG \u00a77" + direction + " \u00a7d" + targetPlayer.getName() + " \u00a77" + (int) distance + "m"
-                        );
-                        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR, tagMsg);
-
-                        // Glowing particles on tagged player visible to tagger
-                        Particle.DustOptions tagDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.8f);
-                        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0, 2.2, 0), 5, 0.15, 0.15, 0.15, 0.0, tagDust, true);
-                    }
-                }
-            }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
-        tagTasks.put(taggerId, tagTask);
-        this.plugin.getAbilityManager().setCooldown(player, abilityKey,
-            this.plugin.getConfig().getInt("abilities.cooldowns.astra-tag", 15));
-
-        player.sendMessage("\u00a7d\u00a7oTagged " + targetPlayer.getName() + "! Tracking for " +
-            (tagDuration / 20) + " seconds.");
-    }
 
     // ========================================================================
     // 3. DIMENSIONAL DRIFT — Tier 2
@@ -789,14 +519,6 @@ public class AstraAbilities {
         return false;
     }
 
-    /**
-     * Check if the player has an active tag tracking HUD (used by CooldownDisplayManager
-     * to avoid overwriting the TAG action bar display).
-     */
-    public boolean isTagTrackingActive(Player player) {
-        return taggedPlayers.containsKey(player.getUniqueId());
-    }
-
     // ========================================================================
     // Utility methods
     // ========================================================================
@@ -831,20 +553,11 @@ public class AstraAbilities {
      * Cleanup when player leaves
      */
     public void cleanup(Player player) {
-        if (isInProjection(player)) {
-            endProjection(player);
-        }
         if (isDrifting(player)) {
             endDrift(player);
         }
         if (isVoidActive(player)) {
             endVoid(player);
         }
-
-        // Cleanup tags
-        UUID uuid = player.getUniqueId();
-        BukkitTask tagTask = tagTasks.remove(uuid);
-        if (tagTask != null) tagTask.cancel();
-        taggedPlayers.remove(uuid);
     }
 }

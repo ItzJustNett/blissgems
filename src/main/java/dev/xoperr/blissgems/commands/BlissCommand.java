@@ -597,11 +597,7 @@ TabCompleter {
         // Trigger primary ability (non-sneaking behavior)
         switch (gemType) {
             case ASTRA:
-                if (this.plugin.getAstraAbilities().isInProjection(player)) {
-                    this.plugin.getAstraAbilities().tag(player);
-                } else {
-                    this.plugin.getAstraAbilities().astralDaggers(player);
-                }
+                this.plugin.getAstraAbilities().astralDaggers(player);
                 break;
             case FIRE:
                 this.plugin.getFireAbilities().chargedFireball(player);
@@ -675,11 +671,7 @@ TabCompleter {
         // Trigger secondary ability (sneaking behavior for Tier 2)
         switch (gemType) {
             case ASTRA:
-                if (this.plugin.getAstraAbilities().isInProjection(player)) {
-                    this.plugin.getAstraAbilities().spook(player);
-                } else {
-                    this.plugin.getAstraAbilities().astralProjection(player);
-                }
+                this.plugin.getAstraAbilities().astralProjection(player);
                 break;
             case FIRE:
                 this.plugin.getFireAbilities().cozyCampfire(player);
@@ -703,6 +695,14 @@ TabCompleter {
                 this.plugin.getWealthAbilities().richRush(player);
                 break;
         }
+    }
+
+    public void triggerTertiary(Player player) {
+        handleAbilityTertiary(player, new String[0]);
+    }
+
+    public void triggerQuaternary(Player player) {
+        handleAbilityQuaternary(player, new String[0]);
     }
 
     private void handleAbilityTertiary(CommandSender sender, String[] args) {
