@@ -63,12 +63,8 @@ public class WealthAbilities {
     }
 
     public void onRightClick(Player player, int tier) {
-        if (tier < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
-            return;
-        }
-        if (player.isSneaking()) {
-            this.itemLock(player);
+        if (tier == 2 && player.isSneaking()) {
+            this.richRush(player);
         } else {
             this.unfortunate(player);
         }
@@ -128,7 +124,7 @@ public class WealthAbilities {
         targetPlayer.sendMessage("\u00a7c\u00a7oYou've been afflicted with Unfortunate! Actions disabled for " + duration + "s!");
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Unfortunate"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Unfortunate");
     }
 
     public void itemLock(Player player) {
@@ -181,7 +177,7 @@ public class WealthAbilities {
         targetPlayer.sendMessage("\u00a7c\u00a7oYour " + itemName + " has been locked for " + duration + "s!");
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Item Lock"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Item Lock");
     }
 
     public void richRush(Player player) {
@@ -216,7 +212,7 @@ public class WealthAbilities {
         player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5, 0.0, greenDust, true);
         player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Rich Rush"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Rich Rush");
         player.sendMessage("\u00a76\u00a7lRich Rush! \u00a7eMob and ore drops doubled for " + duration + "s!");
     }
 
@@ -287,7 +283,7 @@ public class WealthAbilities {
         }
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Amplification"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Amplification");
     }
 
     /**

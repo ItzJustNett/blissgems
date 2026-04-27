@@ -374,11 +374,11 @@ TabCompleter {
             EnergyState state = EnergyState.fromEnergy(energy);
             String energyBar = this.getEnergyBar(energy);
 
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-info-header"));
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-info-line1",
-                "energyBar", energyBar, "energy", energy));
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-info-line2",
-                "state", state.getDisplayName()));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-header");
+            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-line1",
+                "energyBar", energyBar, "energy", energy);
+            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-line2",
+                "state", state.getDisplayName());
             return;
         }
 
@@ -452,16 +452,16 @@ TabCompleter {
         Player player = (Player)sender;
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
         if (currentEnergy <= 1) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("not-enough-energy", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "not-enough-energy");
             return;
         }
         this.plugin.getEnergyManager().removeEnergy(player, 1);
         ItemStack bottle = CustomItemManager.getItemById((String)"energy_bottle");
         if (bottle != null) {
             player.getInventory().addItem(new ItemStack[]{bottle});
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-withdrawn", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-withdrawn");
         } else {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("energy-bottle-failed"));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-bottle-failed");
         }
     }
 
@@ -472,23 +472,23 @@ TabCompleter {
         }
         Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasActiveGem(player)) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-active-gem", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "no-active-gem");
             return;
         }
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         int tier = this.plugin.getGemManager().getGemTier(player);
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         EnergyState state = this.plugin.getEnergyManager().getEnergyState(player);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-info", "gem", gemType.getDisplayName(), "tier", tier, "energy", energy, "state", state.getDisplayName()));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "gem-info", "gem", gemType.getDisplayName(), "tier", tier, "energy", energy, "state", state.getDisplayName());
     }
 
     private void handleReload(CommandSender sender, String[] args) {
         if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(sender, "no-permission");
             return;
         }
         this.plugin.getConfigManager().reload();
-        sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("config-reloaded", new Object[0]));
+        this.plugin.getConfigManager().sendFormattedMessage(sender, "config-reloaded");
     }
 
     private void handlePockets(CommandSender sender, String[] args) {
@@ -501,14 +501,14 @@ TabCompleter {
         // Check if player has a Wealth gem
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         if (gemType != GemType.WEALTH) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-wealth-gem-pockets"));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-gem-pockets");
             return;
         }
 
         // Check tier
         int tier = this.plugin.getGemManager().getGemTier(player);
         if (tier < 2) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("requires-wealth-t2-pockets"));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-t2-pockets");
             return;
         }
 
@@ -551,9 +551,9 @@ TabCompleter {
         boolean newState = this.plugin.getClickActivationManager().toggleClickActivation(player);
 
         if (newState) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("click-activation-enabled"));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "click-activation-enabled");
         } else {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled"));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "click-activation-disabled");
         }
     }
 
@@ -572,7 +572,7 @@ TabCompleter {
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(offHand);
             if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("must-hold-gem"));
+                this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
                 return;
             }
         }
@@ -580,10 +580,7 @@ TabCompleter {
         // Check energy
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         if (energy <= 0) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) {
-                player.sendMessage(msg);
-            }
+            this.plugin.getConfigManager().sendFormattedMessage(player, "no-energy");
             return;
         }
 
@@ -638,8 +635,7 @@ TabCompleter {
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(offHand);
             if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
                 return;
             }
         }

@@ -106,8 +106,10 @@ public class StrengthAbilities {
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
         String targetName = (target instanceof Player) ? ((Player) target).getName() : "target";
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Nullify")
-            + " \u00a77(Stripped " + strippedCount + " effects from " + targetName + ")");
+        String nullifyMsg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Nullify");
+        if (nullifyMsg != null) {
+            player.sendMessage(nullifyMsg + " \u00a77(Stripped " + strippedCount + " effects from " + targetName + ")");
+        }
 
         if (target instanceof Player) {
             ((Player) target).sendMessage("\u00a7c\u00a7oYour potion effects have been nullified!");
@@ -169,7 +171,7 @@ public class StrengthAbilities {
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_HURT, 1.0f, 0.8f);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Frailer Power"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Frailer Power");
 
         if (target instanceof Player) {
             ((Player) target).sendMessage("\u00a7c\u00a7oYou have been weakened by Frailer Power!");

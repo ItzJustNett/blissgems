@@ -428,8 +428,9 @@ public class ConfigManager {
     public String getFormattedMessage(String key, Object ... replacements) {
         // Check if this is an optional message and they're disabled
         if (areOptionalMessagesDisabled()) {
-            // List of optional message keys that can be suppressed
-            if (key.equals("ability-activated") || key.equals("click-activation-disabled")) {
+            // Only suppress ability activation confirmations (spammy)
+            // Do NOT suppress click-activation-disabled — it's critical user feedback
+            if (key.equals("ability-activated")) {
                 return null; // Suppress the message
             }
         }
