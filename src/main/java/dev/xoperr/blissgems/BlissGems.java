@@ -18,6 +18,10 @@ import dev.xoperr.blissgems.abilities.PuffAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
 import dev.xoperr.blissgems.abilities.StrengthAbilities;
 import dev.xoperr.blissgems.abilities.WealthAbilities;
+import dev.xoperr.blissgems.api.BlissGemsAPI;
+import dev.xoperr.blissgems.api.CooldownEntry;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
@@ -34,6 +38,7 @@ import dev.xoperr.blissgems.listeners.TeleportListener;
 import dev.xoperr.blissgems.listeners.UpgraderListener;
 import dev.xoperr.blissgems.listeners.VillagerTradeListener;
 import dev.xoperr.blissgems.managers.AbilityManager;
+import dev.xoperr.blissgems.managers.GemRegistryImpl;
 import dev.xoperr.blissgems.managers.EnhancedGuiManager;
 import dev.xoperr.blissgems.managers.ClickActivationManager;
 import dev.xoperr.blissgems.managers.CooldownDisplayManager;
@@ -70,12 +75,18 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class BlissGems
-extends JavaPlugin {
+extends JavaPlugin
+implements BlissGemsAPI {
     private ConfigManager configManager;
     private BlissCommand blissCommand;
+    private GemRegistryImpl gemRegistry;
     private EnergyManager energyManager;
     private GemManager gemManager;
     private AbilityManager abilityManager;
@@ -317,6 +328,19 @@ extends JavaPlugin {
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
+        // Initialize Gem Registry and register built-in gems + API
+        try {
+            this.gemRegistry = new GemRegistryImpl(this);
+            this.registerBuiltInGems();
+            this.getServer().getServicesManager().register(
+                BlissGemsAPI.class, this, this, ServicePriority.Normal);
+            this.getLogger().info("BlissGems Addon API registered via ServicesManager");
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GemRegistry/API ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+
         try {
             this.cooldownDisplayManager = new CooldownDisplayManager(this);
         } catch (Exception e) {
@@ -660,6 +684,100 @@ extends JavaPlugin {
 
     public RegionManager getRegionManager() {
         return this.regionManager;
+    }
+
+    // ========================================================================
+    // Gem Registry & Addon API
+    // ========================================================================
+
+    @Override
+    public GemRegistryImpl getGemRegistry() {
+        return this.gemRegistry;
+    }
+
+    @Override
+    public boolean playerHasGem(org.bukkit.entity.Player player, String gemId) {
+        GemManager.ActiveGem gem = this.gemManager.getActiveGem(player);
+        if (gem == null) return false;
+        return gemId.equals(gem.getGemId());
+    }
+
+    /**
+     * Registers all 8 built-in gems, their ability handlers, passive handlers,
+     * and cooldown display entries with the gem registry.
+     */
+    private void registerBuiltInGems() {
+        // Register gem definitions
+        for (dev.xoperr.blissgems.utils.GemType type : dev.xoperr.blissgems.utils.GemType.values()) {
+            GemDefinition def = new GemDefinition.Builder(type.getId())
+                .displayName(type.getDisplayName())
+                .description(type.getDescription())
+                .color(type.getColor())
+                .plugin("BlissGems")
+                .maxTier(2)
+                .build();
+            this.gemRegistry.registerGem(def);
+        }
+
+        // Register ability handlers (each ability class now implements GemAbilityHandler)
+        if (this.astraAbilities != null) this.gemRegistry.registerAbilities("astra", this.astraAbilities);
+        if (this.fireAbilities != null) this.gemRegistry.registerAbilities("fire", this.fireAbilities);
+        if (this.fluxAbilities != null) this.gemRegistry.registerAbilities("flux", this.fluxAbilities);
+        if (this.lifeAbilities != null) this.gemRegistry.registerAbilities("life", this.lifeAbilities);
+        if (this.puffAbilities != null) this.gemRegistry.registerAbilities("puff", this.puffAbilities);
+        if (this.speedAbilities != null) this.gemRegistry.registerAbilities("speed", this.speedAbilities);
+        if (this.strengthAbilities != null) this.gemRegistry.registerAbilities("strength", this.strengthAbilities);
+        if (this.wealthAbilities != null) this.gemRegistry.registerAbilities("wealth", this.wealthAbilities);
+
+        // Register passive handlers
+        if (this.passiveManager != null) {
+            this.passiveManager.registerBuiltInHandlers(this.gemRegistry);
+        }
+
+        // Register cooldown display entries
+        this.gemRegistry.registerCooldowns("astra", List.of(
+            new CooldownEntry("astra-daggers", "Daggers"),
+            new CooldownEntry("astra-projection", "Projection")
+        ));
+        this.gemRegistry.registerCooldowns("fire", List.of(
+            new CooldownEntry("fire-fireball", "Fireball"),
+            new CooldownEntry("fire-campfire", "Campfire"),
+            new CooldownEntry("fire-crisp", "Crisp"),
+            new CooldownEntry("fire-meteor-shower", "Meteor")
+        ));
+        this.gemRegistry.registerCooldowns("flux", List.of(
+            new CooldownEntry("flux-beam", "Beam"),
+            new CooldownEntry("flux-ground", "Ground"),
+            new CooldownEntry("flux-flashbang", "Flash"),
+            new CooldownEntry("flux-kinetic-burst", "Kinetic")
+        ));
+        this.gemRegistry.registerCooldowns("life", List.of(
+            new CooldownEntry("life-drainer", "Drainer"),
+            new CooldownEntry("life-circle-of-life", "Circle"),
+            new CooldownEntry("life-vitality-vortex", "Vortex"),
+            new CooldownEntry("life-heart-lock", "Lock")
+        ));
+        this.gemRegistry.registerCooldowns("puff", List.of(
+            new CooldownEntry("puff-dash", "Dash"),
+            new CooldownEntry("puff-breezy-bash", "Bash"),
+            new CooldownEntry("puff-group-bash", "Group")
+        ));
+        this.gemRegistry.registerCooldowns("speed", List.of(
+            new CooldownEntry("speed-blur", "Blur"),
+            new CooldownEntry("speed-storm", "Storm"),
+            new CooldownEntry("speed-terminal", "Terminal")
+        ));
+        this.gemRegistry.registerCooldowns("strength", List.of(
+            new CooldownEntry("strength-nullify", "Nullify"),
+            new CooldownEntry("strength-frailer", "Frailer"),
+            new CooldownEntry("strength-shadow-stalker", "Stalker")
+        ));
+        this.gemRegistry.registerCooldowns("wealth", List.of(
+            new CooldownEntry("wealth-unfortunate", "Unfortunate"),
+            new CooldownEntry("wealth-rich-rush", "Rush"),
+            new CooldownEntry("wealth-item-lock", "Lock"),
+            new CooldownEntry("wealth-amplification", "Amplify")
+        ));
     }
 }
 

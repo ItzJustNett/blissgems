@@ -13,6 +13,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -26,7 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public class PuffAbilities {
+public class PuffAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Set<UUID> fallDamageImmune = new HashSet<>();
 
@@ -48,6 +49,21 @@ public class PuffAbilities {
         } else {
             this.dash(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.dash(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.breezyBash(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.groupBreezyBash(player);
     }
 
     public void dash(Player player) {

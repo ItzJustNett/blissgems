@@ -8,6 +8,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,7 +36,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
-public class FireAbilities {
+public class FireAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Map<UUID, Integer> chargingPlayers = new HashMap<>();
     private final Map<UUID, BukkitTask> chargingTasks = new HashMap<>();
@@ -127,6 +128,26 @@ public class FireAbilities {
         } else {
             this.chargedFireball(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.chargedFireball(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.cozyCampfire(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.crisp(player);
+    }
+
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.meteorShower(player);
     }
 
     public void chargedFireball(Player player) {

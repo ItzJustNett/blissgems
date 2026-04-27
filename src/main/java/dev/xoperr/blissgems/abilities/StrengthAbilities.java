@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import net.md_5.bungee.api.ChatMessageType;
@@ -26,7 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class StrengthAbilities {
+public class StrengthAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
 
     // Shadow Stalker tracking state
@@ -49,6 +50,21 @@ public class StrengthAbilities {
         } else {
             this.nullify(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.nullify(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.frailer(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.shadowStalker(player);
     }
 
     // ========================================================================

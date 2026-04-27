@@ -8,6 +8,8 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.HashMap;
@@ -31,23 +33,39 @@ public class GemManager {
 
         ItemStack[] contents = player.getInventory().getContents();
         ActiveGem foundGem = null;
+        GemRegistry registry = this.plugin.getGemRegistry();
+
         for (ItemStack item : contents) {
             String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null || !GemType.isGem(itemId)) continue;
-            GemType type = GemType.fromOraxenId(itemId);
-            int tier = GemType.getTierFromOraxenId(itemId);
-            if (type == null || !this.plugin.getConfigManager().isGemEnabled(type)) continue;
-            foundGem = new ActiveGem(type, tier);
-            break;
+            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
+
+            // Check built-in gems first
+            if (GemType.isGem(itemId)) {
+                GemType type = GemType.fromOraxenId(itemId);
+                int tier = GemType.getTierFromOraxenId(itemId);
+                if (type != null && this.plugin.getConfigManager().isGemEnabled(type)) {
+                    foundGem = new ActiveGem(type, tier);
+                    break;
+                }
+            }
+
+            // Check addon gems via registry
+            if (registry != null && registry.isRegisteredGem(itemId)) {
+                String gemId = registry.gemIdFromItemId(itemId);
+                int tier = registry.tierFromItemId(itemId);
+                foundGem = new ActiveGem(gemId, tier);
+                break;
+            }
         }
 
-        // Clean up charging if gem changed or removed
-        if (currentGem != null && (foundGem == null || currentGem.type != foundGem.type)) {
-            // Gem was removed or type changed - clean up abilities
-            if (currentGem.type == GemType.FIRE) {
-                plugin.getFireAbilities().cleanup(player);
-            } else if (currentGem.type == GemType.FLUX) {
-                plugin.getFluxAbilities().cleanup(player);
+        // Clean up if gem changed or removed
+        if (currentGem != null && (foundGem == null || !java.util.Objects.equals(currentGem.getGemId(), foundGem.getGemId()))) {
+            // Gem was removed or type changed - clean up abilities via registry
+            if (currentGem.getGemId() != null && registry != null) {
+                GemAbilityHandler handler = registry.getAbilityHandler(currentGem.getGemId());
+                if (handler != null) {
+                    handler.cleanup(player);
+                }
             }
         }
 
@@ -76,6 +94,15 @@ public class GemManager {
         return gem != null ? gem.getTier() : 1;
     }
 
+    /**
+     * Get the string gem ID for the player's active gem.
+     * Works for both built-in and addon gems.
+     */
+    public String getGemId(Player player) {
+        ActiveGem gem = this.getActiveGem(player);
+        return gem != null ? gem.getGemId() : null;
+    }
+
     public boolean hasGemType(Player player, GemType type) {
         ActiveGem gem = this.getActiveGem(player);
         return gem != null && gem.getType() == type;
@@ -87,11 +114,17 @@ public class GemManager {
             return false;
         }
         String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
-        if (itemId == null || !GemType.isGem(itemId)) {
+        if (itemId == null) {
             return false;
         }
-        GemType type = GemType.fromOraxenId(itemId);
-        return type != null && this.plugin.getConfigManager().isGemEnabled(type);
+        // Check built-in gems
+        if (GemType.isGem(itemId)) {
+            GemType type = GemType.fromOraxenId(itemId);
+            return type != null && this.plugin.getConfigManager().isGemEnabled(type);
+        }
+        // Check addon gems via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        return registry != null && registry.isRegisteredGem(itemId);
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
@@ -119,16 +152,43 @@ public class GemManager {
         return GemType.fromOraxenId(itemId);
     }
 
+    /**
+     * Get the string gem ID from the offhand item.
+     * Works for both built-in and addon gems.
+     */
+    public String getGemIdFromOffhand(Player player) {
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand == null) return null;
+        String itemId = CustomItemManager.getIdByItem(offhand);
+        if (itemId == null) return null;
+        // Check built-in
+        GemType type = GemType.fromOraxenId(itemId);
+        if (type != null) return type.getId();
+        // Check addon via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry != null) return registry.gemIdFromItemId(itemId);
+        return null;
+    }
+
     public int getTierFromOffhand(Player player) {
         ItemStack offhand = player.getInventory().getItemInOffHand();
         if (offhand == null) {
             return 1; // Default to tier 1
         }
         String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
-        if (itemId == null || !GemType.isGem(itemId)) {
-            return 1; // Default to tier 1
+        if (itemId == null) {
+            return 1;
         }
-        return GemType.getTierFromOraxenId(itemId);
+        // Check built-in
+        if (GemType.isGem(itemId)) {
+            return GemType.getTierFromOraxenId(itemId);
+        }
+        // Check addon via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry != null && registry.isRegisteredGem(itemId)) {
+            return registry.tierFromItemId(itemId);
+        }
+        return 1;
     }
 
     public boolean giveGem(Player player, GemType type, int tier) {
@@ -234,15 +294,31 @@ public class GemManager {
 
     public static class ActiveGem {
         private final GemType type;
+        private final String gemId;
         private final int tier;
 
+        /** Constructor for built-in gems */
         public ActiveGem(GemType type, int tier) {
             this.type = type;
+            this.gemId = type != null ? type.getId() : null;
             this.tier = tier;
         }
 
+        /** Constructor for addon gems (type is null) */
+        public ActiveGem(String gemId, int tier) {
+            this.type = null;
+            this.gemId = gemId;
+            this.tier = tier;
+        }
+
+        /** Returns the GemType for built-in gems, null for addon gems */
         public GemType getType() {
             return this.type;
+        }
+
+        /** Returns the string gem ID (works for both built-in and addon gems) */
+        public String getGemId() {
+            return this.gemId;
         }
 
         public int getTier() {

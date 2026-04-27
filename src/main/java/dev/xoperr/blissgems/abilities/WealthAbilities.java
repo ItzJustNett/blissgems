@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import java.io.File;
@@ -29,7 +30,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.RayTraceResult;
 
-public class WealthAbilities {
+public class WealthAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Map<UUID, Inventory> pocketsInventories;
     private final Map<UUID, Boolean> autoSmeltEnabled;
@@ -68,6 +69,26 @@ public class WealthAbilities {
         } else {
             this.unfortunate(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.unfortunate(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.richRush(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.itemLock(player);
+    }
+
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.amplification(player);
     }
 
     public void pockets(Player player) {

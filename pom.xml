@@ -191,6 +191,9 @@
                         <option>-keep public class dev.xoperr.blissgems.managers.** {
     public *;
 }</option>
+                        <!-- Keep Addon API classes (used by external plugins) -->
+                        <option>-keep public class dev.xoperr.blissgems.api.** { *; }</option>
+                        <option>-keep public interface dev.xoperr.blissgems.api.** { *; }</option>
                         <option>-keep public enum dev.xoperr.blissgems.utils.GemType {
     *;
 }</option>
