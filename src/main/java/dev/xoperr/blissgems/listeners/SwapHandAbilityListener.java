@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.entity.Player;
@@ -53,6 +54,9 @@ public class SwapHandAbilityListener implements Listener {
     private boolean isGem(ItemStack item) {
         if (item == null) return false;
         String id = CustomItemManager.getIdByItem(item);
-        return id != null && GemType.isGem(id);
+        if (id == null) return false;
+        if (GemType.isGem(id)) return true;
+        GemRegistry registry = plugin.getGemRegistry();
+        return registry != null && registry.isRegisteredGem(id);
     }
 }

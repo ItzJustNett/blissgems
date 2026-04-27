@@ -21,6 +21,9 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
@@ -156,42 +159,43 @@ implements Listener {
             }
             return;
         }
-        GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) {
-            return;
+
+        // Resolve gem via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        String gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
+        if (gemId == null) {
+            // Fallback: try built-in GemType
+            GemType gemType = GemType.fromOraxenId(oraxenId);
+            if (gemType == null) return;
+            gemId = gemType.getId();
         }
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
-        switch (gemType) {
-            case ASTRA: {
-                this.plugin.getAstraAbilities().onRightClick(player, tier);
-                break;
+
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
+
+        // For built-in gems, use existing onRightClick (handles sneak routing)
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType != null) {
+            switch (gemType) {
+                case ASTRA: this.plugin.getAstraAbilities().onRightClick(player, tier); return;
+                case FIRE: this.plugin.getFireAbilities().onRightClick(player, tier); return;
+                case FLUX: this.plugin.getFluxAbilities().onRightClick(player, tier); return;
+                case LIFE: this.plugin.getLifeAbilities().onRightClick(player, tier); return;
+                case PUFF: this.plugin.getPuffAbilities().onRightClick(player, tier); return;
+                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); return;
+                case STRENGTH: this.plugin.getStrengthAbilities().onRightClick(player, tier); return;
+                case WEALTH: this.plugin.getWealthAbilities().onRightClick(player, tier); return;
             }
-            case FIRE: {
-                this.plugin.getFireAbilities().onRightClick(player, tier);
-                break;
-            }
-            case FLUX: {
-                this.plugin.getFluxAbilities().onRightClick(player, tier);
-                break;
-            }
-            case LIFE: {
-                this.plugin.getLifeAbilities().onRightClick(player, tier);
-                break;
-            }
-            case PUFF: {
-                this.plugin.getPuffAbilities().onRightClick(player, tier);
-                break;
-            }
-            case SPEED: {
-                this.plugin.getSpeedAbilities().onRightClick(player, tier);
-                break;
-            }
-            case STRENGTH: {
-                this.plugin.getStrengthAbilities().onRightClick(player, tier);
-                break;
-            }
-            case WEALTH: {
-                this.plugin.getWealthAbilities().onRightClick(player, tier);
+        }
+
+        // For addon gems, route through registry
+        if (registry != null) {
+            GemAbilityHandler handler = registry.getAbilityHandler(gemId);
+            if (handler != null) {
+                if (tier >= 2 && player.isSneaking()) {
+                    handler.onSecondary(player, tier);
+                } else {
+                    handler.onPrimary(player, tier);
+                }
             }
         }
     }
@@ -909,11 +913,15 @@ implements Listener {
         ItemStack offHand = player.getInventory().getItemInOffHand();
 
         String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId == null || !GemType.isGem(oraxenId)) {
+        boolean isGemItem = oraxenId != null && (GemType.isGem(oraxenId) ||
+            (plugin.getGemRegistry() != null && plugin.getGemRegistry().isRegisteredGem(oraxenId)));
+        if (!isGemItem) {
             // Try offhand
             oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                player.sendMessage("§c§lYou must be holding a gem to use this command!");
+            isGemItem = oraxenId != null && (GemType.isGem(oraxenId) ||
+                (plugin.getGemRegistry() != null && plugin.getGemRegistry().isRegisteredGem(oraxenId)));
+            if (!isGemItem) {
+                player.sendMessage("\u00a7c\u00a7lYou must be holding a gem to use this command!");
                 return;
             }
         }
@@ -928,59 +936,47 @@ implements Listener {
             return;
         }
 
-        GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) {
-            return;
-        }
-
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        GemRegistry registry = this.plugin.getGemRegistry();
+        String gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
 
         // For secondary abilities, check if tier is 2
         if (secondary && tier < 2) {
-            player.sendMessage("§c§lSecondary abilities require Tier 2 gem!");
+            player.sendMessage("\u00a7c\u00a7lSecondary abilities require Tier 2 gem!");
             return;
         }
 
-        // Call the ability with fake sneaking state for secondary
-        boolean wasSneaking = player.isSneaking();
-        try {
-            // Temporarily set sneaking state if needed
+        // For built-in gems, use existing onRightClick (preserves sneak routing)
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType != null) {
+            boolean wasSneaking = player.isSneaking();
             if (secondary && !wasSneaking) {
-                // We can't force sneak, so we'll need to pass tier and sneak flag separately
-                // For now, tell player to shift
-                player.sendMessage("§e§oShift + use ability or right-click for secondary ability!");
+                player.sendMessage("\u00a7e\u00a7oShift + use ability or right-click for secondary ability!");
                 return;
             }
-
-            // Trigger ability based on gem type
             switch (gemType) {
-                case ASTRA:
-                    this.plugin.getAstraAbilities().onRightClick(player, tier);
-                    break;
-                case FIRE:
-                    this.plugin.getFireAbilities().onRightClick(player, tier);
-                    break;
-                case FLUX:
-                    this.plugin.getFluxAbilities().onRightClick(player, tier);
-                    break;
-                case LIFE:
-                    this.plugin.getLifeAbilities().onRightClick(player, tier);
-                    break;
-                case PUFF:
-                    this.plugin.getPuffAbilities().onRightClick(player, tier);
-                    break;
-                case SPEED:
-                    this.plugin.getSpeedAbilities().onRightClick(player, tier);
-                    break;
-                case STRENGTH:
-                    this.plugin.getStrengthAbilities().onRightClick(player, tier);
-                    break;
-                case WEALTH:
-                    this.plugin.getWealthAbilities().onRightClick(player, tier);
-                    break;
+                case ASTRA: this.plugin.getAstraAbilities().onRightClick(player, tier); break;
+                case FIRE: this.plugin.getFireAbilities().onRightClick(player, tier); break;
+                case FLUX: this.plugin.getFluxAbilities().onRightClick(player, tier); break;
+                case LIFE: this.plugin.getLifeAbilities().onRightClick(player, tier); break;
+                case PUFF: this.plugin.getPuffAbilities().onRightClick(player, tier); break;
+                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().onRightClick(player, tier); break;
+                case WEALTH: this.plugin.getWealthAbilities().onRightClick(player, tier); break;
             }
-        } finally {
-            // Restore original sneaking state (not needed since we can't change it)
+            return;
+        }
+
+        // For addon gems, route through registry
+        if (gemId != null && registry != null) {
+            GemAbilityHandler handler = registry.getAbilityHandler(gemId);
+            if (handler != null) {
+                if (secondary) {
+                    handler.onSecondary(player, tier);
+                } else {
+                    handler.onPrimary(player, tier);
+                }
+            }
         }
     }
 }

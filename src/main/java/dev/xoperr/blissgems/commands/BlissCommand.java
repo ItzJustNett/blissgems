@@ -13,6 +13,8 @@
 package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.GemType;
@@ -557,6 +559,28 @@ TabCompleter {
         }
     }
 
+    /**
+     * Find the gem item ID from the player's main or offhand.
+     * Returns null if no gem is found in either hand.
+     */
+    private String findGemInHand(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        GemRegistry registry = this.plugin.getGemRegistry();
+
+        String oraxenId = CustomItemManager.getIdByItem(mainHand);
+        if (oraxenId != null && (GemType.isGem(oraxenId) ||
+                (registry != null && registry.isRegisteredGem(oraxenId)))) {
+            return oraxenId;
+        }
+        oraxenId = CustomItemManager.getIdByItem(offHand);
+        if (oraxenId != null && (GemType.isGem(oraxenId) ||
+                (registry != null && registry.isRegisteredGem(oraxenId)))) {
+            return oraxenId;
+        }
+        return null;
+    }
+
     private void handleAbilityMain(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -564,17 +588,10 @@ TabCompleter {
         }
         Player player = (Player)sender;
 
-        // Check if player has a gem in hand
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId == null || !GemType.isGem(oraxenId)) {
-            oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
-                return;
-            }
+        String oraxenId = findGemInHand(player);
+        if (oraxenId == null) {
+            this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
+            return;
         }
 
         // Check energy
@@ -584,39 +601,32 @@ TabCompleter {
             return;
         }
 
+        GemRegistry registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
+
+        // Try built-in gem first
         GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) {
+        if (gemType != null) {
+            switch (gemType) {
+                case ASTRA: this.plugin.getAstraAbilities().astralDaggers(player); break;
+                case FIRE: this.plugin.getFireAbilities().chargedFireball(player); break;
+                case FLUX: this.plugin.getFluxAbilities().ground(player); break;
+                case LIFE: this.plugin.getLifeAbilities().heartDrainer(player); break;
+                case PUFF: this.plugin.getPuffAbilities().dash(player); break;
+                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
+                case WEALTH: this.plugin.getWealthAbilities().unfortunate(player); break;
+            }
             return;
         }
 
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
-
-        // Trigger primary ability (non-sneaking behavior)
-        switch (gemType) {
-            case ASTRA:
-                this.plugin.getAstraAbilities().astralDaggers(player);
-                break;
-            case FIRE:
-                this.plugin.getFireAbilities().chargedFireball(player);
-                break;
-            case FLUX:
-                this.plugin.getFluxAbilities().ground(player);
-                break;
-            case LIFE:
-                this.plugin.getLifeAbilities().heartDrainer(player);
-                break;
-            case PUFF:
-                this.plugin.getPuffAbilities().dash(player);
-                break;
-            case SPEED:
-                this.plugin.getSpeedAbilities().onRightClick(player, tier);
-                break;
-            case STRENGTH:
-                this.plugin.getStrengthAbilities().nullify(player);
-                break;
-            case WEALTH:
-                this.plugin.getWealthAbilities().unfortunate(player);
-                break;
+        // Addon gem - route through registry
+        if (registry != null) {
+            String gemId = registry.gemIdFromItemId(oraxenId);
+            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) {
+                handler.onPrimary(player, tier);
+            }
         }
     }
 
@@ -627,69 +637,48 @@ TabCompleter {
         }
         Player player = (Player)sender;
 
-        // Check if player has a gem in hand
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId == null || !GemType.isGem(oraxenId)) {
-            oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
-                return;
-            }
+        String oraxenId = findGemInHand(player);
+        if (oraxenId == null) {
+            this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
+            return;
         }
 
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        GemRegistry registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
 
-        // Check tier requirement for secondary abilities
         if (tier < 2) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
         }
 
-        // Check energy
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         if (energy <= 0) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) {
-                player.sendMessage(msg);
-            }
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
         }
 
         GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) {
+        if (gemType != null) {
+            switch (gemType) {
+                case ASTRA: this.plugin.getAstraAbilities().astralProjection(player); break;
+                case FIRE: this.plugin.getFireAbilities().cozyCampfire(player); break;
+                case FLUX: this.plugin.getFluxAbilities().ground(player); break;
+                case LIFE: this.plugin.getLifeAbilities().circleOfLife(player); break;
+                case PUFF: this.plugin.getPuffAbilities().breezyBash(player); break;
+                case SPEED: this.plugin.getSpeedAbilities().speedStorm(player); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().frailer(player); break;
+                case WEALTH: this.plugin.getWealthAbilities().richRush(player); break;
+            }
             return;
         }
 
-        // Trigger secondary ability (sneaking behavior for Tier 2)
-        switch (gemType) {
-            case ASTRA:
-                this.plugin.getAstraAbilities().astralProjection(player);
-                break;
-            case FIRE:
-                this.plugin.getFireAbilities().cozyCampfire(player);
-                break;
-            case FLUX:
-                this.plugin.getFluxAbilities().ground(player);
-                break;
-            case LIFE:
-                this.plugin.getLifeAbilities().circleOfLife(player);
-                break;
-            case PUFF:
-                this.plugin.getPuffAbilities().breezyBash(player);
-                break;
-            case SPEED:
-                this.plugin.getSpeedAbilities().speedStorm(player);
-                break;
-            case STRENGTH:
-                this.plugin.getStrengthAbilities().frailer(player);
-                break;
-            case WEALTH:
-                this.plugin.getWealthAbilities().richRush(player);
-                break;
+        // Addon gem
+        if (registry != null) {
+            String gemId = registry.gemIdFromItemId(oraxenId);
+            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) handler.onSecondary(player, tier);
         }
     }
 
@@ -708,20 +697,15 @@ TabCompleter {
         }
         Player player = (Player) sender;
 
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId == null || !GemType.isGem(oraxenId)) {
-            oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                return;
-            }
+        String oraxenId = findGemInHand(player);
+        if (oraxenId == null) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
         }
 
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        GemRegistry registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
         if (tier < 2) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
@@ -736,36 +720,26 @@ TabCompleter {
         }
 
         GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) return;
+        if (gemType != null) {
+            switch (gemType) {
+                case FIRE: this.plugin.getFireAbilities().crisp(player); break;
+                case ASTRA: this.plugin.getAstraAbilities().activateDimensionalDrift(player); break;
+                case FLUX: this.plugin.getFluxAbilities().flashbang(player); break;
+                case LIFE: this.plugin.getLifeAbilities().vitalityVortex(player); break;
+                case PUFF: this.plugin.getPuffAbilities().groupBreezyBash(player); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().shadowStalker(player); break;
+                case SPEED: this.plugin.getSpeedAbilities().activateTerminalVelocity(player); break;
+                case WEALTH: this.plugin.getWealthAbilities().itemLock(player); break;
+                default: player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!"); break;
+            }
+            return;
+        }
 
-        switch (gemType) {
-            case FIRE:
-                this.plugin.getFireAbilities().crisp(player);
-                break;
-            case ASTRA:
-                this.plugin.getAstraAbilities().activateDimensionalDrift(player);
-                break;
-            case FLUX:
-                this.plugin.getFluxAbilities().flashbang(player);
-                break;
-            case LIFE:
-                this.plugin.getLifeAbilities().vitalityVortex(player);
-                break;
-            case PUFF:
-                this.plugin.getPuffAbilities().groupBreezyBash(player);
-                break;
-            case STRENGTH:
-                this.plugin.getStrengthAbilities().shadowStalker(player);
-                break;
-            case SPEED:
-                this.plugin.getSpeedAbilities().activateTerminalVelocity(player);
-                break;
-            case WEALTH:
-                this.plugin.getWealthAbilities().itemLock(player);
-                break;
-            default:
-                player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
-                break;
+        // Addon gem
+        if (registry != null) {
+            String gemId = registry.gemIdFromItemId(oraxenId);
+            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) handler.onTertiary(player, tier);
         }
     }
 
@@ -776,20 +750,15 @@ TabCompleter {
         }
         Player player = (Player) sender;
 
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId == null || !GemType.isGem(oraxenId)) {
-            oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId == null || !GemType.isGem(oraxenId)) {
-                String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                return;
-            }
+        String oraxenId = findGemInHand(player);
+        if (oraxenId == null) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
         }
 
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        GemRegistry registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
         if (tier < 2) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
@@ -804,27 +773,23 @@ TabCompleter {
         }
 
         GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType == null) return;
+        if (gemType != null) {
+            switch (gemType) {
+                case FIRE: this.plugin.getFireAbilities().meteorShower(player); break;
+                case ASTRA: this.plugin.getAstraAbilities().activateDimensionalVoid(player); break;
+                case FLUX: this.plugin.getFluxAbilities().kineticBurst(player); break;
+                case LIFE: this.plugin.getLifeAbilities().heartLock(player); break;
+                case WEALTH: this.plugin.getWealthAbilities().amplification(player); break;
+                default: player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!"); break;
+            }
+            return;
+        }
 
-        switch (gemType) {
-            case FIRE:
-                this.plugin.getFireAbilities().meteorShower(player);
-                break;
-            case ASTRA:
-                this.plugin.getAstraAbilities().activateDimensionalVoid(player);
-                break;
-            case FLUX:
-                this.plugin.getFluxAbilities().kineticBurst(player);
-                break;
-            case LIFE:
-                this.plugin.getLifeAbilities().heartLock(player);
-                break;
-            case WEALTH:
-                this.plugin.getWealthAbilities().amplification(player);
-                break;
-            default:
-                player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!");
-                break;
+        // Addon gem
+        if (registry != null) {
+            String gemId = registry.gemIdFromItemId(oraxenId);
+            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) handler.onQuaternary(player, tier);
         }
     }
 

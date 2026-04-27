@@ -1,6 +1,9 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.CooldownEntry;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import net.md_5.bungee.api.ChatMessageType;
@@ -140,14 +143,24 @@ public class CooldownDisplayManager {
      * Get gem info with priority: Main hand > Offhand > Inventory
      */
     private GemInfo getCurrentGemInfo(Player player) {
+        GemRegistry registry = this.plugin.getGemRegistry();
+
         // Priority 1: Check main hand (for using abilities)
         org.bukkit.inventory.ItemStack mainHand = player.getInventory().getItemInMainHand();
         if (mainHand != null) {
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
-            if (oraxenId != null && GemType.isGem(oraxenId)) {
-                GemType type = GemType.fromOraxenId(oraxenId);
-                int tier = GemType.getTierFromOraxenId(oraxenId);
-                return new GemInfo(type, tier, "✋");
+            if (oraxenId != null) {
+                if (GemType.isGem(oraxenId)) {
+                    GemType type = GemType.fromOraxenId(oraxenId);
+                    int tier = GemType.getTierFromOraxenId(oraxenId);
+                    String gemId = type != null ? type.getId() : null;
+                    return new GemInfo(type, gemId, tier, "\u270b");
+                }
+                if (registry != null && registry.isRegisteredGem(oraxenId)) {
+                    String gemId = registry.gemIdFromItemId(oraxenId);
+                    int tier = registry.tierFromItemId(oraxenId);
+                    return new GemInfo(null, gemId, tier, "\u270b");
+                }
             }
         }
 
@@ -155,10 +168,18 @@ public class CooldownDisplayManager {
         org.bukkit.inventory.ItemStack offHand = player.getInventory().getItemInOffHand();
         if (offHand != null) {
             String oraxenId = CustomItemManager.getIdByItem(offHand);
-            if (oraxenId != null && GemType.isGem(oraxenId)) {
-                GemType type = GemType.fromOraxenId(oraxenId);
-                int tier = GemType.getTierFromOraxenId(oraxenId);
-                return new GemInfo(type, tier, "🛡");
+            if (oraxenId != null) {
+                if (GemType.isGem(oraxenId)) {
+                    GemType type = GemType.fromOraxenId(oraxenId);
+                    int tier = GemType.getTierFromOraxenId(oraxenId);
+                    String gemId = type != null ? type.getId() : null;
+                    return new GemInfo(type, gemId, tier, "\ud83d\udee1");
+                }
+                if (registry != null && registry.isRegisteredGem(oraxenId)) {
+                    String gemId = registry.gemIdFromItemId(oraxenId);
+                    int tier = registry.tierFromItemId(oraxenId);
+                    return new GemInfo(null, gemId, tier, "\ud83d\udee1");
+                }
             }
         }
 
@@ -169,12 +190,14 @@ public class CooldownDisplayManager {
      * Helper class to store gem information with location
      */
     private static class GemInfo {
-        final GemType type;
+        final GemType type;   // null for addon gems
+        final String gemId;   // string ID (works for both built-in and addon)
         final int tier;
         final String location;
 
-        GemInfo(GemType type, int tier, String location) {
+        GemInfo(GemType type, String gemId, int tier, String location) {
             this.type = type;
+            this.gemId = gemId;
             this.tier = tier;
             this.location = location;
         }
@@ -193,9 +216,9 @@ public class CooldownDisplayManager {
         GemType gemType = gemInfo.type;
         int tier = gemInfo.tier;
 
-        // Skip if gem type is null (e.g., from addon gems)
+        // For addon gems (gemType is null), use registry-based display
         if (gemType == null) {
-            return "";
+            return buildAddonCooldownDisplay(player, gemInfo);
         }
 
         // Get gem color from GemType
@@ -669,6 +692,43 @@ public class CooldownDisplayManager {
         bar.append("§7] ").append(color).append(remaining).append("s");
 
         return bar.toString();
+    }
+
+    /**
+     * Build cooldown display for addon gems using registry cooldown entries.
+     */
+    private String buildAddonCooldownDisplay(Player player, GemInfo gemInfo) {
+        if (gemInfo.gemId == null) return "";
+
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry == null) return "";
+
+        List<CooldownEntry> entries = registry.getCooldownEntries(gemInfo.gemId);
+        if (entries == null || entries.isEmpty()) return "";
+
+        GemDefinition def = registry.getGem(gemInfo.gemId);
+        String gemColor = def != null ? def.getColor() : "\u00a77";
+
+        AbilityManager abilityManager = this.plugin.getAbilityManager();
+        StringBuilder display = new StringBuilder();
+
+        boolean first = true;
+        for (CooldownEntry entry : entries) {
+            if (!first) {
+                display.append(" ").append(gemColor).append("| ");
+            }
+            first = false;
+
+            int remaining = abilityManager.getRemainingCooldown(player, entry.getAbilityKey());
+            display.append(gemColor).append(entry.getDisplayName()).append(" ");
+            if (remaining > 0) {
+                display.append("\u00a7c").append(remaining).append("s");
+            } else {
+                display.append("\u00a7aReady");
+            }
+        }
+
+        return display.toString();
     }
 
     public void stop() {

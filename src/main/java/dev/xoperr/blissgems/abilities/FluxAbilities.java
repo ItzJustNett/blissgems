@@ -6,6 +6,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import net.md_5.bungee.api.ChatMessageType;
@@ -30,7 +31,7 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 
-public class FluxAbilities {
+public class FluxAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
     private static final Set<UUID> stunnedPlayers = new HashSet<>();
 
@@ -64,6 +65,26 @@ public class FluxAbilities {
         } else {
             this.fluxBeam(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.fluxBeam(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.ground(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.flashbang(player);
+    }
+
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.kineticBurst(player);
     }
 
     public void fluxBeam(Player player) {

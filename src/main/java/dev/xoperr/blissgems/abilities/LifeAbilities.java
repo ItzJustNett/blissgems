@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -23,7 +24,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public class LifeAbilities {
+public class LifeAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
 
     public LifeAbilities(BlissGems plugin) {
@@ -36,6 +37,26 @@ public class LifeAbilities {
         } else {
             this.heartDrainer(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.heartDrainer(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.circleOfLife(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.vitalityVortex(player);
+    }
+
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.heartLock(player);
     }
 
     public void heartDrainer(Player player) {

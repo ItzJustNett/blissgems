@@ -12,6 +12,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -30,7 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class SpeedAbilities {
+public class SpeedAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
 
     // Speed Storm field state
@@ -77,6 +78,26 @@ public class SpeedAbilities {
             // Right-click for Blur (both T1 and T2)
             this.blur(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.onRightClick(player, tier);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.speedStorm(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.activateTerminalVelocity(player);
+    }
+
+    @Override
+    public void cleanup(Player player) {
+        this.cleanup(player.getUniqueId());
     }
 
     /**

@@ -15,6 +15,7 @@
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Bukkit;
@@ -36,7 +37,7 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 
-public class AstraAbilities {
+public class AstraAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
 
     // Dimensional Drift state
@@ -65,6 +66,26 @@ public class AstraAbilities {
         } else {
             this.astralDaggers(player);
         }
+    }
+
+    @Override
+    public void onPrimary(Player player, int tier) {
+        this.astralDaggers(player);
+    }
+
+    @Override
+    public void onSecondary(Player player, int tier) {
+        this.astralProjection(player);
+    }
+
+    @Override
+    public void onTertiary(Player player, int tier) {
+        this.activateDimensionalDrift(player);
+    }
+
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.activateDimensionalVoid(player);
     }
 
     /**

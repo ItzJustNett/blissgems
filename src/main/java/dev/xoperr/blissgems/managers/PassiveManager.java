@@ -11,6 +11,8 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemPassiveHandler;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -49,45 +51,62 @@ public class PassiveManager {
             this.plugin.getRegionManager().areGemsDisabled(player)) {
             return; // Silently skip passives in disabled regions
         }
+
+        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        String gemId = this.plugin.getGemManager().getGemIdFromOffhand(player);
+
+        // Try built-in gem via GemType switch (preserves exact existing behavior)
         GemType gemType = this.plugin.getGemManager().getGemTypeFromOffhand(player);
-        if (gemType == null) {
+        if (gemType != null) {
+            switch (gemType) {
+                case ASTRA: this.applyAstraPassives(player); break;
+                case FIRE: this.applyFirePassives(player); break;
+                case FLUX: this.applyFluxPassives(player); break;
+                case LIFE: this.applyLifePassives(player); break;
+                case PUFF: this.applyPuffPassives(player); break;
+                case SPEED: this.applySpeedPassives(player); break;
+                case STRENGTH: this.applyStrengthPassives(player); break;
+                case WEALTH: this.applyWealthPassives(player); break;
+            }
+            this.applyConfiguredExtraEffects(player, gemType, tier);
             return;
         }
-        switch (gemType) {
-            case ASTRA: {
-                this.applyAstraPassives(player);
-                break;
-            }
-            case FIRE: {
-                this.applyFirePassives(player);
-                break;
-            }
-            case FLUX: {
-                this.applyFluxPassives(player);
-                break;
-            }
-            case LIFE: {
-                this.applyLifePassives(player);
-                break;
-            }
-            case PUFF: {
-                this.applyPuffPassives(player);
-                break;
-            }
-            case SPEED: {
-                this.applySpeedPassives(player);
-                break;
-            }
-            case STRENGTH: {
-                this.applyStrengthPassives(player);
-                break;
-            }
-            case WEALTH: {
-                this.applyWealthPassives(player);
+
+        // Addon gem - use registry
+        if (gemId != null) {
+            GemRegistry registry = this.plugin.getGemRegistry();
+            if (registry != null) {
+                GemPassiveHandler handler = registry.getPassiveHandler(gemId);
+                if (handler != null) {
+                    handler.applyPassives(player, tier);
+                }
+                // Also apply configured extra effects for addon gems
+                this.applyConfiguredExtraEffectsById(player, gemId, tier);
             }
         }
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
-        this.applyConfiguredExtraEffects(player, gemType, tier);
+    }
+
+    /**
+     * Apply configured extra effects using a string gem ID (for addon gems).
+     */
+    private void applyConfiguredExtraEffectsById(Player player, String gemId, int tier) {
+        String path = "passives.extra-effects." + gemId + ".t" + tier;
+        List<Map<?, ?>> entries = this.plugin.getConfig().getMapList(path);
+        if (entries == null || entries.isEmpty()) return;
+        int duration = this.plugin.getConfigManager().getPassiveUpdateInterval() + 10;
+        for (Map<?, ?> entry : entries) {
+            Object typeObj = entry.get("type");
+            if (typeObj == null) continue;
+            PotionEffectType type = PotionEffectType.getByName(typeObj.toString().toUpperCase());
+            if (type == null) {
+                this.plugin.getLogger().warning("Unknown potion effect '" + typeObj + "' in " + path);
+                continue;
+            }
+            Object levelObj = entry.get("level");
+            int level = levelObj instanceof Number ? ((Number) levelObj).intValue() : 1;
+            int amplifier = Math.max(0, level - 1);
+            player.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false), true);
+        }
     }
 
     private void applyConfiguredExtraEffects(Player player, GemType gemType, int tier) {
@@ -177,6 +196,21 @@ public class PassiveManager {
         int duration = interval + 10;
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, duration, luckLevel, true, false), true);
         player.addPotionEffect(new PotionEffect(PotionEffectType.HERO_OF_THE_VILLAGE, duration, 0, true, false), true);
+    }
+
+    /**
+     * Register built-in passive handlers with the gem registry.
+     * These are thin wrappers around the existing private methods.
+     */
+    public void registerBuiltInHandlers(GemRegistry registry) {
+        registry.registerPassives("astra", (player, tier) -> applyAstraPassives(player));
+        registry.registerPassives("fire", (player, tier) -> applyFirePassives(player));
+        registry.registerPassives("flux", (player, tier) -> applyFluxPassives(player));
+        registry.registerPassives("life", (player, tier) -> applyLifePassives(player));
+        registry.registerPassives("puff", (player, tier) -> applyPuffPassives(player));
+        registry.registerPassives("speed", (player, tier) -> applySpeedPassives(player));
+        registry.registerPassives("strength", (player, tier) -> applyStrengthPassives(player));
+        registry.registerPassives("wealth", (player, tier) -> applyWealthPassives(player));
     }
 }
 
