@@ -56,6 +56,8 @@ public class GemInteractListener
 implements Listener {
     private final BlissGems plugin;
     private final Map<UUID, Long> traderCooldowns;
+    private final Map<UUID, Long> clickDisabledMessageCooldowns = new HashMap<>();
+    private static final long CLICK_DISABLED_MSG_INTERVAL = 30_000L; // 30 seconds
 
     public GemInteractListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -134,9 +136,14 @@ implements Listener {
 
         // Check if click activation is enabled for this player
         if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled", new Object[0]);
-            if (msg != null && !msg.isEmpty()) {
-                player.sendMessage(msg);
+            long now = System.currentTimeMillis();
+            Long lastSent = clickDisabledMessageCooldowns.get(player.getUniqueId());
+            if (lastSent == null || now - lastSent >= CLICK_DISABLED_MSG_INTERVAL) {
+                clickDisabledMessageCooldowns.put(player.getUniqueId(), now);
+                String msg = this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled", new Object[0]);
+                if (msg != null && !msg.isEmpty()) {
+                    player.sendMessage(msg);
+                }
             }
             return;
         }

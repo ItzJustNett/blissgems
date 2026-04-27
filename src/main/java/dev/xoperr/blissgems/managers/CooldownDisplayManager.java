@@ -75,8 +75,10 @@ public class CooldownDisplayManager {
 
         // Wealth abilities
         GEM_ABILITIES.put(GemType.WEALTH, Arrays.asList(
-            new String[]{"wealth-durability-chip", "Durability"},
-            new String[]{"wealth-rich-rush", "Rush"}
+            new String[]{"wealth-unfortunate", "Unfortunate"},
+            new String[]{"wealth-rich-rush", "Rush"},
+            new String[]{"wealth-item-lock", "Lock"},
+            new String[]{"wealth-amplification", "Amplify"}
         ));
     }
 
@@ -420,18 +422,23 @@ public class CooldownDisplayManager {
                 String ability2Icon = getAbilityIcon(gemType, 1);
                 int remaining2 = abilityManager.getRemainingCooldown(player, abilities.get(1)[0]);
 
-                // Separator showing tertiary cooldown when active
-                int remainingTertiary = abilities.size() > 2 ? abilityManager.getRemainingCooldown(player, abilities.get(2)[0]) : 0;
+                // Build separator — shows item-lock/amplification cooldowns when active
+                int remainingLock = abilities.size() > 2 ? abilityManager.getRemainingCooldown(player, abilities.get(2)[0]) : 0;
+                int remainingAmplify = abilities.size() > 3 ? abilityManager.getRemainingCooldown(player, abilities.get(3)[0]) : 0;
 
-                if (remainingTertiary > 0) {
-                    display.append(" §c(").append(remainingTertiary).append("s) ");
+                if (remainingLock > 0 && remainingAmplify > 0) {
+                    display.append(" §e(").append(remainingLock).append("s§7|").append(remainingAmplify).append("s) ");
+                } else if (remainingLock > 0) {
+                    display.append(" §e(").append(remainingLock).append("s) ");
+                } else if (remainingAmplify > 0) {
+                    display.append(" §e(").append(remainingAmplify).append("s) ");
                 } else {
                     display.append(" §e(💰) ");
                 }
 
                 display.append(ability2Icon).append(" ");
                 if (remaining2 > 0) {
-                    display.append("§e").append(remaining2).append("s");
+                    display.append("§c").append(remaining2).append("s");
                 } else {
                     display.append("§aReady");
                 }

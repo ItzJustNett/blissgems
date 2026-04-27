@@ -74,7 +74,7 @@ public class AbilityManager {
             return false;
         }
         if (!this.plugin.getEnergyManager().canUseAbilities(player)) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-no-energy", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "ability-no-energy");
             return false;
         }
         // Check if abilities are suppressed by Dimensional Void (skip check for astra abilities — void user isn't suppressed)

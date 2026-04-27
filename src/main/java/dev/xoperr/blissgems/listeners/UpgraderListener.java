@@ -53,7 +53,7 @@ implements Listener {
 
         // Check if player has a gem
         if (!this.plugin.getGemManager().hasActiveGem(player)) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-gem", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "no-gem");
             return;
         }
 
@@ -63,7 +63,7 @@ implements Listener {
 
         // Check if already tier 2
         if (currentTier != 1) {
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("upgrade-already-tier2", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "upgrade-already-tier2");
             return;
         }
 
@@ -102,7 +102,7 @@ implements Listener {
                     this.plugin.getLogger().warning("Invalid particle or sound in config: " + e.getMessage());
                 }
             }
-            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("upgrade-success", new Object[0]));
+            this.plugin.getConfigManager().sendFormattedMessage(player, "upgrade-success");
             // Achievement: The Next Level
             if (this.plugin.getAchievementManager() != null) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.THE_NEXT_LEVEL);

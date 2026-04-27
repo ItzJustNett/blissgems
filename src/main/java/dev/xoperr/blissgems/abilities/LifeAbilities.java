@@ -56,7 +56,7 @@ public class LifeAbilities {
         target.getWorld().spawnParticle(Particle.SCULK_SOUL, target.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 1.0f, 1.5f);
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Heart Drainer"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Heart Drainer");
     }
 
     public void circleOfLife(Player player) {
@@ -169,7 +169,7 @@ public class LifeAbilities {
         }, durationTicks);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Circle of Life"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Circle of Life");
     }
 
     private void applyCircleModifier(Player player, NamespacedKey key, double amount, Set<UUID> tracked) {
@@ -224,7 +224,7 @@ public class LifeAbilities {
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Vitality Vortex"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Vitality Vortex");
     }
 
     private PotionEffect[] getBiomeEffects(String biomeName, int durationTicks) {
@@ -365,7 +365,7 @@ public class LifeAbilities {
         player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 0.5f);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Heart Lock"));
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Heart Lock");
         if (targetEntity instanceof Player) {
             ((Player) targetEntity).sendMessage("\u00a7d\u00a7oYour max health has been locked!");
         }
