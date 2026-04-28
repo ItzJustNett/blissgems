@@ -465,6 +465,25 @@ public class WealthAbilities implements GemAbilityHandler {
         return itemLockedPlayers.get(uuid);
     }
 
+    /**
+     * Clean up all active Wealth abilities for a player (called on quit/death).
+     * Reverts amplified enchants and removes from all tracking sets.
+     */
+    @Override
+    public void cleanup(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Revert amplified enchants on all items
+        if (amplifiedPlayers.remove(uuid)) {
+            revertAllAmplifiedItems(player);
+        }
+
+        // Clean up other active effects
+        unfortunatePlayers.remove(uuid);
+        itemLockedPlayers.remove(uuid);
+        richRushPlayers.remove(uuid);
+    }
+
     public Inventory getPocketsInventory(UUID uuid) {
         return this.pocketsInventories.get(uuid);
     }

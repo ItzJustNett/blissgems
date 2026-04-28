@@ -202,6 +202,20 @@ implements Listener {
 
     private void handleEnergyBottle(Player player, ItemStack item, PlayerInteractEvent event) {
         event.setCancelled(true);
+
+        // Check if player is already at max energy
+        int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
+        int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
+        if (currentEnergy >= maxEnergy) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("energy-already-max");
+            if (msg == null || msg.isEmpty()) {
+                player.sendMessage("\u00a7c\u00a7oYou already have maximum energy!");
+            } else {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+
         this.plugin.getEnergyManager().addEnergy(player, 1);
         if (item.getAmount() > 1) {
             item.setAmount(item.getAmount() - 1);

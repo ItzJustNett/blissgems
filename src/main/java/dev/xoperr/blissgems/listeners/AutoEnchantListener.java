@@ -82,6 +82,8 @@ public class AutoEnchantListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         // Strip all auto-enchants so items are saved clean
         stripAllAutoEnchants(event.getPlayer());
+        // Also strip any amplified enchants (Wealth ability) so items are saved clean
+        stripAllAmplifyEnchants(event.getPlayer());
     }
 
     @EventHandler
@@ -271,6 +273,32 @@ public class AutoEnchantListener implements Listener {
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (!offHand.getType().isAir()) {
             stripAutoEnchants(offHand);
+        }
+    }
+
+    /**
+     * Strip amplify enchants from ALL items in a player's inventory.
+     */
+    private void stripAllAmplifyEnchants(Player player) {
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item != null && !item.getType().isAir()) {
+                WealthAbilities.stripAmplifyEnchants(item);
+            }
+        }
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        boolean armorModified = false;
+        for (int i = 0; i < armor.length; i++) {
+            if (armor[i] != null && !armor[i].getType().isAir()) {
+                if (WealthAbilities.stripAmplifyEnchants(armor[i])) armorModified = true;
+            }
+        }
+        if (armorModified) {
+            player.getInventory().setArmorContents(armor);
+        }
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (!offHand.getType().isAir()) {
+            WealthAbilities.stripAmplifyEnchants(offHand);
         }
     }
 

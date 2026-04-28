@@ -8,6 +8,7 @@ deploy.sh
 target/
 .claude/
 BlissGems fabric/
+addon-template/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
