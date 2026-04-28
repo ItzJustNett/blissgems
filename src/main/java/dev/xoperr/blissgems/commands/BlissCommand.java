@@ -155,6 +155,10 @@ TabCompleter {
                 this.handleSmp(sender, args);
                 break;
             }
+            case "clearcds": {
+                this.handleClearCooldowns(sender, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -176,16 +180,39 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
+
+        // Resolve gem: try built-in GemType first, then addon gems via registry
+        String gemIdArg = args[2].toLowerCase();
         GemType gemType = null;
+        String resolvedGemId = null;
+        String resolvedDisplayName = null;
+
         for (GemType type : GemType.values()) {
-            if (!type.getId().equalsIgnoreCase(args[2]) && !type.getDisplayName().equalsIgnoreCase(args[2])) continue;
-            gemType = type;
-            break;
+            if (type.getId().equalsIgnoreCase(gemIdArg) || type.getDisplayName().equalsIgnoreCase(gemIdArg)) {
+                gemType = type;
+                resolvedGemId = type.getId();
+                resolvedDisplayName = type.getDisplayName();
+                break;
+            }
         }
+
+        // If not a built-in gem, check addon gems via registry
         if (gemType == null) {
+            GemRegistry registry = this.plugin.getGemRegistry();
+            if (registry != null) {
+                dev.xoperr.blissgems.api.GemDefinition def = registry.getGem(gemIdArg);
+                if (def != null) {
+                    resolvedGemId = def.getId();
+                    resolvedDisplayName = def.getDisplayName();
+                }
+            }
+        }
+
+        if (resolvedGemId == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-gem-type", new Object[0]));
             return;
         }
+
         int tier = 1;
         if (args.length >= 4) {
             try {
@@ -200,19 +227,20 @@ TabCompleter {
                 return;
             }
         }
-        // Remove old gem(s) from inventory first
+
+        // Remove old gem(s) from inventory first (built-in AND addon)
         for (int i = 0; i < target.getInventory().getSize(); i++) {
             ItemStack item = target.getInventory().getItem(i);
             if (item != null) {
                 String itemId = CustomItemManager.getIdByItem(item);
-                if (itemId != null && GemType.isGem(itemId)) {
+                if (this.plugin.getGemManager().isAnyGem(itemId)) {
                     target.getInventory().setItem(i, null);
                 }
             }
         }
 
-        if (this.plugin.getGemManager().giveGem(target, gemType, tier)) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-given", "player", target.getName(), "gem", gemType.getDisplayName(), "tier", tier));
+        if (this.plugin.getGemManager().giveGem(target, resolvedGemId, tier)) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-given", "player", target.getName(), "gem", resolvedDisplayName, "tier", tier));
         } else {
             sender.sendMessage("\u00a7cFailed to give gem!");
         }
@@ -265,12 +293,12 @@ TabCompleter {
             }
         }
 
-        // Remove old gem(s) from inventory first
+        // Remove old gem(s) from inventory first (built-in AND addon)
         for (int i = 0; i < target.getInventory().getSize(); i++) {
             ItemStack item = target.getInventory().getItem(i);
             if (item != null) {
                 String itemId = CustomItemManager.getIdByItem(item);
-                if (itemId != null && GemType.isGem(itemId)) {
+                if (this.plugin.getGemManager().isAnyGem(itemId)) {
                     target.getInventory().setItem(i, null);
                 }
             }
@@ -1142,6 +1170,37 @@ TabCompleter {
         return enabledGems.get(new java.util.Random().nextInt(enabledGems.size()));
     }
 
+    private void handleClearCooldowns(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("\u00a7cUsage: /bliss clearcds <player|all>");
+            return;
+        }
+
+        if (args[1].equalsIgnoreCase("all")) {
+            int count = 0;
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                this.plugin.getAbilityManager().clearCooldowns(online);
+                count++;
+            }
+            sender.sendMessage("\u00a7a\u00a7lCleared all ability cooldowns for " + count + " online player(s)!");
+            return;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+
+        this.plugin.getAbilityManager().clearCooldowns(target);
+        sender.sendMessage("\u00a7aCleared all ability cooldowns for \u00a7l" + target.getName() + "\u00a7a!");
+    }
+
     private void handleAchievements(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -1195,14 +1254,20 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss bannable <true/false> \u00a78- Toggle ban on 0 energy (Admin)");
         sender.sendMessage("\u00a77/bliss smp start \u00a78- Start the SMP and distribute gems (Admin)");
         sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
+        sender.sendMessage("\u00a77/bliss clearcds <player|all> \u00a78- Clear ability cooldowns (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize", "smp"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("clearcds")) {
+                List<String> targets = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+                targets.add(0, "all");
+                return targets;
+            }
             if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
@@ -1217,7 +1282,16 @@ TabCompleter {
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("give")) {
-                return Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
+                List<String> gemIds = Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
+                GemRegistry registry = this.plugin.getGemRegistry();
+                if (registry != null) {
+                    for (dev.xoperr.blissgems.api.GemDefinition def : registry.getAllGems()) {
+                        if (!gemIds.contains(def.getId())) {
+                            gemIds.add(def.getId());
+                        }
+                    }
+                }
+                return gemIds;
             }
             if (args[0].equalsIgnoreCase("giveitem")) {
                 // Provide tab completion for special items
