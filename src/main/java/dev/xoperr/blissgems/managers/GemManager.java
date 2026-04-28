@@ -203,20 +203,65 @@ public class GemManager {
         return false;
     }
 
+    /**
+     * Give a gem by string gem ID (works for both built-in and addon gems).
+     * @param player Target player
+     * @param gemId  The gem ID (e.g. "fire", "ice")
+     * @param tier   The tier (1 or 2)
+     * @return true if the gem was given successfully
+     */
+    public boolean giveGem(Player player, String gemId, int tier) {
+        // Try built-in gem first
+        for (GemType type : GemType.values()) {
+            if (type.getId().equalsIgnoreCase(gemId)) {
+                return giveGem(player, type, tier);
+            }
+        }
+        // Try addon gem via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry != null) {
+            dev.xoperr.blissgems.api.GemDefinition def = registry.getGem(gemId);
+            if (def != null) {
+                String itemId = def.buildItemId(tier);
+                int energy = this.plugin.getEnergyManager().getEnergy(player);
+                ItemStack gem = CustomItemManager.getItemById(itemId, energy);
+                if (gem != null) {
+                    player.getInventory().addItem(new ItemStack[]{gem});
+                    this.updateActiveGem(player);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public ItemStack findGemInInventory(Player player) {
+        GemRegistry registry = this.plugin.getGemRegistry();
         // Check main inventory
         for (ItemStack item : player.getInventory().getContents()) {
             String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null || !GemType.isGem(itemId)) continue;
-            return item;
+            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
+            if (GemType.isGem(itemId)) return item;
+            if (registry != null && registry.isRegisteredGem(itemId)) return item;
         }
         // Check ender chest
         for (ItemStack item : player.getEnderChest().getContents()) {
             String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null || !GemType.isGem(itemId)) continue;
-            return item;
+            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
+            if (GemType.isGem(itemId)) return item;
+            if (registry != null && registry.isRegisteredGem(itemId)) return item;
         }
         return null;
+    }
+
+    /**
+     * Check if an item ID represents any gem (built-in or addon).
+     */
+    public boolean isAnyGem(String itemId) {
+        if (itemId == null) return false;
+        if (GemType.isGem(itemId)) return true;
+        GemRegistry registry = this.plugin.getGemRegistry();
+        return registry != null && registry.isRegisteredGem(itemId);
     }
 
     public boolean replaceGemType(Player player, GemType newType) {

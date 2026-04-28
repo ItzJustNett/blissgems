@@ -2,6 +2,7 @@ package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -11,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.*;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -391,6 +393,58 @@ public class ComprehensiveGemProtectionListener implements Listener {
                 event.setCancelled(true);
                 sendProtectionMessage(event.getPlayer());
             }
+        }
+    }
+
+    // ==========================================
+    // PORTAL / WORLD CHANGE (anti-duplication)
+    // ==========================================
+
+    /**
+     * Prevent gem duplication when travelling through End/Nether portals.
+     * Some server implementations can duplicate inventory items during world transitions.
+     * We enforce single-gem-only after every world change.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onWorldChange(PlayerChangedWorldEvent event) {
+        if (!isProtectionEnabled()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        // Run 1 tick later to ensure inventory is fully loaded in new world
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            enforceOneGemOnly(player);
+        }, 1L);
+    }
+
+    /**
+     * Scan inventory and remove duplicate gems, keeping only the first one found.
+     */
+    private void enforceOneGemOnly(Player player) {
+        boolean foundFirst = false;
+        List<Integer> duplicateSlots = new ArrayList<>();
+
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item == null) continue;
+            String itemId = CustomItemManager.getIdByItem(item);
+            if (itemId == null) continue;
+            if (!plugin.getGemManager().isAnyGem(itemId)) continue;
+
+            if (!foundFirst) {
+                foundFirst = true;
+            } else {
+                duplicateSlots.add(i);
+            }
+        }
+
+        if (!duplicateSlots.isEmpty()) {
+            for (int slot : duplicateSlots) {
+                player.getInventory().setItem(slot, null);
+            }
+            plugin.getLogger().info("Removed " + duplicateSlots.size() +
+                " duplicate gem(s) from " + player.getName() + " after world change.");
         }
     }
 
