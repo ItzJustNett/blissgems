@@ -311,7 +311,7 @@ public class SpeedAbilities implements GemAbilityHandler {
                             freezePlayer(target.getUniqueId());
                             target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 255, false, true));
                             target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 255, false, true));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 40, 250, false, true)); // Prevent jumping (high amplifier wraps to negative)
+                            target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 40, 128, false, true)); // Prevent jumping (amplifier 128 = negative jump height)
                             target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
 
                             // Schedule unfreeze after effects wear off

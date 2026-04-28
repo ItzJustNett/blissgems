@@ -233,6 +233,8 @@ implements Listener {
         this.plugin.getFluxAbilities().cleanup(player);
         // Clean up Speed gem Adrenaline Rush
         this.plugin.getSpeedAbilities().cleanup(player.getUniqueId());
+        // Clean up Wealth gem amplification/effects
+        this.plugin.getWealthAbilities().cleanup(player);
 
         // Clear captured souls
         this.plugin.getSoulManager().clearSouls(player.getUniqueId());
