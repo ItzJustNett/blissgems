@@ -7,8 +7,7 @@
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Astral Daggers (Primary, no shift): Same as T1
- *   - Astral Projection (Shift): Invisible mule ride, stay where you end up, ghost trail at origin
- *     - Sub-abilities during projection: Spook (scare nearby players) and Tag (mark a player)
+ *   - Astral Projection (Shift): Enter spectator mode to scout, bounded to 8 chunk radius, returns to origin
  *   - Dimensional Drift (Double-shift / secondary command): Invisible horse + player invisibility
  *   - Dimensional Void (Sneak + Swap / tertiary): Nullify enemy gem abilities in radius
  */
@@ -44,6 +43,12 @@ public class AstraAbilities implements GemAbilityHandler {
     private final Map<UUID, Horse> driftHorses = new HashMap<>();
     private final Map<UUID, BukkitTask> driftTasks = new HashMap<>();
     private final Set<UUID> driftingPlayers = new HashSet<>();
+
+    // Astral Projection (spectator mode) state
+    private final Set<UUID> projectingPlayers = new HashSet<>();
+    private final Map<UUID, BukkitTask> projectionTasks = new HashMap<>();
+    private final Map<UUID, Location> projectionOrigins = new HashMap<>();
+    private final Map<UUID, GameMode> projectionPreviousGameModes = new HashMap<>();
 
     // Dimensional Void state
     private final Set<UUID> voidActivePlayers = new HashSet<>();
@@ -115,6 +120,14 @@ public class AstraAbilities implements GemAbilityHandler {
     // State checkers
     // ========================================================================
 
+
+    public boolean isProjecting(Player player) {
+        return projectingPlayers.contains(player.getUniqueId());
+    }
+
+    public Location getProjectionOrigin(Player player) {
+        return projectionOrigins.get(player.getUniqueId());
+    }
 
     public boolean isDrifting(Player player) {
         return driftingPlayers.contains(player.getUniqueId());
@@ -215,47 +228,124 @@ public class AstraAbilities implements GemAbilityHandler {
     public void astralProjection(Player player) {
         String abilityKey = "astra-projection";
 
+        // Toggle off if already projecting
+        if (isProjecting(player)) {
+            endProjection(player);
+            return;
+        }
+
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
+        UUID uuid = player.getUniqueId();
         Location origin = player.getLocation().clone();
-        Vector direction = origin.getDirection().normalize();
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-projection", 10);
+        int duration = durationSeconds * 20;
+        double maxRadius = this.plugin.getConfig().getDouble("abilities.astra-projection.radius", 128.0);
 
-        // Require all 5 blocks of the path (feet + head level) to be passable
-        for (int step = 1; step <= 5; step++) {
-            Location check = origin.clone().add(direction.clone().multiply(step));
-            if (!check.getBlock().isPassable() || !check.clone().add(0, 1, 0).getBlock().isPassable()) {
-                String blockedMsg = this.plugin.getConfigManager().getFormattedMessage("projection-blocked", new Object[0]);
-                if (blockedMsg != null && !blockedMsg.isEmpty()) {
-                    player.sendMessage(blockedMsg);
-                } else {
-                    player.sendMessage("\u00a7dPath blocked! Astral Projection needs 5 clear blocks ahead.");
-                }
-                return;
-            }
-        }
+        // Save state
+        projectionOrigins.put(uuid, origin);
+        projectionPreviousGameModes.put(uuid, player.getGameMode());
+        projectingPlayers.add(uuid);
 
-        Location target = origin.clone().add(direction.multiply(5));
-        target.setYaw(origin.getYaw());
-        target.setPitch(origin.getPitch());
-
+        // Departure effects
         Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
         origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
         origin.getWorld().spawnParticle(Particle.REVERSE_PORTAL, origin.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+        origin.getWorld().spawnParticle(Particle.SOUL, origin.clone().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.02);
+        player.playSound(origin, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.5f);
         player.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
 
-        player.teleport(target);
+        // Switch to spectator mode
+        player.setGameMode(GameMode.SPECTATOR);
 
-        target.getWorld().spawnParticle(Particle.DUST, target.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
-        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
-        player.playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.3f);
+        // Monitor task — enforce radius boundary and duration
+        BukkitTask projTask = new BukkitRunnable() {
+            int ticksElapsed = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead() || !isProjecting(player)) {
+                    endProjection(player);
+                    this.cancel();
+                    return;
+                }
+
+                ticksElapsed++;
+
+                // Enforce radius boundary — pull back if too far
+                if (ticksElapsed % 4 == 0) {
+                    Location current = player.getLocation();
+                    if (!current.getWorld().equals(origin.getWorld()) ||
+                        current.distance(origin) > maxRadius) {
+                        // Teleport back to the edge of the allowed radius toward origin
+                        player.teleport(origin);
+                        player.sendMessage("\u00a7d\u00a7oYou cannot travel that far from your body!");
+                    }
+                }
+
+                // Subtle particle trail at origin (ghost body effect)
+                if (ticksElapsed % 20 == 0) {
+                    Particle.DustOptions trailDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.7f);
+                    origin.getWorld().spawnParticle(Particle.DUST, origin.clone().add(0, 1, 0), 8, 0.3, 0.8, 0.3, 0.0, trailDust, true);
+                    origin.getWorld().spawnParticle(Particle.SOUL, origin.clone().add(0, 1.2, 0), 3, 0.2, 0.3, 0.2, 0.01);
+                }
+
+                // Duration countdown warning
+                int ticksRemaining = duration - ticksElapsed;
+                if (ticksRemaining == 60) { // 3 seconds left
+                    player.sendMessage("\u00a7d\u00a7o3 seconds remaining...");
+                }
+
+                // Duration check
+                if (ticksElapsed >= duration) {
+                    endProjection(player);
+                    this.cancel();
+                }
+            }
+        }.runTaskTimer(this.plugin, 0L, 1L);
+
+        projectionTasks.put(uuid, projTask);
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Astral Projection");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
+        }
+        player.sendMessage("\u00a7d\u00a7oYour soul leaves your body... (" + durationSeconds + "s)");
+    }
+
+    public void endProjection(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!projectingPlayers.contains(uuid)) return;
+
+        projectingPlayers.remove(uuid);
+
+        // Cancel task
+        BukkitTask task = projectionTasks.remove(uuid);
+        if (task != null) task.cancel();
+
+        // Restore location and game mode
+        Location origin = projectionOrigins.remove(uuid);
+        GameMode previousMode = projectionPreviousGameModes.remove(uuid);
+
+        if (player.isOnline()) {
+            if (origin != null) {
+                player.teleport(origin);
+            }
+            player.setGameMode(previousMode != null ? previousMode : GameMode.SURVIVAL);
+
+            // Arrival effects
+            Location loc = player.getLocation();
+            Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 60, 0.4, 1.0, 0.4, 0.0, purpleDust, true);
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 40, 0.4, 1.0, 0.4);
+            loc.getWorld().spawnParticle(Particle.SOUL, loc.clone().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.02);
+            player.playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 0.8f);
+
+            player.sendMessage("\u00a7d\u00a7oYour soul returns to your body.");
         }
     }
 
@@ -574,6 +664,9 @@ public class AstraAbilities implements GemAbilityHandler {
      * Cleanup when player leaves
      */
     public void cleanup(Player player) {
+        if (isProjecting(player)) {
+            endProjection(player);
+        }
         if (isDrifting(player)) {
             endDrift(player);
         }

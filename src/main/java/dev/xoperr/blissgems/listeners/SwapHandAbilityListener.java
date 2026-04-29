@@ -44,6 +44,11 @@ public class SwapHandAbilityListener implements Listener {
             return;
         }
 
+        // Respect toggle_click setting — block abilities but still cancel the swap
+        if (!plugin.getClickActivationManager().isClickActivationEnabled(player)) {
+            return;
+        }
+
         if (player.isSneaking()) {
             plugin.getBlissCommand().triggerQuaternary(player);
         } else {

@@ -22,6 +22,14 @@ public class TeleportListener implements Listener {
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
 
+        // Block spectator teleporting to other players during Astral Projection
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE
+                && plugin.getAstraAbilities().isProjecting(player)) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7d\u00a7oYou cannot teleport to players while projecting!");
+            return;
+        }
+
         // Cancel Fire Fireball charging
         if (plugin.getFireAbilities().isCharging(player)) {
             plugin.getFireAbilities().cancelCharging(player);

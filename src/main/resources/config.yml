@@ -272,9 +272,9 @@ abilities:
     player-kill-hearts: 10.0  # HP added on player kill (10.0 = 5 hearts)
     duration: 60  # Duration in seconds before the bonus hearts expire
 
-  # Astra Projection settings
+  # Astra Projection settings (spectator mode scout)
   astra-projection:
-    radius: 150  # Maximum distance from origin in blocks
+    radius: 128  # Maximum distance from origin in blocks (8 chunks)
 
   # Astra Spook settings
   astra-spook:
@@ -371,7 +371,7 @@ abilities:
 
   # Ability durations (in seconds)
   durations:
-    astra-projection: 5  # Short spectator mode duration
+    astra-projection: 10  # Spectator mode scout duration
     astra-drift: 15  # Dimensional Drift invisibility duration
     astra-void: 12  # Dimensional Void suppression duration
     astra-spook: 3  # Spook blindness/nausea duration
