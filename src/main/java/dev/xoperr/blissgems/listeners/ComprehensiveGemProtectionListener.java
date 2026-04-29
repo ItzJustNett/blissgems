@@ -211,15 +211,13 @@ public class ComprehensiveGemProtectionListener implements Listener {
         }
 
         // Case 5: Prevent moving gems using SWAP_OFFHAND (F key)
+        // Block in ALL inventories (including player's own) to prevent dupe exploit
         if (event.getClick() == ClickType.SWAP_OFFHAND) {
             ItemStack offhand = player.getInventory().getItemInOffHand();
             if ((clicked != null && CustomItemManager.isUndroppable(clicked)) ||
                 (offhand != null && CustomItemManager.isUndroppable(offhand))) {
-                if (clickedInventory != null && !isPlayerInventory(clickedInventory)) {
-                    event.setCancelled(true);
-                    sendProtectionMessage(player);
-                    return;
-                }
+                event.setCancelled(true);
+                return;
             }
         }
 
