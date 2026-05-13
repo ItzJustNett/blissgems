@@ -2,14 +2,11 @@ package dev.xoperr.blissgems.core.managers;
 
 import org.bukkit.plugin.Plugin;
 import dev.xoperr.blissgems.core.api.text.InventoryTextProvider;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.title.Title;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
-
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,19 +37,7 @@ public class TextManager {
             return;
         }
 
-        Component component = LegacyComponentSerializer.legacySection().deserialize(message);
-        player.sendActionBar(component);
-    }
-
-    /**
-     * Send an action bar message using Adventure Component.
-     */
-    public void sendActionBar(Player player, Component component) {
-        if (player == null || component == null) {
-            return;
-        }
-
-        player.sendActionBar(component);
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
     }
 
     /**
@@ -63,7 +48,7 @@ public class TextManager {
             return;
         }
 
-        player.sendActionBar(Component.empty());
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(""));
     }
 
     /**
@@ -74,34 +59,7 @@ public class TextManager {
             return;
         }
 
-        Component titleComponent = LegacyComponentSerializer.legacySection().deserialize(title);
-        Component subtitleComponent = subtitle != null ?
-                LegacyComponentSerializer.legacySection().deserialize(subtitle) : Component.empty();
-
-        sendTitle(player, titleComponent, subtitleComponent, fadeIn, stay, fadeOut);
-    }
-
-    /**
-     * Send a title to a player using Adventure Components.
-     */
-    public void sendTitle(Player player, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
-        if (player == null || title == null) {
-            return;
-        }
-
-        Title.Times times = Title.Times.times(
-                Duration.ofMillis(fadeIn * 50L),
-                Duration.ofMillis(stay * 50L),
-                Duration.ofMillis(fadeOut * 50L)
-        );
-
-        Title titleObj = Title.title(
-                title,
-                subtitle != null ? subtitle : Component.empty(),
-                times
-        );
-
-        player.showTitle(titleObj);
+        player.sendTitle(title, subtitle, fadeIn, stay, fadeOut);
     }
 
     /**
@@ -112,7 +70,7 @@ public class TextManager {
             return;
         }
 
-        player.clearTitle();
+        player.resetTitle();
     }
 
     /**

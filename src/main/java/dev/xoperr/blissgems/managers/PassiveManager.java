@@ -185,6 +185,12 @@ public class PassiveManager {
         int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
         // Duration must be >= interval + buffer to avoid stacking overlap
         int duration = interval + 10;
+        // Don't downgrade a stronger or longer manually-applied Strength effect (e.g. from potions)
+        PotionEffect existing = player.getPotionEffect(PotionEffectType.STRENGTH);
+        if (existing != null && (existing.getAmplifier() > strengthLevel
+                || (existing.getAmplifier() == strengthLevel && existing.getDuration() > duration + 5))) {
+            return;
+        }
         player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, duration, strengthLevel, true, false), true);
     }
 

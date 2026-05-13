@@ -1,7 +1,6 @@
 package dev.xoperr.blissgems.core.api.text;
 
 import dev.xoperr.blissgems.core.managers.TextManager;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /**
@@ -50,17 +49,6 @@ public class InventoryTextAPI {
     }
 
     /**
-     * Send an action bar message using Adventure Component.
-     *
-     * @param player The player to send the message to
-     * @param component The message component
-     */
-    public static void sendActionBar(Player player, Component component) {
-        checkInitialized();
-        manager.sendActionBar(player, component);
-    }
-
-    /**
      * Clear the action bar for a player.
      *
      * @param player The player to clear the action bar for
@@ -81,21 +69,6 @@ public class InventoryTextAPI {
      * @param fadeOut Fade out duration in ticks
      */
     public static void sendTitle(Player player, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
-        checkInitialized();
-        manager.sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
-    }
-
-    /**
-     * Send a title to a player using Adventure Components.
-     *
-     * @param player The player to send the title to
-     * @param title The main title component
-     * @param subtitle The subtitle component (can be null)
-     * @param fadeIn Fade in duration in ticks
-     * @param stay Stay duration in ticks
-     * @param fadeOut Fade out duration in ticks
-     */
-    public static void sendTitle(Player player, Component title, Component subtitle, int fadeIn, int stay, int fadeOut) {
         checkInitialized();
         manager.sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
     }
