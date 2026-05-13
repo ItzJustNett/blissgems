@@ -52,9 +52,9 @@ public class SoulManager {
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
-        NamespacedKey modifierKey = new NamespacedKey(plugin, "soul_absorb_" + (soulModifierCounter++));
-        AttributeModifier modifier = new AttributeModifier(modifierKey, bonusHealth, AttributeModifier.Operation.ADD_NUMBER);
-        maxHealthAttr.addTransientModifier(modifier);
+        String modifierName = "soul_absorb_" + (soulModifierCounter++);
+        AttributeModifier modifier = new AttributeModifier(UUID.randomUUID(), modifierName, bonusHealth, AttributeModifier.Operation.ADD_NUMBER);
+        maxHealthAttr.addModifier(modifier);
 
         // Schedule removal after duration
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {

@@ -95,7 +95,7 @@ public class ReviveBeaconListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        Player player = event.getPlayer();
+        Player player = (Player) event.getEntity();
 
         // Check if player has an active beacon and is in range
         if (!plugin.getReviveBeaconManager().canRevive(player)) {
@@ -108,8 +108,7 @@ public class ReviveBeaconListener implements Listener {
             return;
         }
 
-        // Prevent death
-        event.setCancelled(true);
+        // Prevent death effects (keep inventory/level, clear drops, respawn immediately)
         event.setKeepInventory(true);
         event.setKeepLevel(true);
         event.getDrops().clear();
