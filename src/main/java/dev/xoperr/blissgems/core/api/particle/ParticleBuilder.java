@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Display;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /**
  * Builder class for creating custom particles with a fluent API.
@@ -168,7 +169,11 @@ public class ParticleBuilder {
     public ItemStack buildItemStack() {
         ItemStack item = new ItemStack(material);
         if (customModelData > 0) {
-            item.editMeta(meta -> meta.setCustomModelData(customModelData));
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setCustomModelData(customModelData);
+                item.setItemMeta(meta);
+            }
         }
         return item;
     }

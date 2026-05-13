@@ -25,10 +25,34 @@ import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class StrengthAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
+
+    // Beneficial effects that Nullify should strip (non-ambient only).
+    // Ambient effects (gem passives, beacons) are skipped since they get re-applied immediately.
+    private static final Set<PotionEffectType> STRIPPABLE_EFFECTS = Set.of(
+        PotionEffectType.SPEED,
+        PotionEffectType.STRENGTH,
+        PotionEffectType.REGENERATION,
+        PotionEffectType.FIRE_RESISTANCE,
+        PotionEffectType.WATER_BREATHING,
+        PotionEffectType.INVISIBILITY,
+        PotionEffectType.NIGHT_VISION,
+        PotionEffectType.ABSORPTION,
+        PotionEffectType.HEALTH_BOOST,
+        PotionEffectType.RESISTANCE,
+        PotionEffectType.HASTE,
+        PotionEffectType.JUMP_BOOST,
+        PotionEffectType.CONDUIT_POWER,
+        PotionEffectType.DOLPHINS_GRACE,
+        PotionEffectType.LUCK,
+        PotionEffectType.HERO_OF_THE_VILLAGE,
+        PotionEffectType.SLOW_FALLING,
+        PotionEffectType.SATURATION
+    );
 
     // Shadow Stalker tracking state
     private final Map<UUID, UUID> trackingTargets = new HashMap<>();   // tracker -> tracked
@@ -99,11 +123,13 @@ public class StrengthAbilities implements GemAbilityHandler {
             }
         }
 
-        // Strip ALL potion effects
+        // Strip beneficial non-ambient potion effects (skip gem passives and beacon effects)
         int strippedCount = 0;
         for (PotionEffect effect : target.getActivePotionEffects()) {
-            target.removePotionEffect(effect.getType());
-            strippedCount++;
+            if (!effect.isAmbient() && STRIPPABLE_EFFECTS.contains(effect.getType())) {
+                target.removePotionEffect(effect.getType());
+                strippedCount++;
+            }
         }
 
         // Particles on target — effects being "ripped away"
