@@ -21,6 +21,12 @@ import java.util.*;
  */
 public class AutoEnchantManager {
 
+    // Only slots valid for PlayerInventory
+    private static final EquipmentSlot[] PLAYER_SLOTS = {
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS,
+            EquipmentSlot.FEET, EquipmentSlot.HAND, EquipmentSlot.OFF_HAND
+    };
+
     private final Plugin plugin;
     private final Map<String, EnchantmentRule> rules;
     private final NamespacedKey autoEnchantKey;
@@ -79,8 +85,7 @@ public class AutoEnchantManager {
         // Find all gems in player's inventory
         Set<String> gemsInInventory = findGemsInInventory(player);
 
-        // Update each equipment slot
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (EquipmentSlot slot : PLAYER_SLOTS) {
             updateEquipmentSlot(player, slot, gemsInInventory);
         }
     }
@@ -215,7 +220,7 @@ public class AutoEnchantManager {
      * Clear all auto-enchantments from a player.
      */
     public void clearPlayerEnchantments(Player player) {
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (EquipmentSlot slot : PLAYER_SLOTS) {
             ItemStack item = player.getInventory().getItem(slot);
             if (item != null) {
                 removeAllAutoEnchants(item);

@@ -49,7 +49,6 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -580,26 +579,6 @@ implements Listener {
             String msg = this.plugin.getConfigManager().getFormattedMessage("already-have-gem", new Object[0]);
             if (msg != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onPlayerAttemptPickupItem(PlayerAttemptPickupItemEvent event) {
-        Player player = event.getPlayer();
-        Item itemEntity = event.getItem();
-        ItemStack item = itemEntity.getItemStack();
-
-        // Check if trying to pick up a gem when already has one
-        String oraxenId = CustomItemManager.getIdByItem(item);
-        if (oraxenId != null && GemType.isGem(oraxenId)) {
-            int currentGemCount = countGemsInInventory(player);
-            if (currentGemCount > 0) {
-                event.setCancelled(true);
-                String msg = this.plugin.getConfigManager().getFormattedMessage("already-have-gem", new Object[0]);
-                if (msg != null && !msg.isEmpty()) {
-                    player.sendMessage(msg);
-                }
             }
         }
     }

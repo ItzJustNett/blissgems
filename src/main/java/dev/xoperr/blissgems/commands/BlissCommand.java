@@ -30,6 +30,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -1046,7 +1047,13 @@ TabCompleter {
 
         int count = 0;
         for (Player online : Bukkit.getOnlinePlayers()) {
-            online.resetCooldown();
+            // Reset attack cooldown by briefly maximising attack speed
+            AttributeInstance attackSpeed = online.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_SPEED);
+            if (attackSpeed != null) {
+                double original = attackSpeed.getBaseValue();
+                attackSpeed.setBaseValue(1024);
+                attackSpeed.setBaseValue(original);
+            }
             count++;
         }
 

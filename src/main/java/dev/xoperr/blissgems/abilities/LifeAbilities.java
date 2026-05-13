@@ -197,10 +197,11 @@ public class LifeAbilities implements GemAbilityHandler {
         AttributeInstance attr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (attr == null) return;
 
-        boolean hasModifier = attr.getModifiers().stream().anyMatch(m -> m.getKey().equals(key));
+        String modName = key.toString();
+        boolean hasModifier = attr.getModifiers().stream().anyMatch(m -> m.getName().equals(modName));
         if (hasModifier) return;
 
-        attr.addTransientModifier(new AttributeModifier(key, amount, AttributeModifier.Operation.ADD_NUMBER));
+        attr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes(modName.getBytes()), modName, amount, AttributeModifier.Operation.ADD_NUMBER));
         tracked.add(player.getUniqueId());
     }
 
@@ -212,8 +213,9 @@ public class LifeAbilities implements GemAbilityHandler {
     private void removeCircleModifierDirect(Player player, NamespacedKey key) {
         AttributeInstance attr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (attr == null) return;
+        String modName = key.toString();
         attr.getModifiers().stream()
-            .filter(m -> m.getKey().equals(key))
+            .filter(m -> m.getName().equals(modName))
             .forEach(attr::removeModifier);
     }
 
@@ -353,15 +355,15 @@ public class LifeAbilities implements GemAbilityHandler {
         double maxHealth = targetMaxHealthAttr.getValue();
         double reduction = currentHealth - maxHealth; // Negative value — caps max health at current
 
-        NamespacedKey modifierKey = new NamespacedKey(this.plugin, "heart-lock");
+        String modName = new NamespacedKey(this.plugin, "heart-lock").toString();
 
         // Remove any existing heart lock modifier first
         targetMaxHealthAttr.getModifiers().stream()
-            .filter(m -> m.getKey().equals(modifierKey))
+            .filter(m -> m.getName().equals(modName))
             .forEach(targetMaxHealthAttr::removeModifier);
 
         // Apply modifier to cap max health at current health
-        targetMaxHealthAttr.addTransientModifier(new AttributeModifier(modifierKey, reduction, AttributeModifier.Operation.ADD_NUMBER));
+        targetMaxHealthAttr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes(modName.getBytes()), modName, reduction, AttributeModifier.Operation.ADD_NUMBER));
 
         // Schedule removal after duration
         this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
@@ -369,7 +371,7 @@ public class LifeAbilities implements GemAbilityHandler {
                 AttributeInstance attr = targetEntity.getAttribute(Attribute.GENERIC_MAX_HEALTH);
                 if (attr != null) {
                     attr.getModifiers().stream()
-                        .filter(m -> m.getKey().equals(modifierKey))
+                        .filter(m -> m.getName().equals(modName))
                         .forEach(attr::removeModifier);
                 }
             }
