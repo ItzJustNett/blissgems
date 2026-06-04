@@ -23,6 +23,7 @@ import dev.xoperr.blissgems.api.CooldownEntry;
 import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.commands.BlissCommand;
+import dev.xoperr.blissgems.commands.FixHeartsCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
@@ -37,6 +38,7 @@ import dev.xoperr.blissgems.listeners.SwapHandAbilityListener;
 import dev.xoperr.blissgems.listeners.TeleportListener;
 import dev.xoperr.blissgems.listeners.UpgraderListener;
 import dev.xoperr.blissgems.listeners.VillagerTradeListener;
+import dev.xoperr.blissgems.managers.AbilityBindingManager;
 import dev.xoperr.blissgems.managers.AbilityManager;
 import dev.xoperr.blissgems.managers.GemRegistryImpl;
 import dev.xoperr.blissgems.managers.EnhancedGuiManager;
@@ -90,6 +92,7 @@ implements BlissGemsAPI {
     private EnergyManager energyManager;
     private GemManager gemManager;
     private AbilityManager abilityManager;
+    private AbilityBindingManager abilityBindingManager;
     private PassiveManager passiveManager;
     private ClickActivationManager clickActivationManager;
     private TrustedPlayersManager trustedPlayersManager;
@@ -206,6 +209,13 @@ implements BlissGemsAPI {
             this.abilityManager = new AbilityManager(this);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AbilityManager ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            this.abilityBindingManager = new AbilityBindingManager(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AbilityBindingManager ===");
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
@@ -478,6 +488,9 @@ implements BlissGemsAPI {
             if (this.strengthAbilities != null) {
                 this.strengthAbilities.cleanup(player);
             }
+            if (this.lifeAbilities != null) {
+                this.lifeAbilities.cleanup(player);
+            }
         }
 
         if (this.metrics != null) {
@@ -555,6 +568,12 @@ implements BlissGemsAPI {
         this.blissCommand = new BlissCommand(this);
         this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
         this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
+
+        FixHeartsCommand fixHearts = new FixHeartsCommand(this);
+        if (this.getCommand("fixhearts") != null) {
+            this.getCommand("fixhearts").setExecutor((CommandExecutor)fixHearts);
+            this.getCommand("fixhearts").setTabCompleter((TabCompleter)fixHearts);
+        }
     }
 
     public BlissCommand getBlissCommand() {
@@ -575,6 +594,10 @@ implements BlissGemsAPI {
 
     public AbilityManager getAbilityManager() {
         return this.abilityManager;
+    }
+
+    public AbilityBindingManager getAbilityBindingManager() {
+        return this.abilityBindingManager;
     }
 
     public PassiveManager getPassiveManager() {

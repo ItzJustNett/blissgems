@@ -15,10 +15,17 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fireball;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Transformation;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -40,6 +47,7 @@ public class FireAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Map<UUID, Integer> chargingPlayers = new HashMap<>();
     private final Map<UUID, BukkitTask> chargingTasks = new HashMap<>();
+    private final Map<UUID, ItemDisplay> chargeDisplays = new HashMap<>();
     private final Map<UUID, Location> activeCampfires = new HashMap<>();
     private final Map<UUID, BukkitTask> campfireTasks = new HashMap<>();
 
@@ -47,6 +55,7 @@ public class FireAbilities implements GemAbilityHandler {
     private final Set<UUID> crispActivePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> crispTasks = new HashMap<>();
     private final Map<UUID, Map<Location, Material>> crispOriginalBlocks = new HashMap<>();
+    private final Map<UUID, Map<Location, Material>> crispOriginalWater = new HashMap<>();
 
     // Meteor Shower state
     private final Set<UUID> meteorShowersActive = new HashSet<>();
@@ -171,6 +180,14 @@ public class FireAbilities implements GemAbilityHandler {
         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.5f);
         player.sendMessage("\u00a76\u00a7oCharging fireball... Right-click again to fire!");
 
+        // Spawn a glowing fire-charge ItemDisplay above the player's head.
+        // Brightness override (15,15) makes it look fully lit even at night.
+        spawnChargeDisplay(player);
+
+        // One-shot burst of fire particles around the player marking the start of charging.
+        // After this, the floating fireball is the only visual — no per-tick fluff.
+        spawnChargeStartBurst(player);
+
         // Charging task - increases charge over 15 seconds, then decays
         BukkitTask task = new BukkitRunnable() {
             int ticksElapsed = 0;
@@ -223,67 +240,11 @@ public class FireAbilities implements GemAbilityHandler {
 
                 chargingPlayers.put(uuid, newCharge);
 
+                // Update the floating fireball: scale up with charge, follow player
+                updateChargeDisplay(player, newCharge);
+
                 // Show charge bar in action bar
                 showChargeBar(player, newCharge);
-
-                // Visual particles AROUND the player - NOT blocking view
-                Location playerLoc = player.getLocation(); // Ground level, not head level!
-
-                // Create a ring of flame particles around the player at WAIST/FEET height
-                double ringRadius = 1.4; // Further from player
-                for (int i = 0; i < 8; i++) {
-                    double angle = (i / 8.0) * 2 * Math.PI + (ticksElapsed * 0.1);
-                    double x = Math.cos(angle) * ringRadius;
-                    double z = Math.sin(angle) * ringRadius;
-
-                    // Ground level ring - FEET
-                    player.getWorld().spawnParticle(Particle.FLAME,
-                        playerLoc.clone().add(x, 0.2, z),
-                        3, 0.1, 0.1, 0.1, 0.01);
-
-                    // Waist height ring - NOT at head!
-                    player.getWorld().spawnParticle(Particle.FLAME,
-                        playerLoc.clone().add(x * 0.8, 0.8, z * 0.8),
-                        2, 0.05, 0.05, 0.05, 0.01);
-                }
-
-                // Spiral of particles going upward - BEHIND player, not in front
-                double spiralAngle = (ticksElapsed * 0.3) % (2 * Math.PI);
-                double spiralRadius = 1.0; // Further from center
-                for (int h = 0; h < 3; h++) {
-                    double heightOffset = h * 0.4; // Lower heights
-                    double x = Math.cos(spiralAngle + h) * spiralRadius;
-                    double z = Math.sin(spiralAngle + h) * spiralRadius;
-                    player.getWorld().spawnParticle(Particle.FLAME,
-                        playerLoc.clone().add(x, heightOffset, z),
-                        1, 0.05, 0.05, 0.05, 0);
-                }
-
-                // Additional particles that increase with charge - AROUND player, NOT at head
-                if (ticksElapsed % 5 == 0) {
-                    int particleCount = 5 + (newCharge / 15);
-
-                    // Flame particles AROUND player at waist level - NOT at head!
-                    player.getWorld().spawnParticle(Particle.FLAME,
-                        playerLoc.clone().add(0, 0.8, 0), // Waist level
-                        particleCount * 2, 1.2, 0.5, 1.2, 0.02); // Spread horizontally, not vertically
-
-                    // Fire gem bright orange dust particles (RGB 255, 119, 0) - LOW
-                    Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
-                    player.getWorld().spawnParticle(Particle.DUST,
-                        playerLoc.clone().add(0, 0.5, 0), // Lower than waist
-                        particleCount, 1.5, 0.4, 1.5, 0.0, orangeDust, true); // Wide spread, low vertical
-
-                    // Small fire particles on the ground around player - CIRCLE
-                    for (int i = 0; i < 8; i++) {
-                        double angle = (i / 8.0) * 2 * Math.PI;
-                        double x = Math.cos(angle) * 1.8;
-                        double z = Math.sin(angle) * 1.8;
-                        player.getWorld().spawnParticle(Particle.LAVA,
-                            player.getLocation().add(x, 0.1, z),
-                            2, 0.1, 0.1, 0.1, 0);
-                    }
-                }
 
                 // Sound feedback at milestones
                 if (newCharge == 25 || newCharge == 50 || newCharge == 75) {
@@ -295,24 +256,6 @@ public class FireAbilities implements GemAbilityHandler {
                     player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 1.5f);
                     player.sendMessage("\u00a76\u00a7lFully charged! \u00a7eRight-click to fire!");
                     maxChargeNotified = true;
-                }
-
-                // Keep showing max charge particles - IMPRESSIVE but NOT blocking view
-                if (newCharge >= MAX_CHARGE && ticksElapsed % 3 == 0) {
-                    // Large flame burst AROUND player at LOW height - NOT at head!
-                    player.getWorld().spawnParticle(Particle.FLAME,
-                        playerLoc.clone().add(0, 0.6, 0), // LOW, at torso
-                        25, 1.8, 0.4, 1.8, 0.08); // Wide horizontal spread, minimal vertical
-
-                    // Soul fire flames for extra effect - GROUND level
-                    player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
-                        playerLoc.clone().add(0, 0.3, 0), // Very low
-                        15, 1.5, 0.3, 1.5, 0.05); // Wide spread
-
-                    // Lava particles on ground - BIG circle
-                    player.getWorld().spawnParticle(Particle.LAVA,
-                        player.getLocation().add(0, 0.1, 0),
-                        12, 2.0, 0.1, 2.0, 0); // Even wider ground spread
                 }
             }
         }.runTaskTimer(this.plugin, 0L, 1L);
@@ -347,6 +290,7 @@ public class FireAbilities implements GemAbilityHandler {
             task.cancel();
         }
         chargingPlayers.remove(uuid);
+        removeChargeDisplay(uuid);
 
         if (charge < 10) {
             player.sendMessage("\u00a7c\u00a7oNot enough charge!");
@@ -384,6 +328,85 @@ public class FireAbilities implements GemAbilityHandler {
             task.cancel();
         }
         chargingPlayers.remove(uuid);
+        removeChargeDisplay(uuid);
+    }
+
+    /**
+     * One-time fire burst around the player when charging starts.
+     * After this, the floating fireball is the only visual — no per-tick particles.
+     */
+    private void spawnChargeStartBurst(Player player) {
+        Location loc = player.getLocation();
+        Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
+
+        // Ring of flames around the feet
+        for (int i = 0; i < 24; i++) {
+            double angle = (i / 24.0) * 2 * Math.PI;
+            double x = Math.cos(angle) * 1.4;
+            double z = Math.sin(angle) * 1.4;
+            player.getWorld().spawnParticle(Particle.FLAME,
+                loc.clone().add(x, 0.2, z), 2, 0.05, 0.05, 0.05, 0.02);
+            player.getWorld().spawnParticle(Particle.DUST,
+                loc.clone().add(x, 0.4, z), 1, 0.05, 0.05, 0.05, 0.0, orangeDust, true);
+        }
+
+        // Upward puff of flame at the center
+        player.getWorld().spawnParticle(Particle.FLAME,
+            loc.clone().add(0, 0.6, 0), 25, 0.4, 0.4, 0.4, 0.06);
+        player.getWorld().spawnParticle(Particle.LAVA,
+            loc.clone().add(0, 0.3, 0), 6, 0.5, 0.1, 0.5, 0);
+    }
+
+    // ------------------------------------------------------------------
+    // Floating fire-charge display above the head while charging
+    // ------------------------------------------------------------------
+
+    private void spawnChargeDisplay(Player player) {
+        try {
+            UUID uuid = player.getUniqueId();
+            removeChargeDisplay(uuid); // safety: kill any leftover
+            Location loc = displayLocation(player);
+            ItemDisplay display = (ItemDisplay) player.getWorld().spawnEntity(loc, EntityType.ITEM_DISPLAY);
+            display.setItemStack(new ItemStack(Material.FIRE_CHARGE));
+            display.setBrightness(new Display.Brightness(15, 15));
+            display.setTeleportDuration(2); // smooth follow
+            applyDisplayScale(display, 0.3f);
+            chargeDisplays.put(uuid, display);
+        } catch (Throwable t) {
+            // Don't break the charge if display spawn fails for any reason
+            plugin.getLogger().warning("Failed to spawn fireball charge display: " + t.getMessage());
+        }
+    }
+
+    private void updateChargeDisplay(Player player, int charge) {
+        ItemDisplay display = chargeDisplays.get(player.getUniqueId());
+        if (display == null || !display.isValid()) return;
+        // Scale 0.3 → 1.0 across 0 → MAX_CHARGE
+        float scale = 0.3f + (Math.max(0, Math.min(charge, MAX_CHARGE)) / (float) MAX_CHARGE) * 0.7f;
+        applyDisplayScale(display, scale);
+        display.teleport(displayLocation(player));
+    }
+
+    private void removeChargeDisplay(UUID uuid) {
+        ItemDisplay display = chargeDisplays.remove(uuid);
+        if (display != null && display.isValid()) {
+            display.remove();
+        }
+    }
+
+    private Location displayLocation(Player player) {
+        // Float ~1 block above the head, regardless of view angle
+        return player.getLocation().add(0, 2.5, 0);
+    }
+
+    private void applyDisplayScale(ItemDisplay display, float scale) {
+        Transformation t = display.getTransformation();
+        display.setTransformation(new Transformation(
+            t.getTranslation(),
+            t.getLeftRotation(),
+            new Vector3f(scale, scale, scale),
+            t.getRightRotation()
+        ));
     }
 
     public void cozyCampfire(Player player) {
@@ -613,6 +636,7 @@ public class FireAbilities implements GemAbilityHandler {
 
         // --- Initial pass: replace water and surrounding blocks ---
         crispOriginalBlocks.put(uuid, new HashMap<>());
+        crispOriginalWater.put(uuid, new HashMap<>());
         evaporateAndScorch(center, radius, uuid);
 
         // Activation visual — expanding ring of fire
@@ -651,7 +675,7 @@ public class FireAbilities implements GemAbilityHandler {
                 // Every 10 ticks (0.5s), sweep for new water blocks placed in the area
                 if (ticksElapsed % 10 == 0) {
                     Location playerLoc = player.getLocation();
-                    evaporateWater(playerLoc, radius);
+                    evaporateWater(playerLoc, radius, uuid);
 
                     // Ambient effects: small lava/flame particles on scorched ground
                     if (ticksElapsed % 20 == 0) {
@@ -679,7 +703,7 @@ public class FireAbilities implements GemAbilityHandler {
      * Evaporates all water blocks in radius and replaces surrounding solid blocks with nether blocks.
      */
     private void evaporateAndScorch(Location center, int radius, UUID ownerUuid) {
-        evaporateWater(center, radius);
+        evaporateWater(center, radius, ownerUuid);
 
         Map<Location, Material> originalBlocks = crispOriginalBlocks.get(ownerUuid);
 
@@ -713,16 +737,24 @@ public class FireAbilities implements GemAbilityHandler {
 
     /**
      * Evaporates (removes) all water source and flowing water blocks in the area.
+     * Each cleared block's material is recorded in crispOriginalWater[ownerUuid] so
+     * endCrisp can put the ocean back together. First-write wins so repeated sweeps
+     * over the same area don't overwrite the genuine original block type with AIR.
      */
-    private void evaporateWater(Location center, int radius) {
+    private void evaporateWater(Location center, int radius, UUID ownerUuid) {
+        Map<Location, Material> waterMap = crispOriginalWater.get(ownerUuid);
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
                 for (int z = -radius; z <= radius; z++) {
                     if (x * x + y * y + z * z > radius * radius) continue;
                     Block block = center.clone().add(x, y, z).getBlock();
-                    if (block.getType() == Material.WATER || block.getType() == Material.BUBBLE_COLUMN ||
-                            block.getType() == Material.KELP || block.getType() == Material.KELP_PLANT ||
-                            block.getType() == Material.SEAGRASS || block.getType() == Material.TALL_SEAGRASS) {
+                    Material t = block.getType();
+                    if (t == Material.WATER || t == Material.BUBBLE_COLUMN ||
+                            t == Material.KELP || t == Material.KELP_PLANT ||
+                            t == Material.SEAGRASS || t == Material.TALL_SEAGRASS) {
+                        if (waterMap != null) {
+                            waterMap.putIfAbsent(block.getLocation(), t);
+                        }
                         // Spawn steam effect before removing
                         center.getWorld().spawnParticle(Particle.CLOUD,
                             block.getLocation().add(0.5, 0.5, 0.5), 3, 0.2, 0.2, 0.2, 0.02);
@@ -749,6 +781,18 @@ public class FireAbilities implements GemAbilityHandler {
                 String blockName = block.getType().name();
                 if (blockName.startsWith("NETHER") || block.getType() == Material.MAGMA_BLOCK ||
                         block.getType() == Material.SOUL_SAND) {
+                    block.setType(entry.getValue());
+                }
+            }
+        }
+
+        // Restore evaporated water / kelp / seagrass. Only restore if the space is still
+        // empty (AIR) \u2014 if a player has built or another block has moved in, leave it alone.
+        Map<Location, Material> originalWater = crispOriginalWater.remove(uuid);
+        if (originalWater != null) {
+            for (Map.Entry<Location, Material> entry : originalWater.entrySet()) {
+                Block block = entry.getKey().getBlock();
+                if (block.getType() == Material.AIR) {
                     block.setType(entry.getValue());
                 }
             }
@@ -965,6 +1009,7 @@ public class FireAbilities implements GemAbilityHandler {
 
         UUID uuid = player.getUniqueId();
         crispOriginalBlocks.remove(uuid);
+        crispOriginalWater.remove(uuid);
         meteorShowersActive.remove(uuid);
         BukkitTask meteorTask = meteorTasks.remove(uuid);
         if (meteorTask != null) meteorTask.cancel();

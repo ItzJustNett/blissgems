@@ -116,6 +116,20 @@ public class PlayerJoinListener implements Listener {
             }
         }
 
+        // Clear any stale max-health modifiers left from a prior session
+        // (Heart Lock / Circle of Life / Soul Absorption targets that logged off mid-effect).
+        // Run with a small delay — attribute data isn't always synced at PlayerJoinEvent time,
+        // so an immediate cleanup can run before the modifiers are visible to remove.
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (!player.isOnline()) return;
+            if (this.plugin.getLifeAbilities() != null) {
+                this.plugin.getLifeAbilities().cleanup(player);
+            }
+            if (this.plugin.getSoulManager() != null) {
+                this.plugin.getSoulManager().cleanup(player);
+            }
+        }, 20L);
+
         // Update active gem status
         this.plugin.getGemManager().updateActiveGem(player);
 
@@ -129,6 +143,43 @@ public class PlayerJoinListener implements Listener {
                 this.plugin.getPluginMessagingManager().sendGemData(player);
             }
         }, 20L); // 1 second delay
+
+        // One-time tip about the new customizable ability bindings.
+        // Shown after a longer delay so it lands after the welcome/ritual messages.
+        if (!hasSeenBindingTip(player)) {
+            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                if (!player.isOnline()) return;
+                player.sendMessage("");
+                player.sendMessage("§d§l⚡ Tip: §fYou can customize how your gem abilities are triggered!");
+                player.sendMessage("§7Run §f/bliss ability §7to see your current bindings.");
+                player.sendMessage("§7Change them with §f/bliss set_ability <slot> <input> §7(e.g. §f/bliss set_ability primary left_click§7).");
+                player.sendMessage("");
+                markBindingTipSeen(player);
+            }, 100L); // ~5s after join
+        }
+    }
+
+    private boolean hasSeenBindingTip(Player player) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        File file = new File(dataFolder, player.getUniqueId() + ".yml");
+        if (!file.exists()) return false;
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        return data.getBoolean("seen-binding-tip", false);
+    }
+
+    private void markBindingTipSeen(Player player) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        if (!dataFolder.exists()) dataFolder.mkdirs();
+        File file = new File(dataFolder, player.getUniqueId() + ".yml");
+        FileConfiguration data = file.exists()
+            ? YamlConfiguration.loadConfiguration(file)
+            : new YamlConfiguration();
+        data.set("seen-binding-tip", true);
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to mark binding tip seen for " + player.getName() + ": " + e.getMessage());
+        }
     }
 
     private boolean hasReceivedFirstGem(Player player) {

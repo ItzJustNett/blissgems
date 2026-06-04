@@ -10,6 +10,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.ItemDespawnEvent;
+import org.bukkit.event.entity.ItemMergeEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -444,6 +447,67 @@ public class ComprehensiveGemProtectionListener implements Listener {
             plugin.getLogger().info("Removed " + duplicateSlots.size() +
                 " duplicate gem(s) from " + player.getName() + " after world change.");
         }
+    }
+
+    // ==========================================
+    // GROUND-ITEM PROTECTION (ClearLagg / cleanup-plugin compat)
+    // ==========================================
+
+    /**
+     * When a gem item entity spawns in the world, harden it against cleanup plugins:
+     * never despawn, invulnerable, no pickup delay, and re-mark with the undroppable PDC tag
+     * in case a prior plugin (e.g. ClearLagg item merging) stripped it.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onItemSpawn(ItemSpawnEvent event) {
+        org.bukkit.entity.Item itemEntity = event.getEntity();
+        ItemStack stack = itemEntity.getItemStack();
+        if (stack == null || !isGemLike(stack)) {
+            return;
+        }
+        CustomItemManager.markAsUndroppable(stack);
+        itemEntity.setItemStack(stack);
+        try {
+            itemEntity.setUnlimitedLifetime(true);
+        } catch (NoSuchMethodError ignored) {
+            itemEntity.setTicksLived(1);
+        }
+        itemEntity.setInvulnerable(true);
+        itemEntity.setPersistent(true);
+    }
+
+    /**
+     * Prevent natural despawn of gem item entities.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onItemDespawn(ItemDespawnEvent event) {
+        ItemStack stack = event.getEntity().getItemStack();
+        if (isGemLike(stack)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Prevent gem item entities from merging with anything — merges can strip PDC tags
+     * and cause stack identity loss when other cleanup plugins are present.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onItemMerge(ItemMergeEvent event) {
+        if (isGemLike(event.getEntity().getItemStack()) || isGemLike(event.getTarget().getItemStack())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Identify gem items by PDC tag OR by being a registered gem id —
+     * needed because plugins like ClearLagg can strip PDC during item merging,
+     * leaving the item identifiable only by its custom item id.
+     */
+    private boolean isGemLike(ItemStack item) {
+        if (item == null) return false;
+        if (CustomItemManager.isUndroppable(item)) return true;
+        String id = CustomItemManager.getIdByItem(item);
+        return id != null && plugin.getGemManager().isAnyGem(id);
     }
 
     // ==========================================

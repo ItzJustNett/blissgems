@@ -49,11 +49,13 @@ public class SwapHandAbilityListener implements Listener {
             return;
         }
 
-        if (player.isSneaking()) {
-            plugin.getBlissCommand().triggerQuaternary(player);
-        } else {
-            plugin.getBlissCommand().triggerTertiary(player);
-        }
+        dev.xoperr.blissgems.utils.AbilityBinding input =
+            dev.xoperr.blissgems.utils.AbilityBinding.swapHand(player.isSneaking());
+        dev.xoperr.blissgems.utils.AbilitySlot slot =
+            plugin.getAbilityBindingManager() != null
+                ? plugin.getAbilityBindingManager().getSlot(player, input)
+                : null;
+        plugin.getBlissCommand().triggerSlot(player, slot);
     }
 
     private boolean isGem(ItemStack item) {

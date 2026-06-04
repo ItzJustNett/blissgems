@@ -160,6 +160,14 @@ TabCompleter {
                 this.handleClearCooldowns(sender, args);
                 break;
             }
+            case "ability": {
+                this.handleAbilityBindingsList(sender, args);
+                break;
+            }
+            case "set_ability": {
+                this.handleSetAbility(sender, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -711,12 +719,35 @@ TabCompleter {
         }
     }
 
+    public void triggerPrimary(Player player) {
+        handleAbilityMain(player, new String[0]);
+    }
+
+    public void triggerSecondary(Player player) {
+        handleAbilitySecondary(player, new String[0]);
+    }
+
     public void triggerTertiary(Player player) {
         handleAbilityTertiary(player, new String[0]);
     }
 
     public void triggerQuaternary(Player player) {
         handleAbilityQuaternary(player, new String[0]);
+    }
+
+    /**
+     * Dispatch an ability based on the configured slot. Returns false if slot is null
+     * (caller should treat that as "input is unbound").
+     */
+    public boolean triggerSlot(Player player, dev.xoperr.blissgems.utils.AbilitySlot slot) {
+        if (slot == null) return false;
+        switch (slot) {
+            case PRIMARY: triggerPrimary(player); return true;
+            case SECONDARY: triggerSecondary(player); return true;
+            case TERTIARY: triggerTertiary(player); return true;
+            case QUATERNARY: triggerQuaternary(player); return true;
+        }
+        return false;
     }
 
     private void handleAbilityTertiary(CommandSender sender, String[] args) {
@@ -820,6 +851,100 @@ TabCompleter {
             GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
             if (handler != null) handler.onQuaternary(player, tier);
         }
+    }
+
+    private void handleAbilityBindingsList(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+        dev.xoperr.blissgems.managers.AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
+        if (mgr == null) {
+            player.sendMessage("§cBinding system unavailable.");
+            return;
+        }
+
+        java.util.EnumMap<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> map = mgr.getAll(player);
+
+        player.sendMessage("§d§l⚡ Your Ability Bindings");
+        for (dev.xoperr.blissgems.utils.AbilitySlot slot : dev.xoperr.blissgems.utils.AbilitySlot.values()) {
+            dev.xoperr.blissgems.utils.AbilityBinding boundInput = null;
+            for (java.util.Map.Entry<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> e : map.entrySet()) {
+                if (e.getValue() == slot) { boundInput = e.getKey(); break; }
+            }
+            String inputLabel = boundInput != null ? "§f" + boundInput.getDisplayName() : "§8unbound";
+            player.sendMessage("§7" + slot.getDisplayName() + " §8→ " + inputLabel);
+        }
+
+        player.sendMessage("");
+        player.sendMessage("§d§l⚡ Available Inputs");
+        for (dev.xoperr.blissgems.utils.AbilityBinding b : dev.xoperr.blissgems.utils.AbilityBinding.values()) {
+            dev.xoperr.blissgems.utils.AbilitySlot s = map.get(b);
+            String suffix = s != null ? " §8(§7" + s.getDisplayName() + "§8)" : "";
+            player.sendMessage("§f• §7" + b.getId() + " §8- §f" + b.getDisplayName() + suffix);
+        }
+        player.sendMessage("");
+        player.sendMessage("§7Change with §f/bliss set_ability <slot> <input>");
+        player.sendMessage("§7Unbind a slot with §f/bliss set_ability <slot> none");
+        player.sendMessage("§7Reset defaults with §f/bliss set_ability reset");
+    }
+
+    private void handleSetAbility(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+        dev.xoperr.blissgems.managers.AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
+        if (mgr == null) {
+            player.sendMessage("§cBinding system unavailable.");
+            return;
+        }
+
+        if (args.length >= 2 && args[1].equalsIgnoreCase("reset")) {
+            mgr.resetToDefaults(player);
+            player.sendMessage("§aAbility bindings reset to defaults.");
+            return;
+        }
+
+        if (args.length < 3) {
+            player.sendMessage("§cUsage: §f/bliss set_ability <slot> <input>");
+            player.sendMessage("§7Slots: §fprimary, secondary, tertiary, quaternary");
+            player.sendMessage("§7Inputs: §fright_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand, none");
+            player.sendMessage("§7See current bindings with §f/bliss ability");
+            return;
+        }
+
+        dev.xoperr.blissgems.utils.AbilitySlot slot = dev.xoperr.blissgems.utils.AbilitySlot.fromId(args[1]);
+        if (slot == null) {
+            player.sendMessage("§cUnknown slot: §f" + args[1]
+                + "§c. Valid: primary, secondary, tertiary, quaternary.");
+            return;
+        }
+
+        String inputId = args[2];
+        if (inputId.equalsIgnoreCase("none") || inputId.equalsIgnoreCase("unbind")) {
+            java.util.EnumMap<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> map = mgr.getAll(player);
+            for (java.util.Map.Entry<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> e : map.entrySet()) {
+                if (e.getValue() == slot) {
+                    mgr.unbind(player, e.getKey());
+                }
+            }
+            player.sendMessage("§aUnbound §l" + slot.getDisplayName() + "§a.");
+            return;
+        }
+
+        dev.xoperr.blissgems.utils.AbilityBinding input = dev.xoperr.blissgems.utils.AbilityBinding.fromId(inputId);
+        if (input == null) {
+            player.sendMessage("§cUnknown input: §f" + inputId
+                + "§c. See §f/bliss ability§c for the list.");
+            return;
+        }
+
+        mgr.setBinding(player, input, slot);
+        player.sendMessage("§aBound §f" + input.getDisplayName()
+            + "§a → §l" + slot.getDisplayName() + "§a.");
     }
 
     private void handleTrust(CommandSender sender, String[] args) {
