@@ -68,7 +68,16 @@ implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+        Action a = event.getAction();
+        boolean isRight = a == Action.RIGHT_CLICK_AIR || a == Action.RIGHT_CLICK_BLOCK;
+        boolean isLeft = a == Action.LEFT_CLICK_AIR || a == Action.LEFT_CLICK_BLOCK;
+        if (!isRight && !isLeft) {
+            return;
+        }
+        // Left-click path goes straight to the binding-based ability dispatch —
+        // bundle/trader/energy-bottle handling below is right-click-only.
+        if (isLeft) {
+            handleLeftClickAbility(event);
             return;
         }
         Player player = event.getPlayer();
@@ -136,42 +145,65 @@ implements Listener {
     private void handleGemAbility(Player player, String oraxenId, PlayerInteractEvent event) {
         event.setCancelled(true);
 
-        // Check if click activation is enabled for this player
-        if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
-            long now = System.currentTimeMillis();
-            Long lastSent = clickDisabledMessageCooldowns.get(player.getUniqueId());
-            if (lastSent == null || now - lastSent >= CLICK_DISABLED_MSG_INTERVAL) {
-                clickDisabledMessageCooldowns.put(player.getUniqueId(), now);
-                String msg = this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled", new Object[0]);
-                if (msg != null && !msg.isEmpty()) {
-                    player.sendMessage(msg);
-                }
-            }
+        dev.xoperr.blissgems.utils.AbilityBinding input =
+            dev.xoperr.blissgems.utils.AbilityBinding.rightClick(player.isSneaking());
+        dispatchBoundAbility(player, input);
+    }
+
+    /**
+     * Handles LEFT_CLICK_AIR / LEFT_CLICK_BLOCK when the held item is a gem.
+     * Routes through the player's binding map; if left-click is unbound, nothing
+     * happens (vanilla behavior preserved for everyone who hasn't customized).
+     */
+    private void handleLeftClickAbility(PlayerInteractEvent event) {
+        ItemStack item = event.getItem();
+        if (item == null) return;
+        String id = CustomItemManager.getIdByItem(item);
+        if (id == null || (!id.endsWith("_gem_t1") && !id.endsWith("_gem_t2"))) {
             return;
         }
+        Player player = event.getPlayer();
+        dev.xoperr.blissgems.utils.AbilityBinding input =
+            dev.xoperr.blissgems.utils.AbilityBinding.leftClick(player.isSneaking());
 
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        if (energy <= 0) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) {
-                player.sendMessage(msg);
-            }
+        dev.xoperr.blissgems.utils.AbilitySlot slot =
+            this.plugin.getAbilityBindingManager() != null
+                ? this.plugin.getAbilityBindingManager().getSlot(player, input)
+                : null;
+        if (slot == null) {
+            return; // input unbound — let vanilla handle the click
+        }
+        event.setCancelled(true);
+        if (!gateAbility(player)) return;
+        this.plugin.getBlissCommand().triggerSlot(player, slot);
+    }
+
+    /**
+     * Right-click ability dispatcher. Resolves the player's binding for the right-click
+     * variant (sneaking or not) and fires the corresponding slot. Falls back to the gem's
+     * built-in onRightClick if right-click is unbound (so wiping all bindings doesn't
+     * break the basic right-click → primary/secondary expectation).
+     */
+    private void dispatchBoundAbility(Player player, dev.xoperr.blissgems.utils.AbilityBinding input) {
+        if (!gateAbility(player)) return;
+
+        dev.xoperr.blissgems.utils.AbilitySlot slot =
+            this.plugin.getAbilityBindingManager() != null
+                ? this.plugin.getAbilityBindingManager().getSlot(player, input)
+                : null;
+        if (slot != null) {
+            this.plugin.getBlissCommand().triggerSlot(player, slot);
             return;
         }
-
-        // Resolve gem via registry
-        GemRegistry registry = this.plugin.getGemRegistry();
-        String gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
-        if (gemId == null) {
-            // Fallback: try built-in GemType
-            GemType gemType = GemType.fromOraxenId(oraxenId);
-            if (gemType == null) return;
-            gemId = gemType.getId();
+        // Unbound: use the gem's legacy onRightClick which handles its own sneak routing.
+        // This only matters if the player explicitly removed the right-click binding;
+        // default players never hit this path.
+        String oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (oraxenId == null || (!oraxenId.endsWith("_gem_t1") && !oraxenId.endsWith("_gem_t2"))) {
+            oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInOffHand());
         }
-
-        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-
-        // For built-in gems, use existing onRightClick (handles sneak routing)
+        if (oraxenId == null) return;
+        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
         GemType gemType = GemType.fromOraxenId(oraxenId);
         if (gemType != null) {
             switch (gemType) {
@@ -185,18 +217,30 @@ implements Listener {
                 case WEALTH: this.plugin.getWealthAbilities().onRightClick(player, tier); return;
             }
         }
+    }
 
-        // For addon gems, route through registry
-        if (registry != null) {
-            GemAbilityHandler handler = registry.getAbilityHandler(gemId);
-            if (handler != null) {
-                if (tier >= 2 && player.isSneaking()) {
-                    handler.onSecondary(player, tier);
-                } else {
-                    handler.onPrimary(player, tier);
-                }
+    /**
+     * Common pre-checks: click activation toggle + energy. Returns true if the ability
+     * may proceed. Emits the appropriate denial message on failure.
+     */
+    private boolean gateAbility(Player player) {
+        if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
+            long now = System.currentTimeMillis();
+            Long lastSent = clickDisabledMessageCooldowns.get(player.getUniqueId());
+            if (lastSent == null || now - lastSent >= CLICK_DISABLED_MSG_INTERVAL) {
+                clickDisabledMessageCooldowns.put(player.getUniqueId(), now);
+                String msg = this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled", new Object[0]);
+                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             }
+            return false;
         }
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return false;
+        }
+        return true;
     }
 
     private void handleEnergyBottle(Player player, ItemStack item, PlayerInteractEvent event) {

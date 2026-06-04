@@ -197,11 +197,10 @@ public class LifeAbilities implements GemAbilityHandler {
         AttributeInstance attr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (attr == null) return;
 
-        String modName = key.toString();
-        boolean hasModifier = attr.getModifiers().stream().anyMatch(m -> m.getName().equals(modName));
+        boolean hasModifier = attr.getModifiers().stream().anyMatch(m -> matchesKey(m, key));
         if (hasModifier) return;
 
-        attr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes(modName.getBytes()), modName, amount, AttributeModifier.Operation.ADD_NUMBER));
+        attr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes((key.toString() + ":" + player.getUniqueId()).getBytes()), key.toString(), amount, AttributeModifier.Operation.ADD_NUMBER));
         tracked.add(player.getUniqueId());
     }
 
@@ -213,10 +212,22 @@ public class LifeAbilities implements GemAbilityHandler {
     private void removeCircleModifierDirect(Player player, NamespacedKey key) {
         AttributeInstance attr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (attr == null) return;
-        String modName = key.toString();
-        attr.getModifiers().stream()
-            .filter(m -> m.getName().equals(modName))
-            .forEach(attr::removeModifier);
+        java.util.List<org.bukkit.attribute.AttributeModifier> toRemove = new java.util.ArrayList<>();
+        for (org.bukkit.attribute.AttributeModifier m : attr.getModifiers()) {
+            if (matchesKey(m, key)) toRemove.add(m);
+        }
+        for (org.bukkit.attribute.AttributeModifier m : toRemove) {
+            attr.removeModifier(m);
+        }
+    }
+
+    private boolean matchesKey(org.bukkit.attribute.AttributeModifier m, NamespacedKey key) {
+        try {
+            NamespacedKey mk = m.getKey();
+            if (mk != null && mk.equals(key)) return true;
+        } catch (Throwable ignored) {}
+        String name = m.getName();
+        return name != null && (name.equals(key.toString()) || name.equals(key.getKey()));
     }
 
     public void vitalityVortex(Player player) {
@@ -355,24 +366,36 @@ public class LifeAbilities implements GemAbilityHandler {
         double maxHealth = targetMaxHealthAttr.getValue();
         double reduction = currentHealth - maxHealth; // Negative value — caps max health at current
 
-        String modName = new NamespacedKey(this.plugin, "heart-lock").toString();
+        NamespacedKey heartLockKey = new NamespacedKey(this.plugin, "heart-lock");
 
         // Remove any existing heart lock modifier first
-        targetMaxHealthAttr.getModifiers().stream()
-            .filter(m -> m.getName().equals(modName))
-            .forEach(targetMaxHealthAttr::removeModifier);
+        java.util.List<org.bukkit.attribute.AttributeModifier> existing = new java.util.ArrayList<>();
+        for (org.bukkit.attribute.AttributeModifier m : targetMaxHealthAttr.getModifiers()) {
+            if (matchesKey(m, heartLockKey)) existing.add(m);
+        }
+        for (org.bukkit.attribute.AttributeModifier m : existing) {
+            targetMaxHealthAttr.removeModifier(m);
+        }
 
         // Apply modifier to cap max health at current health
-        targetMaxHealthAttr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes(modName.getBytes()), modName, reduction, AttributeModifier.Operation.ADD_NUMBER));
+        targetMaxHealthAttr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes((heartLockKey.toString() + ":" + targetEntity.getUniqueId()).getBytes()), heartLockKey.toString(), reduction, AttributeModifier.Operation.ADD_NUMBER));
 
         // Schedule removal after duration
         this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             if (targetEntity.isValid()) {
                 AttributeInstance attr = targetEntity.getAttribute(Attribute.GENERIC_MAX_HEALTH);
                 if (attr != null) {
-                    attr.getModifiers().stream()
-                        .filter(m -> m.getName().equals(modName))
-                        .forEach(attr::removeModifier);
+                    java.util.List<org.bukkit.attribute.AttributeModifier> toRm = new java.util.ArrayList<>();
+                    for (org.bukkit.attribute.AttributeModifier m : attr.getModifiers()) {
+                        if (matchesKey(m, heartLockKey)) toRm.add(m);
+                    }
+                    for (org.bukkit.attribute.AttributeModifier m : toRm) attr.removeModifier(m);
+                    // Heart-lock removal raises max, so no over-max clamp needed,
+                    // but heal to new max so the target isn't stuck at the locked-low value.
+                    double newMax = attr.getValue();
+                    if (targetEntity.getHealth() > newMax) {
+                        targetEntity.setHealth(newMax);
+                    }
                 }
             }
         }, durationTicks);
@@ -392,6 +415,62 @@ public class LifeAbilities implements GemAbilityHandler {
         if (targetEntity instanceof Player) {
             ((Player) targetEntity).sendMessage("\u00a7d\u00a7oYour max health has been locked!");
         }
+    }
+
+    /**
+     * Clean up all Life gem attribute modifiers from a player.
+     * Called on join, logout, death, and server disable to prevent permanent health changes.
+     * Uses broad name pattern matching to catch all blissgems-namespaced max-health modifiers,
+     * including any stale ones left over from prior sessions (heart-lock, circle-of-life).
+     */
+    public void cleanup(Player player) {
+        AttributeInstance attr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        if (attr == null) return;
+
+        java.util.List<org.bukkit.attribute.AttributeModifier> toRemove = new java.util.ArrayList<>();
+        for (org.bukkit.attribute.AttributeModifier m : attr.getModifiers()) {
+            if (isLifeModifier(m)) {
+                toRemove.add(m);
+            }
+        }
+        for (org.bukkit.attribute.AttributeModifier m : toRemove) {
+            attr.removeModifier(m);
+        }
+        // Clamp current health to (possibly reduced) max — Paper doesn't always
+        // do this on modifier removal, leaving "over-max" health that displays as
+        // permanent extra hearts.
+        double max = attr.getValue();
+        if (player.getHealth() > max) {
+            player.setHealth(max);
+        }
+        if (!toRemove.isEmpty()) {
+            this.plugin.getLogger().info("[LifeAbilities] Removed " + toRemove.size()
+                + " stale life-modifier(s) from " + player.getName());
+        }
+    }
+
+    private boolean isLifeModifier(org.bukkit.attribute.AttributeModifier m) {
+        String name = m.getName();
+        if (name != null) {
+            String lower = name.toLowerCase();
+            if (lower.contains("blissgems")) return true;
+            if (lower.contains("circle-of-life") || lower.contains("heart-lock")) return true;
+            if (lower.contains("circle_of_life") || lower.contains("heart_lock")) return true;
+        }
+        try {
+            org.bukkit.NamespacedKey key = m.getKey();
+            if (key != null) {
+                if ("blissgems".equals(key.getNamespace())) return true;
+                String value = key.getKey();
+                if (value != null) {
+                    String v = value.toLowerCase();
+                    if (v.contains("circle-of-life") || v.contains("heart-lock")) return true;
+                    if (v.contains("circle_of_life") || v.contains("heart_lock")) return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private LivingEntity getTargetEntity(Player player, int range) {

@@ -245,7 +245,7 @@ abilities:
     flux-conduction: 3  # Copper teleport cooldown
     flux-flashbang: 45  # Flashbang AOE blindness
     flux-kinetic-burst: 30  # Radial knockback
-    life-heart-drainer: 60
+    life-drainer: 60
     life-circle-of-life: 60
     life-vitality-vortex: 45
     life-heart-lock: 60

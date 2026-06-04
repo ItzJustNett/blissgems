@@ -107,6 +107,12 @@ implements Listener {
         this.plugin.getFireAbilities().cleanup(victim);
         // Clean up any active Flux gem charging
         this.plugin.getFluxAbilities().cleanup(victim);
+        // Clean up Life gem heart modifiers (Circle of Life, Heart Lock)
+        this.plugin.getLifeAbilities().cleanup(victim);
+        // Clean up Astra Soul Absorption max-health modifiers
+        if (this.plugin.getSoulManager() != null) {
+            this.plugin.getSoulManager().cleanup(victim);
+        }
 
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
@@ -125,6 +131,8 @@ implements Listener {
         // Check memory first (for immediate respawns)
         if (savedGems.containsKey(playerId)) {
             gems = savedGems.remove(playerId);
+            // Also clear disk copy to prevent duplication on future restarts
+            clearGemsFromDisk(playerId);
         }
         // If not in memory, check disk (for respawns after disconnect/restart)
         else {
@@ -146,9 +154,12 @@ implements Listener {
             }
         }
 
-        // Update active gem after respawn
+        // Enforce single-gem-only after restoring gems (safety net against duplication)
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-            this.plugin.getGemManager().updateActiveGem(player);
+            if (player.isOnline()) {
+                enforceOneGemOnly(player);
+                this.plugin.getGemManager().updateActiveGem(player);
+            }
         }, 1L);
     }
 
@@ -216,6 +227,49 @@ implements Listener {
         return gems;
     }
 
+    /**
+     * Clear saved gems from disk without loading them
+     */
+    private void clearGemsFromDisk(UUID playerId) {
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        File file = new File(dataFolder, playerId + ".yml");
+
+        if (!file.exists()) {
+            return;
+        }
+
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        if (data.contains("saved-gems")) {
+            data.set("saved-gems", null);
+            try {
+                data.save(file);
+            } catch (IOException e) {
+                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + playerId);
+            }
+        }
+    }
+
+    /**
+     * Remove duplicate gems from inventory, keeping only the first one found.
+     */
+    private void enforceOneGemOnly(Player player) {
+        boolean foundFirst = false;
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item == null) continue;
+            String itemId = CustomItemManager.getIdByItem(item);
+            if (itemId == null) continue;
+            if (!this.plugin.getGemManager().isAnyGem(itemId)) continue;
+
+            if (!foundFirst) {
+                foundFirst = true;
+            } else {
+                player.getInventory().setItem(i, null);
+                this.plugin.getLogger().info("Removed duplicate gem from " + player.getName() + " on respawn.");
+            }
+        }
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         this.plugin.getGemManager().updateActiveGem(event.getPlayer());
@@ -235,6 +289,10 @@ implements Listener {
         this.plugin.getSpeedAbilities().cleanup(player.getUniqueId());
         // Clean up Wealth gem amplification/effects
         this.plugin.getWealthAbilities().cleanup(player);
+        // Clean up Life gem heart modifiers (Circle of Life, Heart Lock)
+        this.plugin.getLifeAbilities().cleanup(player);
+        // Clean up Astra Soul Absorption max-health modifiers
+        this.plugin.getSoulManager().cleanup(player);
 
         // Clear captured souls
         this.plugin.getSoulManager().clearSouls(player.getUniqueId());
