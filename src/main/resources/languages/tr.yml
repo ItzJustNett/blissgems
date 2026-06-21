@@ -1,0 +1,674 @@
+# BlissGems Yapılandırma Dosyası
+# Ne yaptığınızı bilmiyorsanız config-version değerini DEĞİŞTİRMEYİN!
+config-version: "1.0.0"
+
+# ==========================================
+# GENEL AYARLAR
+# ==========================================
+# İsteğe bağlı sohbet mesajlarını devre dışı bırak (yetenek aktivasyonları, tıklama hataları vb.)
+# Sohbet kirliliğini azaltmak için true yapın
+disable-optional-messages: true
+
+# ==========================================
+# ENERJİ SİSTEMİ
+# ==========================================
+energy:
+  # Oyuncu öldürünce kazanılan enerji
+  gain-on-kill: 1
+  # Ölünce kaybedilen enerji
+  loss-on-death: 1
+  # Maksimum enerji seviyesi
+  max-energy: 10
+  # Saf taşlar için başlangıç enerjisi
+  starting-energy: 10
+  # Pasif özelliklerin durduğu enerji seviyesi (Hasar Görmüş durum)
+  ruined-threshold: 1
+  # Yeteneklerin kullanılamadığı enerji seviyesi (Kırık durum)
+  broken-threshold: 0
+  # 0 enerjiye ulaşan oyuncuları banla
+  ban-on-zero-energy: false
+
+# ==========================================
+# TAŞ AYARLARI
+# ==========================================
+gems:
+  # Belirli taş türlerini etkinleştir/devre dışı bırak
+  enabled:
+    astra: true
+    fire: true
+    flux: true
+    life: true
+    puff: true
+    speed: true
+    strength: true
+    wealth: true
+
+  # Aynı anda yalnızca bir taş aktif olabilir
+  single-gem-only: true
+
+  # Taşların düşürülmesini veya envanterden çıkarılmasını engelle
+  # Etkinleştirildiğinde taşlar: düşürülemez (Q), konteynerlere/çerçevelere yerleştirilemez,
+  # varlıklara verilemez, huniler tarafından taşınamaz veya başka bir şekilde kaybedilemez
+  prevent-drop: true
+
+# ==========================================
+# WORLDGUARD ENTEGRASYONU
+# ==========================================
+worldguard:
+  # WorldGuard bölge kontrollerini etkinleştir/devre dışı bırak
+  enabled: true
+
+  # Bölge kontrolü modu:
+  # - "blacklist": Taşları YALNIZCA listelenen bölgelerde devre dışı bırak
+  # - "whitelist": Taşları listelenen bölgeler DIŞINDA her yerde devre dışı bırak
+  mode: "blacklist"
+
+  # Bölge ID'lerinin listesi (moda göre değişir)
+  # Kara liste modu: bu bölgelerde taşlar devre dışı
+  # Beyaz liste modu: taşlar YALNIZCA bu bölgelerde aktif
+  regions:
+    - "spawn"
+    - "safe-zone"
+
+  # Yetenek engelleme mesajı
+  disabled-message: "&c&lTaş yetenekleri bu bölgede devre dışı!"
+
+# ==========================================
+# SMP BAŞLANGIÇ SİSTEMİ
+# ==========================================
+smp:
+  started: false
+  auto-start-threshold: 10
+
+# ==========================================
+# CRAFTING TARİFLERİ
+# ==========================================
+crafting:
+  # Özel crafting tariflerini etkinleştir/devre dışı bırak
+  # Bliss SMP Sezon 3 tariflerine dayanır
+  enabled: true
+
+# ==========================================
+# PASİF ETKİLER
+# ==========================================
+passives:
+  # Pasif etkilerin ne sıklıkla uygulanacağı (tick cinsinden, 20 tick = 1 saniye)
+  update-interval: 20
+
+  # Taş sol elde tutulurken oyuncuya her pasif tickte uygulanan ekstra iksir etkileri
+  # (yerleşik pasif etkilerin üstüne eklenir).
+  # Bukkit PotionEffectType isimlerini kullanın (SPEED, NIGHT_VISION, JUMP_BOOST vb.).
+  # Seviye 1 tabanlıdır (level: 1 = "I", level: 2 = "II", ...).
+  # O taş/tier için ekstra etki vermemek için listeyi boş bırakın.
+  extra-effects:
+    astra:
+      t1: []
+      t2: []
+    fire:
+      t1: []
+      t2: []
+    flux:
+      t1: []
+      t2: []
+    life:
+      t1: []
+      t2: []
+    puff:
+      t1: []
+      t2: []
+    speed:
+      t1: []
+      t2: []
+    strength:
+      t1: []
+      t2: []
+    wealth:
+      t1: []
+      t2: []
+
+  # Tier'a özel pasif değerleri (tier1 = zayıf, tier2 = güçlü)
+  astra:
+    tier1:
+      phase-chance: 0.10  # Saldırıları geçme şansı %10
+    tier2:
+      phase-chance: 0.15  # Saldırıları geçme şansı %15
+
+  life:
+    tier1:
+      heal-amount: 0.3  # Her 5 saniyede iyileşilen can
+      heal-interval: 100  # İyileşmeler arası tick (5 saniye)
+      undead-damage-multiplier: 2.0  # Ölümsüzlere 2x hasar
+      saturation-multiplier: 1.5  # 1.5x tokluk kazanımı
+      golden-apple-absorption-level: 0  # Emilim I (2 can)
+    tier2:
+      heal-amount: 0.5  # Her 5 saniyede iyileşilen can
+      heal-interval: 100  # İyileşmeler arası tick (5 saniye)
+      undead-damage-multiplier: 3.0  # Ölümsüzlere 3x hasar
+      saturation-multiplier: 2.0  # 2x tokluk kazanımı
+      golden-apple-absorption-level: 1  # Emilim II (4 can)
+
+  flux:
+    shocking-chance: 0.15  # Şok eden ok sersemletme tetikleme şansı %15
+    charged-creeper-reduction: 1.0  # 1.0 = tam bağışıklık, 0.5 = %50 azalma
+    tier1:
+      shocking-arrow-damage: 2.0  # Elektrikli ok hasarı
+      flow-state-speed-boost: 0.15  # Akış durumundaki ek hız artışı
+    tier2:
+      shocking-arrow-damage: 3.0  # Elektrikli ok hasarı
+      flow-state-speed-boost: 0.2  # Akış durumundaki ek hız artışı
+
+  puff:
+    tier1:
+      double-jump-enabled: true
+      double-jump-velocity: 0.6  # Çift zıplama için dikey güçlendirme
+      launch-velocity: 3.5  # Oyunculara vururken yukarı fırlatma
+      fall-damage-immunity: true
+      sculk-immunity: false  # Tier 1 sculk bağışıklığına sahip değil
+    tier2:
+      double-jump-enabled: true
+      double-jump-velocity: 0.8  # Çift zıplama için dikey güçlendirme
+      launch-velocity: 4.5  # Oyunculara vururken yukarı fırlatma
+      fall-damage-immunity: true
+      sculk-immunity: true  # Tier 2 sculk bağışıklığına sahip
+
+  fire:
+    tier1:
+      auto-smelt: true  # Cevherleri otomatik eritmek
+      fire-resistance: true  # Tier 1 ateş direncine sahip
+    tier2:
+      auto-smelt: true  # Cevherleri otomatik eritme
+      fire-resistance: true  # Tier 2 ateş direncine sahip
+
+  speed:
+    tier1:
+      soul-sand-immunity: true
+      speed-level: 1  # Hız II
+    tier2:
+      soul-sand-immunity: true
+      speed-level: 2  # Hız III
+
+  strength:
+    tier1:
+      strength-level: 0  # Güç I
+      bloodthorns-max-bonus-damage: 7.0  # En düşük canda maksimum bonus hasar (3.5 can)
+    tier2:
+      strength-level: 1  # Güç II
+      bloodthorns-max-bonus-damage: 10.0  # En düşük canda maksimum bonus hasar (5 can)
+
+  wealth:
+    tier1:
+      luck-level: 0  # Şans I
+      villager-discount: 0.10  # %10 indirim
+      durability-chip-extra-damage: 1  # Her vuruşta zırh parçası başına ekstra dayanıklılık hasarı
+      armor-mend-amount: 2  # Her vuruşta zırh parçası başına yenilenen dayanıklılık
+      double-debris: true  # Fırınlarda 2x netherite parçası
+    tier2:
+      luck-level: 1  # Şans II
+      villager-discount: 0.20  # %20 indirim
+      durability-chip-extra-damage: 1  # Her vuruşta zırh parçası başına ekstra dayanıklılık hasarı
+      armor-mend-amount: 2  # Her vuruşta zırh parçası başına yenilenen dayanıklılık
+      double-debris: true  # Fırınlarda 2x netherite parçası
+
+  # Şanssız yetenek şansları (0.0 = hiç başarısız olmaz, 1.0 = her zaman başarısız olur)
+  unfortunate:
+    attack-fail-chance: 0.75  # Saldırıların başarısız olma şansı %75
+    block-break-fail-chance: 0.50  # Blok kırmanın başarısız olma şansı %50
+    block-place-fail-chance: 1.0  # Blok yerleştirmenin başarısız olma şansı %100
+    eat-fail-chance: 1.0  # Yemenin başarısız olma şansı %100
+    sprint-fail-chance: 0.50  # Koşmanın başarısız olma şansı %50
+    jump-fail-chance: 0.30  # Zıplamanın başarısız olma şansı %30
+    drop-item-fail-chance: 0.80  # Eşya düşürmenin başarısız olma şansı %80
+    pickup-item-fail-chance: 0.70  # Eşya almanın başarısız olma şansı %70
+    interact-fail-chance: 0.60  # Etkileşimlerin başarısız olma şansı %60 (sağ tık)
+    craft-fail-chance: 0.90  # Crafting'in başarısız olma şansı %90
+
+# ==========================================
+# YETENEKLer
+# ==========================================
+abilities:
+  # Genel yetenek bekleme süresi (saniye cinsinden)
+  global-cooldown: 1
+
+  # Belirli yetenek bekleme süreleri (saniye cinsinden)
+  cooldowns:
+    astra-daggers: 15
+    astra-projection: 60  # 1 dakika (projeksiyon bitince ayarlanır)
+    astra-drift: 90  # Boyutsal Sürüklenme (sürüklenme bitince ayarlanır)
+    astra-void: 120  # 2 dakika - Boyutsal Boşluk
+    astra-spook: 10  # Projeksiyon sırasında Korkutma alt yeteneği
+    astra-tag: 15  # Projeksiyon sırasında İşaretle alt yeteneği
+    fire-fireball: 10
+    fire-campfire: 60  # 1 dakika
+    fire-crisp: 90  # 1.5 dakika - Suyu buharlaştır + araziyi yakarak kavur
+    fire-meteor-shower: 120  # 2 dakika - Hedef alana ateş yağmuru
+    flux-ground: 45
+    flux-beam: 240  # 4 dakika - Çok güçlü zırh delici saldırı (sersemletmeyle birlikte tek atımda öldürebilir)
+    flux-conduction: 3  # Bakır ışınlanma bekleme süresi
+    flux-flashbang: 45  # Alan etkili flaş körleştirme
+    flux-kinetic-burst: 30  # Radyal geri tepme
+    life-drainer: 60
+    life-circle-of-life: 60
+    life-vitality-vortex: 45
+    life-heart-lock: 60
+    puff-dash: 5
+    puff-breezy-bash: 10
+    puff-group-bash: 30
+    speed-blur: 15
+    speed-sedative: 60
+    speed-storm: 135  # 2.25 dakika (45'in üç katı)
+    speed-terminal: 60  # Terminal Hız bekleme süresi
+    adrenaline-rush: 180  # Yalnızca T2 - Hız enerjiyle ölçeklenir + anlık saldırılar
+    strength-nullify: 60
+    strength-frailer: 45
+    strength-shadow-stalker: 120
+    wealth-pockets: 0  # Açma için bekleme süresi yok
+    wealth-item-lock: 45
+    wealth-unfortunate: 90
+    wealth-rich-rush: 540  # 9 dakika
+    wealth-amplification: 180  # 3 dakika
+
+  # Astra Ruh Emilimi ayarları (öldürme sonrası geçici maksimum can)
+  soul-absorption:
+    mob-kill-hearts: 4.0  # Mob öldürünce eklenen can (4.0 = 2 kalp)
+    player-kill-hearts: 10.0  # Oyuncu öldürünce eklenen can (10.0 = 5 kalp)
+    duration: 60  # Bonus canların süresinin dolmasına kadar geçen süre (saniye)
+
+  # Astra Projeksiyon ayarları (gözlemci modu keşfi)
+  astra-projection:
+    radius: 128  # Başlangıç noktasından blok cinsinden maksimum mesafe (8 chunk)
+
+  # Astra Korkutma ayarları
+  astra-spook:
+    radius: 8.0  # Korkutma AoE yarıçapı (blok cinsinden)
+
+  # Astra Boyutsal Boşluk ayarları
+  astra-void:
+    radius: 10.0  # Boşluk baskılama yarıçapı (blok cinsinden)
+
+  # Ateş Kamp Ateşi ayarları
+  fire-campfire:
+    heal-amount: 0.4  # Saniye başına iyileşen can
+    food-amount: 1  # Saniye başına yenilenen açlık seviyesi
+    radius: 4.0  # Etki yarıçapı (blok cinsinden)
+    burn-duration: 3  # Düşmanların yanma süresi (saniye)
+
+  # Ateş Kavurma ayarları
+  fire-crisp:
+    radius: 10  # Su buharlaştırma ve blok kavurma için yarıçap (blok cinsinden, küre)
+
+  # Ateş Meteor Yağmuru ayarları
+  fire-meteor-shower:
+    radius: 8.0  # Meteor yağmurunun AoE yarıçapı
+    interval-ticks: 10  # Her meteor arası tick (düşük = daha hızlı yağmur)
+    yield: 2.0  # Meteor başına patlama şiddeti (0 = patlama yok)
+    break-blocks: true  # Meteor patlamalarının blok kırıp kıramayacağı
+
+  # Flux İletim ayarları
+  flux-conduction:
+    range: 10  # Bakır bloklar için arama yarıçapı (blok cinsinden)
+
+  # Flux Flaş ayarları
+  flux-flashbang:
+    radius: 8.0  # Flaşın AoE yarıçapı
+
+  # Flux Kinetik Patlama ayarları
+  flux-kinetic-burst:
+    radius: 6.0  # Geri tepme patlamasının AoE yarıçapı
+    knockback: 2.5  # Geri tepme gücü çarpanı
+
+  # Güç Etkisizleştirme ayarları
+  strength-nullify:
+    range: 20  # Işın izleme menzili (blok cinsinden)
+
+  # Güç Zayıflatma ayarları
+  strength-frailer:
+    range: 15  # Işın izleme menzili (blok cinsinden)
+    slowness-level: 2  # Hedefe uygulanan yavaşlama kuvvetlendiricisi (1 = I, 2 = II, ...)
+
+  # Güç Gölge Avcısı ayarları
+  strength-shadow-stalker:
+    duration: 60  # Takip süresi (saniye)
+    invisibility-max-range: 2500  # Görünmez hedefleri yalnızca bu menzil içinde takip et
+
+  # Güç Chad Gücü ayarları (pasif her 4. vuruş)
+  strength-chad:
+    hit-threshold: 4  # Her N. vuruşta bonus hasar tetiklenir
+    bonus-damage: 4.0  # Bonus hasar (HP cinsinden, 2 kalp)
+
+  # Ateş Şarjlı Top ayarları
+  fire-fireball:
+    charge-duration-ticks: 200  # Tam şarj için gereken tick (20 = 1s; 200 = 10s)
+    yield-base: 1.5  # %0 şarjda patlama şiddeti
+    yield-per-percent: 0.025  # Her %1 şarjda eklenen şiddet (%100'de = yield-base + 100*bu)
+
+  # Puff Grup Esinti Darbesi ayarları
+  puff-group-bash:
+    radius: 10.0
+    knockback: 2.5
+
+  # Yaşam Yaşam Çemberi ayarları
+  life-circle:
+    radius: 8.0
+    max-health-increase: 4.0  # Güvenilen/kendin için +2 kalp
+    max-health-decrease: 4.0  # Güvenilmeyenler için -2 kalp
+
+  # Yaşam Kalp Kilidi ayarları
+  life-heart-lock:
+    range: 15
+
+  # Yetenek hasar değerleri
+  damage:
+    astra-daggers: 12.0  # 6 kalp (4.0'ın üç katı)
+    fire-fireball: 9.0
+    flux-beam-base: 4.0  # 2 kalp şarjsız (%100 şarjda 12.0 HP / 6 kalpa kadar ölçeklenir)
+    flux-beam-max-armor-damage: 100  # %100 şarjda dayanıklılık hasarı
+    flux-shocking: 3.0
+    fire-campfire: 2.0  # Menzildeki düşmanlara saniye başına hasar
+    fire-meteor-shower: 8.0  # Meteor çarpması başına hasar
+    life-drainer: 4.0  # 20 saniye boyunca toplam
+    puff-dash: 2.0
+    blur: 4.0  # Yıldırım çarpması başına hasar (varsayılan olarak 3 çarpma)
+    strength-chad-bonus: 4.0  # Her 4. vuruşta Chad Güç bonus hasarı (2 kalp)
+
+  # Yetenek süreleri (saniye cinsinden)
+  durations:
+    astra-projection: 10  # Gözlemci modu keşfi süresi
+    astra-drift: 15  # Boyutsal Sürüklenme görünmezlik süresi
+    astra-void: 12  # Boyutsal Boşluk baskılama süresi
+    astra-spook: 3  # Korkutma körlük/bulantı süresi
+    astra-tag: 30  # İşaretleme takip süresi
+    fire-campfire: 15  # Kamp ateşinin süresi
+    fire-crisp: 15  # Kavurma su buharlaştırma süresi
+    fire-meteor-shower: 8  # Meteor yağmurunun süresi
+    flux-ground-freeze: 3
+    flux-shocking-stun: 1  # Şok eden ok sersemletme süresi (saniye)
+    flux-flashbang: 5  # Flaş körlük/bulantı süresi (saniye)
+    life-drainer: 20
+    life-circle: 10
+    life-vitality-vortex: 15
+    life-heart-lock: 10
+    strength-frailer-weakness: 20  # Zayıflık I süresi (saniye)
+    strength-frailer-wither: 40  # Solma I süresi (saniye)
+    strength-frailer-slowness: 20  # Yavaşlama süresi (saniye)
+    strength-shadow-stalker: 60  # Takip süresi (saniye)
+    wealth-unfortunate: 40
+    wealth-rich-rush: 120
+    wealth-amplification: 45
+    wealth-item-lock: 10
+    terminal-velocity: 10  # Terminal Hız III + Hız II süresi
+    adrenaline-rush: 6  # Hız artışı + anlık saldırıların süresi
+
+  # Adrenalin Patlaması ayarları
+  adrenaline-rush:
+    duration: 6  # Süre (saniye, PvP için dengeli)
+    # Hız seviyesi oyuncunun enerjisiyle ölçeklenir (0-10)
+    # Saldırı hızı süre boyunca anlık olarak ayarlanır (bekleme süresi yok)
+
+# ==========================================
+# OTOMATİK BÜYÜLEME (YALNIZCA TİER 2)
+# ==========================================
+auto-enchant:
+  enabled: true
+  # Uygun araçlar tutulduğunda büyüler uygulanır
+  fire:
+    flame: true
+    fire-aspect: true
+  puff:
+    power: true
+    punch: true
+    feather-falling: true
+  speed:
+    efficiency: true
+  strength:
+    sharpness: true
+  life:
+    unbreaking: true
+  wealth:
+    fortune: true
+    looting: true
+    mending: true
+
+# ==========================================
+# YÜKSELTİCİ SİSTEMİ
+# ==========================================
+upgrader:
+  # Yükseltmede efekt oynat
+  play-effects: true
+  # Parçacık efekti türü
+  particle: ENCHANT
+  particle-count: 50
+  # Ses efekti
+  sound: ENTITY_PLAYER_LEVELUP
+  sound-volume: 1.0
+  sound-pitch: 1.5
+
+# ==========================================
+# TÜCCAR SİSTEMİ
+# ==========================================
+trader:
+  # Bekleme süresi (saniye cinsinden)
+  cooldown: 5
+  # Ticarette efekt oynat
+  play-effects: true
+  particle: PORTAL
+  particle-count: 30
+  sound: ENTITY_ENDERMAN_TELEPORT
+
+# ==========================================
+# ENERJİ ŞİŞESİ
+# ==========================================
+energy-bottle:
+  # Saf +5 oyuncu başka bir oyuncuyu öldürdüğünde düşme şansı
+  drop-enabled: true
+  # Emilimde efekt oynat
+  play-effects: true
+  particle: HEART
+  particle-count: 20
+  sound: ENTITY_EXPERIENCE_ORB_PICKUP
+
+# ==========================================
+# TAMİR KİTİ / SUNAK
+# ==========================================
+repair-kit:
+  # Saniye başına yenilenen enerji
+  energy-per-second: 1
+  # Bir kitin yenileyebileceği maksimum toplam enerji
+  max-total-energy: 10
+  # Yakın oyuncuları iyileştirme menzili (blok cinsinden)
+  heal-radius: 10
+  # Güncelleme aralığı (tick cinsinden)
+  update-interval: 20
+  # En düşük enerjili oyuncuları önceliklendir
+  prioritize-lowest: true
+  # Parçacık efektleri
+  play-effects: true
+  particle: HAPPY_VILLAGER
+  particle-count: 5
+
+# ==========================================
+# DİRİLTME IŞINI
+# ==========================================
+revive-beacon:
+  # Işının aktif kalma süresi (saniye cinsinden)
+  duration: 300  # 5 dakika
+  # Diriltme menzili (blok cinsinden)
+  range: 10.0
+  # Diriltmede yenilenen can (maksimum canın oranı olarak)
+  # Tam can için maksimum can değerini (20.0) kullanın
+  revive-health: 10.0  # Varsayılan olarak yarı can
+  # Tek kullanımlık (ışın ilk diriltmeden sonra tükenir)
+  single-use: true
+
+# ==========================================
+# MESAJLAR
+# ==========================================
+messages:
+  prefix: "&5&lBlissGems &8»&r"
+  no-permission: "&cBu komutu kullanmak için yetkin yok!"
+  player-not-found: "&cOyuncu bulunamadı!"
+  invalid-gem-type: "&cGeçersiz taş türü!"
+  invalid-tier: "&cGeçersiz tier! 1 veya 2 kullanın."
+  gem-given: "&a{player} adlı oyuncuya {gem} taşı (Tier {tier}) verildi!"
+  energy-set: "&a{player} adlı oyuncunun enerjisi {amount} olarak ayarlandı!"
+  energy-added: "&a{player} adlı oyuncuya {amount} enerji eklendi!"
+  energy-removed: "&a{player} adlı oyuncudan {amount} enerji kaldırıldı!"
+  no-gem: "&cTakılı bir taşın yok!"
+  cannot-drop-gem: "&c&lTaşını düşüremezsin!"
+  energy-withdrawn: "&a1 enerji bir şişeye aktarıldı!"
+  not-enough-energy: "&cÇekmek için yeterli enerji yok!"
+  config-reloaded: "&aYapılandırma yeniden yüklendi!"
+  gem-info: "&aTaş: &f{gem} &7(Tier {tier}) &8| &aEnerji: &f{energy}/10 &8| &aDurum: &f{state}"
+  no-active-gem: "&cAktif bir taşın yok!"
+  upgrade-success: "&aTaş Tier 2'ye yükseltildi!"
+  upgrade-wrong-type: "&cBu yükseltici taş türünle uyuşmuyor!"
+  upgrade-already-tier2: "&cTaşın zaten Tier 2!"
+  trade-success: "&aTaş {gem} ile takas edildi!"
+  trade-cooldown: "&cTekrar takas yapmadan önce {seconds} saniye bekleyin!"
+  ability-cooldown: "&cYetenek bekleme süresinde! {seconds} saniye bekleyin."
+  ability-no-energy: "&cBu yeteneği kullanmak için yeterli enerji yok!"
+  passives-disabled: "&cTaşın çok hasar görmüş! Pasifler devre dışı."
+  ability-activated: "&aYetenek aktive edildi: {ability}"
+  first-gem-received: "&aSunucuya hoş geldin! İlk taşını aldın: &f{gem}"
+  already-have-gem: "&cZaten bir taşın var! Aynı anda yalnızca bir taş olabilir."
+  projection-boundary: "&dProjeksiyon sınırına ulaştın!"
+  projection-ended: "&dAstral Projeksiyon sona erdi. Bedenine döndün."
+  projection-blocked: "&dYol engellendi! Astral Projeksiyon için önde 5 açık blok gerekli."
+  click-activation-disabled: "&cTıklama aktivasyonu devre dışı! Yetenekleri etkinleştirmek için /bliss ability:main veya /bliss ability:secondary kullanın."
+  ban-enabled: "&aSıfır enerjide banlama &aetkinleştirildi&a! 0 enerjiye ulaşan oyuncular banlanacak."
+  ban-disabled: "&cSıfır enerjide banlama &cdevre dışı bırakıldı&c."
+  energy-zero-banned: "&4&l0 enerjiye ulaştığın için banlandın! Taşın tamamen kırıldı."
+
+  # Taş Koruma Mesajları
+  cannot-store-gem-container: "&c&lTaşlarını konteynerlerde saklayamazsın!"
+  cannot-store-gem-bundle: "&c&lTaşlarını bohçalarda saklayamazsın!"
+  cannot-place-gem-itemframe: "&c&lTaşını eşya çerçevesine koyamazsın!"
+  cannot-move-gem-full-inventory: "&c&lEnvanter dolu olduğunda taşını taşıyamazsın! Önce yer aç."
+  cannot-swap-gem-full-inventory: "&c&lEnvanter doluyken taşınla eşya takas edemezsin!"
+  cannot-move-gem-to-container: "&c&lTaşları başka konteynerlere taşıyamazsın!"
+  inventory-full-with-gem: "&c&lEnvantern dolu! Taş taşırken eşya taşıyamazsın."
+  gem-forced-into-inventory: "&e&lTaşın envantere yerleştirildi. Taş olmayan bir eşya düşürüldü."
+  gem-forced-into-hotbar: "&c&lTaşın kısayol çubuğuna yerleştirildi!"
+  cannot-use-gem-in-composter: "&c&lTaşını komposta kullanamazsın!"
+
+  # Güven Sistemi Mesajları
+  cannot-trust-self: "&cKendine zaten güveniyorsun!"
+  player-trusted: "&aArtık &l{player}&r&a'a güveniyorsun! Taş yeteneklerin ona zarar vermez."
+  player-untrusted: "&cArtık &l{player}&r&c'a güvenmiyorsun! Taş yeteneklerin artık ona zarar verebilir."
+  player-not-trusted: "&c{player} adlı oyuncuya zaten güvenmiyordun!"
+  no-trusted-players: "&7Güvenilen oyuncun yok. Eklemek için &b/bliss trust <oyuncu>&7 kullan."
+  trusted-players-header: "&5&lGüvenilen Oyuncular ({count}):"
+  trusted-player-entry: "&8 - &b{player} {status}"
+  cannot-harm-trusted: "&c&l{player} güvenilir olduğu için sersemletemezsin!"
+
+  # Tıklama Aktivasyon Mesajları
+  click-activation-enabled: "&aTıklama aktivasyonu &l&aETKİN&r&a! Artık yetenekleri etkinleştirmek için sağ tıklayabilirsin."
+  click-activation-disabled: "&cTıklama aktivasyonu &l&cDEVRE DIŞI&r&c! Yetenekleri etkinleştirmek için /bliss ability:main veya /bliss ability:secondary kullanın."
+
+  # Komut Mesajları
+  must-hold-gem: "&c§lBu komutu kullanmak için bir taş tutmalısın!"
+  requires-tier2: "&cİkincil yetenekler Tier 2 taş gerektirir!"
+  requires-tier2-ability: "&c&oBu yetenek Tier 2 gerektirir!"
+
+  # Zenginlik Taşı Mesajları
+  requires-wealth-gem-pockets: "&cCeplerini kullanmak için bir Zenginlik taşına ihtiyacın var!"
+  requires-wealth-t2-pockets: "&cCepleri kullanmak için Tier 2 Zenginlik taşı gereklidir!"
+  requires-wealth-gem-amplify: "&cAmplifiye kullanmak için bir Zenginlik taşına ihtiyacın var!"
+  requires-wealth-t2-amplify: "&cAmplifiye için Tier 2 Zenginlik taşı gereklidir!"
+  requires-wealth-t2-autosmelt: "&c&lOtomatik eritme için Tier 2 Zenginlik Taşına ihtiyacın var!"
+  autosmelt-enabled: "&a&lOtomatik Eritme etkinleştirildi! Cevherler artık kazıldığında otomatik eritilecek."
+  autosmelt-disabled: "&c&lOtomatik Eritme devre dışı bırakıldı!"
+
+  # Enerji Gösterge Mesajları
+  energy-info-header: "&5&lBlissGems &8»"
+  energy-info-line1: "&7Enerji: {energyBar} &f{energy}/10"
+  energy-info-line2: "&7Durum: {state}"
+  energy-bottle-failed: "&cEnerji şişesi oluşturulamadı!"
+
+  # Pasif Efekt Mesajları
+  phased-attack: "&d&oSaldırıyı atlattın!"
+  enemy-launched: "&b&oHavaya fırlatıldın!"
+  launched-enemy: "&b&o{player} adlı oyuncuyu havaya fırlattın!"
+  slam-down: "&c&oAşağı çekiliyor sunuz!"
+  double-jump: "&b&oÇift zıplama!"
+  shocking-arrow-hit: "&b&oŞok Eden Ok isabet etti!"
+  life-gem-golden-apple: "&a&oYaşam Taşı altın elmanı güçlendirdi!"
+
+  # Sersemletme Mesajları
+  cannot-use-while-stunned: "&c&lSersemlemişken {item} kullanamazsın!"
+  can-only-eat-golden-apple-stunned: "&c&lSersemlemişken sadece altın elma yiyebilirsin!"
+  player-grounded: "&c&l{duration} saniye boyunca yere bağlandın! Hareket edemez ve zıplayamazsın!"
+  grounded-target: "&b⚡ &o{target} adlı oyuncu {duration} saniye boyunca yere bağlandı!"
+
+  # Tamir Kiti Mesajları
+  repair-kit-usage: "&d&oTamir Kitini kullanmak için bir Beacon'ın üstüne düşür ve Sunak oluştur!"
+  repair-kit-usage-info: "&d&oSunak, yakındaki tüm oyunculara enerji yenileyecek."
+  pedestal-created: "&d&l✦ &d&oSunak oluşturuldu! Yakın oyunculara enerji yenileyecek."
+  pedestal-created-nearby: "&d&o{player} yakında bir Tamir Kiti Sunağı oluşturdu!"
+  pedestal-creation-failed: "&c&oBu konumda sunak oluşturulamadı!"
+  pedestal-activated: "&d&l✦ &d&oTamir Kiti Sunağı aktive edildi!"
+  pedestal-exhausted: "&d&oTamir Kiti tükendi!"
+
+  # Diriltme Işını Mesajları
+  revive-beacon-activated: "&e&lDiriltme Işını aktive edildi!"
+  revive-beacon-duration: "&7Süre: &f{duration}"
+  revive-beacon-range: "&7Menzil: &f{range} blok"
+  revive-beacon-info: "&7Menzil içinde ölürsen diriltileceksin!"
+  revived-by-beacon: "&a&l✦ Diriltme Işının tarafından diriltildin!"
+  revive-beacon-expired: "&c&lDiriltme Işının sona erdi!"
+
+  # Ruh Sistemi Mesajları
+  soul-absorbed: "&d&o{entity} adlı varlıktan ruh emildi! {duration}s boyunca +{hearts} can"
+  cannot-capture-players: "&c&oOyuncular yakalanamaz!"
+  soul-capacity-full: "&c&oTaşın dolu! (Maksimum {max} ruh)"
+  entity-cannot-capture: "&c&oBu varlık yakalanamaz!"
+  soul-captured: "&d&lRuh Yakalandı! &d&o{mob} yakalandı ({count}/{max})"
+  no-souls-captured: "&c&oHiç ruh yakalanmadı!"
+  souls-released: "&d&l{count} yakalanmış ruh serbest bırakıldı!"
+
+  # Kritik Vuruş Mesajları
+  charged-attack: "&c&l⚔ ŞARJLI SALDIRI! &c2x Hasar!"
+  crit-progress: "&e&l⚡ &eŞARJLI SALDIRI için {remaining} kritik daha!"
+
+  # Akış Durumu Mesajları
+  max-flow-state: "&b&l⚡ MAKSİMUM AKIŞ DURUMU!"
+
+  # Yeteneğe Özel Mesajlar
+  no-target-found: "&cHedef bulunamadı!"
+  fireball-charging: "&6&oTop şarj ediliyor... Fırlatmak için tekrar sağ tıklayın!"
+  fireball-fully-charged: "&6&lTam şarj! &eFırlatmak için sağ tıklayın!"
+  fireball-not-enough-charge: "&c&oYeterli şarj yok!"
+  fireball-fired: "&6&o%{charge} güçle fırlatıldı!"
+  campfire-cannot-place: "&c&oBuraya kamp ateşi kurulamaz!"
+  campfire-placed: "&6&oKamp Ateşi kuruldu! 1 dakika boyunca sizi iyileştirir ve düşmanları yakar."
+  campfire-destroyed: "&6&oKamp Ateşi yok edildi!"
+  campfire-expired: "&6&oKamp Ateşi sona erdi!"
+  flux-beam-charging: "&b⚡ &oFlux Işını şarj ediliyor... Fırlatmak için tekrar sağ tıklayın!"
+  flux-beam-fully-charged: "&b⚡&l Tam şarj! &eFırlatmak için sağ tıklayın!"
+  flux-beam-fired: "&b⚡ &oFlux Işını %{charge} güçle fırlatıldı! (&c{damage} HP&o)"
+  armor-restored: "&a&l{player} adlı oyuncunun zırhı yenilendi! (+{durability} dayanıklılık)"
+  sloth-sedative-info: "&e&oTembel'in Sedatifi yakındaki tüm düşmanlara Yavaşlama IV uygular!"
+  sloth-sedative-hit: "{message} &7({count} düşman yavaşlatıldı!)"
+  speed-storm-info: "&a&oHız Fırtınası 10 saniye boyunca Hız VI verir!"
+  durability-chip-info: "&6&lDayanıklılık Yongası &7(Pasif: vuruş başına ekstra zırh hasarı)"
+  unfortunate-afflicted: "&c&o{duration}s boyunca Şanssızlığa yakalandın! Eylemler devre dışı!"
+  unfortunate-blocked: "&c&oŞanssızken bunu yapamazsın!"
+  item-locked: "&c&o{item} eşyan {duration}s boyunca kilitlendi!"
+  item-locked-blocked: "&c&oBu eşya kilitli!"
+  double-debris: "&a&oÇift Moloz! Ekstra netherite parçası!"
+  wealth-no-target: "&e&oHedef bulunamadı! &7(Şanssızlığı kullanmak için bir oyuncuya nişan alın)"
+  wealth-no-player: "&cOyuncu hedefi bulunamadı!"
+  bloodthorns-hit: "{message} &7({count} hedef isabet aldı!)"
+  shift-for-secondary: "&e&oİkincil yetenek için Shift + yetenek kullan veya sağ tıkla!"
+  no-gem-types-available: "&cBaşka taş türü mevcut değil!"
+  trade-failed: "&cTaş takas edilemedi!"
+  upgrade-failed: "&cTaş yükseltilemedi!"
+
+  # SMP Başlangıç Mesajları
+  smp-already-started: "&cSMP zaten başladı!"
+  smp-started: "&a&lSMP Başladı! Çevrimiçi tüm oyuncular taşlarını alıyor!"
+  smp-not-started: "&cSMP henüz başlamadı! Taşlar bir yönetici /bliss smp start komutunu çalıştırdığında verilecek."
+
+# ==========================================
+# METRİKLER
+# ==========================================
+send-anonymous-metrics: true
