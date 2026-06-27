@@ -15,6 +15,7 @@ import org.bukkit.block.Biome;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -200,7 +201,11 @@ public class LifeAbilities implements GemAbilityHandler {
         boolean hasModifier = attr.getModifiers().stream().anyMatch(m -> matchesKey(m, key));
         if (hasModifier) return;
 
-        attr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes((key.toString() + ":" + player.getUniqueId()).getBytes()), key.toString(), amount, AttributeModifier.Operation.ADD_NUMBER));
+        // Use the modern NamespacedKey constructor so the modifier serialises to NBT as
+        // "blissgems:circle-of-life" and reliably round-trips across relogs. The legacy
+        // UUID/String constructor gets its key mangled on reload, which left these
+        // modifiers permanently stuck (cleanup could no longer match them).
+        attr.addModifier(new AttributeModifier(key, amount, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ANY));
         tracked.add(player.getUniqueId());
     }
 
@@ -377,8 +382,10 @@ public class LifeAbilities implements GemAbilityHandler {
             targetMaxHealthAttr.removeModifier(m);
         }
 
-        // Apply modifier to cap max health at current health
-        targetMaxHealthAttr.addModifier(new AttributeModifier(UUID.nameUUIDFromBytes((heartLockKey.toString() + ":" + targetEntity.getUniqueId()).getBytes()), heartLockKey.toString(), reduction, AttributeModifier.Operation.ADD_NUMBER));
+        // Apply modifier to cap max health at current health. Modern NamespacedKey
+        // constructor so it serialises as "blissgems:heart-lock" and survives a relog
+        // intact (the legacy UUID/String form was un-removable after NBT round-trip).
+        targetMaxHealthAttr.addModifier(new AttributeModifier(heartLockKey, reduction, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ANY));
 
         // Schedule removal after duration
         this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
@@ -450,27 +457,28 @@ public class LifeAbilities implements GemAbilityHandler {
     }
 
     private boolean isLifeModifier(org.bukkit.attribute.AttributeModifier m) {
-        String name = m.getName();
-        if (name != null) {
-            String lower = name.toLowerCase();
-            if (lower.contains("blissgems")) return true;
-            if (lower.contains("circle-of-life") || lower.contains("heart-lock")) return true;
-            if (lower.contains("circle_of_life") || lower.contains("heart_lock")) return true;
-        }
+        // Match against both the modifier name and its key path, normalising away any
+        // separator the NBT round-trip may have introduced. This catches the modern
+        // "blissgems:circle-of-life" keys as well as legacy modifiers already stuck on
+        // existing players (e.g. "blissgems_circle_of_life", "circle_of_life").
+        if (matchesLifeToken(m.getName())) return true;
         try {
             org.bukkit.NamespacedKey key = m.getKey();
             if (key != null) {
                 if ("blissgems".equals(key.getNamespace())) return true;
-                String value = key.getKey();
-                if (value != null) {
-                    String v = value.toLowerCase();
-                    if (v.contains("circle-of-life") || v.contains("heart-lock")) return true;
-                    if (v.contains("circle_of_life") || v.contains("heart_lock")) return true;
-                }
+                if (matchesLifeToken(key.getKey())) return true;
             }
         } catch (Throwable ignored) {
         }
         return false;
+    }
+
+    private boolean matchesLifeToken(String raw) {
+        if (raw == null) return false;
+        String norm = raw.toLowerCase().replaceAll("[^a-z0-9]", "");
+        return norm.contains("blissgems")
+            || norm.contains("circleoflife")
+            || norm.contains("heartlock");
     }
 
     private LivingEntity getTargetEntity(Player player, int range) {

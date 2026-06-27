@@ -1,5 +1,5 @@
 name: BlissGems
-version: '4.2.0'
+version: '4.3.0'
 main: dev.xoperr.blissgems.BlissGems
 api-version: '1.21'
 description: Bliss SMP Gem System
@@ -16,6 +16,10 @@ commands:
     description: Reset a player's max-health to vanilla, removing any stale BlissGems modifiers
     usage: /<command> [player]
     permission: blissgems.fixhearts
+  fixedhearts:
+    description: Toggle forcing every player to 10 hearts on join
+    usage: /<command> everyone <true|false>
+    permission: blissgems.fixedhearts
 
 permissions:
   blissgems.*:
@@ -65,4 +69,7 @@ permissions:
     default: true
   blissgems.fixhearts:
     description: Allows using /fixhearts to reset hearts (admins/staff)
+    default: op
+  blissgems.fixedhearts:
+    description: Allows using /fixedhearts to toggle 10-hearts-on-join (admins/staff)
     default: op

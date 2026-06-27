@@ -984,8 +984,13 @@ implements Listener {
 
         if (event.getItemType() != Material.NETHERITE_SCRAP) return;
 
-        // Drop additional scrap at player location
-        player.getWorld().dropItemNaturally(player.getLocation(), new ItemStack(Material.NETHERITE_SCRAP, 1));
+        // Drop one extra scrap per scrap actually extracted, so the total is doubled.
+        // Bulk-extracting a furnace full of debris fires this event ONCE with the full
+        // amount, so the old flat "+1" only ever granted a single bonus (15 -> 16 instead
+        // of 15 -> 30). Mirror the extracted amount to truly double the yield.
+        int extracted = event.getItemAmount();
+        if (extracted <= 0) return;
+        player.getWorld().dropItemNaturally(player.getLocation(), new ItemStack(Material.NETHERITE_SCRAP, extracted));
 
         // Green particle + sound
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.2f);
@@ -1199,6 +1204,14 @@ implements Listener {
         // Only multiply drops for ore-type blocks
         Material type = event.getBlock().getType();
         if (!isOreBlock(type)) return;
+
+        // Anti-dupe: never double drops that come back as a re-placeable block, or the
+        // player can place them, re-mine under Rich Rush, and double infinitely.
+        //  - Silk Touch returns the ore block itself.
+        //  - Ancient Debris always drops its (placeable) block form, silk touch or not.
+        ItemStack tool = player.getInventory().getItemInMainHand();
+        if (tool != null && tool.hasItemMeta() && tool.getItemMeta().hasEnchant(Enchantment.SILK_TOUCH)) return;
+        if (type == Material.ANCIENT_DEBRIS) return;
 
         // Duplicate each drop item
         List<ItemStack> drops = new ArrayList<>(event.getBlock().getDrops(player.getInventory().getItemInMainHand(), player));

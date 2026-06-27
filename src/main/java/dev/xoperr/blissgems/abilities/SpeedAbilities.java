@@ -7,7 +7,7 @@
  * Tier 2 (all Tier 1 abilities plus):
  *   - Blur (Primary, no shift): Same as T1
  *   - Speed Storm (Shift): Creates a field that freezes enemies while granting allies Speed and Haste
- *   - Terminal Velocity (Command): Speed III + Haste II for 9-10 seconds
+ *   - Terminal Velocity (Command): Speed III + Haste V for 9-10 seconds
  */
 package dev.xoperr.blissgems.abilities;
 
@@ -448,9 +448,10 @@ public class SpeedAbilities implements GemAbilityHandler {
 
         int duration = this.plugin.getConfig().getInt("abilities.durations.terminal-velocity", 10) * 20;
 
-        // Apply Speed III + Haste II
+        // Apply Speed III + Haste V. Haste V eliminates the axe attack-cooldown, so the
+        // player can swing an axe like a sword for the duration.
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, 2, false, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration, 1, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration, 4, false, true));
 
         // MASSIVE visual effects with HIGHLY VISIBLE yellow particles
         Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.0f);
@@ -484,7 +485,7 @@ public class SpeedAbilities implements GemAbilityHandler {
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("§e§l⚡ TERMINAL VELOCITY §7- Speed III + Haste II for " + (duration / 20) + " seconds!");
+        player.sendMessage("§e§l⚡ TERMINAL VELOCITY §7- Speed III + Haste V for " + (duration / 20) + " seconds!");
     }
 
     // ========================================================================
