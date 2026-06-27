@@ -191,6 +191,19 @@ public class ConfigManager {
         return this.config.getInt("smp.auto-start-threshold", 10);
     }
 
+    public boolean isFixedHeartsEnabled() {
+        return this.config.getBoolean("fixed-hearts.enabled", false);
+    }
+
+    public void setFixedHeartsEnabled(boolean enabled) {
+        this.config.set("fixed-hearts.enabled", enabled);
+        try {
+            this.config.save(new File(plugin.getDataFolder(), "config.yml"));
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to save config: " + e.getMessage());
+        }
+    }
+
     public boolean isGemEnabled(GemType type) {
         return this.config.getBoolean("gems.enabled." + type.getId(), true);
     }

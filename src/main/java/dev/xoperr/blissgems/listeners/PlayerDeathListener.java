@@ -79,27 +79,9 @@ implements Listener {
             }
         }
 
-        // Prevent gems from dropping on death if config enabled
-        if (this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
-            List<ItemStack> droppedItems = event.getDrops();
-            List<ItemStack> gemsToSave = new ArrayList<>();
-
-            // Find and remove all gems from drops
-            droppedItems.removeIf(item -> {
-                if (CustomItemManager.isUndroppable(item)) {
-                    gemsToSave.add(item.clone());
-                    return true; // Remove from drops
-                }
-                return false; // Keep in drops
-            });
-
-            // Save gems to give back on respawn (both memory and disk)
-            if (!gemsToSave.isEmpty()) {
-                savedGems.put(victim.getUniqueId(), gemsToSave);
-                // Also save to disk to persist across disconnects/restarts
-                saveGemsToDisk(victim.getUniqueId(), gemsToSave);
-            }
-        }
+        // NOTE: Gem drop-protection runs in onPlayerDeathProtectGems() at LOWEST priority
+        // (below) so it strips gems out of event.getDrops() BEFORE gravestone / SMP-core
+        // plugins snapshot or replace the drop list. Doing it here at HIGHEST ran too late.
 
         // Clean up any active Astra gem abilities (projection, drift, void)
         this.plugin.getAstraAbilities().cleanup(victim);
@@ -117,6 +99,37 @@ implements Listener {
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
             this.plugin.getGemManager().updateActiveGem(killer);
+        }
+    }
+
+    /**
+     * Strip undroppable gems from the death drops at the EARLIEST possible point.
+     *
+     * Other death-handling plugins (gravestones, "SMP core" lives/hardcore systems, some
+     * lag plugins) frequently read or replace event.getDrops() at NORMAL/HIGH priority. If
+     * we stripped gems at HIGHEST we'd run AFTER them — they'd already have copied the gems
+     * into a grave / their own drop handling, so the gem effectively becomes droppable.
+     * Running at LOWEST pulls gems out of the list before anyone else sees it. Gems are
+     * restored on respawn, with enforceOneGemOnly() guarding against any duplication (e.g.
+     * a plugin-driven keepInventory that also retains the gem).
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerDeathProtectGems(PlayerDeathEvent event) {
+        if (!this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
+            return;
+        }
+        Player victim = event.getEntity();
+        List<ItemStack> gemsToSave = new ArrayList<>();
+        event.getDrops().removeIf(item -> {
+            if (CustomItemManager.isUndroppable(item)) {
+                gemsToSave.add(item.clone());
+                return true; // remove from drops
+            }
+            return false;
+        });
+        if (!gemsToSave.isEmpty()) {
+            savedGems.put(victim.getUniqueId(), gemsToSave);
+            saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }
     }
 

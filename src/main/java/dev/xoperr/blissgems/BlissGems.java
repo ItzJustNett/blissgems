@@ -24,6 +24,7 @@ import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.commands.FixHeartsCommand;
+import dev.xoperr.blissgems.commands.FixedHeartsCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
@@ -573,6 +574,12 @@ implements BlissGemsAPI {
         if (this.getCommand("fixhearts") != null) {
             this.getCommand("fixhearts").setExecutor((CommandExecutor)fixHearts);
             this.getCommand("fixhearts").setTabCompleter((TabCompleter)fixHearts);
+        }
+
+        FixedHeartsCommand fixedHearts = new FixedHeartsCommand(this);
+        if (this.getCommand("fixedhearts") != null) {
+            this.getCommand("fixedhearts").setExecutor((CommandExecutor)fixedHearts);
+            this.getCommand("fixedhearts").setTabCompleter((TabCompleter)fixedHearts);
         }
     }
 

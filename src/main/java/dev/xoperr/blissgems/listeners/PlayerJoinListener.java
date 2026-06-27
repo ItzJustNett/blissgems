@@ -122,6 +122,12 @@ public class PlayerJoinListener implements Listener {
         // so an immediate cleanup can run before the modifiers are visible to remove.
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
             if (!player.isOnline()) return;
+            // When fixed-hearts is enabled, force the player back to exactly 10 hearts
+            // on join (this also strips Life/Soul tracking + any stale modifiers).
+            if (this.plugin.getConfigManager().isFixedHeartsEnabled()) {
+                dev.xoperr.blissgems.commands.FixedHeartsCommand.applyTenHearts(this.plugin, player);
+                return;
+            }
             if (this.plugin.getLifeAbilities() != null) {
                 this.plugin.getLifeAbilities().cleanup(player);
             }

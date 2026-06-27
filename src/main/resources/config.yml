@@ -81,6 +81,15 @@ smp:
   auto-start-threshold: 10
 
 # ==========================================
+# FIXED HEARTS
+# ==========================================
+# When enabled, every player is forced back to exactly 10 hearts (vanilla
+# 20.0 max health) when they join, stripping any leftover max-health modifiers.
+# Toggle in-game with: /fixedhearts everyone true|false
+fixed-hearts:
+  enabled: false
+
+# ==========================================
 # CRAFTING RECIPES
 # ==========================================
 crafting:

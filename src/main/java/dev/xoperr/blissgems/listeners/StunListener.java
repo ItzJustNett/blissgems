@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityKnockbackEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
@@ -203,6 +204,23 @@ public class StunListener implements Listener {
                 event.setCancelled(true);
                 player.sendMessage("§c§lYou cannot attack while frozen!");
             }
+        }
+    }
+
+    // ========================================================================
+    // Knockback Blocking (immobilized players — stun AND freeze)
+    // ========================================================================
+
+    /**
+     * Cancel incoming knockback for immobilized players. While a player is held in
+     * place by the freeze/stun logic, knockback from a mob (e.g. a zombie hit) fights
+     * the movement-cancel handler; the velocity accumulates and launches them into the
+     * air. Dropping the knockback entirely keeps them grounded where they were frozen.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityKnockback(EntityKnockbackEvent event) {
+        if (event.getEntity() instanceof Player player && isImmobilized(player.getUniqueId())) {
+            event.setCancelled(true);
         }
     }
 

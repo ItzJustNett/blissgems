@@ -647,7 +647,7 @@ TabCompleter {
             switch (gemType) {
                 case ASTRA: this.plugin.getAstraAbilities().astralDaggers(player); break;
                 case FIRE: this.plugin.getFireAbilities().chargedFireball(player); break;
-                case FLUX: this.plugin.getFluxAbilities().ground(player); break;
+                case FLUX: this.plugin.getFluxAbilities().fluxBeam(player); break;
                 case LIFE: this.plugin.getLifeAbilities().heartDrainer(player); break;
                 case PUFF: this.plugin.getPuffAbilities().dash(player); break;
                 case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
