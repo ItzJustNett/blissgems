@@ -69,11 +69,12 @@ public class CooldownDisplayManager {
             new String[]{"speed-terminal", "Terminal"}         // T2 tertiary (command)
         ));
 
-        // Strength abilities
+        // Strength abilities (Primary→Chad, Secondary→Frailer, Tertiary→Stalker, Quaternary→Nullify)
         GEM_ABILITIES.put(GemType.STRENGTH, Arrays.asList(
-            new String[]{"strength-nullify", "Nullify"},
+            new String[]{"strength-chad", "Chad"},
             new String[]{"strength-frailer", "Frailer"},
-            new String[]{"strength-shadow-stalker", "Stalker"}
+            new String[]{"strength-shadow-stalker", "Stalker"},
+            new String[]{"strength-nullify", "Nullify"}
         ));
 
         // Wealth abilities
@@ -396,9 +397,13 @@ public class CooldownDisplayManager {
         if (gemType == GemType.SPEED) {
             String ability1Icon = getAbilityIcon(gemType, 0);
             int remaining1 = abilityManager.getRemainingCooldown(player, abilities.get(0)[0]);
+            int blurCharges = this.plugin.getSpeedAbilities().getBlurCharges(player.getUniqueId());
 
             display.append(ability1Icon).append(" ");
-            if (remaining1 > 0) {
+            if (blurCharges > 0) {
+                int maxCharges = this.plugin.getConfig().getInt("abilities.blur.strikes", 3);
+                display.append("§e(").append(blurCharges).append("/").append(maxCharges).append(")");
+            } else if (remaining1 > 0) {
                 display.append("§c").append(remaining1).append("s");
             } else {
                 display.append("§aReady");

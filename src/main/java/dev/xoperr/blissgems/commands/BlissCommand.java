@@ -79,6 +79,10 @@ TabCompleter {
                 this.handleInfo(sender, args);
                 break;
             }
+            case "whoowns": {
+                this.handleWhoOwns(sender, args);
+                break;
+            }
             case "reload": {
                 this.handleReload(sender, args);
                 break;
@@ -125,6 +129,10 @@ TabCompleter {
             }
             case "bannable": {
                 this.handleBannable(sender, args);
+                break;
+            }
+            case "oraxen": {
+                this.handleOraxen(sender, args);
                 break;
             }
             case "autosmelt": {
@@ -504,6 +512,30 @@ TabCompleter {
         }
     }
 
+    private void handleWhoOwns(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command!");
+            return;
+        }
+        org.bukkit.inventory.ItemStack held = player.getInventory().getItemInMainHand();
+        if (held == null || held.getType() == org.bukkit.Material.AIR) {
+            player.sendMessage("§cHold an item in your main hand.");
+            return;
+        }
+        java.util.UUID owner = CustomItemManager.getOwner(held);
+        if (owner == null) {
+            player.sendMessage("§eThat item has no ownership stamp.");
+            return;
+        }
+        org.bukkit.OfflinePlayer op = this.plugin.getServer().getOfflinePlayer(owner);
+        String name = op.getName() != null ? op.getName() : "unknown";
+        player.sendMessage("§d§lOwner: §f" + name + " §7(" + owner + ")");
+    }
+
     private void handleInfo(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -651,7 +683,7 @@ TabCompleter {
                 case LIFE: this.plugin.getLifeAbilities().heartDrainer(player); break;
                 case PUFF: this.plugin.getPuffAbilities().dash(player); break;
                 case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().chadStrength(player); break;
                 case WEALTH: this.plugin.getWealthAbilities().unfortunate(player); break;
             }
             return;
@@ -839,6 +871,7 @@ TabCompleter {
                 case ASTRA: this.plugin.getAstraAbilities().activateDimensionalVoid(player); break;
                 case FLUX: this.plugin.getFluxAbilities().kineticBurst(player); break;
                 case LIFE: this.plugin.getLifeAbilities().heartLock(player); break;
+                case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
                 case WEALTH: this.plugin.getWealthAbilities().amplification(player); break;
                 default: player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!"); break;
             }
@@ -1068,6 +1101,39 @@ TabCompleter {
             } else {
                 sender.sendMessage("\u00a7cBan-on-zero-energy has been disabled!");
             }
+        }
+    }
+
+    private void handleOraxen(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /bliss oraxen <true/false>");
+            sender.sendMessage("§7Auto-replace legacy gems with Oraxen items on join: "
+                + (dev.xoperr.blissgems.utils.OraxenGemFixer.isFixOnJoinEnabled(this.plugin) ? "§aEnabled" : "§cDisabled"));
+            return;
+        }
+
+        String value = args[1].toLowerCase();
+        boolean enable;
+
+        if (value.equals("true") || value.equals("on") || value.equals("yes") || value.equals("1")) {
+            enable = true;
+        } else if (value.equals("false") || value.equals("off") || value.equals("no") || value.equals("0")) {
+            enable = false;
+        } else {
+            sender.sendMessage("§cInvalid value! Use true or false.");
+            return;
+        }
+
+        dev.xoperr.blissgems.utils.OraxenGemFixer.setFixOnJoinEnabled(this.plugin, enable);
+        if (enable) {
+            sender.sendMessage("§aLegacy gems will now be replaced with Oraxen items when players join!");
+        } else {
+            sender.sendMessage("§cAutomatic gem replacement on join has been disabled!");
         }
     }
 
@@ -1393,7 +1459,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("clearcds")) {
                 List<String> targets = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
@@ -1406,7 +1472,7 @@ TabCompleter {
             if (args[0].equalsIgnoreCase("stats")) {
                 return Arrays.asList("top", "me", "gems");
             }
-            if (args[0].equalsIgnoreCase("bannable")) {
+            if (args[0].equalsIgnoreCase("bannable") || args[0].equalsIgnoreCase("oraxen")) {
                 return Arrays.asList("true", "false");
             }
             if (args[0].equalsIgnoreCase("smp")) {

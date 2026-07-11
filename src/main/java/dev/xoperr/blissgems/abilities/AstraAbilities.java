@@ -33,16 +33,22 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
+import org.bukkit.Material;
+import org.bukkit.entity.Display;
+import org.bukkit.entity.ItemDisplay;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.Transformation;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.*;
 
 public class AstraAbilities implements GemAbilityHandler {
     private final BlissGems plugin;
 
-    // Dimensional Drift state
-    private final Map<UUID, Horse> driftHorses = new HashMap<>();
-    private final Map<UUID, BukkitTask> driftTasks = new HashMap<>();
-    private final Set<UUID> driftingPlayers = new HashSet<>();
+    // Dimensional Drift (Momentum Dash) state — brief fall-damage immunity window per player
+    private final Map<UUID, Long> dashFallImmuneUntil = new HashMap<>();
 
     // Astral Projection (spectator mode) state
     private final Set<UUID> projectingPlayers = new HashSet<>();
@@ -56,6 +62,10 @@ public class AstraAbilities implements GemAbilityHandler {
 
     // Achievement: Piercing Precision — consecutive dagger hits on players
     private final Map<UUID, Integer> consecutiveDaggerHits = new HashMap<>();
+
+    // Astral Daggers — hovering daggers waiting to be launched, per player (manual per-press)
+    private final Map<UUID, DaggerVolley> daggerVolleys = new HashMap<>();
+    private static final int DAGGER_MODEL_CMD = 12350; // blissgems:custom/astra_dagger on ECHO_SHARD
 
     public AstraAbilities(BlissGems plugin) {
         this.plugin = plugin;
@@ -129,8 +139,16 @@ public class AstraAbilities implements GemAbilityHandler {
         return projectionOrigins.get(player.getUniqueId());
     }
 
-    public boolean isDrifting(Player player) {
-        return driftingPlayers.contains(player.getUniqueId());
+    public boolean hasDashFallImmunity(Player player) {
+        Long until = dashFallImmuneUntil.get(player.getUniqueId());
+        if (until == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() > until) {
+            dashFallImmuneUntil.remove(player.getUniqueId());
+            return false;
+        }
+        return true;
     }
 
     public boolean isVoidActive(Player player) {
@@ -143,80 +161,261 @@ public class AstraAbilities implements GemAbilityHandler {
 
     public void astralDaggers(Player player) {
         String abilityKey = "astra-daggers";
+        UUID id = player.getUniqueId();
+
+        // If daggers are already conjured and hovering, this press launches the next one.
+        DaggerVolley volley = daggerVolleys.get(id);
+        if (volley != null) {
+            launchNextDagger(player, volley);
+            return;
+        }
+
+        // Fresh cast — respect cooldown.
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        Location eyeLoc = player.getEyeLocation();
-        Vector direction = eyeLoc.getDirection();
+        volley = new DaggerVolley();
+        daggerVolleys.put(id, volley);
 
-        for (int i = 0; i < 3; ++i) {
-            int index = i;
-            this.plugin.getServer().getScheduler().runTaskLater((Plugin) this.plugin, () -> {
-                Location start = eyeLoc.clone().add(direction.clone().multiply(1));
-                Vector spread = direction.clone().rotateAroundAxis(new Vector(0, 1, 0), Math.toRadians(index * 15 - 15));
-                boolean hitPlayer = false;
-
-                for (int j = 0; j < 30; ++j) {
-                    Location current = start.clone().add(spread.clone().multiply((double) j * 0.5));
-
-                    // Astra deep purple dust particles (RGB 106, 11, 184)
-                    Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
-                    player.getWorld().spawnParticle(Particle.DUST, current, 3, 0.1, 0.1, 0.1, 0.0, purpleDust, true);
-                    player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, current, 2, 0.05, 0.05, 0.05, 0.01);
-                    player.getWorld().spawnParticle(Particle.WITCH, current, 1, 0.0, 0.0, 0.0, 0.0);
-
-                    for (Entity entity : current.getWorld().getNearbyEntities(current, 0.5, 0.5, 0.5)) {
-                        if (!(entity instanceof LivingEntity)) continue;
-                        LivingEntity target = (LivingEntity) entity;
-                        if (entity == player) continue;
-
-                        // Skip invisible/trusted players
-                        if (entity instanceof Player) {
-                            Player targetPlayer = (Player) entity;
-                            if (!player.canSee(targetPlayer) || plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-                                continue;
-                            }
-                        }
-
-                        double damage = this.plugin.getConfigManager().getAbilityDamage("astra-daggers");
-                        target.damage(damage, (Entity) player);
-
-                        // Achievement: Piercing Precision — count consecutive player hits
-                        if (target instanceof Player && this.plugin.getAchievementManager() != null) {
-                            UUID uid = player.getUniqueId();
-                            int hits = consecutiveDaggerHits.getOrDefault(uid, 0) + 1;
-                            consecutiveDaggerHits.put(uid, hits);
-                            this.plugin.getAchievementManager().setProgress(player, Achievement.PIERCING_PRECISION, hits);
-                        }
-
-                        // MASSIVE deep purple particle burst on hit
-                        Particle.DustOptions purpleDustHit = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.5f);
-                        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 80, 0.9, 0.9, 0.9, 0.0, purpleDustHit, true);
-                        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0.0, 1.0, 0.0), 60, 0.7, 0.7, 0.7);
-                        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0.0, 1.0, 0.0), 40, 0.7, 0.7, 0.7);
-                        target.getWorld().spawnParticle(Particle.WITCH, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
-                        target.getWorld().spawnParticle(Particle.END_ROD, target.getLocation().add(0.0, 1.0, 0.0), 25, 0.5, 0.5, 0.5);
-                        hitPlayer = true;
-                        return;
-                    }
-                    if (current.getBlock().getType().isSolid()) break;
-                }
-
-                // Dagger missed — reset consecutive counter
-                if (!hitPlayer) {
-                    consecutiveDaggerHits.put(player.getUniqueId(), 0);
-                }
-            }, (long) i * 5L);
+        // Conjure 3 hovering dagger models fanned out in front of the player.
+        for (int i = 0; i < 3; i++) {
+            volley.pending.addLast(spawnDaggerDisplay(player));
         }
+        positionHoveringDaggers(player, volley);
 
-        player.playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.5f);
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, player.getEyeLocation(), 30, 0.5, 0.5, 0.5, 0.03);
+        player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 1.0f, 1.4f);
+
+        // Hover + auto-fire loop: keeps pending daggers arrayed in front, and auto-launches
+        // any left unfired within the idle window.
+        final int autoFireTicks = this.plugin.getConfig().getInt("abilities.astra-daggers.auto-fire-ticks", 80);
+        final DaggerVolley tracked = volley;
+        tracked.task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                DaggerVolley v = daggerVolleys.get(id);
+                if (v == null || v != tracked) {
+                    this.cancel();
+                    return;
+                }
+                if (!player.isOnline() || player.isDead()) {
+                    discardVolley(player, v);
+                    this.cancel();
+                    return;
+                }
+                positionHoveringDaggers(player, v);
+                if (++v.idleTicks >= autoFireTicks) {
+                    while (!v.pending.isEmpty()) {
+                        launchNextDagger(player, v);
+                    }
+                }
+            }
+        }.runTaskTimer(this.plugin, 1L, 1L);
+
+        // Per the design, the initial cast also launches the first dagger.
+        launchNextDagger(player, volley);
 
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Astral Daggers");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
+    }
+
+    /** Build the dagger item (ECHO_SHARD + the astra_dagger custom model). */
+    private ItemStack buildDaggerItem() {
+        ItemStack item = new ItemStack(Material.ECHO_SHARD);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setCustomModelData(this.plugin.getConfig().getInt("abilities.astra-daggers.model-data", DAGGER_MODEL_CMD));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private ItemDisplay spawnDaggerDisplay(Player player) {
+        return player.getWorld().spawn(player.getEyeLocation(), ItemDisplay.class, d -> {
+            d.setItemStack(buildDaggerItem());
+            d.setBillboard(Display.Billboard.FIXED);
+            d.setBrightness(new Display.Brightness(15, 15));
+            d.setInterpolationDuration(2);
+            d.setPersistent(false);
+        });
+    }
+
+    /** Keep the still-pending daggers hovering in a fan in front of the player, aiming where they look. */
+    private void positionHoveringDaggers(Player player, DaggerVolley volley) {
+        Location eye = player.getEyeLocation();
+        Vector look = eye.getDirection().normalize();
+        Vector right = look.clone().crossProduct(new Vector(0, 1, 0));
+        if (right.lengthSquared() < 1.0E-6) {
+            right = new Vector(1, 0, 0);
+        }
+        right.normalize();
+        int n = volley.pending.size();
+        int idx = 0;
+        for (ItemDisplay dagger : volley.pending) {
+            if (dagger != null && !dagger.isDead()) {
+                double offset = (idx - (n - 1) / 2.0) * 0.6;
+                Location hover = eye.clone()
+                        .add(look.clone().multiply(1.6))
+                        .add(right.clone().multiply(offset))
+                        .add(0, -0.2, 0);
+                Vector flatLook = look.clone();
+                flatLook.setY(0);
+                if (flatLook.lengthSquared() < 1.0E-6) {
+                    flatLook = new Vector(0, 0, 1);
+                }
+                flatLook.normalize();
+                orientDagger(dagger, flatLook);
+                dagger.teleport(hover);
+            }
+            idx++;
+        }
+    }
+
+    private void launchNextDagger(Player player, DaggerVolley volley) {
+        ItemDisplay dagger = volley.pending.pollFirst();
+        volley.idleTicks = 0;
+        if (dagger != null && !dagger.isDead()) {
+            flyDagger(player, dagger);
+        }
+        if (volley.pending.isEmpty()) {
+            if (volley.task != null) {
+                volley.task.cancel();
+            }
+            daggerVolleys.remove(player.getUniqueId());
+            this.plugin.getAbilityManager().useAbility(player, "astra-daggers");
+        }
+    }
+
+    /** Send a single dagger flying straight in the player's aim direction, damaging the first enemy hit. */
+    private void flyDagger(Player player, ItemDisplay dagger) {
+        final Vector dir = player.getEyeLocation().getDirection().normalize();
+        final double speed = this.plugin.getConfig().getDouble("abilities.astra-daggers.speed", 1.1);
+        final double range = this.plugin.getConfig().getInt("abilities.astra-daggers.range", 30);
+        final double damage = this.plugin.getConfigManager().getAbilityDamage("astra-daggers");
+        orientDagger(dagger, dir);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.6f);
+
+        new BukkitRunnable() {
+            final Location loc = player.getEyeLocation().add(dir.clone().multiply(1.2));
+            double travelled = 0;
+
+            @Override
+            public void run() {
+                if (dagger.isDead() || !dagger.isValid()) {
+                    this.cancel();
+                    return;
+                }
+                if (travelled >= range) {
+                    impact(loc, false);
+                    dagger.remove();
+                    this.cancel();
+                    return;
+                }
+
+                loc.add(dir.clone().multiply(speed));
+                travelled += speed;
+
+                if (loc.getBlock().getType().isSolid()) {
+                    impact(loc, false);
+                    dagger.remove();
+                    this.cancel();
+                    return;
+                }
+
+                for (Entity entity : loc.getWorld().getNearbyEntities(loc, 0.6, 0.6, 0.6)) {
+                    if (!(entity instanceof LivingEntity) || entity == player) {
+                        continue;
+                    }
+                    LivingEntity target = (LivingEntity) entity;
+                    if (entity instanceof Player) {
+                        Player tp = (Player) entity;
+                        if (!player.canSee(tp) || plugin.getTrustedPlayersManager().isTrusted(player, tp)) {
+                            continue;
+                        }
+                    }
+                    target.damage(damage, (Entity) player);
+                    onDaggerHit(player, target);
+                    impact(target.getLocation().add(0, 1, 0), true);
+                    dagger.remove();
+                    this.cancel();
+                    return;
+                }
+
+                dagger.teleport(loc);
+                Particle.DustOptions purple = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.9f);
+                loc.getWorld().spawnParticle(Particle.DUST, loc, 3, 0.05, 0.05, 0.05, 0.0, purple, true);
+                loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 2, 0.03, 0.03, 0.03, 0.01);
+            }
+
+            private void impact(Location at, boolean hit) {
+                Particle.DustOptions purple = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.3f);
+                at.getWorld().spawnParticle(Particle.DUST, at, hit ? 60 : 20, 0.5, 0.5, 0.5, 0.0, purple, true);
+                at.getWorld().spawnParticle(Particle.REVERSE_PORTAL, at, hit ? 40 : 15, 0.4, 0.4, 0.4, 0.02);
+                if (hit) {
+                    at.getWorld().spawnParticle(Particle.ENCHANTED_HIT, at, 30, 0.5, 0.5, 0.5);
+                    at.getWorld().spawnParticle(Particle.WITCH, at, 20, 0.4, 0.4, 0.4);
+                } else {
+                    // Dagger missed — reset the Piercing Precision streak.
+                    consecutiveDaggerHits.put(player.getUniqueId(), 0);
+                }
+            }
+        }.runTaskTimer(this.plugin, 0L, 1L);
+    }
+
+    private void onDaggerHit(Player player, LivingEntity target) {
+        if (target instanceof Player && this.plugin.getAchievementManager() != null) {
+            UUID uid = player.getUniqueId();
+            int hits = consecutiveDaggerHits.getOrDefault(uid, 0) + 1;
+            consecutiveDaggerHits.put(uid, hits);
+            this.plugin.getAchievementManager().setProgress(player, Achievement.PIERCING_PRECISION, hits);
+        }
+    }
+
+    /** Align the dagger model's +Y axis to the given direction (best-effort; tweak model-scale in config). */
+    private void orientDagger(ItemDisplay dagger, Vector dir) {
+        float scale = (float) this.plugin.getConfig().getDouble("abilities.astra-daggers.model-scale", 1.4);
+        // Correct for how the model is authored: rotate the facing horizontally by this
+        // offset (default 180 so the blade points away from the player, not at them).
+        double yawOffset = Math.toRadians(this.plugin.getConfig().getDouble("abilities.astra-daggers.model-yaw-offset", 180.0));
+        Vector d = dir.clone();
+        if (yawOffset != 0.0) {
+            d.rotateAroundY(yawOffset);
+        }
+        if (d.lengthSquared() < 1.0E-6) {
+            d = new Vector(0, 0, 1);
+        }
+        Quaternionf rot = new Quaternionf().rotationTo(
+                new Vector3f(0f, 1f, 0f),
+                new Vector3f((float) d.getX(), (float) d.getY(), (float) d.getZ()).normalize());
+        dagger.setTransformation(new Transformation(
+                new Vector3f(0f, 0f, 0f),
+                rot,
+                new Vector3f(scale, scale, scale),
+                new Quaternionf()));
+    }
+
+    /** Remove all still-hovering daggers without launching (player left, gem swapped, etc.). */
+    private void discardVolley(Player player, DaggerVolley volley) {
+        for (ItemDisplay dagger : volley.pending) {
+            if (dagger != null && !dagger.isDead()) {
+                dagger.remove();
+            }
+        }
+        volley.pending.clear();
+        if (volley.task != null) {
+            volley.task.cancel();
+        }
+        daggerVolleys.remove(player.getUniqueId());
+    }
+
+    /** Per-player state for a set of conjured daggers waiting to be launched. */
+    private static final class DaggerVolley {
+        final Deque<ItemDisplay> pending = new ArrayDeque<>();
+        BukkitTask task;
+        int idleTicks;
     }
 
     // ========================================================================
@@ -358,127 +557,69 @@ public class AstraAbilities implements GemAbilityHandler {
 
 
     // ========================================================================
-    // 3. DIMENSIONAL DRIFT — Tier 2
-    //    Summons invisible horse, player becomes invisible
+    // 3. DIMENSIONAL DRIFT — Tier 2 (Momentum Dash)
+    //    Flings the player forward in a fixed low arc, with brief invisibility
+    //    and fall-damage immunity. Repositioning/escape tool; deals no damage.
     // ========================================================================
 
     public void dimensionalDrift(Player player) {
         String abilityKey = "astra-drift";
 
-        // Toggle off if already drifting
-        if (isDrifting(player)) {
-            endDrift(player);
-            return;
-        }
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        UUID uuid = player.getUniqueId();
+        // Fixed forward arc (Puff-style): a horizontal fling with a small fixed lift,
+        // independent of look pitch.
+        double power = this.plugin.getConfig().getDouble("abilities.astra-drift.power", 2.8);
+        double lift = this.plugin.getConfig().getDouble("abilities.astra-drift.lift", 0.35);
+        Vector velocity = player.getLocation().getDirection();
+        velocity.setY(0);
+        if (velocity.lengthSquared() > 1.0E-6) {
+            velocity.normalize();
+        }
+        velocity.multiply(power);
+        velocity.setY(lift * power);
+        player.setVelocity(velocity);
+
+        // Brief invisibility + fall-damage immunity window
+        int invisSeconds = this.plugin.getConfig().getInt("abilities.astra-drift.invisibility", 3);
+        int fallImmuneSeconds = this.plugin.getConfig().getInt("abilities.astra-drift.fall-immunity", 6);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, invisSeconds * 20, 0, false, false));
+        dashFallImmuneUntil.put(player.getUniqueId(), System.currentTimeMillis() + (long) fallImmuneSeconds * 1000L);
+
+        // Departure burst
         Location loc = player.getLocation();
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-drift", 15);
-        int duration = durationSeconds * 20;
-
-        // Spawn invisible horse
-        Horse horse = player.getWorld().spawn(loc, Horse.class, h -> {
-            h.setTamed(true);
-            h.setOwner(player);
-            h.setAdult();
-            h.setInvisible(true);
-            h.setSilent(true);
-            h.setInvulnerable(true);
-            h.setAI(false); // Player controls it
-            h.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
-            h.getInventory().setSaddle(new org.bukkit.inventory.ItemStack(org.bukkit.Material.SADDLE));
-        });
-
-        // Mount player on horse
-        horse.addPassenger(player);
-        driftHorses.put(uuid, horse);
-        driftingPlayers.add(uuid);
-
-        // Make player invisible
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, duration + 20, 0, false, false));
-
-        // Departure effects
         Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.3f);
-        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 60, 0.6, 1.0, 0.6, 0.0, purpleDust, true);
-        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 40, 0.5, 0.8, 0.5, 0.02);
-        loc.getWorld().spawnParticle(Particle.WITCH, loc, 20, 0.5, 0.5, 0.5, 0.0);
-        player.playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.5f);
-        player.playSound(loc, Sound.ENTITY_HORSE_SADDLE, 0.5f, 2.0f);
+        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.0, purpleDust, true);
+        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 45, 0.4, 0.6, 0.4, 0.05);
+        loc.getWorld().spawnParticle(Particle.WITCH, loc, 15, 0.4, 0.4, 0.4, 0.0);
+        player.playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.4f);
+        player.playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 0.7f, 1.6f);
 
-        // Monitor task
-        BukkitTask driftTask = new BukkitRunnable() {
-            int ticksElapsed = 0;
+        // Purple rift trail during the fling
+        new BukkitRunnable() {
+            int ticks = 0;
 
             @Override
             public void run() {
-                if (!player.isOnline() || player.isDead() || !isDrifting(player)) {
-                    endDrift(player);
+                if (ticks++ >= 12 || !player.isOnline() || player.isDead()) {
                     this.cancel();
                     return;
                 }
-
-                ticksElapsed++;
-
-                // Subtle particle trail (visible to others to hint at presence)
-                if (ticksElapsed % 8 == 0) {
-                    Location pLoc = player.getLocation();
-                    Particle.DustOptions trailDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.5f);
-                    pLoc.getWorld().spawnParticle(Particle.DUST, pLoc.clone().add(0, 0.3, 0), 2, 0.3, 0.1, 0.3, 0.0, trailDust, true);
-                    pLoc.getWorld().spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 0.5, 0), 1, 0.2, 0.1, 0.2, 0.005);
-                }
-
-                // Duration check
-                if (ticksElapsed >= duration) {
-                    endDrift(player);
-                    this.cancel();
-                }
+                Location p = player.getLocation().add(0, 0.4, 0);
+                Particle.DustOptions trail = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.9f);
+                p.getWorld().spawnParticle(Particle.DUST, p, 4, 0.2, 0.2, 0.2, 0.0, trail, true);
+                p.getWorld().spawnParticle(Particle.END_ROD, p, 2, 0.1, 0.1, 0.1, 0.01);
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
+        }.runTaskTimer(this.plugin, 1L, 1L);
 
-        driftTasks.put(uuid, driftTask);
-
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Dimensional Drift");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("\u00a7d\u00a7oYou fade into the dimensional rift... (" + durationSeconds + "s)");
-    }
-
-    public void endDrift(Player player) {
-        UUID uuid = player.getUniqueId();
-        if (!driftingPlayers.contains(uuid)) return;
-
-        driftingPlayers.remove(uuid);
-
-        // Cancel task
-        BukkitTask task = driftTasks.remove(uuid);
-        if (task != null) task.cancel();
-
-        // Remove horse
-        Horse horse = driftHorses.remove(uuid);
-        if (horse != null) {
-            horse.removePassenger(player);
-            horse.remove();
-        }
-
-        // Remove invisibility
-        player.removePotionEffect(PotionEffectType.INVISIBILITY);
-
-        // Arrival effects
-        Location loc = player.getLocation();
-        Particle.DustOptions purpleDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.3f);
-        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 60, 0.6, 1.0, 0.6, 0.0, purpleDust, true);
-        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 40, 0.5, 0.8, 0.5, 0.02);
-        player.playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 0.8f);
-
-        // Set cooldown on end
-        this.plugin.getAbilityManager().useAbility(player, "astra-drift");
-
-        player.sendMessage("\u00a7d\u00a7oDimensional Drift ended.");
+        player.sendMessage("§d§oYou blink through the dimensional rift!");
     }
 
     // ========================================================================
@@ -667,11 +808,13 @@ public class AstraAbilities implements GemAbilityHandler {
         if (isProjecting(player)) {
             endProjection(player);
         }
-        if (isDrifting(player)) {
-            endDrift(player);
-        }
         if (isVoidActive(player)) {
             endVoid(player);
+        }
+        dashFallImmuneUntil.remove(player.getUniqueId());
+        DaggerVolley volley = daggerVolleys.get(player.getUniqueId());
+        if (volley != null) {
+            discardVolley(player, volley);
         }
     }
 }

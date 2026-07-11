@@ -60,6 +60,11 @@ public class StrengthAbilities implements GemAbilityHandler {
     // Achievement: tracks per-target stalk count (trackerUUID -> (targetUUID -> count))
     private final Map<UUID, Map<UUID, Integer>> stalkCounts = new HashMap<>();
 
+    // Chad Strength activated-buff state: player -> guaranteed empowered hits remaining,
+    // plus the tick timestamp at which the buff window expires.
+    private final Map<UUID, Integer> chadHitsRemaining = new HashMap<>();
+    private final Map<UUID, Long> chadExpiry = new HashMap<>();
+
     public StrengthAbilities(BlissGems plugin) {
         this.plugin = plugin;
     }
@@ -72,13 +77,13 @@ public class StrengthAbilities implements GemAbilityHandler {
         if (tier >= 2 && player.isSneaking()) {
             this.frailer(player);
         } else {
-            this.nullify(player);
+            this.chadStrength(player);
         }
     }
 
     @Override
     public void onPrimary(Player player, int tier) {
-        this.nullify(player);
+        this.chadStrength(player);
     }
 
     @Override
@@ -91,9 +96,80 @@ public class StrengthAbilities implements GemAbilityHandler {
         this.shadowStalker(player);
     }
 
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.nullify(player);
+    }
+
     // ========================================================================
-    // NULLIFY — Tier 2 Primary
-    // Strips ALL potion effects from target via raycast
+    // CHAD STRENGTH — Tier 2 Primary (activated)
+    // Empowers the next N melee hits to deal guaranteed bonus damage.
+    // ========================================================================
+
+    public void chadStrength(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("§c§oThis ability requires Tier 2!");
+            return;
+        }
+
+        String abilityKey = "strength-chad";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        int empoweredHits = this.plugin.getConfig().getInt("abilities.strength-chad.empowered-hits", 4);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.strength-chad.duration", 10);
+
+        chadHitsRemaining.put(player.getUniqueId(), empoweredHits);
+        chadExpiry.put(player.getUniqueId(), player.getWorld().getFullTime() + (long) durationSeconds * 20L);
+
+        // Activation feedback on the user
+        Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 1.6f);
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+            45, 0.5, 0.9, 0.5, 0.0, redDust, true);
+        player.getWorld().spawnParticle(Particle.CRIT, player.getLocation().add(0, 1, 0),
+            25, 0.5, 0.9, 0.5, 0.4);
+        player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 0.7f, 1.4f);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_STRONG, 1.0f, 0.6f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Chad Strength");
+        player.sendMessage("§c§l⚔ §cYour next §l" + empoweredHits
+            + "§c hits are empowered for §l" + durationSeconds + "s§c!");
+    }
+
+    /**
+     * Called from PassiveListener on each melee hit. If the attacker has an active
+     * (non-expired) Chad Strength buff, consumes one empowered hit and returns the
+     * configured bonus damage; otherwise returns 0.
+     */
+    public double consumeChadBonus(Player player) {
+        UUID id = player.getUniqueId();
+        Integer remaining = chadHitsRemaining.get(id);
+        if (remaining == null || remaining <= 0) {
+            return 0.0;
+        }
+        Long expiry = chadExpiry.get(id);
+        if (expiry != null && player.getWorld().getFullTime() > expiry) {
+            chadHitsRemaining.remove(id);
+            chadExpiry.remove(id);
+            return 0.0;
+        }
+
+        remaining--;
+        if (remaining <= 0) {
+            chadHitsRemaining.remove(id);
+            chadExpiry.remove(id);
+        } else {
+            chadHitsRemaining.put(id, remaining);
+        }
+        return this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 7.0);
+    }
+
+    // ========================================================================
+    // NULLIFY — Tier 2 Quaternary
+    // Strips beneficial potion effects from target via raycast, then restores
+    // them after a configurable duration.
     // ========================================================================
 
     public void nullify(Player player) {
@@ -123,13 +199,44 @@ public class StrengthAbilities implements GemAbilityHandler {
             }
         }
 
-        // Strip beneficial non-ambient potion effects (skip gem passives and beacon effects)
-        int strippedCount = 0;
+        // Strip beneficial non-ambient potion effects (skip gem passives and beacon effects).
+        // Instead of removing them forever, remember them and restore them after a
+        // configurable duration (abilities.strength-nullify.duration, in seconds).
+        final java.util.List<PotionEffect> stripped = new java.util.ArrayList<>();
         for (PotionEffect effect : target.getActivePotionEffects()) {
             if (!effect.isAmbient() && STRIPPABLE_EFFECTS.contains(effect.getType())) {
-                target.removePotionEffect(effect.getType());
-                strippedCount++;
+                stripped.add(effect);
             }
+        }
+        int strippedCount = stripped.size();
+        for (PotionEffect effect : stripped) {
+            target.removePotionEffect(effect.getType());
+        }
+
+        int restoreSeconds = this.plugin.getConfig().getInt("abilities.strength-nullify.duration", 8);
+        if (restoreSeconds > 0 && !stripped.isEmpty()) {
+            final UUID targetId = target.getUniqueId();
+            final int suppressionTicks = restoreSeconds * 20;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    org.bukkit.entity.Entity e = Bukkit.getEntity(targetId);
+                    if (!(e instanceof LivingEntity) || e.isDead()) {
+                        return;
+                    }
+                    LivingEntity le = (LivingEntity) e;
+                    for (PotionEffect effect : stripped) {
+                        // Return each effect with the time it had left minus the suppression
+                        // window; skip anything that would already have run out.
+                        int remaining = effect.getDuration() - suppressionTicks;
+                        if (remaining <= 0) {
+                            continue;
+                        }
+                        le.addPotionEffect(new PotionEffect(effect.getType(), remaining,
+                            effect.getAmplifier(), effect.isAmbient(), effect.hasParticles(), effect.hasIcon()));
+                    }
+                }
+            }.runTaskLater(this.plugin, suppressionTicks);
         }
 
         // Particles on target — effects being "ripped away"
@@ -245,7 +352,7 @@ public class StrengthAbilities implements GemAbilityHandler {
 
         ItemStack heldItem = player.getInventory().getItemInMainHand();
         if (heldItem == null || heldItem.getType() == Material.AIR) {
-            player.sendMessage("\u00a7c\u00a7oHold a player head!");
+            player.sendMessage("\u00a7c\u00a7oHold a player head or an item owned by your target!");
             return;
         }
 
@@ -259,8 +366,14 @@ public class StrengthAbilities implements GemAbilityHandler {
             }
         }
 
+        // Fallback: any item stamped with an owner \u2014 a crafted tool/weapon/armor that
+        // belonged to the target (crafted, stored, or stolen from them).
         if (targetUUID == null) {
-            player.sendMessage("\u00a7c\u00a7oThis is not a valid player head!");
+            targetUUID = dev.xoperr.blissgems.utils.CustomItemManager.getOwner(heldItem);
+        }
+
+        if (targetUUID == null) {
+            player.sendMessage("\u00a7c\u00a7oThis item is not a player head and has no owner!");
             return;
         }
 
@@ -399,6 +512,13 @@ public class StrengthAbilities implements GemAbilityHandler {
         BukkitTask task = trackingTasks.remove(uuid);
         if (task != null) task.cancel();
 
+        // Nothing was actually being tracked \u2014 e.g. cleanup fired because the gem
+        // briefly left the inventory (picked up on the cursor). Stay silent instead
+        // of falsely announcing that Shadow Stalker "ended".
+        if (trackedId == null && task == null) {
+            return;
+        }
+
         if (player.isOnline()) {
             player.sendMessage("\u00a7c\u00a7oShadow Stalker tracking ended.");
         }
@@ -455,5 +575,7 @@ public class StrengthAbilities implements GemAbilityHandler {
      */
     public void cleanup(Player player) {
         endTracking(player);
+        chadHitsRemaining.remove(player.getUniqueId());
+        chadExpiry.remove(player.getUniqueId());
     }
 }

@@ -235,6 +235,12 @@ implements Listener {
             return;
         }
 
+        // Astra Dimensional Drift (Momentum Dash) grants a brief fall-damage immunity window
+        if (this.plugin.getAstraAbilities().hasDashFallImmunity(player)) {
+            event.setCancelled(true);
+            return;
+        }
+
         // Check for passive immunity (gem in either hand)
         if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) && !isHoldingPuffGem(player)) {
             return;
@@ -1145,7 +1151,7 @@ implements Listener {
     }
 
     // ==========================================================================
-    // Strength Gem — Chad Strength (passive: every 4th hit bonus damage, T2)
+    // Strength Gem — Chad Strength (activated: empowers the next N melee hits, T2)
     // ==========================================================================
 
     @EventHandler
@@ -1170,25 +1176,23 @@ implements Listener {
         }
         if (tier < 2) return;
 
-        // Register hit with CriticalHitManager
-        boolean triggered = this.plugin.getCriticalHitManager().registerHit(player);
-        if (triggered) {
-            double bonusDamage = this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 7.0);
-            event.setDamage(event.getDamage() + bonusDamage);
+        // Only empower a hit while the player has an active Chad Strength buff
+        // (activated via the Primary ability). Consumes one empowered hit.
+        double bonusDamage = this.plugin.getStrengthAbilities().consumeChadBonus(player);
+        if (bonusDamage <= 0) return;
 
-            // Big visual effect on target
-            LivingEntity target = (LivingEntity) event.getEntity();
-            Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 2.0f);
-            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
-                50, 0.8, 0.8, 0.8, 0.0, redDust, true);
-            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
-                30, 0.5, 0.5, 0.5, 0.3);
-            target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 1, 0),
-                10, 0.5, 0.5, 0.5);
-            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
+        event.setDamage(event.getDamage() + bonusDamage);
 
-            player.sendMessage("\u00a7c\u00a7l\u2694 CHAD STRENGTH! \u00a7c+3.5 hearts bonus damage!");
-        }
+        // Big visual effect on target
+        LivingEntity target = (LivingEntity) event.getEntity();
+        Particle.DustOptions redDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 2.0f);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+            50, 0.8, 0.8, 0.8, 0.0, redDust, true);
+        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+            30, 0.5, 0.5, 0.5, 0.3);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 1, 0),
+            10, 0.5, 0.5, 0.5);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
     }
 
     // ==========================================================================

@@ -12,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityKnockbackEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
@@ -212,16 +211,22 @@ public class StunListener implements Listener {
     // ========================================================================
 
     /**
-     * Cancel incoming knockback for immobilized players. While a player is held in
-     * place by the freeze/stun logic, knockback from a mob (e.g. a zombie hit) fights
-     * the movement-cancel handler; the velocity accumulates and launches them into the
-     * air. Dropping the knockback entirely keeps them grounded where they were frozen.
+     * Cancel incoming knockback for immobilized players. While a player is held in place
+     * by the freeze/stun logic, knockback from a hit (a mob or another player) fights the
+     * movement-cancel handler; the velocity accumulates and launches them into the air.
+     * We snap their velocity back to zero on the following tick — after vanilla applies the
+     * knockback — which keeps them grounded without the deprecated EntityKnockbackEvent.
      */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onEntityKnockback(EntityKnockbackEvent event) {
-        if (event.getEntity() instanceof Player player && isImmobilized(player.getUniqueId())) {
-            event.setCancelled(true);
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onImmobilizedKnockback(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player player) || !isImmobilized(player.getUniqueId())) {
+            return;
         }
+        this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+            if (player.isOnline() && isImmobilized(player.getUniqueId())) {
+                player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            }
+        });
     }
 
     // ========================================================================

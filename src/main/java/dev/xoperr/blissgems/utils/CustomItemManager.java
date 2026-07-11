@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Custom item manager to replace Oraxen functionality
@@ -23,6 +24,8 @@ public class CustomItemManager {
     private static final Map<String, CustomItemData> ITEM_REGISTRY = new HashMap<>();
     private static NamespacedKey ITEM_ID_KEY;
     private static NamespacedKey UNDROPPABLE_KEY;
+    // Hidden owner stamp (crafter UUID) used by Shadow Stalker to track item owners.
+    private static NamespacedKey OWNER_KEY;
 
     // Register all custom items
     static {
@@ -35,7 +38,7 @@ public class CustomItemManager {
             "",
             "§d🌟 §d§lPOWERS",
             "§b§l🔪 ASTRAL DAGGERS",
-            "§7Fire 3 phantom daggers that deal damage",
+            "§7Conjure 3 phantom daggers, launch each one by one",
             "",
             "§8Upgrade to Tier 2 for Astral Projection,",
             "§8Dimensional Drift & Void!"
@@ -154,14 +157,14 @@ public class CustomItemManager {
             "",
             "§d🌟 §d§lPOWERS",
             "§b§l🔪 ASTRAL DAGGERS",
-            "§7Fire 3 phantom daggers that deal damage",
+            "§7Conjure 3 phantom daggers, launch each one by one",
             "",
             "§b§l👻 ASTRAL PROJECTION",
             "§7Scout in spectator mode",
             "§7Sub-abilities: §dSpook §7& §dTag",
             "",
             "§b§l🌀 DIMENSIONAL DRIFT",
-            "§7Ride an invisible horse while invisible",
+            "§7Dash forward through the rift, briefly invisible",
             "",
             "§b§l🕳 DIMENSIONAL VOID",
             "§7Nullify enemy gem abilities in radius"
@@ -287,16 +290,18 @@ public class CustomItemManager {
             "§7- Bloodthorns (more damage at low HP)",
             "",
             "§d🌟 §d§lPOWERS",
-            "§b§l🚫 NULLIFY",
-            "§7Strip all potion effects from a target",
+            "§b§l⚔ CHAD STRENGTH",
+            "§7Empower your next few hits with bonus damage",
             "",
-            "§b§l⚔ FRAILER",
-            "§7Clear target's potions, apply Weakness I",
-            "§7(20s) and Wither I (40s)",
+            "§b§l💔 FRAILER",
+            "§7Apply Weakness I (20s), Slowness & Wither I (40s)",
             "",
             "§b§l🔍 SHADOW STALKER",
-            "§7Consume a player head or owned item",
-            "§7to track a player's location"
+            "§7Consume a player head or an owned item",
+            "§7to track a player's location",
+            "",
+            "§b§l🚫 NULLIFY",
+            "§7Temporarily strip a target's potion effects"
         ));
         registerItem("wealth_gem_t2", Material.ECHO_SHARD, 2008, "§d§lWEALTH GEM", List.of(
             "§f§lFUEL AN EMPIRE",
@@ -350,6 +355,54 @@ public class CustomItemManager {
         ITEM_ID_KEY = new NamespacedKey(plugin, "item_id");
         // Use same key name as DropItemControl for compatibility
         UNDROPPABLE_KEY = new NamespacedKey(plugin, "locked_item");
+        OWNER_KEY = new NamespacedKey(plugin, "item_owner");
+    }
+
+    /**
+     * Stamp an item with its owner's UUID as hidden NBT (PDC). Used for unstackable
+     * items so Shadow Stalker can track whoever crafted/owned them. No-op if the item
+     * is null/AIR or already stamped.
+     */
+    public static boolean setOwner(ItemStack item, UUID owner) {
+        if (OWNER_KEY == null || owner == null || item == null || item.getType() == Material.AIR) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        if (meta.getPersistentDataContainer().has(OWNER_KEY, PersistentDataType.STRING)) {
+            return false; // preserve the original owner
+        }
+        meta.getPersistentDataContainer().set(OWNER_KEY, PersistentDataType.STRING, owner.toString());
+        item.setItemMeta(meta);
+        return true;
+    }
+
+    /**
+     * Returns the stamped owner UUID for an item, or null if it has none / is malformed.
+     */
+    public static UUID getOwner(ItemStack item) {
+        if (OWNER_KEY == null || item == null || !item.hasItemMeta()) {
+            return null;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        String raw = meta.getPersistentDataContainer().get(OWNER_KEY, PersistentDataType.STRING);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    public static boolean hasOwner(ItemStack item) {
+        return getOwner(item) != null;
     }
 
     private static void registerItem(String id, Material material, int customModelData, String displayName) {
@@ -417,6 +470,12 @@ public class CustomItemManager {
             return null;
         }
 
+        // Prefer the Oraxen item so gems carry the pack cosmetics (itemname/lore/model)
+        ItemStack oraxenItem = buildOraxenItem(id, data, energy);
+        if (oraxenItem != null) {
+            return oraxenItem;
+        }
+
         ItemStack item = new ItemStack(data.material);
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
@@ -461,15 +520,8 @@ public class CustomItemManager {
      * Energy 3-5: Pristine 2 (damaged) - +20
      * Energy 6-8: Pristine 3 (worn) - +30
      * Energy 9-10: Pristine 4 (pristine/least broken) - +40
-     *
-     * Note: Strength gem always uses base texture (no pristine system)
      */
     private static int getPristineModelData(int baseModelData, int energy, String itemId) {
-        // Strength gem always uses base texture regardless of energy
-        if (itemId != null && (itemId.equals("strength_gem_t1") || itemId.equals("strength_gem_t2"))) {
-            return baseModelData;
-        }
-
         int pristineOffset;
         if (energy <= 2) {
             pristineOffset = 0; // Base texture - most broken (no pristine1 textures exist)
@@ -481,6 +533,92 @@ public class CustomItemManager {
             pristineOffset = 40; // Pristine 4 - least broken
         }
         return baseModelData + pristineOffset;
+    }
+
+    /**
+     * Maps registry ids to the Oraxen item ids configured in Oraxen/items/blisssmp.yml
+     * (the gem ids match; only the special items were named differently there).
+     */
+    private static String toOraxenId(String id) {
+        switch (id) {
+            case "gem_upgrader": return "upgrader";
+            case "gem_trader": return "trader";
+            case "repair_kit": return "repair_item";
+            case "energy_bottle": return "bottled_energy";
+            default: return id;
+        }
+    }
+
+    /**
+     * Build the item through Oraxen (via reflection, so Oraxen stays optional) and
+     * stamp it with the BlissGems PDC id, drop-lock and energy-state CustomModelData.
+     * The static item_model component is cleared so the pack's custom_model_data
+     * range_dispatch can drive the pristine texture states.
+     */
+    private static ItemStack buildOraxenItem(String id, CustomItemData data, int energy) {
+        try {
+            Class<?> api = Class.forName("io.th0rgal.oraxen.api.OraxenItems");
+            String oraxenId = toOraxenId(id);
+            if (!Boolean.TRUE.equals(api.getMethod("exists", String.class).invoke(null, oraxenId))) {
+                return null;
+            }
+            Object builder = api.getMethod("getItemById", String.class).invoke(null, oraxenId);
+            if (builder == null) {
+                return null;
+            }
+            ItemStack item = (ItemStack) builder.getClass().getMethod("build").invoke(builder);
+            if (item == null || item.getType() == Material.AIR) {
+                return null;
+            }
+            item = item.clone();
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null) {
+                return null;
+            }
+            clearItemModel(meta);
+            int customModelData = data.customModelData;
+            if (GemType.isGem(id) && energy >= 0) {
+                customModelData = getPristineModelData(customModelData, energy, id);
+            }
+            meta.setCustomModelData(customModelData);
+            meta.getPersistentDataContainer().set(ITEM_ID_KEY, PersistentDataType.STRING, id);
+            if (GemType.isGem(id)) {
+                meta.getPersistentDataContainer().set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte) 1);
+                applyEnhancedGlint(meta, energy);
+            }
+            item.setItemMeta(meta);
+            return item;
+        } catch (Throwable t) {
+            return null; // Oraxen absent or API changed - fall back to the legacy items
+        }
+    }
+
+    /**
+     * ItemMeta#setItemModel only exists on 1.21.2+ APIs - call it reflectively.
+     * Must reflect on the ItemMeta interface: the Craft implementation class is
+     * package-private, so a Method obtained from it fails with IllegalAccessException.
+     */
+    private static void clearItemModel(ItemMeta meta) {
+        try {
+            ItemMeta.class.getMethod("setItemModel", NamespacedKey.class).invoke(meta, (Object) null);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Whether this stack was built by Oraxen (Oraxen stores its id in the oraxen namespace). */
+    @SuppressWarnings("deprecation")
+    static boolean isOraxenBacked(ItemMeta meta) {
+        return meta.getPersistentDataContainer().has(
+            new NamespacedKey("oraxen", "id"), PersistentDataType.STRING);
+    }
+
+    private static void applyEnhancedGlint(ItemMeta meta, int energy) {
+        if (EnergyState.fromEnergy(energy).isEnhanced()) {
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        } else {
+            meta.removeEnchant(Enchantment.UNBREAKING);
+        }
     }
 
     /**
@@ -509,7 +647,13 @@ public class CustomItemManager {
 
         int pristineModelData = getPristineModelData(data.customModelData, energy, id);
         meta.setCustomModelData(pristineModelData);
-        applyPristinePlusVisuals(meta, data.lore, energy);
+        if (isOraxenBacked(meta)) {
+            // Oraxen items keep their configured name/lore; only texture state + glint change
+            clearItemModel(meta);
+            applyEnhancedGlint(meta, energy);
+        } else {
+            applyPristinePlusVisuals(meta, data.lore, energy);
+        }
         item.setItemMeta(meta);
     }
 

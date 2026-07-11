@@ -25,6 +25,7 @@ import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.commands.FixHeartsCommand;
 import dev.xoperr.blissgems.commands.FixedHeartsCommand;
+import dev.xoperr.blissgems.commands.FixGemsCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
@@ -115,6 +116,7 @@ implements BlissGemsAPI {
     private SpeedAbilities speedAbilities;
     private StrengthAbilities strengthAbilities;
     private WealthAbilities wealthAbilities;
+    private dev.xoperr.blissgems.listeners.ItemOwnershipListener itemOwnershipListener;
     private ProtectionManager protectionManager;
     private ParticleManager particleManager;
     private TextManager textManager;
@@ -462,6 +464,9 @@ implements BlissGemsAPI {
         if (this.cooldownDisplayManager != null) {
             this.cooldownDisplayManager.stop();
         }
+        if (this.itemOwnershipListener != null) {
+            this.itemOwnershipListener.stop();
+        }
         if (this.repairKitManager != null) {
             this.repairKitManager.cleanup();
         }
@@ -562,6 +567,9 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
+        this.itemOwnershipListener = new dev.xoperr.blissgems.listeners.ItemOwnershipListener(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.itemOwnershipListener, (Plugin)this);
+        this.itemOwnershipListener.start();
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
     }
 
@@ -580,6 +588,12 @@ implements BlissGemsAPI {
         if (this.getCommand("fixedhearts") != null) {
             this.getCommand("fixedhearts").setExecutor((CommandExecutor)fixedHearts);
             this.getCommand("fixedhearts").setTabCompleter((TabCompleter)fixedHearts);
+        }
+
+        FixGemsCommand fixGems = new FixGemsCommand(this);
+        if (this.getCommand("fixgems") != null) {
+            this.getCommand("fixgems").setExecutor((CommandExecutor)fixGems);
+            this.getCommand("fixgems").setTabCompleter((TabCompleter)fixGems);
         }
     }
 

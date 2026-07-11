@@ -31,6 +31,19 @@ public class PlayerJoinListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        // Replace legacy (pre-Oraxen) gem items with their Oraxen-built equivalents.
+        // Delayed a second so the inventory is fully synced before we touch it.
+        if (dev.xoperr.blissgems.utils.OraxenGemFixer.isFixOnJoinEnabled(this.plugin)) {
+            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                if (player.isOnline()) {
+                    int fixed = dev.xoperr.blissgems.utils.OraxenGemFixer.fixInventory(this.plugin, player);
+                    if (fixed > 0) {
+                        this.plugin.getLogger().info("Replaced " + fixed + " legacy gem item(s) for " + player.getName());
+                    }
+                }
+            }, 20L);
+        }
+
         // Check if player has received their first gem and SMP has started
         // IMPORTANT: Check both file flag AND actual gem presence to prevent duplication
         if (!hasReceivedFirstGem(player) && this.plugin.getGemManager().findGemInInventory(player) == null) {

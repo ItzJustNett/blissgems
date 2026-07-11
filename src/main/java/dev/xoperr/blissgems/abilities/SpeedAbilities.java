@@ -2,7 +2,8 @@
  * Speed Gem Abilities — lightning strikes and velocity boosts
  *
  * Tier 1:
- *   - Blur (Primary): Successive lightning strikes dealing damage and knockback
+ *   - Blur (Primary): Grants stored lightning strikes; each right-click calls one
+ *     down at the aimed location, dealing damage and knockback
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Blur (Primary, no shift): Same as T1
@@ -40,6 +41,10 @@ public class SpeedAbilities implements GemAbilityHandler {
 
     // Track frozen players (for Speed Storm freeze effect)
     private static final Set<UUID> frozenPlayers = new HashSet<>();
+
+    // Blur stored-strike state
+    private final Map<UUID, Integer> blurCharges = new HashMap<>();
+    private final Map<UUID, BukkitTask> blurExpiryTasks = new HashMap<>();
 
     public SpeedAbilities(BlissGems plugin) {
         this.plugin = plugin;
@@ -119,114 +124,57 @@ public class SpeedAbilities implements GemAbilityHandler {
         return speedStormActivePlayers.contains(player.getUniqueId());
     }
 
+    /**
+     * Remaining stored Blur strikes (0 when Blur is not active)
+     */
+    public int getBlurCharges(UUID playerId) {
+        return blurCharges.getOrDefault(playerId, 0);
+    }
+
     // ========================================================================
     // 1. BLUR — Tier 1+2 Primary
-    //    Successive lightning strikes dealing damage and knockback
+    //    Activation grants stored lightning strikes; each right-click fires one
+    //    at the location the player is aiming at
     // ========================================================================
 
     public void blur(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Player has stored strikes — this right-click fires one
+        if (blurCharges.getOrDefault(uuid, 0) > 0) {
+            fireBlurStrike(player);
+            return;
+        }
+
         String abilityKey = "speed-blur";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
         int strikeCount = this.plugin.getConfig().getInt("abilities.blur.strikes", 3);
-        int strikeDelay = this.plugin.getConfig().getInt("abilities.blur.strike-delay", 8); // ticks between strikes
-        double damage = this.plugin.getConfigManager().getAbilityDamage("blur");
-        double knockbackPower = this.plugin.getConfig().getDouble("abilities.blur.knockback", 1.5);
+        int timeoutSeconds = this.plugin.getConfig().getInt("abilities.blur.charge-timeout-seconds", 30);
 
-        Location targetLoc = player.getTargetBlock(null, 20).getLocation().add(0.5, 1, 0.5);
+        blurCharges.put(uuid, strikeCount);
 
         // MASSIVE activation visual with HIGHLY VISIBLE yellow particles
         Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.0f);
 
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 1.0f, 2.0f);
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.8f);
         player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 150, 0.8, 0.8, 0.8, 0.0, yellowDust, true);
         player.spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 1.0, 0.0), 80, 0.8, 0.8, 0.8);
-        player.spawnParticle(Particle.GUST, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5);
+        player.spawnParticle(Particle.GUST, player.getLocation().add(0.0, 4.0, 0.0), 40, 0.5, 0.5, 0.5);
 
-        // Launch successive lightning strikes
-        new BukkitRunnable() {
-            int currentStrike = 0;
-
+        // Strikes expire if not used in time
+        BukkitTask expiry = new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline() || currentStrike >= strikeCount) {
-                    this.cancel();
-                    return;
-                }
-
-                // Strike at target location with slight random offset
-                double offsetX = (Math.random() - 0.5) * 3.0;
-                double offsetZ = (Math.random() - 0.5) * 3.0;
-                Location strikeLoc = targetLoc.clone().add(offsetX, 0, offsetZ);
-
-                // Spawn lightning (visual only, no fire)
-                strikeLoc.getWorld().strikeLightningEffect(strikeLoc);
-
-                // EXTREMELY VISIBLE yellow particle burst at strike location
-                Particle.DustOptions strikeDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.5f);
-                strikeLoc.getWorld().spawnParticle(Particle.DUST, strikeLoc, 250, 1.5, 2.0, 1.5, 0.0, strikeDust, true);
-                strikeLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc, 150, 1.2, 1.5, 1.2, 0.1);
-                strikeLoc.getWorld().spawnParticle(Particle.EXPLOSION, strikeLoc, 8, 1.0, 1.0, 1.0);
-                strikeLoc.getWorld().spawnParticle(Particle.GUST, strikeLoc, 60, 1.0, 1.5, 1.0);
-
-                // Ground circle of HIGHLY VISIBLE yellow particles
-                for (int i = 0; i < 32; i++) {
-                    double angle = (i / 32.0) * 2 * Math.PI;
-                    double x = Math.cos(angle) * 3.0;
-                    double z = Math.sin(angle) * 3.0;
-                    strikeLoc.getWorld().spawnParticle(Particle.DUST,
-                        strikeLoc.clone().add(x, 0.2, z),
-                        8, 0.2, 0.1, 0.2, 0.0, strikeDust, true);
-                }
-
-                // Damage and knockback enemies in radius
-                for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
-                    if (!(entity instanceof LivingEntity)) continue;
-                    LivingEntity target = (LivingEntity) entity;
-                    if (entity.equals(player)) continue;
-
-                    // Skip trusted players
-                    if (entity instanceof Player) {
-                        Player targetPlayer = (Player) entity;
-                        if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-                            continue;
-                        }
-                    }
-
-                    // Deal damage
-                    target.damage(damage, player);
-
-                    // Apply knockback 1 tick later so it doesn't get overridden by damage knockback
-                    final LivingEntity knockTarget = target;
-                    final Location knockOrigin = strikeLoc.clone();
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            if (knockTarget.isValid() && !knockTarget.isDead()) {
-                                org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
-                                    .subtract(knockOrigin.toVector())
-                                    .normalize()
-                                    .multiply(knockbackPower)
-                                    .setY(0.5);
-                                knockTarget.setVelocity(knockback);
-                            }
-                        }
-                    }.runTaskLater(plugin, 1L);
-
-                    // Hit particles
-                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, strikeDust, true);
-                    target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 25, 0.5, 0.5, 0.5);
-                }
-
-                // Sound
-                strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.0f);
-                strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
-
-                currentStrike++;
+                blurExpiryTasks.remove(uuid);
+                blurCharges.remove(uuid);
             }
-        }.runTaskTimer(this.plugin, 0L, strikeDelay);
+        }.runTaskLater(this.plugin, timeoutSeconds * 20L);
+        BukkitTask oldExpiry = blurExpiryTasks.put(uuid, expiry);
+        if (oldExpiry != null) oldExpiry.cancel();
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
@@ -234,7 +182,94 @@ public class SpeedAbilities implements GemAbilityHandler {
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
-        player.sendMessage("§e§oBlur unleashes " + strikeCount + " successive lightning strikes!");
+    }
+
+    private void fireBlurStrike(Player player) {
+        UUID uuid = player.getUniqueId();
+        int remaining = blurCharges.getOrDefault(uuid, 0);
+        if (remaining <= 0) {
+            return;
+        }
+
+        double damage = this.plugin.getConfigManager().getAbilityDamage("blur");
+        double knockbackPower = this.plugin.getConfig().getDouble("abilities.blur.knockback", 1.5);
+
+        // Strike exactly where the player is aiming
+        Location strikeLoc = player.getTargetBlock(null, 20).getLocation().add(0.5, 1, 0.5);
+
+        // Spawn lightning (visual only, no fire)
+        strikeLoc.getWorld().strikeLightningEffect(strikeLoc);
+
+        // EXTREMELY VISIBLE yellow particle burst at strike location
+        Particle.DustOptions strikeDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.5f);
+        strikeLoc.getWorld().spawnParticle(Particle.DUST, strikeLoc, 250, 1.5, 2.0, 1.5, 0.0, strikeDust, true);
+        strikeLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc, 150, 1.2, 1.5, 1.2, 0.1);
+        // Cloud particles hover ~4 blocks above the ground at the strike point
+        Location cloudLoc = strikeLoc.clone().add(0, 3, 0);
+        strikeLoc.getWorld().spawnParticle(Particle.EXPLOSION, cloudLoc, 8, 1.0, 0.5, 1.0);
+        strikeLoc.getWorld().spawnParticle(Particle.GUST, cloudLoc, 60, 1.0, 0.5, 1.0);
+
+        // Ground circle of HIGHLY VISIBLE yellow particles
+        for (int i = 0; i < 32; i++) {
+            double angle = (i / 32.0) * 2 * Math.PI;
+            double x = Math.cos(angle) * 3.0;
+            double z = Math.sin(angle) * 3.0;
+            strikeLoc.getWorld().spawnParticle(Particle.DUST,
+                strikeLoc.clone().add(x, 0.2, z),
+                8, 0.2, 0.1, 0.2, 0.0, strikeDust, true);
+        }
+
+        // Damage and knockback enemies in radius
+        for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
+            if (!(entity instanceof LivingEntity)) continue;
+            LivingEntity target = (LivingEntity) entity;
+            if (entity.equals(player)) continue;
+
+            // Skip trusted players
+            if (entity instanceof Player) {
+                Player targetPlayer = (Player) entity;
+                if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+                    continue;
+                }
+            }
+
+            // Deal damage
+            target.damage(damage, player);
+
+            // Apply knockback 1 tick later so it doesn't get overridden by damage knockback
+            final LivingEntity knockTarget = target;
+            final Location knockOrigin = strikeLoc.clone();
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (knockTarget.isValid() && !knockTarget.isDead()) {
+                        org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
+                            .subtract(knockOrigin.toVector())
+                            .normalize()
+                            .multiply(knockbackPower)
+                            .setY(0.5);
+                        knockTarget.setVelocity(knockback);
+                    }
+                }
+            }.runTaskLater(plugin, 1L);
+
+            // Hit particles
+            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, strikeDust, true);
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 25, 0.5, 0.5, 0.5);
+        }
+
+        // Sound
+        strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.0f);
+        strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+
+        remaining--;
+        if (remaining <= 0) {
+            blurCharges.remove(uuid);
+            BukkitTask expiry = blurExpiryTasks.remove(uuid);
+            if (expiry != null) expiry.cancel();
+        } else {
+            blurCharges.put(uuid, remaining);
+        }
     }
 
     // ========================================================================
@@ -498,6 +533,10 @@ public class SpeedAbilities implements GemAbilityHandler {
             speedStormTasks.remove(playerId);
         }
         speedStormActivePlayers.remove(playerId);
+        // Clear stored Blur strikes
+        blurCharges.remove(playerId);
+        BukkitTask blurExpiry = blurExpiryTasks.remove(playerId);
+        if (blurExpiry != null) blurExpiry.cancel();
         // Also unfreeze the player if they were frozen
         unfreezePlayer(playerId);
     }
