@@ -5,7 +5,7 @@ api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://xoperr.dev
-softdepend: [WorldGuard]
+softdepend: [WorldGuard, Oraxen]
 
 commands:
   bliss:
@@ -20,6 +20,10 @@ commands:
     description: Toggle forcing every player to 10 hearts on join
     usage: /<command> everyone <true|false>
     permission: blissgems.fixedhearts
+  fixgems:
+    description: Replace legacy gem items with their Oraxen-built equivalents
+    usage: /<command> [player|all]
+    permission: blissgems.fixgems
 
 permissions:
   blissgems.*:
@@ -72,4 +76,7 @@ permissions:
     default: op
   blissgems.fixedhearts:
     description: Allows using /fixedhearts to toggle 10-hearts-on-join (admins/staff)
+    default: op
+  blissgems.fixgems:
+    description: Allows using /fixgems to replace legacy gems with Oraxen items
     default: op

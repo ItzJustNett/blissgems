@@ -159,7 +159,9 @@ public class AutoEnchantListener implements Listener {
         }
 
         GemManager.ActiveGem activeGem = plugin.getGemManager().getActiveGem(player);
-        if (activeGem == null) {
+        // type is null for addon/registered gems — they manage their own enchants via the
+        // registry, so the built-in auto-enchant switch must not run (it would NPE on null).
+        if (activeGem == null || activeGem.getType() == null) {
             return;
         }
         // Most gems require T2 for auto-enchant, but Strength gets Sharpness at both tiers

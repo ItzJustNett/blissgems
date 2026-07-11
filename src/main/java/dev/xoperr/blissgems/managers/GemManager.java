@@ -108,12 +108,26 @@ public class GemManager {
         return gem != null && gem.getType() == type;
     }
 
-    public boolean hasGemInOffhand(Player player) {
+    /**
+     * Get the custom item ID of the gem the player is holding.
+     * Passives work with the gem in either hand; the offhand wins if both hold gems.
+     */
+    private String getHeldGemItemId(Player player) {
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand == null) {
-            return false;
+        String itemId = offhand != null ? CustomItemManager.getIdByItem((ItemStack)offhand) : null;
+        if (itemId != null && this.isAnyGem(itemId)) {
+            return itemId;
         }
-        String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        itemId = mainHand != null ? CustomItemManager.getIdByItem((ItemStack)mainHand) : null;
+        if (itemId != null && this.isAnyGem(itemId)) {
+            return itemId;
+        }
+        return null;
+    }
+
+    public boolean hasGemInOffhand(Player player) {
+        String itemId = this.getHeldGemItemId(player);
         if (itemId == null) {
             return false;
         }
@@ -128,24 +142,23 @@ public class GemManager {
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand == null) {
+        return this.isGemOfType(player.getInventory().getItemInOffHand(), type)
+            || this.isGemOfType(player.getInventory().getItemInMainHand(), type);
+    }
+
+    private boolean isGemOfType(ItemStack item, GemType type) {
+        if (item == null) {
             return false;
         }
-        String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
+        String itemId = CustomItemManager.getIdByItem((ItemStack)item);
         if (itemId == null || !GemType.isGem(itemId)) {
             return false;
         }
-        GemType gemType = GemType.fromOraxenId(itemId);
-        return gemType == type;
+        return GemType.fromOraxenId(itemId) == type;
     }
 
     public GemType getGemTypeFromOffhand(Player player) {
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand == null) {
-            return null;
-        }
-        String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
+        String itemId = this.getHeldGemItemId(player);
         if (itemId == null || !GemType.isGem(itemId)) {
             return null;
         }
@@ -153,13 +166,11 @@ public class GemManager {
     }
 
     /**
-     * Get the string gem ID from the offhand item.
+     * Get the string gem ID from the held gem (either hand, offhand priority).
      * Works for both built-in and addon gems.
      */
     public String getGemIdFromOffhand(Player player) {
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand == null) return null;
-        String itemId = CustomItemManager.getIdByItem(offhand);
+        String itemId = this.getHeldGemItemId(player);
         if (itemId == null) return null;
         // Check built-in
         GemType type = GemType.fromOraxenId(itemId);
@@ -171,13 +182,9 @@ public class GemManager {
     }
 
     public int getTierFromOffhand(Player player) {
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand == null) {
-            return 1; // Default to tier 1
-        }
-        String itemId = CustomItemManager.getIdByItem((ItemStack)offhand);
+        String itemId = this.getHeldGemItemId(player);
         if (itemId == null) {
-            return 1;
+            return 1; // Default to tier 1
         }
         // Check built-in
         if (GemType.isGem(itemId)) {

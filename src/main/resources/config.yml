@@ -51,6 +51,12 @@ gems:
   # given to entities, moved by hoppers, or lost in any other way
   prevent-drop: true
 
+  # Gem types that DROP on death instead of being kept (looted by your killer).
+  # Everything else stays protected. Use the gem id (e.g. heretic, auratus).
+  droppable-on-death:
+  - heretic
+  - auratus
+
 # ==========================================
 # WORLDGUARD INTEGRATION
 # ==========================================
@@ -241,7 +247,7 @@ abilities:
   cooldowns:
     astra-daggers: 15
     astra-projection: 60  # 1 minute (set when projection ends)
-    astra-drift: 90  # Dimensional Drift (set when drift ends)
+    astra-drift: 12  # Dimensional Drift (Momentum Dash) cooldown
     astra-void: 120  # 2 minutes - Dimensional Void
     astra-spook: 10  # Spook sub-ability during projection
     astra-tag: 15  # Tag sub-ability during projection
@@ -269,6 +275,7 @@ abilities:
     strength-nullify: 60
     strength-frailer: 45
     strength-shadow-stalker: 120
+    strength-chad: 30  # Chad Strength (activated empower buff) cooldown
     wealth-pockets: 0  # No cooldown for opening
     wealth-item-lock: 45
     wealth-unfortunate: 90
@@ -281,6 +288,15 @@ abilities:
     player-kill-hearts: 10.0  # HP added on player kill (10.0 = 5 hearts)
     duration: 60  # Duration in seconds before the bonus hearts expire
 
+  # Astra Astral Daggers settings (3 hovering dagger models, launched one-by-one)
+  astra-daggers:
+    speed: 1.1  # Blocks travelled per tick once launched
+    range: 30  # Max blocks a dagger flies before dissipating
+    auto-fire-ticks: 80  # Unlaunched daggers auto-fire after this many ticks (80 = 4s)
+    model-scale: 1.4  # Visual size of the dagger model
+    model-yaw-offset: 180  # Degrees to rotate the dagger's facing (180 = point away from you; try 0/90/270 if it looks wrong)
+    model-data: 12350  # CustomModelData of blissgems:custom/astra_dagger on ECHO_SHARD
+
   # Astra Projection settings (spectator mode scout)
   astra-projection:
     radius: 128  # Maximum distance from origin in blocks (8 chunks)
@@ -292,6 +308,13 @@ abilities:
   # Astra Dimensional Void settings
   astra-void:
     radius: 10.0  # Void suppression radius in blocks
+
+  # Astra Dimensional Drift settings (Momentum Dash — fixed forward arc, no damage)
+  astra-drift:
+    power: 2.8  # Horizontal fling strength
+    lift: 0.35  # Fixed upward arc (fraction of power); higher = more air
+    invisibility: 3  # Seconds of invisibility on dash
+    fall-immunity: 6  # Seconds of fall-damage immunity after dashing
 
   # Fire Campfire settings
   fire-campfire:
@@ -327,6 +350,7 @@ abilities:
   # Strength Nullify settings
   strength-nullify:
     range: 20  # Raycast range in blocks
+    duration: 8  # Seconds the beneficial effects are stripped before being restored (0 = permanent removal)
 
   # Strength Frailer settings
   strength-frailer:
@@ -338,10 +362,11 @@ abilities:
     duration: 60  # Tracking duration in seconds
     invisibility-max-range: 2500  # Track invisible targets only within this range
 
-  # Strength Chad Strength settings (passive every-4th-hit)
+  # Strength Chad Strength settings (activated: empowers your next N melee hits)
   strength-chad:
-    hit-threshold: 4  # Every Nth hit triggers bonus damage
-    bonus-damage: 4.0  # Bonus damage in HP (2 hearts)
+    empowered-hits: 4  # Number of guaranteed bonus-damage hits granted on activation
+    duration: 10  # Seconds the empowered hits remain available before expiring
+    bonus-damage: 7.0  # Bonus damage in HP added per empowered hit (7.0 = 3.5 hearts)
 
   # Fire Charged Fireball settings
   fire-fireball:

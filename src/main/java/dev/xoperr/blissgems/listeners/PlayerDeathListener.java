@@ -120,8 +120,14 @@ implements Listener {
         }
         Player victim = event.getEntity();
         List<ItemStack> gemsToSave = new ArrayList<>();
+        List<String> droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death")
+                ? this.plugin.getConfig().getStringList("gems.droppable-on-death")
+                : java.util.List.of("heretic", "auratus");
         event.getDrops().removeIf(item -> {
             if (CustomItemManager.isUndroppable(item)) {
+                if (isDroppableOnDeath(item, droppableOnDeath)) {
+                    return false; // configured to drop on death — leave it in the drops
+                }
                 gemsToSave.add(item.clone());
                 return true; // remove from drops
             }
@@ -131,6 +137,25 @@ implements Listener {
             savedGems.put(victim.getUniqueId(), gemsToSave);
             saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }
+    }
+
+    /**
+     * True if the item is a gem whose type is configured to drop on death (e.g. heretic/auratus),
+     * so it is left in the death drops instead of being kept and re-given on respawn.
+     */
+    private boolean isDroppableOnDeath(ItemStack item, List<String> droppableGems) {
+        if (droppableGems.isEmpty()) {
+            return false;
+        }
+        String id = CustomItemManager.getIdByItem(item);
+        if (id == null) {
+            return false;
+        }
+        int gemMarker = id.indexOf("_gem_t");
+        if (gemMarker <= 0) {
+            return false;
+        }
+        return droppableGems.contains(id.substring(0, gemMarker));
     }
 
     @EventHandler
