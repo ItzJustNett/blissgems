@@ -91,9 +91,11 @@ public class FlowStateManager {
             return;
         }
 
-        // Speed effect increases with flow level
-        // Level 1: Speed I, Level 2-3: Speed II, Level 4-5: Speed III
-        int speedLevel = Math.min((level + 1) / 2, 2); // 0-2 (Speed I-III)
+        // Speed effect increases with flow level, capped by config.
+        // Level 1: Speed I, Level 2-3: Speed II, Level 4-5: Speed III — but clamped to
+        // passives.flux.max-flow-speed-level (default 0 = Speed I; Speed III felt absurd).
+        int maxSpeedLevel = this.plugin.getConfig().getInt("passives.flux.max-flow-speed-level", 0);
+        int speedLevel = Math.min((level + 1) / 2, maxSpeedLevel); // amplifier (0 = Speed I)
 
         player.addPotionEffect(new PotionEffect(
             PotionEffectType.SPEED,

@@ -29,8 +29,41 @@ import java.util.List;
 public class GemRitualManager {
     private final BlissGems plugin;
 
+    /**
+     * Scoreboard tag stamped on every ItemDisplay the ritual spawns. Lets us reliably
+     * find and remove ritual display entities that were orphaned when a player logged
+     * out mid-ritual (e.g. first-join then insta-rejoin) — the per-runnable cleanup
+     * skips entities in unloaded chunks (isValid() == false), so those would otherwise
+     * leak as "gems stuck floating in the air".
+     */
+    public static final String RITUAL_TAG = "blissgems_ritual_display";
+
     public GemRitualManager(BlissGems plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Remove every orphaned ritual display entity in a single world.
+     * @return how many were removed
+     */
+    public static int sweepWorld(org.bukkit.World world) {
+        int removed = 0;
+        for (org.bukkit.entity.Entity e : world.getEntitiesByClasses(ItemDisplay.class)) {
+            if (e.getScoreboardTags().contains(RITUAL_TAG)) {
+                e.remove();
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    /** Sweep orphaned ritual display entities across all loaded worlds. */
+    public static int sweepAll(org.bukkit.Server server) {
+        int removed = 0;
+        for (org.bukkit.World world : server.getWorlds()) {
+            removed += sweepWorld(world);
+        }
+        return removed;
     }
 
     /**
@@ -77,6 +110,7 @@ public class GemRitualManager {
             itemDisplay.setBillboard(Display.Billboard.FIXED);
             itemDisplay.setViewRange(100);
             itemDisplay.setGlowing(true);
+            itemDisplay.addScoreboardTag(RITUAL_TAG);
             orbitingGems.add(itemDisplay);
         }
 
@@ -135,6 +169,9 @@ public class GemRitualManager {
 
         // Phase 1: Selection and divergence - winner goes to player, others fall (4-6 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            // Player left during the 4s orbit — don't spawn display entities that would
+            // orphan in an unloaded chunk (the source of the "floating gems" leak).
+            if (!player.isOnline()) return;
             Location playerCenter = player.getLocation().add(0, 1.5, 0);
             List<ItemDisplay> selectionGems = new ArrayList<>();
 
@@ -158,6 +195,7 @@ public class GemRitualManager {
                 itemDisplay.setBillboard(Display.Billboard.FIXED);
                 itemDisplay.setViewRange(100);
                 itemDisplay.setGlowing(true);
+                itemDisplay.addScoreboardTag(RITUAL_TAG);
                 selectionGems.add(itemDisplay);
             }
 

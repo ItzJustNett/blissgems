@@ -320,6 +320,13 @@ TabCompleter {
                 }
             }
         }
+        // Explicitly clear an offhand gem too — the loop's slot range doesn't reliably
+        // cover the offhand, and gems normally live there, so a stale gem left in the
+        // offhand would keep driving abilities (e.g. F) after the reroll.
+        ItemStack offGem = target.getInventory().getItemInOffHand();
+        if (offGem != null && this.plugin.getGemManager().isAnyGem(CustomItemManager.getIdByItem(offGem))) {
+            target.getInventory().setItemInOffHand(null);
+        }
 
         // Notify command sender that ritual is starting
         sender.sendMessage("\u00a7d\u00a7lInitiating gem ritual for " + target.getName() + "...");
@@ -330,9 +337,11 @@ TabCompleter {
         final int finalTier = tier;
         this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false, finalTier);
 
-        // Give the gem after a short delay (let ritual build up)
+        // Give the gem after a short delay (let ritual build up).
+        // Place it directly in the offhand so gem resolution (F, passives) picks up the
+        // new gem, not a stale one left elsewhere.
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-            if (this.plugin.getGemManager().giveGem(target, randomGem, finalTier)) {
+            if (this.plugin.getGemManager().giveGemToOffhand(target, randomGem, finalTier)) {
                 String msg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled", "player", target.getName(), "gem", randomGem.getDisplayName(), "tier", finalTier);
                 if (msg != null && !msg.isEmpty()) {
                     sender.sendMessage(msg);
@@ -871,6 +880,7 @@ TabCompleter {
                 case ASTRA: this.plugin.getAstraAbilities().activateDimensionalVoid(player); break;
                 case FLUX: this.plugin.getFluxAbilities().kineticBurst(player); break;
                 case LIFE: this.plugin.getLifeAbilities().heartLock(player); break;
+                case PUFF: this.plugin.getPuffAbilities().updraft(player); break;
                 case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
                 case WEALTH: this.plugin.getWealthAbilities().amplification(player); break;
                 default: player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!"); break;

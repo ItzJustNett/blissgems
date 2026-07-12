@@ -27,6 +27,14 @@ public class AbilityBindingManager {
     private final BlissGems plugin;
     private final Map<UUID, EnumMap<AbilityBinding, AbilitySlot>> cache = new ConcurrentHashMap<>();
     private static final EnumMap<AbilityBinding, AbilitySlot> DEFAULTS = new EnumMap<>(AbilityBinding.class);
+    private static final EnumMap<AbilityBinding, AbilitySlot> BEDROCK_DEFAULTS = new EnumMap<>(AbilityBinding.class);
+
+    /**
+     * Floodgate prefixes Bedrock usernames with this character. Bedrock clients can't
+     * reliably use the swap-hand (F) key through Geyser, so those players get a
+     * click-only default binding set (see BEDROCK_DEFAULTS).
+     */
+    private static final String BEDROCK_NAME_PREFIX = ".";
 
     static {
         DEFAULTS.put(AbilityBinding.RIGHT_CLICK, AbilitySlot.PRIMARY);
@@ -34,6 +42,26 @@ public class AbilityBindingManager {
         DEFAULTS.put(AbilityBinding.SWAP_HAND, AbilitySlot.TERTIARY);
         DEFAULTS.put(AbilityBinding.SHIFT_SWAP_HAND, AbilitySlot.QUATERNARY);
         // LEFT_CLICK and SHIFT_LEFT_CLICK left unbound by default
+
+        // Bedrock: all four abilities reachable via the four click gestures,
+        // since the F key isn't dependable. Right-click slots match Java for parity.
+        BEDROCK_DEFAULTS.put(AbilityBinding.RIGHT_CLICK, AbilitySlot.PRIMARY);
+        BEDROCK_DEFAULTS.put(AbilityBinding.SHIFT_RIGHT_CLICK, AbilitySlot.SECONDARY);
+        BEDROCK_DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.TERTIARY);
+        BEDROCK_DEFAULTS.put(AbilityBinding.SHIFT_LEFT_CLICK, AbilitySlot.QUATERNARY);
+    }
+
+    /**
+     * True if this player is a Bedrock (Floodgate) player, detected by the
+     * conventional "." username prefix.
+     */
+    public static boolean isBedrock(Player player) {
+        return player != null && player.getName().startsWith(BEDROCK_NAME_PREFIX);
+    }
+
+    /** The default binding set appropriate for this player's platform. */
+    private static EnumMap<AbilityBinding, AbilitySlot> defaultsFor(Player player) {
+        return new EnumMap<>(isBedrock(player) ? BEDROCK_DEFAULTS : DEFAULTS);
     }
 
     public AbilityBindingManager(BlissGems plugin) {
@@ -45,21 +73,21 @@ public class AbilityBindingManager {
      * or null if that input is unbound.
      */
     public AbilitySlot getSlot(Player player, AbilityBinding input) {
-        return getOrLoad(player.getUniqueId()).get(input);
+        return getOrLoad(player).get(input);
     }
 
     /**
      * Returns a snapshot copy of the player's full binding map.
      */
     public EnumMap<AbilityBinding, AbilitySlot> getAll(Player player) {
-        return new EnumMap<>(getOrLoad(player.getUniqueId()));
+        return new EnumMap<>(getOrLoad(player));
     }
 
     /**
      * Assigns input → slot for this player. Reassigns if either was already bound elsewhere.
      */
     public void setBinding(Player player, AbilityBinding input, AbilitySlot slot) {
-        EnumMap<AbilityBinding, AbilitySlot> map = getOrLoad(player.getUniqueId());
+        EnumMap<AbilityBinding, AbilitySlot> map = getOrLoad(player);
         // Free any other input currently on this slot (1-to-1)
         map.entrySet().removeIf(e -> e.getValue() == slot && e.getKey() != input);
         map.put(input, slot);
@@ -67,13 +95,13 @@ public class AbilityBindingManager {
     }
 
     public void unbind(Player player, AbilityBinding input) {
-        EnumMap<AbilityBinding, AbilitySlot> map = getOrLoad(player.getUniqueId());
+        EnumMap<AbilityBinding, AbilitySlot> map = getOrLoad(player);
         map.remove(input);
         save(player.getUniqueId(), map);
     }
 
     public void resetToDefaults(Player player) {
-        EnumMap<AbilityBinding, AbilitySlot> map = new EnumMap<>(DEFAULTS);
+        EnumMap<AbilityBinding, AbilitySlot> map = defaultsFor(player);
         cache.put(player.getUniqueId(), map);
         save(player.getUniqueId(), map);
     }
@@ -84,22 +112,23 @@ public class AbilityBindingManager {
 
     // ---- internals ----
 
-    private EnumMap<AbilityBinding, AbilitySlot> getOrLoad(UUID id) {
+    private EnumMap<AbilityBinding, AbilitySlot> getOrLoad(Player player) {
+        UUID id = player.getUniqueId();
         EnumMap<AbilityBinding, AbilitySlot> map = cache.get(id);
         if (map != null) return map;
-        map = load(id);
+        map = load(player);
         cache.put(id, map);
         return map;
     }
 
-    private EnumMap<AbilityBinding, AbilitySlot> load(UUID id) {
-        File f = playerFile(id);
+    private EnumMap<AbilityBinding, AbilitySlot> load(Player player) {
+        File f = playerFile(player.getUniqueId());
         if (!f.exists()) {
-            return new EnumMap<>(DEFAULTS);
+            return defaultsFor(player);
         }
         FileConfiguration data = YamlConfiguration.loadConfiguration(f);
         if (!data.contains("ability-bindings")) {
-            return new EnumMap<>(DEFAULTS);
+            return defaultsFor(player);
         }
         EnumMap<AbilityBinding, AbilitySlot> map = new EnumMap<>(AbilityBinding.class);
         Map<String, Object> raw = data.getConfigurationSection("ability-bindings").getValues(false);

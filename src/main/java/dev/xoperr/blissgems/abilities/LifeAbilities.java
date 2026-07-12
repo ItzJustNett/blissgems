@@ -73,6 +73,16 @@ public class LifeAbilities implements GemAbilityHandler {
         int duration = this.plugin.getConfigManager().getAbilityDuration("life-drainer");
         target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, duration * 20, 1, false, true));
 
+        // Instant drain: steal a fixed chunk of health from the target and heal the caster
+        // by however much was actually taken (default 4 HP = 2 hearts).
+        double stealHp = this.plugin.getConfig().getDouble("abilities.life-drainer.steal-hp", 4.0);
+        if (stealHp > 0 && target.getHealth() > 0) {
+            double drained = Math.min(stealHp, target.getHealth());
+            target.damage(stealHp, player);
+            double newHealth = Math.min(player.getHealth() + drained, player.getMaxHealth());
+            player.setHealth(Math.max(0.0, newHealth));
+        }
+
         Particle.DustOptions pinkDust = new Particle.DustOptions(ParticleUtils.LIFE_PINK, 1.5f);
         target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, pinkDust, true);
         target.getWorld().spawnParticle(Particle.SCULK_SOUL, target.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
@@ -96,7 +106,6 @@ public class LifeAbilities implements GemAbilityHandler {
         double healthIncrease = this.plugin.getConfig().getDouble("abilities.life-circle.max-health-increase", 4.0);
         double healthDecrease = this.plugin.getConfig().getDouble("abilities.life-circle.max-health-decrease", 4.0);
 
-        final Location circleLocation = player.getLocation().clone();
         final Set<UUID> modifiedInCircle = new HashSet<>();
         final NamespacedKey modifierKey = new NamespacedKey(this.plugin, "circle-of-life");
 
@@ -106,13 +115,13 @@ public class LifeAbilities implements GemAbilityHandler {
                 return;
             }
 
-            // Apply effects to owner if in circle
-            if (player.getLocation().distance(circleLocation) <= radius) {
-                applyCircleModifier(player, modifierKey, healthIncrease, modifiedInCircle);
-                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 1, true, true));
-            } else {
-                removeCircleModifier(player, modifierKey, modifiedInCircle);
-            }
+            // Circle follows the player: recompute its center every tick from the owner's
+            // current position instead of pinning it to the cast location.
+            final Location circleLocation = player.getLocation();
+
+            // Owner is always at the center of a following circle, so they always get the buff.
+            applyCircleModifier(player, modifierKey, healthIncrease, modifiedInCircle);
+            player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 1, true, true));
 
             // Apply effects to nearby entities
             for (Entity entity : circleLocation.getWorld().getNearbyEntities(circleLocation, radius, radius, radius)) {

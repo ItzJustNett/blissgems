@@ -1,0 +1,31 @@
+# Discord support server: https://discord.gg/4PaYftZwu3
+# English language file for DropItemControl
+
+# Messages section contains all plugin messages
+messages:
+  prefix: "&8[&bDropItemControl&8] &7"
+  item-locked: "&aLocked item &f%item% &ain your hand!"
+  item-unlocked: "&aUnlocked item &f%item%&a!"
+  item-type-locked: "&aLocked all items of type &f%item%&a!"
+  item-type-unlocked: "&aUnlocked all items of type &f%item%&a!"
+  all-items-locked: "&aLocked &f%limit% &aitems in your inventory!"
+  all-items-unlocked: "&aUnlocked &f%limit% &aitems in your inventory!"
+  item-lock-limit-reached: "&cYou have reached the maximum number of items you can lock (%limit%)!"
+  item-already-locked: "&cThis item is already locked!"
+  item-not-locked: "&cThis item is not locked!"
+  item-lock-failed: "&cCannot lock this item!"
+  item-unlock-failed: "&cCannot unlock this item!"
+  cannot-drop: "&cYou cannot drop locked items!"
+  cannot-store: "&cYou cannot store locked items in containers!"
+  cannot-use-tool: "&cYou cannot place locked items in this tool!"
+  unlock-reminder: "&eReminder: Use &f/dic unlock &eto unlock items!"
+  no-permission: "&cYou don't have permission to use this command!"
+  no-item-in-hand: "&cYou need to hold an item in your hand to use this command!"
+  no-locked-items: "&cYou don't have any locked items!"
+  no-items-to-lock: "&cNo items to lock!"
+  no-items-to-unlock: "&cNo items to unlock!"
+  language-changed: "&aLanguage changed to &f%language%&a!"
+  
+# Settings section contains configuration for lore and other display settings
+settings:
+  lock-lore: "&c&lLOCKED - Cannot drop" 

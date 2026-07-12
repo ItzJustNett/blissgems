@@ -164,6 +164,7 @@ passives:
   flux:
     shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
     charged-creeper-reduction: 1.0  # 1.0 = full immunity, 0.5 = 50% reduction
+    max-flow-speed-level: 0  # Cap on flow-state Speed amplifier (0 = Speed I; was up to Speed III)
     tier1:
       shocking-arrow-damage: 2.0  # Electric arrow damage
       flow-state-speed-boost: 0.15  # Additional speed boost in flow state
@@ -267,6 +268,7 @@ abilities:
     puff-dash: 5
     puff-breezy-bash: 10
     puff-group-bash: 30
+    puff-updraft: 20  # Puff 4th ability (updraft fling) cooldown
     speed-blur: 15
     speed-sedative: 60
     speed-storm: 135  # 2.25 minutes (tripled from 45)
@@ -347,6 +349,26 @@ abilities:
     radius: 6.0  # AoE radius of the knockback burst
     knockback: 2.5  # Knockback power multiplier
 
+  # Flux Beam settings
+  flux-beam:
+    charge-duration-ticks: 300  # Ticks to reach full charge (20 = 1s; 300 = 15s)
+
+  # Speed Storm settings
+  speed-storm:
+    radius: 8.0  # Field radius
+    enemy-slowness-level: 3  # Slowness amplifier on enemies in the field (was a full freeze; 3 = Slowness IV)
+    ally-buff-duration: 45  # Seconds allies keep Speed/Haste after the field touches them
+
+  # Puff Dash settings (primary — a viable forward attack on its own)
+  puff-dash:
+    power: 3.2  # Forward lunge strength
+    vertical: 0.18  # Upward component (lower = flatter dash)
+
+  # Puff Updraft settings (4th ability — flings nearby enemies skyward)
+  puff-updraft:
+    radius: 6.0  # AoE radius
+    launch-velocity: 3.2  # Upward launch velocity applied to enemies
+
   # Strength Nullify settings
   strength-nullify:
     range: 20  # Raycast range in blocks
@@ -378,6 +400,10 @@ abilities:
   puff-group-bash:
     radius: 10.0
     knockback: 2.5
+
+  # Life Heart Drainer settings
+  life-drainer:
+    steal-hp: 4.0  # HP instantly drained from target and healed to caster (4.0 = 2 hearts)
 
   # Life Circle of Life settings
   life-circle:

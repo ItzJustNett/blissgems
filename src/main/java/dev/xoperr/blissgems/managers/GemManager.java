@@ -244,6 +244,15 @@ public class GemManager {
 
     public ItemStack findGemInInventory(Player player) {
         GemRegistry registry = this.plugin.getGemRegistry();
+        // Check the offhand first — gems are normally held there, and getContents()
+        // doesn't reliably include it across API versions.
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand != null) {
+            String offId = CustomItemManager.getIdByItem(offhand);
+            if (offId != null && (GemType.isGem(offId) || (registry != null && registry.isRegisteredGem(offId)))) {
+                return offhand;
+            }
+        }
         // Check main inventory
         for (ItemStack item : player.getInventory().getContents()) {
             String itemId;
@@ -294,7 +303,37 @@ public class GemManager {
             this.updateActiveGem(player);
             return true;
         }
+        // The storage loop may not cover the offhand slot; replace it there directly.
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand != null && offhand.equals((Object) currentGem)) {
+            player.getInventory().setItemInOffHand(newGem);
+            this.updateActiveGem(player);
+            return true;
+        }
         return false;
+    }
+
+    /**
+     * Give a gem placed directly into the player's offhand (the canonical gem slot).
+     * If the offhand is occupied by something else, falls back to a normal inventory add.
+     * Used by reroll so the new gem lands where gem resolution looks first — preventing a
+     * stale gem elsewhere from continuing to drive abilities.
+     */
+    public boolean giveGemToOffhand(Player player, GemType type, int tier) {
+        String itemId = GemType.buildOraxenId(type, tier);
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        ItemStack gem = CustomItemManager.getItemById(itemId, energy);
+        if (gem == null) {
+            return false;
+        }
+        ItemStack current = player.getInventory().getItemInOffHand();
+        if (current == null || current.getType().isAir()) {
+            player.getInventory().setItemInOffHand(gem);
+        } else {
+            player.getInventory().addItem(new ItemStack[]{gem});
+        }
+        this.updateActiveGem(player);
+        return true;
     }
 
     public boolean upgradeGem(Player player, GemType type) {
