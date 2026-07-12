@@ -336,46 +336,19 @@ public class SpeedAbilities implements GemAbilityHandler {
                         boolean isTrusted = plugin.getTrustedPlayersManager().isTrusted(player, target);
 
                         if (isTrusted || target.equals(player)) {
-                            // Grant Speed and Haste to allies
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 2, false, true));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 40, 1, false, true));
-                            // Make sure allies aren't frozen
+                            // Grant Speed and Haste to allies — these linger well past the
+                            // storm itself (configurable, default 45s) so allies keep the buff.
+                            int allyBuffTicks = plugin.getConfig().getInt("abilities.speed-storm.ally-buff-duration", 45) * 20;
+                            target.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, allyBuffTicks, 2, false, true));
+                            target.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, allyBuffTicks, 1, false, true));
+                            // Make sure allies aren't frozen (legacy safety)
                             unfreezePlayer(target.getUniqueId());
                         } else {
-                            // Freeze enemies - add to frozen set and apply effects
-                            freezePlayer(target.getUniqueId());
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 255, false, true));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 255, false, true));
-                            target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 40, 128, false, true)); // Prevent jumping (amplifier 128 = negative jump height)
+                            // Slow enemies — no hard freeze. Slowness level is configurable
+                            // (default 3); reapplied each second while they stay in the field.
+                            int slowLevel = plugin.getConfig().getInt("abilities.speed-storm.enemy-slowness-level", 3);
+                            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, true));
                             target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
-
-                            // Schedule unfreeze after effects wear off
-                            final UUID targetId = target.getUniqueId();
-                            new BukkitRunnable() {
-                                @Override
-                                public void run() {
-                                    // Only unfreeze if player is outside the field
-                                    Player p = plugin.getServer().getPlayer(targetId);
-                                    if (p == null || !p.isOnline()) {
-                                        unfreezePlayer(targetId);
-                                        return;
-                                    }
-                                    // Check if still in any Speed Storm field
-                                    boolean stillInField = false;
-                                    for (UUID stormOwner : speedStormActivePlayers) {
-                                        Player owner = plugin.getServer().getPlayer(stormOwner);
-                                        if (owner != null && owner.isOnline()) {
-                                            if (p.getLocation().distance(owner.getLocation()) <= radius) {
-                                                stillInField = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (!stillInField) {
-                                        unfreezePlayer(targetId);
-                                    }
-                                }
-                            }.runTaskLater(plugin, 42L); // Slightly after effect wears off
                         }
                     }
                 }

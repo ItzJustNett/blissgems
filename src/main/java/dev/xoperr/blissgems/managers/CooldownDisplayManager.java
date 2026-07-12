@@ -217,9 +217,10 @@ public class CooldownDisplayManager {
         GemType gemType = gemInfo.type;
         int tier = gemInfo.tier;
 
-        // For addon gems (gemType is null), use registry-based display
+        // For addon gems (gemType is null), let the addon draw its own action bar
+        // (e.g. BlissMythics' MythicStatusBar) instead of BlissGems drawing it.
         if (gemType == null) {
-            return buildAddonCooldownDisplay(player, gemInfo);
+            return ""; // Addon gems handle their own action bar now
         }
 
         // Get gem color from GemType

@@ -1,0 +1,31 @@
+# Discord support server: https://discord.gg/4PaYftZwu3
+# Vietnamese language file for DropItemControl (Tiếng Việt)
+
+# Messages section contains all plugin messages
+messages:
+  prefix: "&8[&bDropItemControl&8] &7"
+  item-locked: "&aĐã khóa item &f%item% &atrong tay của bạn!"
+  item-unlocked: "&aĐã mở khóa item &f%item%&a!"
+  item-type-locked: "&aĐã khóa tất cả các item loại &f%item%&a!"
+  item-type-unlocked: "&aĐã mở khóa tất cả các item loại &f%item%&a!"
+  all-items-locked: "&aĐã khóa &f%limit% &aitem trong túi đồ của bạn!"
+  all-items-unlocked: "&aĐã mở khóa &f%limit% &aitem trong túi đồ của bạn!"
+  item-lock-limit-reached: "&cBạn đã đạt giới hạn số lượng item có thể khóa (%limit%)!"
+  item-already-locked: "&cItem này đã được khóa!"
+  item-not-locked: "&cItem này chưa được khóa!"
+  item-lock-failed: "&cKhông thể khóa item này!"
+  item-unlock-failed: "&cKhông thể mở khóa item này!"
+  cannot-drop: "&cBạn không thể vứt item đã khóa!"
+  cannot-store: "&cBạn không thể cất item đã khóa vào container!"
+  cannot-use-tool: "&cBạn không thể đặt item đã khóa vào công cụ này!"
+  unlock-reminder: "&eNhắc nhở: Dùng &f/dic unlock &eđể mở khóa item!"
+  no-permission: "&cBạn không có quyền sử dụng lệnh này!"
+  no-item-in-hand: "&cBạn cần cầm item trên tay để thực hiện lệnh này!"
+  no-locked-items: "&cBạn chưa khóa item nào!"
+  no-items-to-lock: "&cKhông có item nào để khóa!"
+  no-items-to-unlock: "&cKhông có item nào để mở khóa!"
+  language-changed: "&aĐã chuyển ngôn ngữ sang &f%language%&a!"
+  
+# Settings section contains configuration for lore and other display settings
+settings:
+  lock-lore: "&c&lĐã khóa - Không thể vứt" 

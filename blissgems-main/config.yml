@@ -1,0 +1,317 @@
+# BlissGems Configuration File
+# Version 1.0.0
+
+# ==========================================
+# ENERGY SYSTEM
+# ==========================================
+energy:
+  # Energy gained on player kill
+  gain-on-kill: 1
+  # Energy lost on death
+  loss-on-death: 1
+  # Maximum energy level
+  max-energy: 10
+  # Starting energy for pristine gems
+  starting-energy: 10
+  # Energy at which passives stop working (Ruined state)
+  ruined-threshold: 1
+  # Energy at which abilities cannot be used (Broken state)
+  broken-threshold: 0
+
+# ==========================================
+# GEM SETTINGS
+# ==========================================
+gems:
+  # Enable/disable specific gem types
+  enabled:
+    astra: true
+    fire: true
+    flux: true
+    life: true
+    puff: true
+    speed: true
+    strength: true
+    wealth: true
+
+  # Only one gem can be active at a time
+  single-gem-only: true
+
+  # Prevent players from dropping gems
+  prevent-drop: true
+
+# ==========================================
+# REVIVE BEACON SETTINGS
+# ==========================================
+revive-beacon:
+  # Duration of the revive beacon in seconds
+  duration: 300
+  # Range in blocks
+  range: 10.0
+  # Health to revive with (as fraction of max health, 0.5 = 50%)
+  revive-health: 10.0
+  # Energy to restore if player hit 0 energy
+  restore-energy: 3
+
+# ==========================================
+# PASSIVE EFFECTS
+# ==========================================
+passives:
+  # How often to apply passive effects (in ticks, 20 ticks = 1 second)
+  update-interval: 20
+
+  astra:
+    phase-chance: 0.15  # 15% chance to phase through attacks
+
+  life:
+    heal-amount: 0.5  # Hearts healed every 5 seconds
+    heal-interval: 100  # Ticks between heals (5 seconds)
+    undead-damage-multiplier: 3.0
+    saturation-multiplier: 2.0
+
+  flux:
+    flow-state-speed-boost: 0.2  # Additional speed in water
+
+  puff:
+    double-jump-enabled: true
+
+  speed:
+    soul-sand-immunity: true
+
+# ==========================================
+# ABILITIES
+# ==========================================
+abilities:
+  # Global ability cooldown (in seconds)
+  global-cooldown: 1
+
+  # Specific ability cooldowns (in seconds)
+  cooldowns:
+    astra-daggers: 20
+    astra-projection: 60  # Astral Projection cooldown
+    fire-fireball: 90
+    fire-campfire: 120
+    flux-ground: 90
+    flux-ray: 120
+    flux-shocking-arrows: 8
+    life-heart-drainer: 45
+    life-circle-of-life: 90
+    puff-dash: 8
+    puff-breezy-bash: 15
+    speed-sedative: 50
+    speed-storm: 60
+    speed-terminal: 45  # Terminal Velocity (Tier 2 secondary ability)
+    speed-blur: 15  # Blur ability cooldown
+    strength-nullify: 30
+    strength-frailer: 45
+    strength-shadow-stalker: 120
+    wealth-durability-chip: 40
+    wealth-pockets: 0  # No cooldown for opening
+    wealth-unfortunate: 60
+    wealth-rich-rush: 540  # 9 minutes
+    wealth-amplification: 180  # 3 minutes
+
+  # Ability damage values
+  damage:
+    astra-daggers: 4.0
+    fire-fireball: 6.0
+    fire-campfire: 2.0
+    flux-shocking: 3.0
+    life-drainer: 4.0  # Total over 20 seconds
+    puff-dash: 2.0
+    strength-chad-bonus: 7.0
+
+  # Fire campfire settings
+  fire-campfire:
+    radius: 5.0
+    burn-duration: 3  # seconds enemies burn
+
+  # Ability durations (in seconds)
+  durations:
+    flux-ground-freeze: 5
+    flux-ray: 8  # Duration of Flux Ray laser (7-10 seconds recommended)
+    astra-projection: 10
+    fire-campfire: 60
+    life-drainer: 20
+    life-circle: 10
+    wealth-unfortunate: 40
+    wealth-rich-rush: 120
+    wealth-amplification: 45
+
+  # Astra projection settings
+  astra-projection:
+    radius: 150.0  # Maximum distance from origin point
+
+# ==========================================
+# AUTO-ENCHANTING (TIER 2 ONLY)
+# ==========================================
+auto-enchant:
+  enabled: true
+  # Enchantments are applied when holding appropriate tools
+  fire:
+    flame: true
+    fire-aspect: true
+  puff:
+    power: true
+    punch: true
+    feather-falling: true
+  speed:
+    efficiency: true
+  strength:
+    sharpness: true
+  wealth:
+    fortune: true
+    looting: true
+    mending: true
+
+# ==========================================
+# UPGRADER SYSTEM
+# ==========================================
+upgrader:
+  # Play effects on upgrade
+  play-effects: true
+  # Particle effect type
+  particle: ENCHANT
+  particle-count: 50
+  # Sound effect
+  sound: ENTITY_PLAYER_LEVELUP
+  sound-volume: 1.0
+  sound-pitch: 1.5
+
+# ==========================================
+# TRADER SYSTEM
+# ==========================================
+trader:
+  # Cooldown in seconds
+  cooldown: 5
+  # Play effects on trade
+  play-effects: true
+  particle: PORTAL
+  particle-count: 30
+  sound: ENTITY_ENDERMAN_TELEPORT
+
+# ==========================================
+# ENERGY BOTTLE
+# ==========================================
+energy-bottle:
+  # Drop chance when Pristine +5 player kills another player
+  drop-enabled: true
+  # Play effects on absorption
+  play-effects: true
+  particle: HEART
+  particle-count: 20
+  sound: ENTITY_EXPERIENCE_ORB_PICKUP
+
+# ==========================================
+# REPAIR KIT / PEDESTAL
+# ==========================================
+repair-kit:
+  # Energy restored per second (set to 10 for instant full restore)
+  energy-per-second: 10
+  # Maximum total energy a kit can restore
+  max-total-energy: 10
+  # Range to heal nearby players (in blocks)
+  heal-radius: 10
+  # Update interval (in ticks)
+  update-interval: 20
+  # Prioritize lowest energy players
+  prioritize-lowest: true
+  # Particle effects
+  play-effects: true
+  particle: HAPPY_VILLAGER
+  particle-count: 5
+
+# ==========================================
+# MESSAGES
+# ==========================================
+messages:
+  prefix: "&5&lBlissGems &8»"
+  no-permission: "&cYou don't have permission to use this command!"
+  player-not-found: "&cPlayer not found!"
+  invalid-gem-type: "&cInvalid gem type!"
+  invalid-tier: "&cInvalid tier! Use 1 or 2."
+  gem-given: "&aGave {player} a {gem} (Tier {tier})!"
+  gem-rerolled: "&aRerolled {player}'s gem to {gem} (Tier {tier})!"
+  gem-rerolled-received: "&aYour gem has been rerolled to {gem} (Tier {tier})!"
+  energy-set: "&aSet {player}'s energy to {amount}!"
+  energy-added: "&aAdded {amount} energy to {player}!"
+  energy-removed: "&aRemoved {amount} energy from {player}!"
+  no-gem: "&cYou don't have a gem equipped!"
+  energy-withdrawn: "&aWithdrawn 1 energy into a bottle!"
+  not-enough-energy: "&cNot enough energy to withdraw!"
+  config-reloaded: "&aConfiguration reloaded!"
+  gem-info: "&aGem: &f{gem} &7(Tier {tier}) &8| &aEnergy: &f{energy}/10 &8| &aState: &f{state}"
+  no-active-gem: "&cYou don't have an active gem!"
+  upgrade-success: "&aGem upgraded to Tier 2!"
+  upgrade-wrong-type: "&cThis upgrader doesn't match your gem type!"
+  upgrade-already-tier2: "&cYour gem is already Tier 2!"
+  trade-success: "&aGem traded to {gem}!"
+  trade-cooldown: "&cPlease wait {seconds} seconds before trading again!"
+  ability-cooldown: "&cAbility on cooldown! Wait {seconds} seconds."
+  ability-no-energy: "&cNot enough energy to use this ability!"
+  passives-disabled: "&cYour gem is too damaged! Passives are disabled."
+  ability-activated: "&aAbility activated: {ability}"
+  first-gem-received: "&aWelcome to the server! You received your first gem: &f{gem}"
+  already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
+  projection-boundary: "&d&oYou've reached the projection boundary!"
+  projection-ended: "&d&oAstral Projection ended. You've returned to your body."
+  no-energy: "&cYour gem has no energy! It cannot be used."
+  energy-bottle-consumed: "&aConsumed energy bottle and gained 1 energy!"
+  gem-energy-restored: "&d&oRepair Kit restored {amount} energy!"
+  cannot-drop-gem: "&c&lYou cannot drop your gem!"
+
+# ==========================================
+# CRAFTING RECIPES
+# ==========================================
+crafting:
+  enabled: true
+  
+  gem_fragment:
+    shape:
+      - "DAD"
+      - "EIE"
+      - "DAD"
+    ingredients:
+      D: DIAMOND
+      A: AMETHYST_CLUSTER
+      E: EMERALD
+      I: IRON_BLOCK
+
+  gem_trader:
+    shape:
+      - "BDB"
+      - "DSD"
+      - "BDB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      D: DRAGON_BREATH
+      S: SCULK_CATALYST
+
+  repair_kit:
+    shape:
+      - "FAF"
+      - "NTN"
+      - "FAF"
+    ingredients:
+      F: PRISMARINE_SHARD
+      A: ANVIL
+      N: NETHERITE_INGOT
+      T: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+
+  revive_beacon:
+    shape:
+      - "ETE"
+      - "TBT"
+      - "ETE"
+    ingredients:
+      E: ECHO_SHARD
+      T: TOTEM_OF_UNDYING
+      B: BEACON
+
+  gem_upgrader:
+    shape:
+      - "BBB"
+      - "BSB"
+      - "BBB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      S: NETHER_STAR

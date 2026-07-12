@@ -567,6 +567,13 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.RitualCleanupListener(this), (Plugin)this);
+        // Sweep any ritual display entities orphaned before this start-up (loaded worlds only;
+        // unloaded-chunk leftovers are caught by RitualCleanupListener as their chunks load).
+        int sweptRitualGems = dev.xoperr.blissgems.managers.GemRitualManager.sweepAll(this.getServer());
+        if (sweptRitualGems > 0) {
+            this.getLogger().info("Swept " + sweptRitualGems + " orphaned ritual gem display(s) on enable.");
+        }
         this.itemOwnershipListener = new dev.xoperr.blissgems.listeners.ItemOwnershipListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)this.itemOwnershipListener, (Plugin)this);
         this.itemOwnershipListener.start();

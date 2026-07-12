@@ -1,0 +1,11 @@
+--- src/main/java/dev/xoperr/blissgems/managers/CooldownDisplayManager.java
++++ src/main/java/dev/xoperr/blissgems/managers/CooldownDisplayManager.java
+@@ -699,7 +699,7 @@
+         GemType gemType = gemInfo.type;
+         // For addon gems (gemType is null), use registry-based display
+         if (gemType == null) {
+-            return buildAddonCooldownDisplay(player, gemInfo);
++            return ""; // Addon gems handle their own Action bar now
+         }
+ 
+         GemDefinition def = this.plugin.getGemRegistry().getGem(gemInfo.gemId);

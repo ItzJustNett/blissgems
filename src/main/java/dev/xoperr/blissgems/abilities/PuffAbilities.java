@@ -66,27 +66,34 @@ public class PuffAbilities implements GemAbilityHandler {
         this.groupBreezyBash(player);
     }
 
+    @Override
+    public void onQuaternary(Player player, int tier) {
+        this.updraft(player);
+    }
+
     public void dash(Player player) {
         String abilityKey = "puff-dash";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
+        // Flatter, longer lunge so the dash is a viable forward attack (was Y 0.3, x2.5).
+        double power = this.plugin.getConfig().getDouble("abilities.puff-dash.power", 3.2);
+        double vertical = this.plugin.getConfig().getDouble("abilities.puff-dash.vertical", 0.18);
         Vector direction = player.getLocation().getDirection();
-        direction.setY(0.3);
-        direction.multiply(2.5);
+        direction.setY(vertical);
+        direction.multiply(power);
         player.setVelocity(direction);
-        int tier = this.plugin.getGemManager().getGemTier(player);
-        if (tier >= 2) {
-            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
-                for (Entity entity : player.getNearbyEntities(2.0, 2.0, 2.0)) {
-                    if (!(entity instanceof LivingEntity)) continue;
-                    LivingEntity target = (LivingEntity)entity;
-                    if (entity instanceof Player) continue;
-                    double damage = this.plugin.getConfigManager().getAbilityDamage("puff-dash");
-                    target.damage(damage, (Entity)player);
+        // Damage what the dash slams into — players included (trusted allies excepted).
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            double damage = this.plugin.getConfigManager().getAbilityDamage("puff-dash");
+            for (Entity entity : player.getNearbyEntities(2.5, 2.0, 2.5)) {
+                if (!(entity instanceof LivingEntity) || entity == player) continue;
+                if (entity instanceof Player && this.plugin.getTrustedPlayersManager().isTrusted(player, (Player) entity)) {
+                    continue;
                 }
-            }, 5L);
-        }
+                ((LivingEntity) entity).damage(damage, (Entity) player);
+            }
+        }, 5L);
         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 1.0f, 1.5f);
 
         // Puff white dust particles (RGB 255, 255, 255) + clouds
@@ -132,6 +139,53 @@ public class PuffAbilities implements GemAbilityHandler {
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Breezy Bash");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
+        }
+    }
+
+    /**
+     * Puff's 4th ability (Quaternary): an updraft that flings nearby non-trusted players
+     * into the sky. This promotes the mace-hit "launch" into a real triggerable ability so
+     * Puff has a full four-slot kit.
+     */
+    public void updraft(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("§c§oThis ability requires Tier 2!");
+            return;
+        }
+        String abilityKey = "puff-updraft";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        double radius = this.plugin.getConfig().getDouble("abilities.puff-updraft.radius", 6.0);
+        double launchVelocity = this.plugin.getConfig().getDouble("abilities.puff-updraft.launch-velocity", 3.2);
+
+        int hitCount = 0;
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (!(entity instanceof Player)) continue;
+            Player target = (Player) entity;
+            if (this.plugin.getTrustedPlayersManager().isTrusted(player, target)) {
+                continue;
+            }
+            target.setVelocity(new Vector(0.0, launchVelocity, 0.0));
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.8f);
+            target.getWorld().spawnParticle(Particle.CLOUD, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
+            target.sendMessage("§b§oAn updraft flings you into the sky!");
+            hitCount++;
+        }
+
+        Particle.DustOptions whiteDust = new Particle.DustOptions(ParticleUtils.PUFF_WHITE, 1.5f);
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 60, 2.0, 1.0, 2.0, 0.0, whiteDust, true);
+        player.getWorld().spawnParticle(Particle.GUST, player.getLocation().add(0, 0.5, 0), 20, 2.0, 0.5, 2.0);
+        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_JUMP, 1.0f, 0.7f);
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Updraft");
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+        if (hitCount > 0) {
+            player.sendMessage("§f§o" + hitCount + " player(s) sent flying!");
         }
     }
 

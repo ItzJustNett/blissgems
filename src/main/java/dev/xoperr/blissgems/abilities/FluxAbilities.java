@@ -113,7 +113,11 @@ public class FluxAbilities implements GemAbilityHandler {
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 1.5f);
         player.sendMessage("§b⚡ §oCharging Flux Beam... Right-click again to fire!");
 
-        // Charging task - increases charge over 15 seconds
+        // Ticks to reach full charge — configurable (default matches the old 300 = 15s).
+        final int chargeDurationTicks = Math.max(1,
+            this.plugin.getConfig().getInt("abilities.flux-beam.charge-duration-ticks", CHARGE_DURATION_TICKS));
+
+        // Charging task - increases charge over the configured duration
         BukkitTask task = new BukkitRunnable() {
             int ticksElapsed = 0;
             boolean maxChargeNotified = false;
@@ -129,7 +133,7 @@ public class FluxAbilities implements GemAbilityHandler {
                 ticksElapsed++;
 
                 // Calculate charge based on elapsed time
-                int newCharge = Math.min((ticksElapsed * MAX_CHARGE) / CHARGE_DURATION_TICKS, MAX_CHARGE);
+                int newCharge = Math.min((ticksElapsed * MAX_CHARGE) / chargeDurationTicks, MAX_CHARGE);
                 chargingPlayers.put(uuid, newCharge);
 
                 // Show charge bar in action bar
