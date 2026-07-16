@@ -101,6 +101,9 @@ public class ComprehensiveGemProtectionListener implements Listener {
         if (CustomItemManager.isUndroppable(droppedItem)) {
             event.setCancelled(true);
             sendProtectionMessage(event.getPlayer());
+            // Re-sync the client next tick so any predicted ghost copy is cleared.
+            Player p = event.getPlayer();
+            plugin.getServer().getScheduler().runTask(plugin, p::updateInventory);
         }
     }
 
@@ -110,6 +113,10 @@ public class ComprehensiveGemProtectionListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
+        // Gem locks are in-memory and clear on logout.
+        if (plugin.getGemLockManager() != null) {
+            plugin.getGemLockManager().clear(event.getPlayer().getUniqueId());
+        }
         if (!isProtectionEnabled()) {
             return;
         }
@@ -388,13 +395,25 @@ public class ComprehensiveGemProtectionListener implements Listener {
 
         ItemStack item = event.getItem();
         if (item != null && CustomItemManager.isUndroppable(item)) {
-            // Prevent composting gems
-            if (event.getClickedBlock() != null &&
-                event.getClickedBlock().getType().name().contains("COMPOSTER")) {
+            // Prevent inserting a gem into blocks that accept item placement via right-click:
+            // composters, decorated pots, chiseled bookshelves, and the new Shelf block
+            // (incl. its powered variant) — all of which could stash a gem out of inventory.
+            if (event.getClickedBlock() != null && isItemStashingBlock(event.getClickedBlock().getType().name())) {
                 event.setCancelled(true);
                 sendProtectionMessage(event.getPlayer());
             }
         }
+    }
+
+    /**
+     * Block types that can hold an item placed by a right-click interaction (not a
+     * standard container GUI). Matched by name so it works across API versions, including
+     * blocks (like Shelf) newer than the compile-time Bukkit API.
+     */
+    private boolean isItemStashingBlock(String blockName) {
+        return blockName.contains("COMPOSTER")
+            || blockName.contains("SHELF")          // SHELF, BOOKSHELF, CHISELED_BOOKSHELF
+            || blockName.contains("DECORATED_POT");
     }
 
     // ==========================================

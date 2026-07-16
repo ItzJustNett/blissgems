@@ -1,0 +1,7 @@
+name: BlissMythics
+version: 1.3.6
+main: dev.xoperr.blissmythics.BlissMythics
+api-version: '1.21'
+description: Mythic gems (Heretic, Auratus) for BlissGems via the addon API.
+author: xoperr
+depend: [BlissGems]

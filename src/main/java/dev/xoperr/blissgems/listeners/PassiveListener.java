@@ -214,6 +214,8 @@ implements Listener {
 
             targetPlayer.getWorld().playSound(targetPlayer.getLocation(), Sound.ENTITY_BREEZE_LAND, 1.0f, 0.5f);
             targetPlayer.sendMessage("\u00a7c\u00a7oYou're being slammed down!");
+            // Yellow-orange shockwave ring when they hit the ground.
+            this.plugin.getPuffAbilities().impactRingOnLand(targetPlayer);
         }, 60L); // 3 seconds = 60 ticks
     }
 

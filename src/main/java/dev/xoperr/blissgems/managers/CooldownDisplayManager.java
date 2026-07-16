@@ -118,6 +118,15 @@ public class CooldownDisplayManager {
                     continue;
                 }
 
+                // Gem locked by Auratus's Gem Lock — show the lock icon instead of cooldowns.
+                if (this.plugin.getGemLockManager() != null && this.plugin.getGemLockManager().isLocked(player)) {
+                    int left = this.plugin.getGemLockManager().getRemainingSeconds(player.getUniqueId());
+                    String locked = "§6" + dev.xoperr.blissgems.managers.GemLockManager.LOCK_GLYPH
+                        + " §c§lGEM LOCKED §8| §7" + left + "s";
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(locked));
+                    continue;
+                }
+
                 // Show BROKEN indicator when energy is 0
                 int energy = this.plugin.getEnergyManager().getEnergy(player);
                 String cooldownDisplay = buildCooldownDisplay(player);

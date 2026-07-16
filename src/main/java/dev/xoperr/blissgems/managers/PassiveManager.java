@@ -46,6 +46,10 @@ public class PassiveManager {
     }
 
     private void applyPassiveEffects(Player player) {
+        // Gem locked by Auratus's Gem Lock — no passives for the duration.
+        if (this.plugin.getGemLockManager() != null && this.plugin.getGemLockManager().isLocked(player)) {
+            return;
+        }
         // Check if gems are disabled in this region (WorldGuard integration)
         if (this.plugin.getRegionManager() != null &&
             this.plugin.getRegionManager().areGemsDisabled(player)) {

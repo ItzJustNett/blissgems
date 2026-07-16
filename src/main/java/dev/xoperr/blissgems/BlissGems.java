@@ -49,6 +49,7 @@ import dev.xoperr.blissgems.managers.CooldownDisplayManager;
 import dev.xoperr.blissgems.managers.CriticalHitManager;
 import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
+import dev.xoperr.blissgems.managers.GemLockManager;
 import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.managers.GemRitualManager;
 import dev.xoperr.blissgems.managers.AchievementManager;
@@ -106,6 +107,7 @@ implements BlissGemsAPI {
     private ReviveBeaconManager reviveBeaconManager;
     private SoulManager soulManager;
     private FlowStateManager flowStateManager;
+    private GemLockManager gemLockManager;
     private CriticalHitManager criticalHitManager;
     private PluginMessagingManager pluginMessagingManager;
     private AstraAbilities astraAbilities;
@@ -266,6 +268,7 @@ implements BlissGemsAPI {
         }
         try {
             this.flowStateManager = new FlowStateManager(this);
+            this.gemLockManager = new GemLockManager(this);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FlowStateManager ===");
             this.getLogger().severe(e.getMessage());
@@ -568,6 +571,10 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.RitualCleanupListener(this), (Plugin)this);
+        // Anti-dupe: break the "drop-and-swap" ghost dupe (drop + same-tick hotbar swap).
+        dev.xoperr.blissgems.listeners.DropSwapGuard dropSwapGuard = new dev.xoperr.blissgems.listeners.DropSwapGuard(this);
+        this.getServer().getPluginManager().registerEvents((Listener)dropSwapGuard, (Plugin)this);
+        dropSwapGuard.start();
         // Sweep any ritual display entities orphaned before this start-up (loaded worlds only;
         // unloaded-chunk leftovers are caught by RitualCleanupListener as their chunks load).
         int sweptRitualGems = dev.xoperr.blissgems.managers.GemRitualManager.sweepAll(this.getServer());
@@ -682,6 +689,10 @@ implements BlissGemsAPI {
 
     public SoulManager getSoulManager() {
         return this.soulManager;
+    }
+
+    public GemLockManager getGemLockManager() {
+        return this.gemLockManager;
     }
 
     public FlowStateManager getFlowStateManager() {
