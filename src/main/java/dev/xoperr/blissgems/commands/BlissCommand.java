@@ -67,6 +67,10 @@ TabCompleter {
                 this.handleGiveItem(sender, args);
                 break;
             }
+            case "transfer": {
+                this.handleTransfer(sender, args);
+                break;
+            }
             case "energy": {
                 this.handleEnergy(sender, args);
                 break;
@@ -418,6 +422,125 @@ TabCompleter {
         target.sendMessage("\u00a7aYou received " + amount + "x " + itemName + "\u00a7a!");
     }
 
+    /** Consumables that are non-droppable (anti-dupe) and so can only change hands via /bliss transfer. */
+    private static final java.util.Set<String> TRANSFERABLE_ITEMS =
+        java.util.Set.of("gem_trader", "gem_upgrader", "energy_bottle", "repair_kit");
+
+    /**
+     * /bliss transfer <player> <item> [amount]
+     * Player-to-player handoff for the non-droppable BlissGems consumables \u2014 replaces the
+     * drop-to-trade path we removed to close the drop-and-swap dupe.
+     */
+    private void handleTransfer(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can transfer items!");
+            return;
+        }
+        Player player = (Player) sender;
+        if (args.length < 3) {
+            player.sendMessage("\u00a7cUsage: /bliss transfer <player> <item> [amount]");
+            player.sendMessage("\u00a77Transferable: gem_trader, gem_upgrader, energy_bottle, repair_kit");
+            return;
+        }
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+        if (target.getUniqueId().equals(player.getUniqueId())) {
+            player.sendMessage("\u00a7cYou can't transfer items to yourself!");
+            return;
+        }
+        String itemId = args[2].toLowerCase();
+        if (!TRANSFERABLE_ITEMS.contains(itemId)) {
+            player.sendMessage("\u00a7cYou can only transfer: \u00a7fgem_trader, gem_upgrader, energy_bottle, repair_kit");
+            return;
+        }
+        int amount = 1;
+        if (args.length >= 4) {
+            try {
+                amount = Integer.parseInt(args[3]);
+            } catch (NumberFormatException e) {
+                player.sendMessage("\u00a7cInvalid amount!");
+                return;
+            }
+            if (amount < 1 || amount > 64) {
+                player.sendMessage("\u00a7cAmount must be between 1 and 64!");
+                return;
+            }
+        }
+
+        // Confirm the sender actually has enough
+        int have = countCustomItem(player, itemId);
+        if (have < amount) {
+            player.sendMessage("\u00a7cYou only have \u00a7f" + have + "\u00a7c of that item.");
+            return;
+        }
+
+        // Remove from sender, then deliver to target; refund any that didn't fit.
+        removeCustomItem(player, itemId, amount);
+        ItemStack give = CustomItemManager.getItemById(itemId);
+        if (give == null) {
+            player.sendMessage("\u00a7cInvalid item.");
+            return;
+        }
+        give.setAmount(amount);
+        java.util.Map<Integer, ItemStack> leftover = target.getInventory().addItem(give);
+        int notDelivered = 0;
+        for (ItemStack left : leftover.values()) {
+            if (left != null) notDelivered += left.getAmount();
+        }
+        if (notDelivered > 0) {
+            // Refund the undelivered portion to the sender (a slot just freed up).
+            ItemStack refund = CustomItemManager.getItemById(itemId);
+            refund.setAmount(notDelivered);
+            player.getInventory().addItem(refund);
+        }
+        int delivered = amount - notDelivered;
+        if (delivered <= 0) {
+            player.sendMessage("\u00a7c" + target.getName() + "'s inventory is full \u2014 nothing was transferred.");
+            return;
+        }
+
+        String itemName = give.getItemMeta() != null ? give.getItemMeta().getDisplayName() : itemId;
+        player.sendMessage("\u00a7aTransferred \u00a7f" + delivered + "x " + itemName + " \u00a7ato " + target.getName() + "!");
+        target.sendMessage("\u00a7a" + player.getName() + " \u00a7atransferred you \u00a7f" + delivered + "x " + itemName + "\u00a7a!");
+        if (notDelivered > 0) {
+            player.sendMessage("\u00a7e" + notDelivered + " couldn't fit and were returned to you.");
+        }
+    }
+
+    /** Count how many of a custom item (by id) the player holds across their whole inventory. */
+    private int countCustomItem(Player player, String itemId) {
+        int total = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null) continue;
+            if (itemId.equals(CustomItemManager.getIdByItem(item))) {
+                total += item.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /** Remove exactly {@code amount} of a custom item (by id) from the player's inventory. */
+    private void removeCustomItem(Player player, String itemId, int amount) {
+        int remaining = amount;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length && remaining > 0; i++) {
+            ItemStack item = contents[i];
+            if (item == null) continue;
+            if (!itemId.equals(CustomItemManager.getIdByItem(item))) continue;
+            int take = Math.min(remaining, item.getAmount());
+            int left = item.getAmount() - take;
+            if (left <= 0) {
+                player.getInventory().setItem(i, null);
+            } else {
+                item.setAmount(left);
+            }
+            remaining -= take;
+        }
+    }
+
     private void handleEnergy(CommandSender sender, String[] args) {
         // If no arguments, show own energy (any player can use)
         if (args.length == 1) {
@@ -659,12 +782,28 @@ TabCompleter {
         return null;
     }
 
+    /**
+     * True (and messages the player) if their gem is currently locked by Auratus's Gem Lock.
+     * Used to block every ability activation path while locked.
+     */
+    private boolean blockedByGemLock(Player player) {
+        dev.xoperr.blissgems.managers.GemLockManager mgr = this.plugin.getGemLockManager();
+        if (mgr != null && mgr.isLocked(player)) {
+            int left = mgr.getRemainingSeconds(player.getUniqueId());
+            player.sendMessage("\u00a76" + dev.xoperr.blissgems.managers.GemLockManager.LOCK_GLYPH
+                + " \u00a7c\u00a7oYour gem is locked! \u00a77(" + left + "s)");
+            return true;
+        }
+        return false;
+    }
+
     private void handleAbilityMain(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
             return;
         }
         Player player = (Player)sender;
+        if (blockedByGemLock(player)) return;
 
         String oraxenId = findGemInHand(player);
         if (oraxenId == null) {
@@ -714,6 +853,7 @@ TabCompleter {
             return;
         }
         Player player = (Player)sender;
+        if (blockedByGemLock(player)) return;
 
         String oraxenId = findGemInHand(player);
         if (oraxenId == null) {
@@ -797,6 +937,7 @@ TabCompleter {
             return;
         }
         Player player = (Player) sender;
+        if (blockedByGemLock(player)) return;
 
         String oraxenId = findGemInHand(player);
         if (oraxenId == null) {
@@ -839,6 +980,11 @@ TabCompleter {
         // Addon gem
         if (registry != null) {
             String gemId = registry.gemIdFromItemId(oraxenId);
+            // Auratus's tertiary (F) is otherwise unused — hang the Gem Lock ability on it.
+            if ("auratus".equals(gemId)) {
+                this.plugin.getGemLockManager().castGemLock(player);
+                return;
+            }
             GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
             if (handler != null) handler.onTertiary(player, tier);
         }
@@ -850,6 +996,7 @@ TabCompleter {
             return;
         }
         Player player = (Player) sender;
+        if (blockedByGemLock(player)) return;
 
         String oraxenId = findGemInHand(player);
         if (oraxenId == null) {
@@ -1469,14 +1616,14 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("clearcds")) {
                 List<String> targets = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 targets.add(0, "all");
                 return targets;
             }
-            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
+            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("reroll") || args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("transfer") || args[0].equalsIgnoreCase("energy") || args[0].equalsIgnoreCase("trust") || args[0].equalsIgnoreCase("untrust")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
             if (args[0].equalsIgnoreCase("stats")) {
@@ -1511,6 +1658,9 @@ TabCompleter {
                 items.add("gem_upgrader"); // Universal upgrader
                 return items;
             }
+            if (args[0].equalsIgnoreCase("transfer")) {
+                return new ArrayList<>(TRANSFERABLE_ITEMS);
+            }
             if (args[0].equalsIgnoreCase("energy")) {
                 return Arrays.asList("set", "add", "remove");
             }
@@ -1522,7 +1672,7 @@ TabCompleter {
             if (args[0].equalsIgnoreCase("give")) {
                 return Arrays.asList("1", "2");
             }
-            if (args[0].equalsIgnoreCase("giveitem")) {
+            if (args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("transfer")) {
                 return Arrays.asList("1", "8", "16", "32", "64");
             }
         }

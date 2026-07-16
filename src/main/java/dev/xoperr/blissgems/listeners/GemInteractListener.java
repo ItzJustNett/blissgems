@@ -224,6 +224,14 @@ implements Listener {
      * may proceed. Emits the appropriate denial message on failure.
      */
     private boolean gateAbility(Player player) {
+        // Gem locked by Auratus's Gem Lock — no abilities of any kind.
+        dev.xoperr.blissgems.managers.GemLockManager lockMgr = this.plugin.getGemLockManager();
+        if (lockMgr != null && lockMgr.isLocked(player)) {
+            int left = lockMgr.getRemainingSeconds(player.getUniqueId());
+            player.sendMessage("§6" + dev.xoperr.blissgems.managers.GemLockManager.LOCK_GLYPH
+                + " §c§oYour gem is locked! §7(" + left + "s)");
+            return false;
+        }
         if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
             long now = System.currentTimeMillis();
             Long lastSent = clickDisabledMessageCooldowns.get(player.getUniqueId());

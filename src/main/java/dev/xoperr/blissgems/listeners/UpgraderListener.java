@@ -24,11 +24,21 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class UpgraderListener
 implements Listener {
     private final BlissGems plugin;
+    // Debounce: a single right-click fires PlayerInteractEvent twice (main + off hand),
+    // and rapid clicks can double-process before the gem's tier updates — both let one
+    // upgrader upgrade more than one gem. Ignore repeat fires within this window.
+    private final Map<UUID, Long> lastUpgrade = new HashMap<>();
+    private static final long UPGRADE_DEBOUNCE_MS = 400L;
 
     public UpgraderListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -37,6 +47,11 @@ implements Listener {
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        // Only handle the hand that actually holds the upgrader; ignore the paired
+        // off-hand fire of the same physical click.
+        if (event.getHand() != EquipmentSlot.HAND && event.getHand() != EquipmentSlot.OFF_HAND) {
             return;
         }
         Player player = event.getPlayer();
@@ -50,6 +65,14 @@ implements Listener {
             return;
         }
         event.setCancelled(true);
+
+        // Debounce double-fires / spam-clicks so one upgrader can't upgrade multiple gems.
+        long now = System.currentTimeMillis();
+        Long last = lastUpgrade.get(player.getUniqueId());
+        if (last != null && now - last < UPGRADE_DEBOUNCE_MS) {
+            return;
+        }
+        lastUpgrade.put(player.getUniqueId(), now);
 
         // Check if player has a gem
         if (!this.plugin.getGemManager().hasActiveGem(player)) {

@@ -15,12 +15,16 @@ package dev.xoperr.blissgems.abilities;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
+import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.HashSet;
@@ -41,6 +45,80 @@ public class PuffAbilities implements GemAbilityHandler {
 
     public void removeFallDamageImmunity(Player player) {
         fallDamageImmune.remove(player.getUniqueId());
+    }
+
+    /**
+     * Expanding yellow→orange shockwave ring — a "ground impact" / explosion effect.
+     * Draws a circle of dust that grows outward over ~12 ticks, fading from yellow to
+     * deep orange, with an explosion flash and lava flecks for the impact feel.
+     */
+    public void spawnGroundImpactRing(Location center) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        // Impact flash + sound at the moment of landing.
+        world.spawnParticle(Particle.EXPLOSION, center.clone().add(0, 0.2, 0), 1);
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.4f);
+        world.playSound(center, Sound.ENTITY_BREEZE_LAND, 1.0f, 0.6f);
+
+        new BukkitRunnable() {
+            int tick = 0;
+            final int maxTicks = 12;
+
+            @Override
+            public void run() {
+                if (tick >= maxTicks
+                        || !world.isChunkLoaded(center.getBlockX() >> 4, center.getBlockZ() >> 4)) {
+                    this.cancel();
+                    return;
+                }
+                double progress = tick / (double) maxTicks;
+                double radius = 0.6 + progress * 4.2; // grows 0.6 → ~4.8 blocks
+                // Fade yellow (255,225,80) → deep orange (255,90,0) as it expands.
+                int g = Math.max(70, (int) (225 - progress * 150));
+                int b = Math.max(0, (int) (80 - progress * 80));
+                Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(255, g, b), 1.7f);
+
+                Location c = center.clone().add(0, 0.15, 0);
+                int points = Math.max(12, (int) (radius * 10));
+                for (int i = 0; i < points; i++) {
+                    double a = (2 * Math.PI * i) / points;
+                    world.spawnParticle(Particle.DUST,
+                        c.getX() + Math.cos(a) * radius, c.getY(), c.getZ() + Math.sin(a) * radius,
+                        1, 0, 0, 0, 0, dust);
+                }
+                // A few flame/lava flecks kicked up for the explosion look.
+                if (tick % 2 == 0) {
+                    world.spawnParticle(Particle.LAVA, center.clone().add(0, 0.3, 0), 3, 0.5, 0.1, 0.5, 0);
+                    world.spawnParticle(Particle.FLAME, center.clone().add(0, 0.2, 0), 4, radius * 0.4, 0.05, radius * 0.4, 0.01);
+                }
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Watches a launched/slammed target and fires {@link #spawnGroundImpactRing} the moment
+     * they touch the ground (gives up after 5s so it never leaks a task).
+     */
+    public void impactRingOnLand(Player target) {
+        new BukkitRunnable() {
+            int waited = 0;
+
+            @Override
+            public void run() {
+                if (target == null || !target.isOnline() || waited > 100) {
+                    this.cancel();
+                    return;
+                }
+                if (target.isOnGround()) {
+                    spawnGroundImpactRing(target.getLocation());
+                    this.cancel();
+                    return;
+                }
+                waited++;
+            }
+        }.runTaskTimer(plugin, 2L, 1L);
     }
 
     public void onRightClick(Player player, int tier) {
@@ -171,6 +249,7 @@ public class PuffAbilities implements GemAbilityHandler {
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.8f);
             target.getWorld().spawnParticle(Particle.CLOUD, target.getLocation(), 30, 0.5, 0.5, 0.5, 0.1);
             target.sendMessage("§b§oAn updraft flings you into the sky!");
+            impactRingOnLand(target); // shockwave when they come back down
             hitCount++;
         }
 

@@ -269,6 +269,7 @@ abilities:
     puff-breezy-bash: 10
     puff-group-bash: 30
     puff-updraft: 20  # Puff 4th ability (updraft fling) cooldown
+    auratus-gemlock: 60  # Auratus Gem Lock (F) cooldown
     speed-blur: 15
     speed-sedative: 60
     speed-storm: 135  # 2.25 minutes (tripled from 45)
@@ -368,6 +369,12 @@ abilities:
   puff-updraft:
     radius: 6.0  # AoE radius
     launch-velocity: 3.2  # Upward launch velocity applied to enemies
+
+  # Auratus Gem Lock settings (Tier 2, F / tertiary) — locks the targeted player's gem
+  # (blocks all their abilities + passives, shows the lock icon on their action bar)
+  auratus-gemlock:
+    duration: 10  # Seconds the target's gem stays locked
+    range: 20     # Raycast range in blocks to acquire a target
 
   # Strength Nullify settings
   strength-nullify:
