@@ -423,7 +423,10 @@ public class CustomItemManager {
      */
     public static void registerAddonItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
         if (ITEM_REGISTRY.containsKey(id)) {
-            throw new IllegalArgumentException("Item ID '" + id + "' is already registered!");
+            // Idempotent: a duplicate item registration must not crash the addon's onEnable.
+            // Keep the first, skip the duplicate.
+            org.bukkit.Bukkit.getLogger().warning("[BlissGems] Custom item id '" + id + "' already registered — skipping duplicate.");
+            return;
         }
         ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
     }

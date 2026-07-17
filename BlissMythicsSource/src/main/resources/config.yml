@@ -1,0 +1,32 @@
+# ==========================================
+# BlissMythics — config for the mythic gems (Heretic, Auratus)
+# Values were previously hardcoded; tune them here. /reload or restart to apply.
+# ==========================================
+
+heretic:
+  # Auto Crit passive: multiplies every melee hit by this. Vanilla crits ALSO multiply by
+  # 1.5, so with 1.5 here a crit stacks to ~2.25x. Lower this (e.g. 1.25) to tame it.
+  crit-multiplier: 1.5
+  # Hemorrhage/bleed: incoming damage to a bleeding target is multiplied by this.
+  bleed-multiplier: 2.0
+  # Bloodsaws (use ability): damage per hit.
+  bloodsaws-damage: 6.0
+  # Bloodlinking (shift+use) slam: AoE damage on impact.
+  bloodlink-damage: 7.0
+  # Blood Hardening passive: caps a single incoming hit to at most this much damage (HP).
+  max-hit-cap: 13.0
+  # Ability cooldowns (seconds).
+  cooldowns:
+    bloodsaws: 25
+    bloodlink: 60
+
+auratus:
+  # Venerated Perforators (use): damage per chain grapple hit.
+  perforator-damage: 6.0
+  # Ground slam (shift, on landing): AoE damage.
+  slam-damage: 6.0
+  # Echoing Aegis (shift+use) parry: HP healed to the parrier on a successful parry.
+  aegis-heal: 5.0
+  # Ability cooldowns (seconds). (Venerated Perforators uses a 2-charge system, not a flat cooldown.)
+  cooldowns:
+    aegis: 45

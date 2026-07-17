@@ -30,11 +30,9 @@ public class GemRitualManager {
     private final BlissGems plugin;
 
     /**
-     * Scoreboard tag stamped on every ItemDisplay the ritual spawns. Lets us reliably
-     * find and remove ritual display entities that were orphaned when a player logged
-     * out mid-ritual (e.g. first-join then insta-rejoin) — the per-runnable cleanup
-     * skips entities in unloaded chunks (isValid() == false), so those would otherwise
-     * leak as "gems stuck floating in the air".
+     * Scoreboard tag on every ItemDisplay the ritual spawns, so orphans (e.g. a player who
+     * first-joined then insta-rejoined mid-ritual) can be swept — the per-runnable cleanup
+     * misses entities in unloaded chunks.
      */
     public static final String RITUAL_TAG = "blissgems_ritual_display";
 
@@ -42,10 +40,7 @@ public class GemRitualManager {
         this.plugin = plugin;
     }
 
-    /**
-     * Remove every orphaned ritual display entity in a single world.
-     * @return how many were removed
-     */
+    /** Remove every orphaned ritual display entity in a single world. */
     public static int sweepWorld(org.bukkit.World world) {
         int removed = 0;
         for (org.bukkit.entity.Entity e : world.getEntitiesByClasses(ItemDisplay.class)) {
@@ -74,30 +69,41 @@ public class GemRitualManager {
      * @param tier The gem tier (1 or 2) — spinning gems match this tier
      */
     public void performGemRitual(Player player, GemType gemType, boolean isFirstGem, int tier) {
+        performGemRitual(player, gemType != null ? gemType.getId() : null, isFirstGem, tier);
+    }
+
+    /**
+     * Performs the ritual for any gem ID — built-in or addon.
+     * @param player The player receiving the gem
+     * @param gemId The gem ID being received (e.g. "fire", or an addon's "ice")
+     * @param isFirstGem Whether this is the player's first gem
+     * @param tier The gem tier (1 or 2) — spinning gems match this tier
+     */
+    public void performGemRitual(Player player, String gemId, boolean isFirstGem, int tier) {
         // Achievement: Reawakening (complete a restoration ritual)
         if (!isFirstGem && this.plugin.getAchievementManager() != null) {
             this.plugin.getAchievementManager().unlock(player, Achievement.REAWAKENING);
         }
 
         Location loc = player.getLocation().clone();
-        org.bukkit.Color gemColor = getGemColor(gemType);
+        org.bukkit.Color gemColor = getGemColor(gemId);
 
         // Apply slow falling during ritual (extends for full 15-second sequence)
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 300, 0, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 40, 1, false, false));
 
-        // Phase 0: All 8 gems spinning orbit (0-4 seconds)
+        // Phase 0: every ritual gem spinning in orbit (0-4 seconds)
         List<ItemDisplay> orbitingGems = new ArrayList<>();
-        GemType[] allGems = GemType.values();
+        final List<String> allGems = getRitualGemIds(tier);
         Location playerLoc = player.getLocation();
 
         // Spawn ItemDisplay entities for each gem (pristine+ texture, glowing)
-        for (int i = 0; i < allGems.length; i++) {
-            String gemItemId = getGemItemId(allGems[i], tier);
+        for (int i = 0; i < allGems.size(); i++) {
+            String gemItemId = getGemItemId(allGems.get(i), tier);
             ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
             if (gemItem == null) continue;
 
-            double angleOffset = (i / 8.0) * 2 * Math.PI;
+            double angleOffset = (i / (double) allGems.size()) * 2 * Math.PI;
             double radius = 2.5;
             double height = 1.5;
 
@@ -132,12 +138,12 @@ public class GemRitualManager {
                     return;
                 }
 
-                // Update positions of all 8 gem items
+                // Update positions of every orbiting gem item
                 for (int i = 0; i < orbitingGems.size(); i++) {
                     ItemDisplay gem = orbitingGems.get(i);
                     if (gem == null || !gem.isValid()) continue;
 
-                    double angleOffset = (i / 8.0) * 2 * Math.PI;
+                    double angleOffset = (i / (double) orbitingGems.size()) * 2 * Math.PI;
                     double angle = (ticks / 20.0) * Math.PI + angleOffset; // 2 rotations in 4s
                     double radius = 2.5;
                     double height = 1.5 + Math.sin(ticks / 10.0) * 0.3; // Gentle bob
@@ -169,19 +175,21 @@ public class GemRitualManager {
 
         // Phase 1: Selection and divergence - winner goes to player, others fall (4-6 seconds)
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            // Player left during the 4s orbit — don't spawn display entities that would
-            // orphan in an unloaded chunk (the source of the "floating gems" leak).
+            // Player left during the orbit — don't spawn displays that would orphan.
             if (!player.isOnline()) return;
             Location playerCenter = player.getLocation().add(0, 1.5, 0);
             List<ItemDisplay> selectionGems = new ArrayList<>();
+            // Gem ID behind each entity in selectionGems, kept in step with it so the
+            // winner lookup below stays correct even if a gem fails to spawn.
+            final List<String> selectionIds = new ArrayList<>();
 
             // Spawn fresh gem entities for selection phase (pristine+, glowing)
-            for (int i = 0; i < allGems.length; i++) {
-                String gemItemId = getGemItemId(allGems[i], tier);
+            for (int i = 0; i < allGems.size(); i++) {
+                String gemItemId = getGemItemId(allGems.get(i), tier);
                 ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
                 if (gemItem == null) continue;
 
-                double angleOffset = (i / 8.0) * 2 * Math.PI;
+                double angleOffset = (i / (double) allGems.size()) * 2 * Math.PI;
                 double startAngle = (4.0) * Math.PI + angleOffset;
                 double radius = 2.5;
                 double height = 1.5;
@@ -197,6 +205,7 @@ public class GemRitualManager {
                 itemDisplay.setGlowing(true);
                 itemDisplay.addScoreboardTag(RITUAL_TAG);
                 selectionGems.add(itemDisplay);
+                selectionIds.add(allGems.get(i));
             }
 
             new BukkitRunnable() {
@@ -223,10 +232,10 @@ public class GemRitualManager {
                         ItemDisplay gem = selectionGems.get(i);
                         if (gem == null || !gem.isValid()) continue;
 
-                        GemType currentGem = allGems[i];
+                        String currentGem = selectionIds.get(i);
 
                         // Starting orbit position (where phase 0 ended)
-                        double angleOffset = (i / 8.0) * 2 * Math.PI;
+                        double angleOffset = (i / (double) selectionGems.size()) * 2 * Math.PI;
                         double startAngle = (4.0) * Math.PI + angleOffset;
                         double startRadius = 2.5;
                         double startHeight = 1.5;
@@ -237,8 +246,10 @@ public class GemRitualManager {
                             Math.sin(startAngle) * startRadius
                         );
 
+                        boolean isWinner = currentGem.equals(gemId);
+
                         Location targetLoc;
-                        if (currentGem == gemType) {
+                        if (isWinner) {
                             // Winner gem: move to player center
                             targetLoc = playerCenter.clone();
                         } else {
@@ -255,17 +266,17 @@ public class GemRitualManager {
                         gem.teleport(currentLoc);
 
                         // Rotate winner gem faster
-                        float rotation = currentGem == gemType ? (ticks * 15) % 360 : (ticks * 3) % 360;
+                        float rotation = isWinner ? (ticks * 15) % 360 : (ticks * 3) % 360;
                         Transformation transform = new Transformation(
                             new Vector3f(0, 0, 0),
                             new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
-                            currentGem == gemType ? new Vector3f(1.0f, 1.0f, 1.0f) : new Vector3f(0.7f, 0.7f, 0.7f),
+                            isWinner ? new Vector3f(1.0f, 1.0f, 1.0f) : new Vector3f(0.7f, 0.7f, 0.7f),
                             new AxisAngle4f(0, 0, 0, 1)
                         );
                         gem.setTransformation(transform);
 
                         // Particle effect for winner only
-                        if (currentGem == gemType) {
+                        if (isWinner) {
                             Color color = getGemColor(currentGem);
                             player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 3, 0.1, 0.1, 0.1, 0.05);
                             player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 2, 0.1, 0.1, 0.1, 0.01);
@@ -643,25 +654,68 @@ public class GemRitualManager {
     }
 
     /**
-     * Get the custom item ID for displaying a gem at the given tier
+     * Gem IDs that take part in the ritual orbit: everything grantable, minus any
+     * gem with no renderable item at this tier (an addon capped at tier 1 has no
+     * "_gem_t2" item). Filtering up front keeps the orbit evenly spaced, since the
+     * angle of each gem is derived from its index in this list.
      */
-    private String getGemItemId(GemType gemType, int tier) {
-        return GemType.buildOraxenId(gemType, tier);
+    private List<String> getRitualGemIds(int tier) {
+        List<String> ids = new ArrayList<>(this.plugin.getGemManager().getAvailableGemIds());
+        ids.removeIf(id -> CustomItemManager.getItemById(getGemItemId(id, tier), 10) == null);
+        return ids;
     }
 
     /**
-     * Get the color associated with a gem type
+     * Get the custom item ID for displaying a gem at the given tier.
+     * Built-in and addon gems share the "<id>_gem_t<tier>" format.
      */
-    private org.bukkit.Color getGemColor(GemType gemType) {
-        return switch (gemType) {
-            case ASTRA -> Color.fromRGB(106, 11, 184);    // Deep purple
-            case FIRE -> Color.fromRGB(255, 85, 85);      // Bright red
-            case FLUX -> Color.fromRGB(85, 255, 255);     // Cyan/aqua
-            case LIFE -> Color.fromRGB(85, 255, 85);      // Bright green
-            case PUFF -> Color.fromRGB(255, 255, 255);    // White
-            case SPEED -> Color.fromRGB(255, 255, 85);    // Yellow
-            case STRENGTH -> Color.fromRGB(170, 0, 0);    // Dark red
-            case WEALTH -> Color.fromRGB(255, 170, 0);    // Gold
+    private String getGemItemId(String gemId, int tier) {
+        return gemId + "_gem_t" + tier;
+    }
+
+    /**
+     * Get the color associated with a gem ID. Addon gems carry a chat color code
+     * in their GemDefinition, which is mapped to the matching RGB value.
+     */
+    private org.bukkit.Color getGemColor(String gemId) {
+        GemType gemType = GemManager.builtInType(gemId);
+        if (gemType != null) {
+            return switch (gemType) {
+                case ASTRA -> Color.fromRGB(106, 11, 184);    // Deep purple
+                case FIRE -> Color.fromRGB(255, 85, 85);      // Bright red
+                case FLUX -> Color.fromRGB(85, 255, 255);     // Cyan/aqua
+                case LIFE -> Color.fromRGB(85, 255, 85);      // Bright green
+                case PUFF -> Color.fromRGB(255, 255, 255);    // White
+                case SPEED -> Color.fromRGB(255, 255, 85);    // Yellow
+                case STRENGTH -> Color.fromRGB(170, 0, 0);    // Dark red
+                case WEALTH -> Color.fromRGB(255, 170, 0);    // Gold
+            };
+        }
+        return colorFromChatCode(this.plugin.getGemManager().getGemColorCode(gemId));
+    }
+
+    /**
+     * Map a chat color code (e.g. "§d") to its RGB value, for addon gem particles.
+     */
+    private org.bukkit.Color colorFromChatCode(String code) {
+        if (code == null || code.length() < 2) return Color.fromRGB(255, 255, 255);
+        return switch (Character.toLowerCase(code.charAt(1))) {
+            case '0' -> Color.fromRGB(0, 0, 0);
+            case '1' -> Color.fromRGB(0, 0, 170);
+            case '2' -> Color.fromRGB(0, 170, 0);
+            case '3' -> Color.fromRGB(0, 170, 170);
+            case '4' -> Color.fromRGB(170, 0, 0);
+            case '5' -> Color.fromRGB(170, 0, 170);
+            case '6' -> Color.fromRGB(255, 170, 0);
+            case '7' -> Color.fromRGB(170, 170, 170);
+            case '8' -> Color.fromRGB(85, 85, 85);
+            case '9' -> Color.fromRGB(85, 85, 255);
+            case 'a' -> Color.fromRGB(85, 255, 85);
+            case 'b' -> Color.fromRGB(85, 255, 255);
+            case 'c' -> Color.fromRGB(255, 85, 85);
+            case 'd' -> Color.fromRGB(255, 85, 255);
+            case 'e' -> Color.fromRGB(255, 255, 85);
+            default -> Color.fromRGB(255, 255, 255);
         };
     }
 }
