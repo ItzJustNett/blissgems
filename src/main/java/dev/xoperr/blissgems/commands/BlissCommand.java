@@ -282,21 +282,13 @@ TabCompleter {
             return;
         }
 
-        // Get list of enabled gems from config
-        List<GemType> enabledGems = new ArrayList<>();
-        for (GemType type : GemType.values()) {
-            if (this.plugin.getConfig().getBoolean("gems.enabled." + type.getId(), true)) {
-                enabledGems.add(type);
-            }
-        }
-
-        if (enabledGems.isEmpty()) {
+        // Select a random gem from the grantable pool (enabled built-ins + addon gems,
+        // minus the random-exclude list, so reroll matches first-join and skips mythics).
+        String randomGem = getRandomEnabledGem();
+        if (randomGem == null) {
             sender.sendMessage("\u00a7cNo gems are enabled in the config!");
             return;
         }
-
-        // Select random gem
-        GemType randomGem = enabledGems.get(new java.util.Random().nextInt(enabledGems.size()));
 
         // Get tier (default to 1)
         int tier = 1;
@@ -346,19 +338,21 @@ TabCompleter {
         // new gem, not a stale one left elsewhere.
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
             if (this.plugin.getGemManager().giveGemToOffhand(target, randomGem, finalTier)) {
-                String msg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled", "player", target.getName(), "gem", randomGem.getDisplayName(), "tier", finalTier);
+                String gemName = this.plugin.getGemManager().getGemDisplayName(randomGem);
+                String gemColor = this.plugin.getGemManager().getGemColorCode(randomGem);
+                String msg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled", "player", target.getName(), "gem", gemName, "tier", finalTier);
                 if (msg != null && !msg.isEmpty()) {
                     sender.sendMessage(msg);
                 } else {
-                    sender.sendMessage("\u00a7aRerolled " + target.getName() + "'s gem to " + randomGem.getColor() + randomGem.getDisplayName() + " \u00a7a(Tier " + finalTier + ")!");
+                    sender.sendMessage("\u00a7aRerolled " + target.getName() + "'s gem to " + gemColor + gemName + " \u00a7a(Tier " + finalTier + ")!");
                 }
 
                 // Notify the target player
-                String targetMsg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled-received", "gem", randomGem.getDisplayName(), "tier", finalTier);
+                String targetMsg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled-received", "gem", gemName, "tier", finalTier);
                 if (targetMsg != null && !targetMsg.isEmpty()) {
                     target.sendMessage(targetMsg);
                 } else {
-                    target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + randomGem.getColor() + "\u00a7l" + randomGem.getDisplayName() + " \u00a7f(Tier " + finalTier + ")\u00a7d\u00a7l \u00ab");
+                    target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + gemColor + "\u00a7l" + gemName + " \u00a7f(Tier " + finalTier + ")\u00a7d\u00a7l \u00ab");
                 }
             } else {
                 sender.sendMessage("\u00a7cFailed to reroll gem!");
@@ -1438,9 +1432,9 @@ TabCompleter {
         // Give gems to all online players who haven't received one yet
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!hasReceivedFirstGem(online)) {
-                GemType randomGem = getRandomEnabledGem();
+                String randomGem = getRandomEnabledGem();
                 if (randomGem != null) {
-                    final GemType finalGem = randomGem;
+                    final String finalGem = randomGem;
                     final Player target = online;
 
                     // Welcome messages
@@ -1461,17 +1455,18 @@ TabCompleter {
                         if (target.isOnline() && this.plugin.getGemManager().giveGem(target, finalGem, 1)) {
                             markFirstGemReceived(target);
 
+                            String gemName = this.plugin.getGemManager().getGemDisplayName(finalGem);
                             String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
-                                "gem", finalGem.getDisplayName());
+                                "gem", gemName);
                             if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
                                 target.sendMessage(welcomeMsg);
                             } else {
                                 target.sendMessage("");
-                                target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + finalGem.getColor() + "\u00a7l" + finalGem.getDisplayName() + "\u00a7d\u00a7l \u00ab");
+                                target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + this.plugin.getGemManager().getGemColorCode(finalGem) + "\u00a7l" + gemName + "\u00a7d\u00a7l \u00ab");
                                 target.sendMessage("");
                             }
 
-                            this.plugin.getLogger().info("SMP Start: Gave " + target.getName() + " their first gem: " + finalGem.getDisplayName());
+                            this.plugin.getLogger().info("SMP Start: Gave " + target.getName() + " their first gem: " + gemName);
                         }
                     }, 20L);
                 }
@@ -1512,13 +1507,9 @@ TabCompleter {
         }
     }
 
-    private GemType getRandomEnabledGem() {
-        java.util.ArrayList<GemType> enabledGems = new java.util.ArrayList<>();
-        for (GemType type : GemType.values()) {
-            if (this.plugin.getConfigManager().isGemEnabled(type)) {
-                enabledGems.add(type);
-            }
-        }
+    /** Random gem ID from the grantable pool (built-ins + addon gems minus the random-exclude list). */
+    private String getRandomEnabledGem() {
+        java.util.List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
         if (enabledGems.isEmpty()) {
             return null;
         }

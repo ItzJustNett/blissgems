@@ -43,6 +43,13 @@ gems:
     strength: true
     wealth: true
 
+  # Addon gems that must NOT appear in the random pool (first-join gem + reroll).
+  # They still work everywhere else (given explicitly, ritual, trader, upgrader).
+  # Default keeps the mythic gems out so newcomers can't roll them.
+  exclude-from-random:
+    - auratus
+    - heretic
+
   # Only one gem can be active at a time
   single-gem-only: true
 

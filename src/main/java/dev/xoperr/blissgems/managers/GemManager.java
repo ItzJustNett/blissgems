@@ -9,7 +9,10 @@ package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
+import java.util.ArrayList;
+import java.util.List;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.HashMap;
@@ -278,6 +281,89 @@ public class GemManager {
         if (GemType.isGem(itemId)) return true;
         GemRegistry registry = this.plugin.getGemRegistry();
         return registry != null && registry.isRegisteredGem(itemId);
+    }
+
+    /** Resolve a gem ID to its built-in {@link GemType}, or null if it is an addon gem. */
+    public static GemType builtInType(String gemId) {
+        if (gemId == null) return null;
+        for (GemType type : GemType.values()) {
+            if (type.getId().equalsIgnoreCase(gemId)) return type;
+        }
+        return null;
+    }
+
+    /**
+     * Every gem ID that may be RANDOMLY granted (first join, reroll): enabled built-in gems
+     * plus registered addon gems — MINUS any listed in config {@code gems.exclude-from-random}
+     * (default: the mythic gems auratus + heretic, so newcomers can't roll them).
+     * Built-in gems are also in the registry, so registry entries that resolve to a GemType
+     * are skipped to avoid re-adding a config-disabled gem or double-counting.
+     */
+    public List<String> getAvailableGemIds() {
+        List<String> ids = new ArrayList<>();
+        for (GemType type : GemType.values()) {
+            if (this.plugin.getConfigManager().isGemEnabled(type)) {
+                ids.add(type.getId());
+            }
+        }
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry != null) {
+            List<String> excluded = this.plugin.getConfig().contains("gems.exclude-from-random")
+                ? this.plugin.getConfig().getStringList("gems.exclude-from-random")
+                : List.of("auratus", "heretic");
+            for (GemDefinition def : registry.getAllGems()) {
+                if (builtInType(def.getId()) == null
+                        && !ids.contains(def.getId())
+                        && !excluded.contains(def.getId())) {
+                    ids.add(def.getId());
+                }
+            }
+        }
+        return ids;
+    }
+
+    /** Display name for any gem ID (built-in or addon). Falls back to the raw ID. */
+    public String getGemDisplayName(String gemId) {
+        GemType type = builtInType(gemId);
+        if (type != null) return type.getDisplayName();
+        GemRegistry registry = this.plugin.getGemRegistry();
+        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        return def != null ? def.getDisplayName() : gemId;
+    }
+
+    /** Chat color code for any gem ID (built-in or addon). Falls back to gray. */
+    public String getGemColorCode(String gemId) {
+        GemType type = builtInType(gemId);
+        if (type != null) return type.getColor();
+        GemRegistry registry = this.plugin.getGemRegistry();
+        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        return def != null ? def.getColor() : "§7";
+    }
+
+    /**
+     * Give a gem (built-in OR addon, by string id) directly into the offhand — the string
+     * counterpart of {@link #giveGemToOffhand(Player, GemType, int)} used by reroll.
+     */
+    public boolean giveGemToOffhand(Player player, String gemId, int tier) {
+        GemType type = builtInType(gemId);
+        if (type != null) {
+            return giveGemToOffhand(player, type, tier);
+        }
+        GemRegistry registry = this.plugin.getGemRegistry();
+        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        if (def == null) return false;
+        String itemId = def.buildItemId(tier);
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        ItemStack gem = CustomItemManager.getItemById(itemId, energy);
+        if (gem == null) return false;
+        ItemStack current = player.getInventory().getItemInOffHand();
+        if (current == null || current.getType().isAir()) {
+            player.getInventory().setItemInOffHand(gem);
+        } else {
+            player.getInventory().addItem(new ItemStack[]{gem});
+        }
+        this.updateActiveGem(player);
+        return true;
     }
 
     public boolean replaceGemType(Player player, GemType newType) {

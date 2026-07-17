@@ -56,10 +56,10 @@ public class PlayerJoinListener implements Listener {
                 }, 40L);
             } else {
                 // Give random gem
-                GemType randomGem = getRandomEnabledGem();
+                String randomGem = getRandomEnabledGem();
                 if (randomGem != null) {
                     // Delay to ensure player is fully loaded
-                    final GemType finalGem = randomGem;
+                    final String finalGem = randomGem;
                     this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
                         if (player.isOnline()) {
                             // Welcome messages
@@ -82,17 +82,19 @@ public class PlayerJoinListener implements Listener {
                                     markFirstGemReceived(player);
 
                                     // Send welcome message
+                                    String gemName = this.plugin.getGemManager().getGemDisplayName(finalGem);
+                                    String gemColor = this.plugin.getGemManager().getGemColorCode(finalGem);
                                     String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
-                                        "gem", finalGem.getDisplayName());
+                                        "gem", gemName);
                                     if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
                                         player.sendMessage(welcomeMsg);
                                     } else {
                                         player.sendMessage("");
-                                        player.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + finalGem.getColor() + "\u00a7l" + finalGem.getDisplayName() + "\u00a7d\u00a7l \u00ab");
+                                        player.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + gemColor + "\u00a7l" + gemName + "\u00a7d\u00a7l \u00ab");
                                         player.sendMessage("");
                                     }
 
-                                    this.plugin.getLogger().info("Gave " + player.getName() + " their first gem: " + finalGem.getDisplayName());
+                                    this.plugin.getLogger().info("Gave " + player.getName() + " their first gem: " + gemName);
                                 }
                             }, 20L); // 1 second delay
                         }
@@ -278,19 +280,15 @@ public class PlayerJoinListener implements Listener {
         }
     }
 
-    private GemType getRandomEnabledGem() {
-        ArrayList<GemType> enabledGems = new ArrayList<>();
-
-        for (GemType type : GemType.values()) {
-            if (this.plugin.getConfigManager().isGemEnabled(type)) {
-                enabledGems.add(type);
-            }
-        }
-
+    /**
+     * Pick a random gem ID from the grantable pool (enabled built-ins + addon gems, minus the
+     * config's random-exclude list — which keeps mythics out). Returns null if the pool is empty.
+     */
+    private String getRandomEnabledGem() {
+        java.util.List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
         if (enabledGems.isEmpty()) {
             return null;
         }
-
         return enabledGems.get(this.random.nextInt(enabledGems.size()));
     }
 }

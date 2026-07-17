@@ -35,7 +35,11 @@ public class GemRegistryImpl implements GemRegistry {
     public void registerGem(GemDefinition definition) {
         String id = definition.getId();
         if (gems.containsKey(id)) {
-            throw new IllegalArgumentException("Gem ID '" + id + "' is already registered!");
+            // Idempotent: a duplicate registration (two addons claiming the same id, a copy
+            // of an addon, or a re-register on reload) must NOT crash the caller's onEnable.
+            // Keep the first registration and skip the duplicate.
+            this.plugin.getLogger().warning("Gem ID '" + id + "' is already registered — keeping the existing gem, skipping the duplicate.");
+            return;
         }
 
         gems.put(id, definition);
