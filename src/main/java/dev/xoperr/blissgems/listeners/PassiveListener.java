@@ -1246,6 +1246,10 @@ implements Listener {
 
     @EventHandler
     public void onRichRushEntityDeath(EntityDeathEvent event) {
+        // PlayerDeathEvent extends EntityDeathEvent — Rich Rush doubles NATURAL MOB drops
+        // only, never a player's dropped inventory (would dupe the victim's loot / gems).
+        if (event.getEntity() instanceof Player) return;
+
         Player killer = event.getEntity().getKiller();
         if (killer == null) return;
         if (!WealthAbilities.hasRichRush(killer.getUniqueId())) return;
@@ -1275,6 +1279,12 @@ implements Listener {
      */
     private boolean isNaturalMobDrop(ItemStack item) {
         if (item == null || item.getType().isAir()) return false;
+
+        // Never duplicate a gem — built-in, addon (API-registered via GemRegistry), or any
+        // PDC-protected gem — regardless of its display name/lore.
+        if (CustomItemManager.isUndroppable(item)) return false;
+        String customId = CustomItemManager.getIdByItem(item);
+        if (customId != null && this.plugin.getGemManager().isAnyGem(customId)) return false;
 
         Material type = item.getType();
 

@@ -181,12 +181,17 @@ implements Listener {
             // Safety check: If single-gem-only is enabled, only return the first gem
             // This prevents duplication bugs
             boolean singleGemOnly = this.plugin.getConfig().getBoolean("gems.single-gem-only", true);
+            List<ItemStack> toRestore = (singleGemOnly && gems.size() > 1)
+                ? List.of(gems.get(0))
+                : gems;
             if (singleGemOnly && gems.size() > 1) {
                 this.plugin.getLogger().warning("Player " + player.getName() + " had " + gems.size() +
                     " gems saved! Only returning first gem due to single-gem-only config.");
-                player.getInventory().addItem(gems.get(0));
-            } else {
-                for (ItemStack gem : gems) {
+            }
+            for (ItemStack gem : toRestore) {
+                // Idempotent restore: if the player already holds this gem (e.g. it was kept
+                // via keepInventory by the Revive Beacon), don't add a duplicate.
+                if (!playerAlreadyHasGem(player, gem)) {
                     player.getInventory().addItem(gem);
                 }
             }
@@ -285,6 +290,24 @@ implements Listener {
                 this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + playerId);
             }
         }
+    }
+
+    /**
+     * True if the player already has a gem with the same id as the given gem in their inventory.
+     * Used to avoid re-adding a gem that keepInventory already retained (Revive Beacon).
+     */
+    private boolean playerAlreadyHasGem(Player player, ItemStack gem) {
+        String gemId = CustomItemManager.getIdByItem(gem);
+        if (gemId == null) {
+            return false;
+        }
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null) continue;
+            if (gemId.equals(CustomItemManager.getIdByItem(item))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
