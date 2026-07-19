@@ -60,6 +60,10 @@ implements Listener {
     private final Map<UUID, Long> traderCooldowns;
     private final Map<UUID, Long> clickDisabledMessageCooldowns = new HashMap<>();
     private static final long CLICK_DISABLED_MSG_INTERVAL = 30_000L; // 30 seconds
+    // A right-click fires PlayerInteractEvent for both hands. When the main-hand event
+    // trades the gem, the paired off-hand event then sees the freshly-placed gem and would
+    // auto-fire its ability. Suppress gem abilities for a brief window right after a trade.
+    private static final long TRADE_ABILITY_GRACE_MS = 500L;
 
     public GemInteractListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -144,6 +148,13 @@ implements Listener {
 
     private void handleGemAbility(Player player, String oraxenId, PlayerInteractEvent event) {
         event.setCancelled(true);
+
+        // Ignore the off-hand interact that pairs with a just-completed trade right-click,
+        // so trading into a new gem doesn't auto-fire its primary ability.
+        Long lastTrade = this.traderCooldowns.get(player.getUniqueId());
+        if (lastTrade != null && System.currentTimeMillis() - lastTrade < TRADE_ABILITY_GRACE_MS) {
+            return;
+        }
 
         dev.xoperr.blissgems.utils.AbilityBinding input =
             dev.xoperr.blissgems.utils.AbilityBinding.rightClick(player.isSneaking());
