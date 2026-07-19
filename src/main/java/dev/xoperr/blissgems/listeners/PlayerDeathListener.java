@@ -122,7 +122,7 @@ implements Listener {
         List<ItemStack> gemsToSave = new ArrayList<>();
         List<String> droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death")
                 ? this.plugin.getConfig().getStringList("gems.droppable-on-death")
-                : java.util.List.of("heretic", "auratus");
+                : java.util.List.of();
         event.getDrops().removeIf(item -> {
             if (CustomItemManager.isUndroppable(item)) {
                 if (isDroppableOnDeath(item, droppableOnDeath)) {
