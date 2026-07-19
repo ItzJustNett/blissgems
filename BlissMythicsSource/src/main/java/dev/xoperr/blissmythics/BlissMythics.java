@@ -92,11 +92,12 @@ public final class BlissMythics extends JavaPlugin {
             "heretic", List.of(new CooldownEntry("heretic-bloodsaws", "\ud83e\udd1f"), new CooldownEntry("heretic-bloodlink", "\ud83e\udd0c"))
          );
          var1.registerCooldowns("auratus", List.of(new CooldownEntry("auratus-perforators", "⊵"), new CooldownEntry("auratus-aegis", "⊴")));
-         this.deathListener = new MythicDeathListener(this, this.api);
+         // MythicDeathListener intentionally NOT registered: BlissGems already keeps/restores
+         // gems on death (gems.droppable-on-death). Dropping mythics here as well produced a
+         // duplicated drop, so mythics now follow the standard gem death behaviour.
          new MythicStatusBar(this, this.api, this.heretic, this.auratus);
          this.getServer().getPluginManager().registerEvents(this.heretic, this);
          this.getServer().getPluginManager().registerEvents(this.auratus, this);
-         this.getServer().getPluginManager().registerEvents(this.deathListener, this);
          this.getLogger().info("Registered mythic gems: heretic, auratus");
       }
    }
