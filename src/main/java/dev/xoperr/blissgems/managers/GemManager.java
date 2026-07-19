@@ -367,6 +367,18 @@ public class GemManager {
     }
 
     public boolean replaceGemType(Player player, GemType newType) {
+        return this.replaceGem(player, newType.getId());
+    }
+
+    /**
+     * In-place replace of the player's current gem with another gem id — built-in OR addon
+     * (mythic/expansion) — preserving the current tier. String counterpart of
+     * {@link #replaceGemType(Player, GemType)}; used by the trader so expansion gems trade.
+     */
+    public boolean replaceGem(Player player, String newGemId) {
+        if (newGemId == null) {
+            return false;
+        }
         ItemStack currentGem = this.findGemInInventory(player);
         if (currentGem == null) {
             return false;
@@ -376,7 +388,7 @@ public class GemManager {
             return false;
         }
         int tier = GemType.getTierFromOraxenId(currentId);
-        String newId = GemType.buildOraxenId(newType, tier);
+        String newId = newGemId + "_gem_t" + tier;
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         ItemStack newGem = CustomItemManager.getItemById((String)newId, energy);
         if (newGem == null) {
@@ -423,6 +435,18 @@ public class GemManager {
     }
 
     public boolean upgradeGem(Player player, GemType type) {
+        return type != null && this.upgradeGem(player, type.getId());
+    }
+
+    /**
+     * Upgrade the player's held tier-1 gem to tier 2 — built-in OR addon (mythic/expansion).
+     * String counterpart of {@link #upgradeGem(Player, GemType)}; used by the upgrader so
+     * expansion gems can be upgraded (their built-in GemType is null).
+     */
+    public boolean upgradeGem(Player player, String gemId) {
+        if (gemId == null) {
+            return false;
+        }
         ItemStack currentGem = this.findGemInInventory(player);
         if (currentGem == null) {
             return false;
@@ -431,12 +455,19 @@ public class GemManager {
         if (currentId == null) {
             return false;
         }
-        GemType currentType = GemType.fromOraxenId(currentId);
-        int currentTier = GemType.getTierFromOraxenId(currentId);
-        if (currentType != type || currentTier != 1) {
+        // Only the tier-1 form of the gem the player actually holds may be upgraded.
+        if (!currentId.equals(gemId + "_gem_t1")) {
             return false;
         }
-        String newId = GemType.buildOraxenId(type, 2);
+        // Addon gems may cap at tier 1 — respect their declared max tier.
+        if (builtInType(gemId) == null) {
+            GemRegistry registry = this.plugin.getGemRegistry();
+            GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+            if (def == null || def.getMaxTier() < 2) {
+                return false;
+            }
+        }
+        String newId = gemId + "_gem_t2";
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         ItemStack newGem = CustomItemManager.getItemById((String)newId, energy);
         if (newGem == null) {
@@ -446,6 +477,13 @@ public class GemManager {
             ItemStack item = player.getInventory().getItem(i);
             if (item == null || !item.equals((Object)currentGem)) continue;
             player.getInventory().setItem(i, newGem);
+            this.updateActiveGem(player);
+            return true;
+        }
+        // The storage loop may not cover the offhand slot; upgrade it there directly.
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand != null && offhand.equals((Object) currentGem)) {
+            player.getInventory().setItemInOffHand(newGem);
             this.updateActiveGem(player);
             return true;
         }

@@ -308,25 +308,19 @@ implements Listener {
             }
             return;
         }
-        GemType currentType = this.plugin.getGemManager().getGemType(player);
-        if (currentType == null) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-gem", new Object[0]);
-            if (msg != null && !msg.isEmpty()) {
-                player.sendMessage(msg);
-            }
-            return;
-        }
-        ArrayList<GemType> availableTypes = new ArrayList<GemType>();
-        for (GemType type : GemType.values()) {
-            if (type == currentType || !this.plugin.getConfigManager().isGemEnabled(type)) continue;
-            availableTypes.add(type);
-        }
-        if (availableTypes.isEmpty()) {
+        // Gem-id based so addon/expansion gems trade correctly (built-in GemType is null for
+        // them). The pool is getAvailableGemIds() — enabled built-ins + registered addon gems
+        // MINUS gems.exclude-from-random — so the mythics (auratus/heretic) stay out while the
+        // expansion gems (frost, terra, aqua, toxic, illusion, mecha) can be traded into.
+        String currentGemId = this.plugin.getGemManager().getGemId(player);
+        java.util.List<String> availableGems = new ArrayList<String>(this.plugin.getGemManager().getAvailableGemIds());
+        availableGems.remove(currentGemId);
+        if (availableGems.isEmpty()) {
             player.sendMessage(String.valueOf(ChatColor.RED) + "No other gem types available!");
             return;
         }
-        GemType newType = (GemType)((Object)availableTypes.get((int)(Math.random() * (double)availableTypes.size())));
-        if (this.plugin.getGemManager().replaceGemType(player, newType)) {
+        String newGemId = availableGems.get((int)(Math.random() * (double)availableGems.size()));
+        if (this.plugin.getGemManager().replaceGem(player, newGemId)) {
             if (traderItem.getAmount() > 1) {
                 traderItem.setAmount(traderItem.getAmount() - 1);
             } else {
@@ -341,7 +335,7 @@ implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 player.spawnParticle(Particle.PORTAL, player.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
             }
-            String msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", newType.getDisplayName());
+            String msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId));
             if (msg != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
             }

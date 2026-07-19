@@ -60,9 +60,8 @@ gems:
 
   # Gem types that DROP on death instead of being kept (looted by your killer).
   # Everything else stays protected. Use the gem id (e.g. heretic, auratus).
-  droppable-on-death:
-  - heretic
-  - auratus
+  # Empty = every gem (including the mythics) is kept and restored on respawn.
+  droppable-on-death: []
 
 # ==========================================
 # WORLDGUARD INTEGRATION

@@ -15,7 +15,6 @@ package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
-import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -80,8 +79,9 @@ implements Listener {
             return;
         }
 
-        // Get current gem info
-        GemType currentGemType = this.plugin.getGemManager().getGemType(player);
+        // Get current gem info by string id so addon/expansion gems upgrade too
+        // (their built-in GemType is null).
+        String currentGemId = this.plugin.getGemManager().getGemId(player);
         int currentTier = this.plugin.getGemManager().getGemTier(player);
 
         // Check if already tier 2
@@ -91,7 +91,7 @@ implements Listener {
         }
 
         // Upgrade the gem (universal upgrader works for any gem type)
-        if (this.plugin.getGemManager().upgradeGem(player, currentGemType)) {
+        if (this.plugin.getGemManager().upgradeGem(player, currentGemId)) {
             // Determine which hand has the upgrader and remove from correct hand
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             ItemStack offHand = player.getInventory().getItemInOffHand();
