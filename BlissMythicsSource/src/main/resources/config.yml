@@ -13,6 +13,9 @@ heretic:
   bloodsaws-damage: 6.0
   # Bloodlinking (shift+use) slam: AoE damage on impact.
   bloodlink-damage: 7.0
+  # Bloodstorm hurricane (Bloodsaws combo + Bloodlink slam within 10s): damage per volley
+  # (fires every 0.5s for 6s) to untrusted players in range.
+  hurricane-damage: 4.0
   # Blood Hardening passive: caps a single incoming hit to at most this much damage (HP).
   max-hit-cap: 13.0
   # Ability cooldowns (seconds).
@@ -24,7 +27,7 @@ auratus:
   # Venerated Perforators (use): damage per chain grapple hit.
   perforator-damage: 6.0
   # Ground slam (shift, on landing): AoE damage.
-  slam-damage: 6.0
+  slam-damage: 12.0
   # Echoing Aegis (shift+use) parry: HP healed to the parrier on a successful parry.
   aegis-heal: 5.0
   # Ability cooldowns (seconds). (Venerated Perforators uses a 2-charge system, not a flat cooldown.)
