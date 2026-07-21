@@ -114,17 +114,10 @@ public class FireAbilities implements GemAbilityHandler {
     }
 
     public boolean isProtectedBlock(Location loc) {
+        // Only Crisp-scorched nether blocks are unbreakable. Campfires are intentionally
+        // breakable — the campfire task already detects and cleans up a broken campfire.
         for (Map<Location, Material> blocks : crispOriginalBlocks.values()) {
             if (blocks.containsKey(loc)) {
-                return true;
-            }
-        }
-        for (Location campfire : activeCampfires.values()) {
-            if (campfire != null
-                && campfire.getWorld().equals(loc.getWorld())
-                && campfire.getBlockX() == loc.getBlockX()
-                && campfire.getBlockY() == loc.getBlockY()
-                && campfire.getBlockZ() == loc.getBlockZ()) {
                 return true;
             }
         }

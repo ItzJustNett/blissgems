@@ -56,6 +56,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final Map<UUID, Long> bleeding = new HashMap<>();
    private final Map<UUID, Set<UUID>> links = new HashMap<>();
    private final Map<UUID, Long> linkExpiry = new HashMap<>();
+   private final Map<UUID, Long> lastCombo = new HashMap<>();
    private final Set<UUID> mirroring = new HashSet<>();
    private final Set<UUID> crashing = new HashSet<>();
 
@@ -63,6 +64,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double bleedMultiplier;
    private final double bloodsawsDamage;
    private final double bloodlinkDamage;
+   private final double hurricaneDamage;
    private final double maxHitDamage;
    private final int bloodsawsCooldown;
    private final int bloodlinkCooldown;
@@ -74,6 +76,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.bleedMultiplier = var1.getConfig().getDouble("heretic.bleed-multiplier", 2.0);
       this.bloodsawsDamage = var1.getConfig().getDouble("heretic.bloodsaws-damage", 6.0);
       this.bloodlinkDamage = var1.getConfig().getDouble("heretic.bloodlink-damage", 7.0);
+      this.hurricaneDamage = var1.getConfig().getDouble("heretic.hurricane-damage", 4.0);
       this.maxHitDamage = var1.getConfig().getDouble("heretic.max-hit-cap", 13.0);
       this.bloodsawsCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodsaws", 25);
       this.bloodlinkCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodlink", 60);
@@ -215,6 +218,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    private void spore(final Player var1) {
+      this.lastCombo.put(var1.getUniqueId(), System.currentTimeMillis());
       Block var2 = var1.getTargetBlockExact(15);
       final Location var3 = var2 != null ? var2.getLocation().add(0.5, 1.0, 0.5) : var1.getLocation();
       var1.getWorld().playSound(var3, Sound.BLOCK_SCULK_CATALYST_BLOOM, 1.4F, 0.5F);
@@ -268,13 +272,10 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                this.cancel();
             } else if (this.phase == 0) {
                Vector var5 = new Vector(0.0, 0.95, 0.0);
-               Player var7 = this.nearestTarget();
-               if (var7 != null) {
-                  Vector var9 = var7.getLocation().toVector().subtract(var1.getLocation().toVector());
-                  var9.setY(0);
-                  if (var9.lengthSquared() > 0.01) {
-                     var5.add(var9.normalize().multiply(0.5));
-                  }
+               Vector var9 = var1.getEyeLocation().getDirection();
+               var9.setY(0);
+               if (var9.lengthSquared() > 0.01) {
+                  var5.add(var9.normalize().multiply(0.5));
                }
 
                var1.setVelocity(var5);
@@ -289,13 +290,10 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                this.airTicks++;
                if (this.phase == 1 && this.airTicks >= 9) {
                   Vector var4 = new Vector(0.0, -2.8, 0.0);
-                  Player var6 = this.nearestTarget();
-                  if (var6 != null) {
-                     Vector var8 = var6.getLocation().toVector().subtract(var1.getLocation().toVector());
-                     var8.setY(0);
-                     if (var8.lengthSquared() > 0.01) {
-                        var4.add(var8.normalize().multiply(0.6));
-                     }
+                  Vector var8 = var1.getEyeLocation().getDirection();
+                  var8.setY(0);
+                  if (var8.lengthSquared() > 0.01) {
+                     var4.add(var8.normalize().multiply(0.6));
                   }
 
                   var1.setVelocity(var4);
@@ -305,14 +303,23 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                      var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0F, 0.7F);
                      var1.getWorld().spawnParticle(Particle.EXPLOSION, var1.getLocation(), 2, 0.5, 0.2, 0.5, 0.0);
 
+                     boolean var10 = false;
+
                      for (LivingEntity var2x : var1.getLocation().getNearbyLivingEntities(4.5)) {
                         if (var2x != var1) {
                            var2x.damage(bloodlinkDamage, var1);
                            var2x.setVelocity(var2x.getVelocity().add(new Vector(0.0, 0.5, 0.0)));
+                           var10 = true;
                            if (var2x instanceof Player var3) {
                               var2.add(var3.getUniqueId());
                            }
                         }
+                     }
+
+                     // Third power: landing a Bloodlink slam soon after a Bloodsaws combo
+                     // unleashes a Bloodstorm hurricane on this spot.
+                     if (var10 && HereticGem.this.consumeCombo(var1)) {
+                        HereticGem.this.spawnHurricane(var1, var1.getLocation().clone().add(0.0, 0.1, 0.0));
                      }
 
                      if (++this.hops >= 3) {
@@ -324,23 +331,6 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                   }
                }
             }
-         }
-
-         private Player nearestTarget() {
-            Player var1x = null;
-            double var2x = 196.0;
-
-            for (Player var5 : var1.getLocation().getNearbyPlayers(14.0)) {
-               if (var5 != var1) {
-                  double var6 = var5.getLocation().distanceSquared(var1.getLocation());
-                  if (var6 < var2x) {
-                     var2x = var6;
-                     var1x = var5;
-                  }
-               }
-            }
-
-            return var1x;
          }
 
          private void finish() {
@@ -526,8 +516,79 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       }
    }
 
+   private boolean consumeCombo(Player var1) {
+      Long var2 = this.lastCombo.get(var1.getUniqueId());
+      if (var2 != null && System.currentTimeMillis() - var2 <= 10000L) {
+         this.lastCombo.remove(var1.getUniqueId());
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   private void spawnHurricane(final Player var1, final Location var2) {
+      var2.getWorld().playSound(var2, Sound.ENTITY_WITHER_SPAWN, 1.2F, 1.4F);
+      var1.sendMessage("§4§oBloodstorm unleashed!");
+      (new BukkitRunnable() {
+         int life = 0;
+
+         public void run() {
+            if (++this.life > 120 || !var1.isOnline()) {
+               this.cancel();
+            } else {
+               double var1x = this.life * 0.35;
+
+               for (int var3 = 0; var3 < 3; var3++) {
+                  double var4 = var1x + var3 * (Math.PI * 2.0 / 3.0);
+
+                  for (double var6 = 0.0; var6 < 4.0; var6 += 0.5) {
+                     double var8 = 1.0 + var6 * 0.6;
+                     double var10 = Math.cos(var4 + var6) * var8;
+                     double var12 = Math.sin(var4 + var6) * var8;
+                     var2.getWorld()
+                        .spawnParticle(
+                           Particle.DUST, var2.clone().add(var10, var6, var12), 1, 0.0, 0.0, 0.0, 0.0, new DustOptions(Color.fromRGB(150, 0, 0), 1.4F)
+                        );
+                  }
+               }
+
+               if (this.life % 10 == 0) {
+                  for (Player var15 : var2.getNearbyPlayers(8.0)) {
+                     if (var15 != var1 && !HereticGem.this.api.getTrustedPlayersManager().isTrusted(var1, var15)) {
+                        Location var5 = var2.clone().add(0.0, 2.0, 0.0);
+                        Vector var6 = var15.getLocation().add(0.0, 1.0, 0.0).toVector().subtract(var5.toVector());
+                        double var7 = var6.length();
+                        if (var7 > 0.001) {
+                           Vector var9 = var6.multiply(1.0 / var7);
+
+                           for (double var10 = 0.0; var10 < var7; var10 += 0.5) {
+                              var2.getWorld()
+                                 .spawnParticle(
+                                    Particle.DUST,
+                                    var5.clone().add(var9.clone().multiply(var10)),
+                                    1,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    new DustOptions(Color.fromRGB(200, 0, 0), 1.2F)
+                                 );
+                           }
+                        }
+
+                        var15.damage(HereticGem.this.hurricaneDamage, var1);
+                        var15.getWorld().playSound(var15.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0F, 0.6F);
+                     }
+                  }
+               }
+            }
+         }
+      }).runTaskTimer(this.plugin, 0L, 1L);
+   }
+
    public void cleanup(Player var1) {
       UUID var2 = var1.getUniqueId();
       this.firstSawAt.remove(var2);
+      this.lastCombo.remove(var2);
    }
 }
