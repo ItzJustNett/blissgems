@@ -48,7 +48,8 @@ public final class BlissMythics extends JavaPlugin {
                   "",
                   "§4Powers:",
                   "§7- §4Bloodsaws §8(use, 2 charges)",
-                  "§7- §4Bloodlinking §8(shift+use)"
+                  "§7- §4Bloodlinking §8(shift+use)",
+                  "§7- §4Bloodstorm §8(combo + slam)"
                )
             )
             .build();
@@ -76,7 +77,8 @@ public final class BlissMythics extends JavaPlugin {
                   "",
                   "§6Powers:",
                   "§7- §6Venerated Perforators §8(use, 2 chains)",
-                  "§7- §6Echoing Aegis §8(shift+use)"
+                  "§7- §6Echoing Aegis §8(shift+use)",
+                  "§7- §6Chained Judgment §8(parry finisher)"
                )
             )
             .build();

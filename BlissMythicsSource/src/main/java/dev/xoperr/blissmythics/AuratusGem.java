@@ -3,6 +3,7 @@ package dev.xoperr.blissmythics;
 import dev.xoperr.blissgems.api.BlissGemsAPI;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemPassiveHandler;
+import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,9 +73,42 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.plugin = var1;
       this.api = var2;
       this.perforatorDamage = var1.getConfig().getDouble("auratus.perforator-damage", 6.0);
-      this.slamDamage = var1.getConfig().getDouble("auratus.slam-damage", 6.0);
+      this.slamDamage = var1.getConfig().getDouble("auratus.slam-damage", 12.0);
       this.aegisHeal = var1.getConfig().getDouble("auratus.aegis-heal", 5.0);
       this.aegisCooldown = var1.getConfig().getInt("auratus.cooldowns.aegis", 45);
+      Bukkit.getScheduler().runTaskTimer(var1, this::hasteTick, 20L, 20L);
+   }
+
+   // Grants Haste II while sneaking and holding Auratus in EITHER hand. The BlissGems
+   // passive system only runs for offhand gems, so this self-contained task makes the
+   // sneak-haste work while the gem is used as a main-hand weapon too.
+   private void hasteTick() {
+      int var1;
+      try {
+         var1 = this.api.getConfigManager().getPassiveUpdateInterval() + 20;
+      } catch (Throwable var4) {
+         var1 = 60;
+      }
+
+      for (Player var3 : Bukkit.getOnlinePlayers()) {
+         if (!var3.isDead() && var3.isSneaking() && this.holdingAuratus(var3)) {
+            var3.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, var1, 1, true, false, true));
+         }
+      }
+   }
+
+   private boolean holdingAuratus(Player var1) {
+      return this.isAuratusItem(var1.getInventory().getItemInMainHand())
+         || this.isAuratusItem(var1.getInventory().getItemInOffHand());
+   }
+
+   private boolean isAuratusItem(ItemStack var1) {
+      if (var1 == null || var1.getType().isAir()) {
+         return false;
+      } else {
+         String var2 = CustomItemManager.getIdByItem(var1);
+         return var2 != null && "auratus".equals(this.api.getGemRegistry().gemIdFromItemId(var2));
+      }
    }
 
    public int chainCharges(Player var1) {
@@ -508,10 +542,31 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   var1.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, var1.getLocation(), 1);
                   AuratusGem.this.spawnSmashDecal(var1.getLocation());
 
+                  boolean var3 = false;
+
                   for (LivingEntity var2 : var1.getLocation().getNearbyLivingEntities(4.0)) {
                      if (var2 != var1) {
                         var2.damage(slamDamage, var1);
                         var2.setVelocity(var2.getVelocity().add(new Vector(0.0, 0.8, 0.0)));
+                        var3 = true;
+                     }
+                  }
+
+                  // Forward dash out of the crater after slamming.
+                  Vector var4 = var1.getLocation().getDirection();
+                  var4.setY(0.0);
+                  if (var4.lengthSquared() > 0.001) {
+                     var4.normalize().multiply(1.4).setY(0.35);
+                     var1.setVelocity(var4);
+                  }
+
+                  // A connecting slam refunds one Venerated Perforators chain charge.
+                  if (var3) {
+                     List<Long> var5 = AuratusGem.this.chainUses.get(var1.getUniqueId());
+                     if (var5 != null && !var5.isEmpty()) {
+                        var5.remove(var5.size() - 1);
+                        var1.getWorld().playSound(var1.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.2F, 1.4F);
+                        var1.sendMessage("§6§oChain recovered!");
                      }
                   }
                }
@@ -554,16 +609,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    public void applyPassives(Player var1, int var2) {
-      if (var1.isSneaking()) {
-         int var3 = 40;
-
-         try {
-            var3 = this.api.getConfigManager().getPassiveUpdateInterval();
-         } catch (Throwable var5) {
-         }
-
-         var1.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, var3 + 20, 1, true, false, true));
-      }
+      // Sneak-haste is handled by hasteTick() so it works in either hand, not just the offhand.
    }
 
    @EventHandler(
@@ -633,6 +679,8 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                if (var4 instanceof Player var12) {
                   var12.damageItemStack(EquipmentSlot.HAND, 40);
                }
+
+               this.chainToTheHeavens(var2, var4);
             }
 
             double var13 = var2.getAttribute(Attribute.MAX_HEALTH) != null ? var2.getAttribute(Attribute.MAX_HEALTH).getValue() : 20.0;
@@ -661,6 +709,19 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
          return false;
       } else {
          return true;
+      }
+   }
+
+   // Third power: a parried attacker is hoisted into the air on a chain and stunned there.
+   private void chainToTheHeavens(Player var1, LivingEntity var2) {
+      Location var3 = var2.getLocation().clone();
+      var2.getWorld().playSound(var3, Sound.BLOCK_CHAIN_PLACE, 1.4F, 0.5F);
+      this.spawnChain(var1, var3.clone().add(0.0, -0.4, 0.0), var3.clone().add(0.0, 3.2, 0.0));
+      var2.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 26, 2, false, false, true));
+      var2.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 70, 250, false, false, true));
+      var2.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 70, 2, false, false, true));
+      if (var2 instanceof Player var4) {
+         var4.sendMessage("§6§oChained to the heavens!");
       }
    }
 
