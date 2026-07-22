@@ -100,6 +100,11 @@ smp:
 # Toggle in-game with: /fixedhearts everyone true|false
 fixed-hearts:
   enabled: false
+  # When forcing hearts, RESPECT external max-health (default true): only BlissGems' own
+  # Life/Soul heart modifiers are removed; another mod/plugin that grants variable max hearts
+  # (e.g. a Ranked / Lifesteal SMP) is left alone. Set false for the old behavior that strips
+  # ALL modifiers and hard-resets everyone to exactly 10 hearts.
+  respect-external-hearts: true
 
 # ==========================================
 # CRAFTING RECIPES

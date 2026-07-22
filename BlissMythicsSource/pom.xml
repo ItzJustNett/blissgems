@@ -41,9 +41,9 @@
         <dependency>
             <groupId>dev.xoperr</groupId>
             <artifactId>blissgems</artifactId>
-            <version>4.4.0</version>
+            <version>4.7.2</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/../target/BlissGems-4.4.0.jar</systemPath>
+            <systemPath>${project.basedir}/../target/BlissGems-4.7.2.jar</systemPath>
         </dependency>
     </dependencies>
 
