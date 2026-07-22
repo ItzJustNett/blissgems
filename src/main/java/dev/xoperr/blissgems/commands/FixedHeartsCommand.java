@@ -44,7 +44,9 @@ public class FixedHeartsCommand implements CommandExecutor, TabCompleter {
             return -1;
         }
 
-        // Let plugin systems drop their own max-health tracking state first.
+        // Drop BlissGems' own max-health contributions first. These cleanups are key-filtered
+        // (they only remove Life/Soul modifiers tagged 'blissgems'), so they never touch another
+        // plugin's or mod's max-health.
         if (plugin.getLifeAbilities() != null) {
             plugin.getLifeAbilities().cleanup(target);
         }
@@ -52,15 +54,21 @@ public class FixedHeartsCommand implements CommandExecutor, TabCompleter {
             plugin.getSoulManager().cleanup(target);
         }
 
-        // Strip every modifier (from any source) and reset base to vanilla 20.0.
+        // By default, RESPECT external max-health: a mod/plugin that grants variable max hearts
+        // (e.g. a Ranked/Lifesteal SMP) owns the base value and its own modifiers. Stripping those
+        // and resetting the base to 20.0 would reset players to 10 hearts and break that system.
+        // Set fixed-hearts.respect-external-hearts: false to hard-force exactly 10 hearts instead.
         int removed = 0;
-        for (AttributeModifier m : new ArrayList<>(attr.getModifiers())) {
-            attr.removeModifier(m);
-            removed++;
+        boolean respectExternal = plugin.getConfig().getBoolean("fixed-hearts.respect-external-hearts", true);
+        if (!respectExternal) {
+            for (AttributeModifier m : new ArrayList<>(attr.getModifiers())) {
+                attr.removeModifier(m);
+                removed++;
+            }
+            attr.setBaseValue(attr.getDefaultValue());
         }
-        attr.setBaseValue(attr.getDefaultValue());
 
-        // Clamp current health down to the new max so setHealth never exceeds it.
+        // Clamp current health down to the (possibly external) max so setHealth never exceeds it.
         if (target.getHealth() > attr.getValue()) {
             target.setHealth(attr.getValue());
         }
