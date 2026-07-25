@@ -1,5 +1,5 @@
 # BlissGems Configuration File
-# Version 2.0.0
+# Version 1.0.0
 
 # ==========================================
 # ENERGY SYSTEM
@@ -258,3 +258,60 @@ messages:
   energy-bottle-consumed: "&aConsumed energy bottle and gained 1 energy!"
   gem-energy-restored: "&d&oRepair Kit restored {amount} energy!"
   cannot-drop-gem: "&c&lYou cannot drop your gem!"
+
+# ==========================================
+# CRAFTING RECIPES
+# ==========================================
+crafting:
+  enabled: true
+  
+  gem_fragment:
+    shape:
+      - "DAD"
+      - "EIE"
+      - "DAD"
+    ingredients:
+      D: DIAMOND
+      A: AMETHYST_CLUSTER
+      E: EMERALD
+      I: IRON_BLOCK
+
+  gem_trader:
+    shape:
+      - "BDB"
+      - "DSD"
+      - "BDB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      D: DRAGON_BREATH
+      S: SCULK_CATALYST
+
+  repair_kit:
+    shape:
+      - "FAF"
+      - "NTN"
+      - "FAF"
+    ingredients:
+      F: PRISMARINE_SHARD
+      A: ANVIL
+      N: NETHERITE_INGOT
+      T: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+
+  revive_beacon:
+    shape:
+      - "ETE"
+      - "TBT"
+      - "ETE"
+    ingredients:
+      E: ECHO_SHARD
+      T: TOTEM_OF_UNDYING
+      B: BEACON
+
+  gem_upgrader:
+    shape:
+      - "BBB"
+      - "BSB"
+      - "BBB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      S: NETHER_STAR
