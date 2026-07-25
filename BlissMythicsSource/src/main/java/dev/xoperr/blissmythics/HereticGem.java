@@ -36,6 +36,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
@@ -44,12 +45,6 @@ import org.joml.Vector3f;
 public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, Listener {
    private static final String KEY_SAWS = "heretic-bloodsaws";
    private static final String KEY_LINK = "heretic-bloodlink";
-   private static final int CD_SAWS = 25;
-   private static final int CD_LINK = 60;
-   private static final long SAW_WINDOW_MS = 4000L;
-   private static final long BLEED_MS = 8000L;
-   private static final long LINK_MS = 15000L;
-   private static final double MAX_HIT = 13.0;
    private final BlissMythics plugin;
    private final BlissGemsAPI api;
    private final Map<UUID, Long> firstSawAt = new HashMap<>();
@@ -68,6 +63,12 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double maxHitDamage;
    private final int bloodsawsCooldown;
    private final int bloodlinkCooldown;
+   private final long sawWindowMs;
+   private final long bleedMs;
+   private final long linkMs;
+   private final double bloodlinkLaunch;
+   private final int bloodlinkRiseTicks;
+   private final double bloodlinkRange;
 
    public HereticGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -80,6 +81,12 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.maxHitDamage = var1.getConfig().getDouble("heretic.max-hit-cap", 13.0);
       this.bloodsawsCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodsaws", 25);
       this.bloodlinkCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodlink", 60);
+      this.sawWindowMs = var1.getConfig().getLong("heretic.saw-window-ms", 4000L);
+      this.bleedMs = var1.getConfig().getLong("heretic.bleed-ms", 8000L);
+      this.linkMs = var1.getConfig().getLong("heretic.bloodlink-duration-ms", 15000L);
+      this.bloodlinkLaunch = var1.getConfig().getDouble("heretic.bloodlink-launch", 1.25);
+      this.bloodlinkRiseTicks = var1.getConfig().getInt("heretic.bloodlink-rise-ticks", 11);
+      this.bloodlinkRange = var1.getConfig().getDouble("heretic.bloodlink-range", 15.0);
       (new BukkitRunnable() {
          public void run() {
             HereticGem.this.bleedTick();
@@ -89,7 +96,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
 
    public boolean chargeWindowActive(Player var1) {
       Long var2 = this.firstSawAt.get(var1.getUniqueId());
-      return var2 != null && System.currentTimeMillis() - var2 <= 4000L;
+      return var2 != null && System.currentTimeMillis() - var2 <= this.sawWindowMs;
    }
 
    public void onPrimary(Player var1, int var2) {
@@ -101,7 +108,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          long var4 = System.currentTimeMillis();
          Long var6 = this.firstSawAt.get(var3);
          this.launchSaw(var1);
-         if (var6 != null && var4 - var6 <= 4000L) {
+         if (var6 != null && var4 - var6 <= this.sawWindowMs) {
             this.firstSawAt.remove(var3);
             this.spore(var1);
             this.api.getAbilityManager().setCooldown(var1, "heretic-bloodsaws", bloodsawsCooldown);
@@ -169,6 +176,10 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                         this.cancel();
                         return;
                      }
+
+                     // A bounced saw must not camp in the fight area (trees, walls) and hit
+                     // players who are knocked into it seconds later - cut its remaining life.
+                     this.life = Math.max(this.life, 48);
 
                      Vector var4x = var2[0];
                      Location var5x = var3[0].clone().add(new Vector(var4x.getX(), 0.0, 0.0).multiply(0.45));
@@ -238,7 +249,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                }
 
                var3.getWorld().spawnParticle(Particle.LAVA, var3, 2, 0.5, 0.3, 0.5, 0.0);
-               long var7 = System.currentTimeMillis() + 8000L;
+               long var7 = System.currentTimeMillis() + HereticGem.this.bleedMs;
 
                for (Player var8 : var3.getNearbyPlayers(5.0)) {
                   if (var8 != var1) {
@@ -251,6 +262,45 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       }).runTaskTimer(this.plugin, 0L, 10L);
    }
 
+   // Horizontal distance an impulse of 1.0 covers over var0 ticks of vanilla air drag (0.91/tick).
+   private static double airTravel(int var0) {
+      return (1.0 - Math.pow(0.91, var0)) / 0.09;
+   }
+
+   // The horizontal impulse that carries the slam onto whatever the player is looking at:
+   // the point is ray traced, then the impulse is solved from its distance so the hop lands
+   // there instead of a fixed step ahead. Returns null when nothing is in range (open sky),
+   // which leaves the caller on the old plain forward nudge.
+   private Vector leapAim(Player var1) {
+      Location var2 = var1.getEyeLocation();
+      Vector var3 = var2.getDirection().normalize();
+      RayTraceResult var4 = var1.getWorld()
+         .rayTraceEntities(var2, var3, this.bloodlinkRange, 0.8, var1x -> var1x != var1 && var1x instanceof LivingEntity);
+      Location var5 = null;
+      if (var4 != null && var4.getHitEntity() != null) {
+         var5 = var4.getHitEntity().getLocation();
+      } else {
+         RayTraceResult var6 = var1.getWorld().rayTraceBlocks(var2, var3, this.bloodlinkRange);
+         if (var6 != null && var6.getHitPosition() != null) {
+            var5 = var6.getHitPosition().toLocation(var1.getWorld());
+         }
+      }
+
+      if (var5 == null) {
+         return null;
+      } else {
+         double var7 = var5.getX() - var1.getLocation().getX();
+         double var9 = var5.getZ() - var1.getLocation().getZ();
+         double var11 = Math.sqrt(var7 * var7 + var9 * var9);
+         if (var11 < 0.5) {
+            return new Vector();
+         } else {
+            double var13 = Math.min(3.9, var11 / airTravel(this.bloodlinkRiseTicks + 3));
+            return new Vector(var7 / var11 * var13, 0.0, var9 / var11 * var13);
+         }
+      }
+   }
+
    private void bloodlinkSequence(final Player var1) {
       final HashSet<UUID> var2 = new HashSet<>();
       this.crashing.add(var1.getUniqueId());
@@ -259,6 +309,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          int airTicks = 0;
          int hops = 0;
          int phase = 0;
+         Vector aim = new Vector();
 
          public void cancel() {
             HereticGem.this.crashing.remove(var1.getUniqueId());
@@ -271,14 +322,16 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
             if (++this.ticks > 200 || !var1.isOnline() || var1.isDead()) {
                this.cancel();
             } else if (this.phase == 0) {
-               Vector var5 = new Vector(0.0, 0.95, 0.0);
-               Vector var9 = var1.getEyeLocation().getDirection();
-               var9.setY(0);
-               if (var9.lengthSquared() > 0.01) {
-                  var5.add(var9.normalize().multiply(0.5));
+               Vector var5 = new Vector(0.0, HereticGem.this.bloodlinkLaunch, 0.0);
+               Vector var6 = HereticGem.this.leapAim(var1);
+               if (var6 == null) {
+                  Vector var9 = var1.getEyeLocation().getDirection();
+                  var9.setY(0);
+                  var6 = var9.lengthSquared() > 1.0E-4 ? var9.normalize().multiply(0.5) : new Vector();
                }
 
-               var1.setVelocity(var5);
+               this.aim = var6;
+               var1.setVelocity(var5.add(var6));
                var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.2F, 0.5F);
                this.phase = 1;
                this.airTicks = 0;
@@ -288,18 +341,15 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                }
 
                this.airTicks++;
-               if (this.phase == 1 && this.airTicks >= 9) {
-                  Vector var4 = new Vector(0.0, -2.8, 0.0);
-                  Vector var8 = var1.getEyeLocation().getDirection();
-                  var8.setY(0);
-                  if (var8.lengthSquared() > 0.01) {
-                     var4.add(var8.normalize().multiply(0.6));
-                  }
-
+               if (this.phase == 1 && this.airTicks >= HereticGem.this.bloodlinkRiseTicks) {
+                  // Keep the drifting the launch already earned instead of overwriting it with a
+                  // fresh nudge - the arc has to stay pointed at the spot the hop was aimed at.
+                  Vector var4 = this.aim.clone().multiply(Math.pow(0.91, this.airTicks));
+                  var4.setY(-2.8);
                   var1.setVelocity(var4);
                   this.phase = 2;
                } else {
-                  if (this.phase == 2 && this.airTicks >= 12 && var1.isOnGround()) {
+                  if (this.phase == 2 && this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 3 && var1.isOnGround()) {
                      var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0F, 0.7F);
                      var1.getWorld().spawnParticle(Particle.EXPLOSION, var1.getLocation(), 2, 0.5, 0.2, 0.5, 0.0);
 
@@ -335,7 +385,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
 
          private void finish() {
             if (var2.size() >= 2) {
-               long var1x = System.currentTimeMillis() + 15000L;
+               long var1x = System.currentTimeMillis() + HereticGem.this.linkMs;
 
                for (UUID var4 : var2) {
                   HashSet var5 = new HashSet(var2);

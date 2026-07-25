@@ -452,6 +452,7 @@ implements Listener {
                         String offhandOraxenId = CustomItemManager.getIdByItem(offhandItem);
                         if (offhandOraxenId != null && GemType.isGem(offhandOraxenId)) {
                             event.setCancelled(true);
+                            ComprehensiveGemProtectionListener.resyncOffhand(plugin, player);
                             String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
                         if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
                             return;

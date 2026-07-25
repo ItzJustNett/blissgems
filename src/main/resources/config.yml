@@ -43,13 +43,6 @@ gems:
     strength: true
     wealth: true
 
-  # Addon gems that must NOT appear in the random pool (first-join gem + reroll).
-  # They still work everywhere else (given explicitly, ritual, trader, upgrader).
-  # Default keeps the mythic gems out so newcomers can't roll them.
-  exclude-from-random:
-    - auratus
-    - heretic
-
   # Only one gem can be active at a time
   single-gem-only: true
 
@@ -57,11 +50,6 @@ gems:
   # When enabled, gems cannot be: dropped (Q), placed in containers/frames,
   # given to entities, moved by hoppers, or lost in any other way
   prevent-drop: true
-
-  # Gem types that DROP on death instead of being kept (looted by your killer).
-  # Everything else stays protected. Use the gem id (e.g. heretic, auratus).
-  # Empty = every gem (including the mythics) is kept and restored on respawn.
-  droppable-on-death: []
 
 # ==========================================
 # WORLDGUARD INTEGRATION
@@ -100,11 +88,6 @@ smp:
 # Toggle in-game with: /fixedhearts everyone true|false
 fixed-hearts:
   enabled: false
-  # When forcing hearts, RESPECT external max-health (default true): only BlissGems' own
-  # Life/Soul heart modifiers are removed; another mod/plugin that grants variable max hearts
-  # (e.g. a Ranked / Lifesteal SMP) is left alone. Set false for the old behavior that strips
-  # ALL modifiers and hard-resets everyone to exactly 10 hearts.
-  respect-external-hearts: true
 
 # ==========================================
 # CRAFTING RECIPES
@@ -175,7 +158,6 @@ passives:
   flux:
     shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
     charged-creeper-reduction: 1.0  # 1.0 = full immunity, 0.5 = 50% reduction
-    max-flow-speed-level: 0  # Cap on flow-state Speed amplifier (0 = Speed I; was up to Speed III)
     tier1:
       shocking-arrow-damage: 2.0  # Electric arrow damage
       flow-state-speed-boost: 0.15  # Additional speed boost in flow state
@@ -259,7 +241,7 @@ abilities:
   cooldowns:
     astra-daggers: 15
     astra-projection: 60  # 1 minute (set when projection ends)
-    astra-drift: 12  # Dimensional Drift (Momentum Dash) cooldown
+    astra-drift: 90  # Dimensional Drift (set when drift ends)
     astra-void: 120  # 2 minutes - Dimensional Void
     astra-spook: 10  # Spook sub-ability during projection
     astra-tag: 15  # Tag sub-ability during projection
@@ -279,8 +261,6 @@ abilities:
     puff-dash: 5
     puff-breezy-bash: 10
     puff-group-bash: 30
-    puff-updraft: 20  # Puff 4th ability (updraft fling) cooldown
-    auratus-gemlock: 60  # Auratus Gem Lock (F) cooldown
     speed-blur: 15
     speed-sedative: 60
     speed-storm: 135  # 2.25 minutes (tripled from 45)
@@ -289,7 +269,6 @@ abilities:
     strength-nullify: 60
     strength-frailer: 45
     strength-shadow-stalker: 120
-    strength-chad: 30  # Chad Strength (activated empower buff) cooldown
     wealth-pockets: 0  # No cooldown for opening
     wealth-item-lock: 45
     wealth-unfortunate: 90
@@ -302,15 +281,6 @@ abilities:
     player-kill-hearts: 10.0  # HP added on player kill (10.0 = 5 hearts)
     duration: 60  # Duration in seconds before the bonus hearts expire
 
-  # Astra Astral Daggers settings (3 hovering dagger models, launched one-by-one)
-  astra-daggers:
-    speed: 1.1  # Blocks travelled per tick once launched
-    range: 30  # Max blocks a dagger flies before dissipating
-    auto-fire-ticks: 80  # Unlaunched daggers auto-fire after this many ticks (80 = 4s)
-    model-scale: 1.4  # Visual size of the dagger model
-    model-yaw-offset: 180  # Degrees to rotate the dagger's facing (180 = point away from you; try 0/90/270 if it looks wrong)
-    model-data: 12350  # CustomModelData of blissgems:custom/astra_dagger on ECHO_SHARD
-
   # Astra Projection settings (spectator mode scout)
   astra-projection:
     radius: 128  # Maximum distance from origin in blocks (8 chunks)
@@ -322,13 +292,6 @@ abilities:
   # Astra Dimensional Void settings
   astra-void:
     radius: 10.0  # Void suppression radius in blocks
-
-  # Astra Dimensional Drift settings (Momentum Dash — fixed forward arc, no damage)
-  astra-drift:
-    power: 2.8  # Horizontal fling strength
-    lift: 0.35  # Fixed upward arc (fraction of power); higher = more air
-    invisibility: 3  # Seconds of invisibility on dash
-    fall-immunity: 6  # Seconds of fall-damage immunity after dashing
 
   # Fire Campfire settings
   fire-campfire:
@@ -361,36 +324,9 @@ abilities:
     radius: 6.0  # AoE radius of the knockback burst
     knockback: 2.5  # Knockback power multiplier
 
-  # Flux Beam settings
-  flux-beam:
-    charge-duration-ticks: 300  # Ticks to reach full charge (20 = 1s; 300 = 15s)
-
-  # Speed Storm settings
-  speed-storm:
-    radius: 8.0  # Field radius
-    enemy-slowness-level: 3  # Slowness amplifier on enemies in the field (was a full freeze; 3 = Slowness IV)
-    ally-buff-duration: 45  # Seconds allies keep Speed/Haste after the field touches them
-
-  # Puff Dash settings (primary — a viable forward attack on its own)
-  puff-dash:
-    power: 3.2  # Forward lunge strength
-    vertical: 0.18  # Upward component (lower = flatter dash)
-
-  # Puff Updraft settings (4th ability — flings nearby enemies skyward)
-  puff-updraft:
-    radius: 6.0  # AoE radius
-    launch-velocity: 3.2  # Upward launch velocity applied to enemies
-
-  # Auratus Gem Lock settings (Tier 2, F / tertiary) — locks the targeted player's gem
-  # (blocks all their abilities + passives, shows the lock icon on their action bar)
-  auratus-gemlock:
-    duration: 10  # Seconds the target's gem stays locked
-    range: 20     # Raycast range in blocks to acquire a target
-
   # Strength Nullify settings
   strength-nullify:
     range: 20  # Raycast range in blocks
-    duration: 8  # Seconds the beneficial effects are stripped before being restored (0 = permanent removal)
 
   # Strength Frailer settings
   strength-frailer:
@@ -402,11 +338,10 @@ abilities:
     duration: 60  # Tracking duration in seconds
     invisibility-max-range: 2500  # Track invisible targets only within this range
 
-  # Strength Chad Strength settings (activated: empowers your next N melee hits)
+  # Strength Chad Strength settings (passive every-4th-hit)
   strength-chad:
-    empowered-hits: 4  # Number of guaranteed bonus-damage hits granted on activation
-    duration: 10  # Seconds the empowered hits remain available before expiring
-    bonus-damage: 7.0  # Bonus damage in HP added per empowered hit (7.0 = 3.5 hearts)
+    hit-threshold: 4  # Every Nth hit triggers bonus damage
+    bonus-damage: 4.0  # Bonus damage in HP (2 hearts)
 
   # Fire Charged Fireball settings
   fire-fireball:
@@ -418,10 +353,6 @@ abilities:
   puff-group-bash:
     radius: 10.0
     knockback: 2.5
-
-  # Life Heart Drainer settings
-  life-drainer:
-    steal-hp: 4.0  # HP instantly drained from target and healed to caster (4.0 = 2 hearts)
 
   # Life Circle of Life settings
   life-circle:

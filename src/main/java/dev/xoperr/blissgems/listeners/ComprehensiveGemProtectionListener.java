@@ -4,6 +4,7 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,6 +21,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -82,6 +84,23 @@ public class ComprehensiveGemProtectionListener implements Listener {
         } else {
             player.sendMessage("§c§lYou cannot drop your gem!");
         }
+    }
+
+    /**
+     * Re-send the offhand (slot 40) to the client after a cancelled SWAP_OFFHAND click.
+     *
+     * The client predicts the swap locally, and when the click is cancelled the server only
+     * resyncs the slots of the *open* container — the offhand is not part of a chest/container
+     * menu, so the client keeps showing it empty and the gem looks lost until relog.
+     * Sending the equipment change writes the item straight back into the client's offhand.
+     */
+    static void resyncOffhand(BlissGems plugin, Player player) {
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        ItemStack copy = offhand == null ? new ItemStack(Material.AIR) : offhand.clone();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            player.sendEquipmentChange(player, EquipmentSlot.OFF_HAND, copy);
+            player.updateInventory();
+        });
     }
 
     // ==========================================
@@ -227,6 +246,7 @@ public class ComprehensiveGemProtectionListener implements Listener {
             if ((clicked != null && CustomItemManager.isUndroppable(clicked)) ||
                 (offhand != null && CustomItemManager.isUndroppable(offhand))) {
                 event.setCancelled(true);
+                resyncOffhand(plugin, player);
                 return;
             }
         }

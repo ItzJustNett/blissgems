@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>4.7.2</version>
+    <version>4.7.3</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
@@ -136,96 +136,7 @@
             </plugin>
 
             <!-- ProGuard Obfuscation Plugin - Standalone -->
-            <plugin>
-                <groupId>com.github.wvengen</groupId>
-                <artifactId>proguard-maven-plugin</artifactId>
-                <version>2.6.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>proguard</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <obfuscate>true</obfuscate>
-                    <injar>${project.build.finalName}.jar</injar>
-                    <outjar>${project.build.finalName}-obfuscated.jar</outjar>
-                    <libs>
-                        <lib>${java.home}/jmods/java.base.jmod</lib>
-                        <lib>${java.home}/jmods/java.desktop.jmod</lib>
-                    </libs>
-                    <options>
-                        <!-- Don't shrink or optimize - only obfuscate -->
-                        <option>-dontshrink</option>
-                        <option>-dontoptimize</option>
-                        <option>-dontwarn</option>
-                        <option>-ignorewarnings</option>
-
-                        <!-- Keep main plugin class and JavaPlugin extension -->
-                        <option>-keep public class dev.xoperr.blissgems.BlissGems {
-    public void onEnable();
-    public void onDisable();
-    public void onLoad();
-    public protected *;
-}</option>
-
-                        <!-- Keep all Bukkit/Spigot required classes -->
-                        <option>-keep public class * extends org.bukkit.plugin.java.JavaPlugin</option>
-                        <option>-keep class * implements org.bukkit.event.Listener { *; }</option>
-                        <option>-keep class * implements org.bukkit.command.CommandExecutor { *; }</option>
-                        <option>-keep class * implements org.bukkit.command.TabCompleter { *; }</option>
-                        <option>-keep class * implements org.bukkit.configuration.serialization.ConfigurationSerializable { *; }</option>
-
-                        <!-- Keep enum methods that Bukkit/Java needs -->
-                        <option>-keepclassmembers enum * {
-    public static **[] values();
-    public static ** valueOf(java.lang.String);
-    **[] $VALUES;
-    public *;
-}</option>
-
-                        <!-- Keep public API classes for other plugins -->
-                        <option>-keep public class dev.xoperr.blissgems.BlissGems {
-    public *;
-}</option>
-                        <option>-keep public class dev.xoperr.blissgems.utils.** {
-    public *;
-}</option>
-                        <option>-keep public class dev.xoperr.blissgems.managers.** {
-    public *;
-}</option>
-                        <!-- Keep Addon API classes (used by external plugins) -->
-                        <option>-keep public class dev.xoperr.blissgems.api.** { *; }</option>
-                        <option>-keep public interface dev.xoperr.blissgems.api.** { *; }</option>
-                        <option>-keep public enum dev.xoperr.blissgems.utils.GemType {
-    *;
-}</option>
-
-                        <!-- Keep relocated FastStats classes and Gson (uses reflection) -->
-                        <option>-keep class dev.xoperr.blissgems.libs.faststats.** { *; }</option>
-                        <option>-keep class com.google.gson.** { *; }</option>
-
-                        <!-- Preserve annotations for Bukkit -->
-                        <option>-keepattributes *Annotation*</option>
-
-                        <!-- Keep line numbers for stack traces but remove variable names -->
-                        <option>-keepattributes SourceFile,LineNumberTable</option>
-                        <option>-keepattributes !LocalVariableTable,!LocalVariableTypeTable</option>
-
-                        <!-- Obfuscation settings (safe for Paper) -->
-                        <option>-allowaccessmodification</option>
-
-                        <!-- Print mapping file for debugging (if needed) -->
-                        <option>-printmapping ${project.build.directory}/proguard-mapping.txt</option>
-
-                        <!-- Keep WorldGuard API classes (soft dependency) -->
-                        <option>-dontwarn com.sk89q.worldguard.**</option>
-                        <option>-dontwarn com.sk89q.worldedit.**</option>
-                    </options>
-                </configuration>
-            </plugin>
+            
         </plugins>
     </build>
 </project>
