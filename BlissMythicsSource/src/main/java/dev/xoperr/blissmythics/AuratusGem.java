@@ -51,6 +51,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final BlissMythics plugin;
    private final BlissGemsAPI api;
    private final Map<UUID, List<Long>> chainUses = new HashMap<>();
+   private final Map<UUID, Long> chainFloor = new HashMap<>();
    private final Map<UUID, Long> aegisWindow = new HashMap<>();
    private final Map<UUID, Long> anchorWindow = new HashMap<>();
    private final Map<UUID, Long> slamWindow = new HashMap<>();
@@ -62,6 +63,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double chainRange;
    private final int chainCharges;
    private final long chainRegenMs;
+   private final long chainMinIntervalMs;
    private final long aegisWindowMs;
    private final long anchorWindowMs;
    private final double chainFlySpeed;
@@ -77,6 +79,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.chainRange = var1.getConfig().getDouble("auratus.chain.range", 55.0);
       this.chainCharges = var1.getConfig().getInt("auratus.chain.charges", 2);
       this.chainRegenMs = var1.getConfig().getLong("auratus.chain.regen-ms", 8000L);
+      this.chainMinIntervalMs = var1.getConfig().getLong("auratus.chain.min-interval-ms", 2000L);
       this.aegisWindowMs = var1.getConfig().getLong("auratus.aegis-window-ms", 1500L);
       this.anchorWindowMs = var1.getConfig().getLong("auratus.anchor-window-ms", 5000L);
       this.chainFlySpeed = var1.getConfig().getDouble("auratus.chain.fly-speed", 4.5);
@@ -117,6 +120,12 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    public int chainCharges(Player var1) {
+      // /bliss nocdtoggle exempts AbilityManager cooldowns, but chain charges live here, so
+      // the exemption has to be honoured explicitly or chains stay limited for exempt players.
+      if (this.api.getAbilityManager().hasNoCooldown(var1)) {
+         return this.chainCharges;
+      }
+
       List<Long> var2 = this.chainUses.get(var1.getUniqueId());
       if (var2 == null) {
          return this.chainCharges;
@@ -165,11 +174,26 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       // (8s), so charging for it meant a parry could hand out an anchor the player had no
       // way to reach before it expired.
       boolean var3 = this.wantsSkyAnchor(var1);
+      // A connecting chain refunds its charge, so without a hard floor between shots a player
+      // who keeps hitting something never actually spends one and can fire nonstop.
+      boolean var4 = this.api.getAbilityManager().hasNoCooldown(var1);
+      if (!var4 && !this.chainFloorElapsed(var1)) {
+         return;
+      }
+
       if (!var3 && this.chainCharges(var1) <= 0) {
          var1.sendMessage("§6Venerated Perforators §7recharging: §c" + this.nextChainChargeIn(var1) + "s");
-      } else if (this.fireChain(var1) && !var3) {
-         this.chainUses.computeIfAbsent(var1.getUniqueId(), var0 -> new ArrayList<>()).add(System.currentTimeMillis());
+      } else {
+         this.chainFloor.put(var1.getUniqueId(), System.currentTimeMillis());
+         if (this.fireChain(var1) && !var3) {
+            this.chainUses.computeIfAbsent(var1.getUniqueId(), var0 -> new ArrayList<>()).add(System.currentTimeMillis());
+         }
       }
+   }
+
+   private boolean chainFloorElapsed(Player var1) {
+      Long var2 = this.chainFloor.get(var1.getUniqueId());
+      return var2 == null || System.currentTimeMillis() - var2 >= this.chainMinIntervalMs;
    }
 
    public void onSecondary(Player var1, int var2) {
@@ -857,6 +881,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    public void cleanup(Player var1) {
       UUID var2 = var1.getUniqueId();
       this.chainUses.remove(var2);
+      this.chainFloor.remove(var2);
       this.aegisWindow.remove(var2);
       this.anchorWindow.remove(var2);
       this.slamWindow.remove(var2);
