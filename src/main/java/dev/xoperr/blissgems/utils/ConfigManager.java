@@ -53,8 +53,14 @@ public class ConfigManager {
             )
         );
 
+        // Read the on-disk config directly. plugin.getConfig() has the JAR's config.yml
+        // installed as its *defaults*, so every contains()/getString() below would fall
+        // through to those defaults and report the file as complete - the repair never
+        // ran and new keys were never written to the server's config.yml on update.
+        FileConfiguration userConfig = YamlConfiguration.loadConfiguration(configFile);
+
         // Check version
-        String currentVersion = config.getString("config-version", "unknown");
+        String currentVersion = userConfig.getString("config-version", "unknown");
         String expectedVersion = defaultConfig.getString("config-version", CONFIG_VERSION);
         boolean isOutdated = !currentVersion.equals(expectedVersion);
 
@@ -72,7 +78,7 @@ public class ConfigManager {
             }
 
             // If key is missing, mark for repair
-            if (!config.contains(key)) {
+            if (!userConfig.contains(key)) {
                 needsRepair = true;
                 missingKeys++;
             }
@@ -113,7 +119,7 @@ public class ConfigManager {
                 continue;
             }
 
-            if (!config.contains(key)) {
+            if (!userConfig.contains(key)) {
                 config.set(key, defaultConfig.get(key));
                 plugin.getLogger().info("  + Added: " + key);
             }
@@ -210,6 +216,14 @@ public class ConfigManager {
 
     public boolean isSingleGemOnly() {
         return this.config.getBoolean("gems.single-gem-only", true);
+    }
+
+    /**
+     * When enabled, tier 1 gems also auto-enchant (at reduced levels). Off by default,
+     * which keeps auto-enchant a tier 2 perk as it has always been.
+     */
+    public boolean isTier1AutoEnchantEnabled() {
+        return this.config.getBoolean("auto-enchant.tier1-enabled", false);
     }
 
     public int getPassiveUpdateInterval() {

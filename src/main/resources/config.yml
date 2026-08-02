@@ -417,6 +417,10 @@ abilities:
 # ==========================================
 auto-enchant:
   enabled: true
+  # Let tier 1 gems auto-enchant too, at reduced levels (e.g. Efficiency III instead of V).
+  # Off by default: auto-enchant is normally a tier 2 perk. Strength always applies its
+  # Sharpness at both tiers regardless of this setting.
+  tier1-enabled: false
   # Enchantments are applied when holding appropriate tools
   fire:
     flame: true
