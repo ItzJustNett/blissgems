@@ -3,7 +3,8 @@
  *
  * Tier 1:
  *   - Blur (Primary): Grants stored lightning strikes; each right-click calls one
- *     down at the aimed location, dealing damage and knockback
+ *     down at the aimed location, where a clone of the caster lands and delivers
+ *     the damage and knockback
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Blur (Primary, no shift): Same as T1
@@ -16,15 +17,20 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.EulerAngle;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,6 +47,10 @@ public class SpeedAbilities implements GemAbilityHandler {
 
     // Track frozen players (for Speed Storm freeze effect)
     private static final Set<UUID> frozenPlayers = new HashSet<>();
+
+    // Blur clone timings: it winds up for a moment after landing, then fades out
+    private static final long CLONE_WINDUP_TICKS = 5L;
+    private static final long CLONE_LIFETIME_TICKS = 20L;
 
     // Blur stored-strike state
     private final Map<UUID, Integer> blurCharges = new HashMap<>();
@@ -219,48 +229,74 @@ public class SpeedAbilities implements GemAbilityHandler {
                 8, 0.2, 0.1, 0.2, 0.0, strikeDust, true);
         }
 
-        // Damage and knockback enemies in radius
-        for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
-            if (!(entity instanceof LivingEntity)) continue;
-            LivingEntity target = (LivingEntity) entity;
-            if (entity.equals(player)) continue;
-
-            // Skip trusted players
-            if (entity instanceof Player) {
-                Player targetPlayer = (Player) entity;
-                if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-                    continue;
-                }
-            }
-
-            // Deal damage
-            target.damage(damage, player);
-
-            // Apply knockback 1 tick later so it doesn't get overridden by damage knockback
-            final LivingEntity knockTarget = target;
-            final Location knockOrigin = strikeLoc.clone();
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if (knockTarget.isValid() && !knockTarget.isDead()) {
-                        org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
-                            .subtract(knockOrigin.toVector())
-                            .normalize()
-                            .multiply(knockbackPower)
-                            .setY(0.5);
-                        knockTarget.setVelocity(knockback);
-                    }
-                }
-            }.runTaskLater(plugin, 1L);
-
-            // Hit particles
-            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, strikeDust, true);
-            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 25, 0.5, 0.5, 0.5);
-        }
-
         // Sound
         strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.0f);
         strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+
+        // A clone of the caster rides the bolt down and delivers the blow — the lightning is
+        // the entrance, the clone is what actually hits.
+        final ArmorStand clone = spawnBlurClone(player, strikeLoc);
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (clone.isValid()) {
+                    clone.setRightArmPose(new EulerAngle(Math.toRadians(-150.0), 0.0, 0.0));
+                    clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.4f);
+                    clone.getWorld().spawnParticle(Particle.SWEEP_ATTACK, clone.getLocation().add(0, 1.0, 0), 3, 0.6, 0.3, 0.6, 0.0);
+                }
+
+                // Damage and knockback enemies in radius
+                for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
+                    if (!(entity instanceof LivingEntity)) continue;
+                    LivingEntity target = (LivingEntity) entity;
+                    if (entity.equals(player)) continue;
+
+                    // Skip trusted players
+                    if (entity instanceof Player) {
+                        Player targetPlayer = (Player) entity;
+                        if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+                            continue;
+                        }
+                    }
+
+                    // Deal damage
+                    target.damage(damage, player);
+
+                    // Apply knockback 1 tick later so it doesn't get overridden by damage knockback
+                    final LivingEntity knockTarget = target;
+                    final Location knockOrigin = strikeLoc.clone();
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            if (knockTarget.isValid() && !knockTarget.isDead()) {
+                                org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
+                                    .subtract(knockOrigin.toVector())
+                                    .normalize()
+                                    .multiply(knockbackPower)
+                                    .setY(0.5);
+                                knockTarget.setVelocity(knockback);
+                            }
+                        }
+                    }.runTaskLater(plugin, 1L);
+
+                    // Hit particles
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, strikeDust, true);
+                    target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 25, 0.5, 0.5, 0.5);
+                }
+            }
+        }.runTaskLater(plugin, CLONE_WINDUP_TICKS);
+
+        // Clone dissolves once the blow has landed
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (clone.isValid()) {
+                    clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0), 60, 0.4, 0.9, 0.4, 0.0, strikeDust, true);
+                    clone.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, clone.getLocation().add(0, 1, 0), 40, 0.4, 0.9, 0.4, 0.05);
+                    clone.remove();
+                }
+            }
+        }.runTaskLater(plugin, CLONE_LIFETIME_TICKS);
 
         remaining--;
         if (remaining <= 0) {
@@ -270,6 +306,42 @@ public class SpeedAbilities implements GemAbilityHandler {
         } else {
             blurCharges.put(uuid, remaining);
         }
+    }
+
+    /**
+     * The Blur clone: an armour stand wearing the caster's skin and gear, standing where the
+     * bolt came down. Marker + invulnerable so it is purely a visual actor — nothing can hit
+     * it, loot it or push it around.
+     */
+    private ArmorStand spawnBlurClone(Player player, Location strikeLoc) {
+        Location standLoc = strikeLoc.clone();
+        standLoc.setYaw(player.getLocation().getYaw());
+        standLoc.setPitch(0.0f);
+
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
+        if (skullMeta != null) {
+            skullMeta.setOwningPlayer(player);
+            head.setItemMeta(skullMeta);
+        }
+
+        return strikeLoc.getWorld().spawn(standLoc, ArmorStand.class, stand -> {
+            stand.setInvulnerable(true);
+            stand.setBasePlate(false);
+            stand.setArms(true);
+            stand.setGravity(false);
+            stand.setMarker(true);
+            stand.setSilent(true);
+            stand.setPersistent(false);
+            stand.setCustomName(player.getName());
+            if (stand.getEquipment() != null) {
+                stand.getEquipment().setHelmet(head);
+                stand.getEquipment().setChestplate(player.getInventory().getChestplate());
+                stand.getEquipment().setLeggings(player.getInventory().getLeggings());
+                stand.getEquipment().setBoots(player.getInventory().getBoots());
+                stand.getEquipment().setItemInMainHand(player.getInventory().getItemInMainHand());
+            }
+        });
     }
 
     // ========================================================================

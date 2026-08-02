@@ -25,6 +25,7 @@ auratus:
     range: 55.0
     charges: 2
     regen-ms: 8000
+    min-interval-ms: 2000  # Hard floor between chain shots, so refunded charges can't be spammed
     fly-speed: 4.5
     fly-max-ticks: 60
   cooldowns:
