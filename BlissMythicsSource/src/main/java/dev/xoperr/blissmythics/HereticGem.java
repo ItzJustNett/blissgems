@@ -399,6 +399,11 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                }
 
                var1.sendMessage("§4§o" + var2.size() + " players bloodlinked!");
+            } else if (var2.size() == 1) {
+               // The slam landed but a link needs two victims to share damage between.
+               var1.sendMessage("§4§oOnly one player hit — a bloodlink needs at least two.");
+            } else {
+               var1.sendMessage("§4§oNo players hit — no bloodlink formed.");
             }
          }
       }).runTaskTimer(this.plugin, 0L, 1L);

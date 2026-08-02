@@ -314,6 +314,10 @@ implements Listener {
      * Remove duplicate gems from inventory, keeping only the first one found.
      */
     private void enforceOneGemOnly(Player player) {
+        if (!this.plugin.getConfigManager().isSingleGemOnly()) {
+            return;
+        }
+
         boolean foundFirst = false;
         for (int i = 0; i < player.getInventory().getSize(); i++) {
             ItemStack item = player.getInventory().getItem(i);

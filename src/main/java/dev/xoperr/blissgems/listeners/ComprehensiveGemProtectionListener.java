@@ -462,6 +462,10 @@ public class ComprehensiveGemProtectionListener implements Listener {
      * Scan inventory and remove duplicate gems, keeping only the first one found.
      */
     private void enforceOneGemOnly(Player player) {
+        if (!plugin.getConfigManager().isSingleGemOnly()) {
+            return;
+        }
+
         boolean foundFirst = false;
         List<Integer> duplicateSlots = new ArrayList<>();
 

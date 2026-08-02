@@ -21,6 +21,8 @@ public class AbilityManager {
     private final BlissGems plugin;
     private final Map<UUID, Map<String, Long>> cooldowns;
     private final File cooldownDataFolder;
+    /** Players with admin-granted cooldown exemption (/bliss nocdtoggle). Not persisted. */
+    private final Set<UUID> noCooldown = new java.util.HashSet<UUID>();
 
     public AbilityManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -31,7 +33,28 @@ public class AbilityManager {
         }
     }
 
+    /**
+     * Flip a player's cooldown exemption. Returns the new state (true = exempt).
+     * Clears any running cooldowns when switching on so abilities are usable immediately.
+     */
+    public boolean toggleNoCooldown(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (this.noCooldown.remove(uuid)) {
+            return false;
+        }
+        this.noCooldown.add(uuid);
+        this.clearCooldowns(player);
+        return true;
+    }
+
+    public boolean hasNoCooldown(Player player) {
+        return this.noCooldown.contains(player.getUniqueId());
+    }
+
     public boolean isOnCooldown(Player player, String abilityKey) {
+        if (this.noCooldown.contains(player.getUniqueId())) {
+            return false;
+        }
         Map<String, Long> playerCooldowns = this.cooldowns.get(player.getUniqueId());
         if (playerCooldowns == null) {
             return false;
@@ -44,6 +67,9 @@ public class AbilityManager {
     }
 
     public int getRemainingCooldown(Player player, String abilityKey) {
+        if (this.noCooldown.contains(player.getUniqueId())) {
+            return 0;
+        }
         Map<String, Long> playerCooldowns = this.cooldowns.get(player.getUniqueId());
         if (playerCooldowns == null) {
             return 0;
@@ -57,6 +83,10 @@ public class AbilityManager {
     }
 
     public void setCooldown(Player player, String abilityKey, int seconds) {
+        // Don't even record it, so toggling the exemption back off leaves a clean slate.
+        if (this.noCooldown.contains(player.getUniqueId())) {
+            return;
+        }
         Map playerCooldowns = this.cooldowns.computeIfAbsent(player.getUniqueId(), k -> new HashMap());
         playerCooldowns.put(abilityKey, System.currentTimeMillis() + (long)seconds * 1000L);
         // Persist cooldown to disk
