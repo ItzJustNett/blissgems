@@ -1,5 +1,44 @@
 # Changelog
 
+## BlissGems 4.7.5 / BlissMythics 1.4.2
+
+### Changed
+
+**Blur strikes with a clone.** The bolt still comes down where you're aiming, but the blow is
+delivered by a copy of you that lands with it — wearing your skin, armour and weapon. It winds
+up, swings, and dissolves a second later. Damage, radius, knockback and trusted-player skips are
+unchanged, and kills still credit you. The clone can't be hit, looted or pushed around.
+
+**Heretic: Bloodlink is aimed in all three dimensions.** The hop only ever carried you sideways —
+the launch height was fixed and so was the dive, so anything above or below you was unreachable
+and distant targets fell short. The whole arc is now solved against the game's air physics toward
+whatever is under your crosshair, and the dive begins at the top of the arc rather than on a fixed
+tick, re-aiming at whatever distance is left. Across the tested range it lands within about a
+block of the point you aimed at, uphill or down. Aiming at open sky still gives the old forward
+hop.
+
+**Auratus: chains can't be spam-fired.** A chain that connects refunds its charge, so anyone
+who kept hitting something never actually spent one and could fire nonstop. The refund stays,
+but there's now a two-second floor between shots — `auratus.chain.min-interval-ms`.
+
+### Fixed
+
+**Conduction teleported you underground.** It matched any block whose name contained COPPER,
+which includes copper ore, deepslate copper ore and raw copper blocks. With no real copper
+nearby it would find ore in a cave within range and drop you into it. Copper blocks only now.
+
+**Puff's launch-on-hit had no cooldown whatsoever** — every single melee hit sent the target
+flying. It's on a 15 second cooldown now (`abilities.cooldowns.puff-launch`), and it respects
+`/bliss nocdtoggle` like everything else.
+
+**Puff's sculk-shrieker immunity only applied from the offhand.** Puff gets played as a main-hand
+weapon just as often, and every other Puff passive already checked both hands. Shriekers stay
+quiet with the gem in either hand now. Tier 1 still has no immunity unless you enable it.
+
+**Auratus chains ignored `/bliss nocdtoggle`.** Chain charges are tracked inside the mythics
+addon rather than the ability-cooldown system, so the exemption never reached them — which is
+why it seemed to work on some Auratus abilities but not others. It's honoured now.
+
 ## BlissGems 4.7.4 / BlissMythics 1.4.1
 
 ### Fixed

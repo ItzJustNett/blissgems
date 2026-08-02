@@ -189,6 +189,12 @@ implements Listener {
             return;
         }
 
+        // Cooldown so it doesn't fire on every single melee hit
+        String abilityKey = "puff-launch";
+        if (this.plugin.getAbilityManager().isOnCooldown(player, abilityKey)) {
+            return;
+        }
+
         // Get tier and launch velocity
         int tier = GemType.getTierFromOraxenId(oraxenId);
         double launchVelocityValue = this.plugin.getConfigManager().getLaunchVelocity(tier);
@@ -196,6 +202,7 @@ implements Listener {
         // Launch target player up
         Vector launchVelocity = new Vector(0, launchVelocityValue, 0);
         targetPlayer.setVelocity(launchVelocity);
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
 
         // Play launch sound
         targetPlayer.getWorld().playSound(targetPlayer.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.8f);
@@ -520,7 +527,10 @@ implements Listener {
         }
 
         Player player = (Player) entity;
-        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF)) {
+        // Puff is played as a main-hand weapon just as often as an offhand gem, and the
+        // immunity has to hold in both cases or shriekers still go off.
+        boolean inOffhand = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF);
+        if (!inOffhand && !isHoldingPuffGem(player)) {
             return;
         }
         if (!this.canUsePassives(player)) {
@@ -528,7 +538,9 @@ implements Listener {
         }
 
         // Check if sculk immunity is enabled for this tier
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = inOffhand
+            ? this.plugin.getGemManager().getTierFromOffhand(player)
+            : GemType.getTierFromOraxenId(CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand()));
         if (!this.plugin.getConfigManager().isSculkImmunity(tier)) {
             return;
         }
@@ -704,7 +716,11 @@ implements Listener {
             for (int y = -range; y <= range; y++) {
                 for (int z = -range; z <= range; z++) {
                     Block block = playerLoc.getBlock().getRelative(x, y, z);
-                    if (block.getType().name().contains("COPPER") && !block.getType().name().contains("COPPERHEAD")) {
+                    // Copper *blocks* only — ore and raw copper blocks would otherwise drag the
+                    // player into whatever cave happens to be within range.
+                    String blockName = block.getType().name();
+                    if (blockName.contains("COPPER") && !blockName.contains("COPPERHEAD")
+                            && !blockName.endsWith("_ORE") && !blockName.startsWith("RAW_")) {
                         double dist = block.getLocation().distanceSquared(playerLoc);
                         if (dist < closestDist) {
                             closestDist = dist;

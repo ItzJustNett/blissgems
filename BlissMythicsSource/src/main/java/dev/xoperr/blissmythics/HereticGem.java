@@ -267,37 +267,80 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       return (1.0 - Math.pow(0.91, var0)) / 0.09;
    }
 
-   // The horizontal impulse that carries the slam onto whatever the player is looking at:
-   // the point is ray traced, then the impulse is solved from its distance so the hop lands
-   // there instead of a fixed step ahead. Returns null when nothing is in range (open sky),
-   // which leaves the caller on the old plain forward nudge.
-   private Vector leapAim(Player var1) {
+   // Whatever the player is looking at: the entity under the crosshair, else the block face.
+   // Null means open sky within range, which leaves the caller on a plain forward nudge.
+   private Location aimPoint(Player var1) {
       Location var2 = var1.getEyeLocation();
       Vector var3 = var2.getDirection().normalize();
       RayTraceResult var4 = var1.getWorld()
          .rayTraceEntities(var2, var3, this.bloodlinkRange, 0.8, var1x -> var1x != var1 && var1x instanceof LivingEntity);
-      Location var5 = null;
       if (var4 != null && var4.getHitEntity() != null) {
-         var5 = var4.getHitEntity().getLocation();
+         return var4.getHitEntity().getLocation();
       } else {
-         RayTraceResult var6 = var1.getWorld().rayTraceBlocks(var2, var3, this.bloodlinkRange);
-         if (var6 != null && var6.getHitPosition() != null) {
-            var5 = var6.getHitPosition().toLocation(var1.getWorld());
+         RayTraceResult var5 = var1.getWorld().rayTraceBlocks(var2, var3, this.bloodlinkRange);
+         return var5 != null && var5.getHitPosition() != null ? var5.getHitPosition().toLocation(var1.getWorld()) : null;
+      }
+   }
+
+   // Solves the launch impulse that carries the player from var0 to var1 over var2 ticks of
+   // vanilla air physics (horizontal drag 0.91/tick, gravity 0.08 with 0.98 drag).
+   private static Vector arcImpulse(Location var0, Location var1, int var2) {
+      double var3 = var1.getX() - var0.getX();
+      double var5 = var1.getY() - var0.getY();
+      double var7 = var1.getZ() - var0.getZ();
+      double var9 = Math.sqrt(var3 * var3 + var7 * var7);
+      double var11 = airTravel(var2);
+      double var13 = (1.0 - Math.pow(0.98, var2)) / 0.02;
+      double var15 = (var5 + 3.92 * (var2 - var13)) / var13;
+      if (var9 <= 0.001) {
+         return new Vector(0.0, var15, 0.0);
+      } else {
+         double var17 = var9 / var11;
+         return new Vector(var3 / var9 * var17, var15, var7 / var9 * var17);
+      }
+   }
+
+   // The full launch impulse for the hop: an arc that tops out over the aimed point, however
+   // far away or however far above/below the player it is. The flight time is stretched until
+   // the solve fits inside the velocity the server accepts, then clamped.
+   private Vector leapImpulse(Player var1, Location var2) {
+      Location var3 = var1.getLocation();
+      // Aim above the point so the hop comes down onto it; the dive closes the last stretch.
+      Location var4 = var2.clone().add(0.0, 2.0, 0.0);
+
+      Vector var5 = null;
+      for (int var6 = Math.max(8, this.bloodlinkRiseTicks); var6 <= 60; var6 += 2) {
+         var5 = arcImpulse(var3, var4, var6);
+         if (Math.abs(var5.getX()) <= 3.9 && Math.abs(var5.getY()) <= 3.9 && Math.abs(var5.getZ()) <= 3.9) {
+            break;
          }
       }
 
-      if (var5 == null) {
-         return null;
+      var5.setX(Math.max(-3.9, Math.min(3.9, var5.getX())));
+      var5.setY(Math.max(-3.9, Math.min(3.9, var5.getY())));
+      var5.setZ(Math.max(-3.9, Math.min(3.9, var5.getZ())));
+      return var5;
+   }
+
+   // At the top of the arc: drop onto the aimed point, keeping just enough horizontal push to
+   // cover whatever ground the rise left over.
+   private static Vector diveAim(Player var1, Location var2) {
+      Vector var3 = new Vector(0.0, -2.8, 0.0);
+      if (var2 == null) {
+         return var3;
       } else {
-         double var7 = var5.getX() - var1.getLocation().getX();
-         double var9 = var5.getZ() - var1.getLocation().getZ();
-         double var11 = Math.sqrt(var7 * var7 + var9 * var9);
-         if (var11 < 0.5) {
-            return new Vector();
-         } else {
-            double var13 = Math.min(3.9, var11 / airTravel(this.bloodlinkRiseTicks + 3));
-            return new Vector(var7 / var11 * var13, 0.0, var9 / var11 * var13);
+         double var4 = var2.getX() - var1.getLocation().getX();
+         double var6 = var2.getZ() - var1.getLocation().getZ();
+         double var8 = Math.sqrt(var4 * var4 + var6 * var6);
+         if (var8 > 0.05) {
+            double var10 = Math.max(1.0, var1.getLocation().getY() - var2.getY());
+            int var12 = (int)Math.max(2.0, Math.ceil(var10 / 2.8));
+            double var13 = Math.min(3.9, var8 / airTravel(var12));
+            var3.setX(var4 / var8 * var13);
+            var3.setZ(var6 / var8 * var13);
          }
+
+         return var3;
       }
    }
 
@@ -309,7 +352,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          int airTicks = 0;
          int hops = 0;
          int phase = 0;
-         Vector aim = new Vector();
+         Location target = null;
+         double lastY = 0.0;
 
          public void cancel() {
             HereticGem.this.crashing.remove(var1.getUniqueId());
@@ -322,34 +366,42 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
             if (++this.ticks > 200 || !var1.isOnline() || var1.isDead()) {
                this.cancel();
             } else if (this.phase == 0) {
-               Vector var5 = new Vector(0.0, HereticGem.this.bloodlinkLaunch, 0.0);
-               Vector var6 = HereticGem.this.leapAim(var1);
-               if (var6 == null) {
+               // The hop is solved as a whole arc towards the aimed point, so it reaches
+               // targets above and below the player, not just ahead of them.
+               this.target = HereticGem.this.aimPoint(var1);
+
+               Vector var5;
+               if (this.target != null) {
+                  var5 = HereticGem.this.leapImpulse(var1, this.target);
+               } else {
                   Vector var9 = var1.getEyeLocation().getDirection();
                   var9.setY(0);
-                  var6 = var9.lengthSquared() > 1.0E-4 ? var9.normalize().multiply(0.5) : new Vector();
+                  var5 = var9.lengthSquared() > 1.0E-4 ? var9.normalize().multiply(0.5) : new Vector();
+                  var5.setY(HereticGem.this.bloodlinkLaunch);
                }
 
-               this.aim = var6;
-               var1.setVelocity(var5.add(var6));
+               var1.setVelocity(var5);
                var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.2F, 0.5F);
                this.phase = 1;
                this.airTicks = 0;
+               this.lastY = var1.getLocation().getY();
             } else {
                if (this.ticks % 2 == 0) {
                   var1.getWorld().spawnParticle(Particle.DUST, var1.getLocation(), 8, 0.3, 0.3, 0.3, 0.0, new DustOptions(Color.fromRGB(120, 0, 0), 1.4F));
                }
 
                this.airTicks++;
-               if (this.phase == 1 && this.airTicks >= HereticGem.this.bloodlinkRiseTicks) {
-                  // Keep the drifting the launch already earned instead of overwriting it with a
-                  // fresh nudge - the arc has to stay pointed at the spot the hop was aimed at.
-                  Vector var4 = this.aim.clone().multiply(Math.pow(0.91, this.airTicks));
-                  var4.setY(-2.8);
-                  var1.setVelocity(var4);
+               double var11 = var1.getLocation().getY();
+               // The dive starts at the top of the arc rather than on a fixed tick, so a long
+               // or steep hop is allowed to finish climbing before it slams.
+               boolean var12 = this.airTicks >= 3
+                  && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 20);
+               this.lastY = var11;
+               if (this.phase == 1 && var12) {
+                  var1.setVelocity(diveAim(var1, this.target));
                   this.phase = 2;
                } else {
-                  if (this.phase == 2 && this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 3 && var1.isOnGround()) {
+                  if (this.phase == 2 && var1.isOnGround()) {
                      var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0F, 0.7F);
                      var1.getWorld().spawnParticle(Particle.EXPLOSION, var1.getLocation(), 2, 0.5, 0.2, 0.5, 0.0);
 
