@@ -154,10 +154,20 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       }
    }
 
+   // True when a parry anchor is live and the player is aiming steeply upward, meaning the
+   // shot that follows is a sky anchor rather than an ordinary chain.
+   private boolean wantsSkyAnchor(Player var1) {
+      return isActive(this.anchorWindow, var1.getUniqueId()) && var1.getEyeLocation().getPitch() <= -50.0F;
+   }
+
    public void onPrimary(Player var1, int var2) {
-      if (this.chainCharges(var1) <= 0) {
+      // A sky anchor is free. The anchor window (5s) is shorter than the chain recharge
+      // (8s), so charging for it meant a parry could hand out an anchor the player had no
+      // way to reach before it expired.
+      boolean var3 = this.wantsSkyAnchor(var1);
+      if (!var3 && this.chainCharges(var1) <= 0) {
          var1.sendMessage("§6Venerated Perforators §7recharging: §c" + this.nextChainChargeIn(var1) + "s");
-      } else if (this.fireChain(var1)) {
+      } else if (this.fireChain(var1) && !var3) {
          this.chainUses.computeIfAbsent(var1.getUniqueId(), var0 -> new ArrayList<>()).add(System.currentTimeMillis());
       }
    }
@@ -224,6 +234,17 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private boolean fireChain(Player var1) {
       Location var2 = var1.getEyeLocation();
       Vector var3 = var2.getDirection().normalize();
+      // A live parry anchor claims a steep upward shot outright. The raytraces below would
+      // otherwise snag the player who was just parried (chainToTheHeavens leaves them
+      // hanging overhead) or distant terrain, so the anchor could never be reached.
+      if (this.wantsSkyAnchor(var1)) {
+         this.anchorWindow.remove(var1.getUniqueId());
+         Location var6 = var1.getLocation().add(0.0, 14.0, 0.0);
+         var1.sendMessage("§6§oSky anchor!");
+         this.launchChainToPoint(var1, var6, () -> this.yankPlayerTo(var1, var6));
+         return true;
+      }
+
       RayTraceResult var4 = var1.getWorld().rayTraceEntities(var2, var3, this.chainRange, 0.8, var1x -> var1x != var1 && var1x instanceof LivingEntity);
       if (var4 != null && var4.getHitEntity() instanceof LivingEntity var8) {
          this.launchChainAt(var1, var8);
@@ -234,6 +255,8 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
          if (var5 != null && var5.getHitPosition() != null) {
             var9 = var5.getHitPosition().toLocation(var1.getWorld());
          } else if (isActive(this.anchorWindow, var1.getUniqueId())) {
+            // Fallback: an anchor window plus genuinely open sky ahead, at any angle.
+            this.anchorWindow.remove(var1.getUniqueId());
             var9 = var1.getLocation().add(0.0, 14.0, 0.0);
             var1.sendMessage("§6§oSky anchor!");
          }

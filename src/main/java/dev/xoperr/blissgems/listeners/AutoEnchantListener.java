@@ -164,8 +164,11 @@ public class AutoEnchantListener implements Listener {
         if (activeGem == null || activeGem.getType() == null) {
             return;
         }
-        // Most gems require T2 for auto-enchant, but Strength gets Sharpness at both tiers
-        if (activeGem.getTier() < 2 && activeGem.getType() != GemType.STRENGTH) {
+        // Most gems require T2 for auto-enchant, but Strength gets Sharpness at both tiers.
+        // auto-enchant.tier1-enabled opens the rest up to T1 as well, at reduced levels.
+        if (activeGem.getTier() < 2
+            && activeGem.getType() != GemType.STRENGTH
+            && !plugin.getConfigManager().isTier1AutoEnchantEnabled()) {
             return;
         }
 
@@ -327,7 +330,7 @@ public class AutoEnchantListener implements Listener {
             case SPEED:
                 if (plugin.getConfig().getBoolean("auto-enchant.speed.efficiency", true)) {
                     if (isTool(type)) {
-                        enchants.put(Enchantment.EFFICIENCY, 5);
+                        enchants.put(Enchantment.EFFICIENCY, (tier >= 2) ? 5 : 3);
                     }
                 }
                 break;
@@ -335,12 +338,12 @@ public class AutoEnchantListener implements Listener {
             case WEALTH:
                 if (plugin.getConfig().getBoolean("auto-enchant.wealth.fortune", true)) {
                     if (isPickaxe(type) || isShovel(type) || isAxe(type)) {
-                        enchants.put(Enchantment.FORTUNE, 3);
+                        enchants.put(Enchantment.FORTUNE, (tier >= 2) ? 3 : 2);
                     }
                 }
                 if (plugin.getConfig().getBoolean("auto-enchant.wealth.looting", true)) {
                     if (isSword(type)) {
-                        enchants.put(Enchantment.LOOTING, 3);
+                        enchants.put(Enchantment.LOOTING, (tier >= 2) ? 3 : 2);
                     }
                 }
                 if (plugin.getConfig().getBoolean("auto-enchant.wealth.mending", true)) {
@@ -358,7 +361,7 @@ public class AutoEnchantListener implements Listener {
                 }
                 if (plugin.getConfig().getBoolean("auto-enchant.fire.fire-aspect", true)) {
                     if (isSword(type)) {
-                        enchants.put(Enchantment.FIRE_ASPECT, 2);
+                        enchants.put(Enchantment.FIRE_ASPECT, (tier >= 2) ? 2 : 1);
                     }
                 }
                 break;
@@ -366,17 +369,17 @@ public class AutoEnchantListener implements Listener {
             case PUFF:
                 if (plugin.getConfig().getBoolean("auto-enchant.puff.feather-falling", true)) {
                     if (isBoots(type)) {
-                        enchants.put(Enchantment.FEATHER_FALLING, 4);
+                        enchants.put(Enchantment.FEATHER_FALLING, (tier >= 2) ? 4 : 2);
                     }
                 }
                 if (plugin.getConfig().getBoolean("auto-enchant.puff.power", true)) {
                     if (type == Material.BOW) {
-                        enchants.put(Enchantment.POWER, 5);
+                        enchants.put(Enchantment.POWER, (tier >= 2) ? 5 : 3);
                     }
                 }
                 if (plugin.getConfig().getBoolean("auto-enchant.puff.punch", true)) {
                     if (type == Material.BOW) {
-                        enchants.put(Enchantment.PUNCH, 2);
+                        enchants.put(Enchantment.PUNCH, (tier >= 2) ? 2 : 1);
                     }
                 }
                 break;
@@ -393,7 +396,7 @@ public class AutoEnchantListener implements Listener {
             case LIFE:
                 if (plugin.getConfig().getBoolean("auto-enchant.life.unbreaking", true)) {
                     if (isTool(type) || isWeapon(type) || isArmor(type)) {
-                        enchants.put(Enchantment.UNBREAKING, 3);
+                        enchants.put(Enchantment.UNBREAKING, (tier >= 2) ? 3 : 2);
                     }
                 }
                 break;

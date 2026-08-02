@@ -172,6 +172,10 @@ TabCompleter {
                 this.handleClearCooldowns(sender, args);
                 break;
             }
+            case "nocdtoggle": {
+                this.handleNoCooldownToggle(sender, args);
+                break;
+            }
             case "ability": {
                 this.handleAbilityBindingsList(sender, args);
                 break;
@@ -1547,6 +1551,45 @@ TabCompleter {
         sender.sendMessage("\u00a7aCleared all ability cooldowns for \u00a7l" + target.getName() + "\u00a7a!");
     }
 
+    /**
+     * /bliss nocdtoggle [player] - flip a player's ability cooldown exemption on or off.
+     * Not persisted: the exemption is dropped when the server restarts.
+     */
+    private void handleNoCooldownToggle(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+
+        Player target;
+        if (args.length < 2) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("§cUsage: /bliss nocdtoggle <player>");
+                return;
+            }
+            target = (Player) sender;
+        } else {
+            target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+                return;
+            }
+        }
+
+        boolean enabled = this.plugin.getAbilityManager().toggleNoCooldown(target);
+        if (enabled) {
+            sender.sendMessage("§a§lNo-cooldown §aENABLED for §l" + target.getName() + "§a!");
+            if (target != sender) {
+                target.sendMessage("§a§oYour ability cooldowns have been disabled.");
+            }
+        } else {
+            sender.sendMessage("§c§lNo-cooldown §cDISABLED for §l" + target.getName() + "§c!");
+            if (target != sender) {
+                target.sendMessage("§c§oYour ability cooldowns are back to normal.");
+            }
+        }
+    }
+
     private void handleAchievements(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can use this command!");
@@ -1601,14 +1644,18 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss smp start \u00a78- Start the SMP and distribute gems (Admin)");
         sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
         sender.sendMessage("\u00a77/bliss clearcds <player|all> \u00a78- Clear ability cooldowns (Admin)");
+        sender.sendMessage("\u00a77/bliss nocdtoggle <player> \u00a78- Toggle no ability cooldowns (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("nocdtoggle")) {
+                return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            }
             if (args[0].equalsIgnoreCase("clearcds")) {
                 List<String> targets = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 targets.add(0, "all");

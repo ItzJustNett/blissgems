@@ -569,7 +569,8 @@ implements Listener {
             }
 
             // Check if trying to add a gem when already have one (in player inventory)
-            if (cursorItem != null && event.getClickedInventory() == player.getInventory()) {
+            if (this.plugin.getConfigManager().isSingleGemOnly()
+                && cursorItem != null && event.getClickedInventory() == player.getInventory()) {
                 String cursorOraxenId = CustomItemManager.getIdByItem((ItemStack)cursorItem);
                 if (cursorOraxenId != null && GemType.isGem(cursorOraxenId)) {
                     // Player is trying to place a gem
@@ -612,6 +613,12 @@ implements Listener {
         ItemStack item = itemEntity.getItemStack();
 
         String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
+
+        // With single-gem-only disabled the player is allowed to carry as many gems as they
+        // like, so neither the full-inventory guard nor the pickup block below may run.
+        if (!this.plugin.getConfigManager().isSingleGemOnly()) {
+            return;
+        }
 
         // If player has a gem, only prevent picking up OTHER GEMS if inventory is full
         // This prevents having multiple gems when single-gem-only is enabled
@@ -807,6 +814,10 @@ implements Listener {
      * Also extracts gems from bundles and drops them.
      */
     private void enforceOneGemOnly(Player player) {
+        if (!this.plugin.getConfigManager().isSingleGemOnly()) {
+            return;
+        }
+
         PlayerInventory inv = player.getInventory();
         boolean foundFirstGem = false;
         java.util.List<ItemStack> gemsToDrop = new java.util.ArrayList<>();
