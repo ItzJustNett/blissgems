@@ -32,6 +32,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -55,6 +56,20 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final Map<UUID, Long> aegisWindow = new HashMap<>();
    private final Map<UUID, Long> anchorWindow = new HashMap<>();
    private final Map<UUID, Long> slamWindow = new HashMap<>();
+   private final List<SlamCenter> slamCenters = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+   // A recent slam impact point that locks out wind charge use for nearby opponents.
+   private static final class SlamCenter {
+      final UUID casterId;
+      final Location loc;
+      final long expiry;
+
+      SlamCenter(UUID casterId, Location loc, long expiry) {
+         this.casterId = casterId;
+         this.loc = loc;
+         this.expiry = expiry;
+      }
+   }
 
    private final double perforatorDamage;
    private final double slamDamage;
@@ -68,6 +83,11 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final long anchorWindowMs;
    private final double chainFlySpeed;
    private final int chainFlyMaxTicks;
+   private final double slamKnockup;
+   private final double slamMinHeight;
+   private final double slamLaunchForce;
+   private final double slamNoWindchargeRadius;
+   private final long slamNoWindchargeMs;
 
    public AuratusGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -84,6 +104,11 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.anchorWindowMs = var1.getConfig().getLong("auratus.anchor-window-ms", 5000L);
       this.chainFlySpeed = var1.getConfig().getDouble("auratus.chain.fly-speed", 4.5);
       this.chainFlyMaxTicks = var1.getConfig().getInt("auratus.chain.fly-max-ticks", 60);
+      this.slamKnockup = var1.getConfig().getDouble("auratus.slam-knockup", 1.6);
+      this.slamMinHeight = var1.getConfig().getDouble("auratus.slam.min-height", 10.0);
+      this.slamLaunchForce = var1.getConfig().getDouble("auratus.slam.launch-force", 2.4);
+      this.slamNoWindchargeRadius = var1.getConfig().getDouble("auratus.slam.no-windcharge-radius", 5.0);
+      this.slamNoWindchargeMs = var1.getConfig().getLong("auratus.slam.no-windcharge-ms", 2500L);
       Bukkit.getScheduler().runTaskTimer(var1, this::hasteTick, 20L, 20L);
    }
 
@@ -335,7 +360,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                var1.setVelocity(var33);
                var1.getWorld().playSound(var1.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.4F, 0.6F);
                this.slamWindow.put(var1.getUniqueId(), System.currentTimeMillis() + 3000L);
-               this.watchGroundSlam(var1);
+               this.watchGroundSlam(var1, var3);
                return;
             }
 
@@ -398,6 +423,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
 
                   this.linkCarry = var7x - var4x;
                   this.tip.add(var6x.multiply(var4x));
+                  breakCobwebAt(this.tip);
                   if (var13.isValid()) {
                      Location var11x = this.tip.clone();
                      var11x.setYaw(0.0F);
@@ -536,6 +562,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
 
                   this.linkCarry = var9x - var5x;
                   this.tip.add(var7x.multiply(var5x));
+                  breakCobwebAt(this.tip);
                   if (var11.isValid()) {
                      Location var13 = this.tip.clone();
                      var13.setYaw(0.0F);
@@ -627,47 +654,76 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       }).runTaskTimer(this.plugin, 1L, 1L);
    }
 
+   // Chains fly straight through anything in their path except solid terrain, but cobwebs
+   // are "solid" enough to otherwise just stop the tip dead - break them instead.
+   private static void breakCobwebAt(Location var0) {
+      org.bukkit.block.Block var1 = var0.getBlock();
+      if (var1.getType() == Material.COBWEB) {
+         var1.setType(Material.AIR);
+         var1.getWorld().playSound(var1.getLocation(), Sound.BLOCK_COBWEB_BREAK, 1.0F, 1.0F);
+      }
+   }
+
    private static Quaternionf rotationFor(Vector var0) {
       float var1 = (float)Math.atan2(var0.getX(), var0.getZ());
       float var2 = (float)(-Math.asin(Math.max(-1.0, Math.min(1.0, var0.getY()))));
       return new Quaternionf().rotationY(var1).rotateX(var2);
    }
 
-   private void watchGroundSlam(final Player var1) {
+   // var2 is the raw grapple vector (target - origin) from the yank that set up this window,
+   // used at landing to decide which way to launch the caster out of the crater.
+   private void watchGroundSlam(final Player var1, final Vector var2) {
       (new BukkitRunnable() {
          int ticks = 0;
+         double peakY = var1.getLocation().getY();
 
          public void run() {
+            if (var1.isOnline() && !var1.isDead()) {
+               this.peakY = Math.max(this.peakY, var1.getLocation().getY());
+            }
+
             if (++this.ticks > 70 || !var1.isOnline() || var1.isDead() || !AuratusGem.isActive(AuratusGem.this.slamWindow, var1.getUniqueId())) {
                AuratusGem.this.slamWindow.remove(var1.getUniqueId());
                this.cancel();
             } else if (this.ticks > 6 && var1.isOnGround()) {
                if (var1.isSneaking()) {
-                  var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.2F, 0.8F);
-                  var1.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, var1.getLocation(), 1);
-                  AuratusGem.this.spawnSmashDecal(var1.getLocation());
+                  // Requires enough fall height above the landing spot that a bare grapple
+                  // usually can't reach it alone - windcharging up mid-air closes the gap.
+                  double var10 = this.peakY - var1.getLocation().getY();
+                  if (var10 < AuratusGem.this.slamMinHeight) {
+                     var1.sendMessage("§7§oNot high enough to slam — windcharge up first!");
+                  } else {
+                     var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.2F, 0.8F);
+                     var1.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, var1.getLocation(), 1);
+                     AuratusGem.this.spawnSmashDecal(var1.getLocation());
 
-                  boolean var3 = false;
+                     boolean var3 = false;
 
-                  for (LivingEntity var2 : var1.getLocation().getNearbyLivingEntities(4.0)) {
-                     if (var2 != var1) {
-                        var2.damage(slamDamage, var1);
-                        var2.setVelocity(var2.getVelocity().add(new Vector(0.0, 0.8, 0.0)));
-                        var3 = true;
+                     for (LivingEntity var4 : var1.getLocation().getNearbyLivingEntities(4.0)) {
+                        if (var4 != var1) {
+                           var4.damage(slamDamage, var1);
+                           var4.setVelocity(var4.getVelocity().add(new Vector(0.0, AuratusGem.this.slamKnockup, 0.0)));
+                           var3 = true;
+                        }
                      }
-                  }
 
-                  // Forward dash out of the crater after slamming.
-                  Vector var4 = var1.getLocation().getDirection();
-                  var4.setY(0.0);
-                  if (var4.lengthSquared() > 0.001) {
-                     var4.normalize().multiply(1.4).setY(0.35);
-                     var1.setVelocity(var4);
-                  }
+                     // Launch the caster out of the crater in the direction of the grapple that
+                     // brought them here - straight up if it barely moved them horizontally,
+                     // otherwise keep that horizontal heading but launched higher.
+                     Vector var5 = new Vector(var2.getX(), 0.0, var2.getZ());
+                     Vector var6 = var5.lengthSquared() > 0.25
+                        ? var5.normalize().multiply(1.6)
+                        : new Vector(0.0, 0.0, 0.0);
+                     var6.setY(AuratusGem.this.slamLaunchForce);
+                     var1.setVelocity(var6);
 
-                  // A connecting slam refunds one Venerated Perforators chain charge.
-                  if (var3) {
-                     AuratusGem.this.refundChain(var1);
+                     AuratusGem.this.slamCenters.add(new SlamCenter(var1.getUniqueId(), var1.getLocation().clone(),
+                        System.currentTimeMillis() + AuratusGem.this.slamNoWindchargeMs));
+
+                     // A connecting slam refunds one Venerated Perforators chain charge.
+                     if (var3) {
+                        AuratusGem.this.refundChain(var1);
+                     }
                   }
                }
 
@@ -740,6 +796,37 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                }
             }
          }, 1L);
+      }
+   }
+
+   // A fresh slam crater locks out wind charge use for anyone (other than the slammer) caught
+   // near its center, so they can't just windcharge straight back out of the blast.
+   @EventHandler(
+      priority = EventPriority.HIGH,
+      ignoreCancelled = true
+   )
+   public void onWindchargeNearSlam(PlayerInteractEvent var1) {
+      ItemStack var2 = var1.getItem();
+      if (var2 == null || var2.getType() != Material.WIND_CHARGE) {
+         return;
+      }
+      org.bukkit.event.block.Action var3 = var1.getAction();
+      if (var3 != org.bukkit.event.block.Action.RIGHT_CLICK_AIR && var3 != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+         return;
+      }
+
+      Player var4 = var1.getPlayer();
+      long var5 = System.currentTimeMillis();
+      this.slamCenters.removeIf(var1x -> var1x.expiry < var5);
+
+      for (SlamCenter var7 : this.slamCenters) {
+         if (!var7.casterId.equals(var4.getUniqueId())
+            && var7.loc.getWorld() == var4.getWorld()
+            && var7.loc.distanceSquared(var4.getLocation()) <= this.slamNoWindchargeRadius * this.slamNoWindchargeRadius) {
+            var1.setCancelled(true);
+            var4.sendMessage("§6§oYour wind charge fizzles — too close to the slam crater!");
+            return;
+         }
       }
    }
 

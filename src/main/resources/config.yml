@@ -376,7 +376,7 @@ abilities:
     fire-meteor-shower: 8.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 2.0
-    blur: 4.0  # Damage per lightning strike (3 strikes by default)
+    blur: 4.0  # Damage per lightning strike (5 strikes by default)
     strength-chad-bonus: 4.0  # Chad Strength bonus damage on every 4th hit (2 hearts)
 
   # Ability durations (in seconds)

@@ -1,5 +1,50 @@
 # Changelog
 
+## BlissGems 4.8.0 / BlissMythics 1.5.0
+
+### Added
+
+**Blur clones now wear your actual skin, not just your head.** With ProtocolLib installed
+(soft dependency — nothing changes if it isn't), the clone that rides the bolt down is a
+packet-only fake player carrying your real skin, full body. Without ProtocolLib it falls back
+to the old armor-stand-with-skull clone, whose head texture is also more reliable now — it
+reads your full skin profile instead of a bare player reference, which could silently fail to
+resolve. Blur also grants 5 stored strikes now instead of 3.
+
+**Shadow Stalker draws a beam straight to your target.** A thin red particle line now points
+from you to whoever you're tracking, redrawn a few times a second. It's sent only to you, the
+same way the tracking arrow already was, so it doesn't give either player's position away to
+anyone standing nearby.
+
+**Auratus slam locks out wind charges near the crater.** Landing a slam denies wind charge use
+to anyone (other than you) within `auratus.slam.no-windcharge-radius` blocks of the impact point
+for `auratus.slam.no-windcharge-ms` — they fizzle instead of firing.
+
+### Changed
+
+**Auratus slam now needs real height, and launches you where you grappled.** Ground slams used
+to trigger off any sneak-landing regardless of how far you fell — you now need
+`auratus.slam.min-height` blocks of fall above the landing spot (10 by default), which in
+practice means windcharging up after the yank to clear it. The launch out of the crater no
+longer uses whatever direction you happen to be looking: it follows the grapple that brought you
+there instead — straight up if it barely moved you sideways, or your original heading with more
+height (`auratus.slam.launch-force`) if it carried you somewhere. Victim knockup on both the slam
+and Bloodlink is stronger and configurable (`auratus.slam-knockup`, `heretic.bloodlink-knockup`).
+
+**Bloodlink's dive is now an actual glide.** The forced-down impulse is unchanged, but the fall
+itself now runs through vanilla elytra physics (`setGliding`) instead of a single rigid velocity
+vector, so it reads as a glide down rather than a drop.
+
+**Heretic Bloodsaws and Auratus chains break cobwebs they run into**, instead of stopping dead
+against them like solid terrain.
+
+### Fixed
+
+**Circle of Life's particles weren't reliably showing.** The heart, sculk-soul and happy-villager
+particles were missing the force-visibility flag that the dust particles already had, so they
+were silently dropped for anyone with reduced particle settings or standing a bit further away.
+All of the circle's particles are forced now.
+
 ## BlissGems 4.7.5 / BlissMythics 1.4.2
 
 ### Changed

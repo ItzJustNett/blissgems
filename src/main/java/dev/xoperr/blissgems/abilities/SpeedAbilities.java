@@ -17,20 +17,15 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.EulerAngle;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -161,7 +156,7 @@ public class SpeedAbilities implements GemAbilityHandler {
             return;
         }
 
-        int strikeCount = this.plugin.getConfig().getInt("abilities.blur.strikes", 3);
+        int strikeCount = this.plugin.getConfig().getInt("abilities.blur.strikes", 5);
         int timeoutSeconds = this.plugin.getConfig().getInt("abilities.blur.charge-timeout-seconds", 30);
 
         blurCharges.put(uuid, strikeCount);
@@ -235,15 +230,12 @@ public class SpeedAbilities implements GemAbilityHandler {
 
         // A clone of the caster rides the bolt down and delivers the blow — the lightning is
         // the entrance, the clone is what actually hits.
-        final ArmorStand clone = spawnBlurClone(player, strikeLoc);
+        dev.xoperr.blissgems.utils.PlayerCloneNPC.play(this.plugin, player, strikeLoc, CLONE_WINDUP_TICKS, CLONE_LIFETIME_TICKS);
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (clone.isValid()) {
-                    clone.setRightArmPose(new EulerAngle(Math.toRadians(-150.0), 0.0, 0.0));
-                    clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.4f);
-                    clone.getWorld().spawnParticle(Particle.SWEEP_ATTACK, clone.getLocation().add(0, 1.0, 0), 3, 0.6, 0.3, 0.6, 0.0);
-                }
+                strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.4f);
+                strikeLoc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, strikeLoc.clone().add(0, 1.0, 0), 3, 0.6, 0.3, 0.6, 0.0);
 
                 // Damage and knockback enemies in radius
                 for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
@@ -290,11 +282,8 @@ public class SpeedAbilities implements GemAbilityHandler {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (clone.isValid()) {
-                    clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0), 60, 0.4, 0.9, 0.4, 0.0, strikeDust, true);
-                    clone.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, clone.getLocation().add(0, 1, 0), 40, 0.4, 0.9, 0.4, 0.05);
-                    clone.remove();
-                }
+                strikeLoc.getWorld().spawnParticle(Particle.DUST, strikeLoc.clone().add(0, 1, 0), 60, 0.4, 0.9, 0.4, 0.0, strikeDust, true);
+                strikeLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc.clone().add(0, 1, 0), 40, 0.4, 0.9, 0.4, 0.05);
             }
         }.runTaskLater(plugin, CLONE_LIFETIME_TICKS);
 
@@ -306,42 +295,6 @@ public class SpeedAbilities implements GemAbilityHandler {
         } else {
             blurCharges.put(uuid, remaining);
         }
-    }
-
-    /**
-     * The Blur clone: an armour stand wearing the caster's skin and gear, standing where the
-     * bolt came down. Marker + invulnerable so it is purely a visual actor — nothing can hit
-     * it, loot it or push it around.
-     */
-    private ArmorStand spawnBlurClone(Player player, Location strikeLoc) {
-        Location standLoc = strikeLoc.clone();
-        standLoc.setYaw(player.getLocation().getYaw());
-        standLoc.setPitch(0.0f);
-
-        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
-        if (skullMeta != null) {
-            skullMeta.setOwningPlayer(player);
-            head.setItemMeta(skullMeta);
-        }
-
-        return strikeLoc.getWorld().spawn(standLoc, ArmorStand.class, stand -> {
-            stand.setInvulnerable(true);
-            stand.setBasePlate(false);
-            stand.setArms(true);
-            stand.setGravity(false);
-            stand.setMarker(true);
-            stand.setSilent(true);
-            stand.setPersistent(false);
-            stand.setCustomName(player.getName());
-            if (stand.getEquipment() != null) {
-                stand.getEquipment().setHelmet(head);
-                stand.getEquipment().setChestplate(player.getInventory().getChestplate());
-                stand.getEquipment().setLeggings(player.getInventory().getLeggings());
-                stand.getEquipment().setBoots(player.getInventory().getBoots());
-                stand.getEquipment().setItemInMainHand(player.getInventory().getItemInMainHand());
-            }
-        });
     }
 
     // ========================================================================
