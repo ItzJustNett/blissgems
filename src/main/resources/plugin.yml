@@ -1,11 +1,11 @@
 name: BlissGems
-version: '4.7.5'
+version: '4.8.0'
 main: dev.xoperr.blissgems.BlissGems
 api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://xoperr.dev
-softdepend: [WorldGuard]
+softdepend: [WorldGuard, ProtocolLib]
 
 commands:
   bliss:

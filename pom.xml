@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>BlissGems</artifactId>
-    <version>4.7.5</version>
+    <version>4.8.0</version>
     <packaging>jar</packaging>
 
     <name>BlissGems</name>
@@ -44,6 +44,11 @@
             <id>enginehub-maven</id>
             <url>https://maven.enginehub.org/repo/</url>
         </repository>
+        <!-- ProtocolLib -->
+        <repository>
+            <id>dmulloy2-repo</id>
+            <url>https://repo.dmulloy2.net/repository/public/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -75,6 +80,14 @@
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
             <version>7.0.11</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ProtocolLib (soft dependency, used for the full-body Blur clone) -->
+        <dependency>
+            <groupId>com.comphenix.protocol</groupId>
+            <artifactId>ProtocolLib</artifactId>
+            <version>5.3.0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
