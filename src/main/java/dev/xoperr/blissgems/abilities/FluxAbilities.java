@@ -16,6 +16,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -758,6 +759,80 @@ public class FluxAbilities implements GemAbilityHandler {
             player.sendMessage(msg);
         }
         player.sendMessage("\u00a7b\u26a1 \u00a7oKinetic Burst! Knocked back " + affectedCount + " entities!");
+    }
+
+    /**
+     * Conduction — teleport to the nearest copper block within range.
+     * Triggered by /bliss conduction (used to be sneak + left click).
+     */
+    public void conduction(Player player) {
+        String abilityKey = "flux-conduction";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        int range = this.plugin.getConfig().getInt("abilities.flux-conduction.range", 10);
+        Location playerLoc = player.getLocation();
+        Block closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (int x = -range; x <= range; x++) {
+            for (int y = -range; y <= range; y++) {
+                for (int z = -range; z <= range; z++) {
+                    Block block = playerLoc.getBlock().getRelative(x, y, z);
+                    if (!isCopperBlock(block.getType())) continue;
+                    double dist = block.getLocation().distanceSquared(playerLoc);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closest = block;
+                    }
+                }
+            }
+        }
+
+        if (closest == null) {
+            player.sendMessage("\u00a7c\u26a1 \u00a7oNo copper blocks within " + range + " blocks!");
+            return;
+        }
+
+        // Teleport on top of the copper block
+        Location departure = player.getLocation().clone();
+        Location tpLoc = closest.getLocation().add(0.5, 1, 0.5);
+        tpLoc.setYaw(departure.getYaw());
+        tpLoc.setPitch(departure.getPitch());
+
+        // Achievement: Zip Away (cumulative distance via Conduction)
+        if (this.plugin.getAchievementManager() != null) {
+            int distance = (int) departure.distance(tpLoc);
+            this.plugin.getAchievementManager().addProgress(player, Achievement.ZIP_AWAY, distance);
+        }
+
+        player.teleport(tpLoc);
+
+        // Particles at departure
+        Particle.DustOptions cyan = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.2f);
+        departure.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, departure.clone().add(0, 1, 0), 50, 0.5, 0.5, 0.5, 0.1);
+        departure.getWorld().spawnParticle(Particle.DUST, departure.clone().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.0, cyan, true);
+
+        // Particles at arrival
+        tpLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, tpLoc.clone().add(0, 0.5, 0), 50, 0.5, 0.5, 0.5, 0.1);
+        tpLoc.getWorld().spawnParticle(Particle.DUST, tpLoc.clone().add(0, 0.5, 0), 40, 0.5, 0.5, 0.5, 0.0, cyan, true);
+
+        player.playSound(departure, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
+        player.playSound(tpLoc, Sound.BLOCK_COPPER_BULB_TURN_ON, 1.0f, 1.2f);
+
+        player.sendMessage("\u00a7b\u26a1 \u00a7oConducted to copper!");
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+    }
+
+    /**
+     * Copper *blocks* only — ore and raw copper blocks would otherwise drag the
+     * player into whatever cave happens to be within range.
+     */
+    private static boolean isCopperBlock(Material material) {
+        String name = material.name();
+        return name.contains("COPPER") && !name.endsWith("_ORE") && !name.startsWith("RAW_");
     }
 
     private LivingEntity getTargetEntity(Player player, int range) {
