@@ -1,5 +1,18 @@
 # Changelog
 
+## BlissGems 4.9.1
+
+### Changed
+
+**Conduction is now `/bliss conduction`.** The sneak + left-click trigger is gone — the copper
+teleport runs from the command instead, so it can't fire by accident while mining. It still only
+targets copper *blocks* (never copper ore, deepslate copper ore, or raw copper blocks), still
+respects the `abilities.cooldowns.flux-conduction` cooldown and the `abilities.flux-conduction.range`
+search radius, and now tells you when there's no copper in range instead of failing silently.
+Requires the Flux Gem as your active gem.
+
+---
+
 ## BlissGems 4.9.0
 
 ### Added
