@@ -98,6 +98,15 @@ crafting:
   enabled: true
 
 # ==========================================
+# COMBAT
+# ==========================================
+combat:
+  # Gem holders hit harder when the victim's own gem is Broken (energy 0).
+  broken-gem-bonus:
+    enabled: true
+    damage-multiplier: 1.5
+
+# ==========================================
 # PASSIVE EFFECTS
 # ==========================================
 passives:
@@ -266,6 +275,7 @@ abilities:
     speed-sedative: 60
     speed-storm: 135  # 2.25 minutes (tripled from 45)
     speed-terminal: 60  # Terminal Velocity cooldown
+    speed-gale-clouds: 60  # Gale Clouds (Quaternary)
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
     strength-nullify: 60
     strength-frailer: 45
@@ -364,6 +374,22 @@ abilities:
   # Life Heart Lock settings
   life-heart-lock:
     range: 15
+
+  # Speed Gale Clouds settings (Quaternary)
+  gale-clouds:
+    clouds: 3  # Throwable clouds granted per activation
+    charge-timeout-seconds: 20  # Unthrown clouds expire after this long
+    radius: 3.5  # Cloud radius in blocks
+    duration-seconds: 5  # How long a landed cloud lingers
+    slowness-level: 2  # Slowness II on anyone inside
+    slowness-duration-seconds: 4
+    wind-charge-cooldown-seconds: 8  # Wind charges locked out for hit players
+
+  # Speed Blur settings
+  blur:
+    strikes: 5  # Stored lightning strikes granted per activation
+    charge-timeout-seconds: 30  # Stored strikes expire after this long
+    knockback: 0.4  # Knockback applied per strike (0 = none, 1.5 = old behaviour)
 
   # Ability damage values
   damage:
@@ -480,9 +506,41 @@ energy-bottle:
   sound: ENTITY_EXPERIENCE_ORB_PICKUP
 
 # ==========================================
+# PRISMATIC EDGE (legendary sword)
+# ==========================================
+prismatic-edge:
+  beam:
+    cooldown-seconds: 120
+    range: 24.0  # Beam length in blocks
+    damage: 10.0  # 5 hearts per target struck
+    hit-radius: 1.6  # How far off the beam line a target is still caught
+    freeze-seconds: 3  # Target is frozen in place this long
+    regen-seconds: 8  # Regeneration granted to the wielder
+    regen-level: 2  # Regeneration II
+  combo:
+    hits-required: 5  # Consecutive hits before crits kick in
+    crit-multiplier: 1.5  # Damage multiplier while in the crit state
+
+# ==========================================
+# RESTORATION RITUAL (Restoration Book)
+# ==========================================
+restoration:
+  # Announce the ritual to the whole server
+  broadcast: true
+  # Storm build-up before the main animation (ticks, 20 = 1 second)
+  build-up-ticks: 120
+  # Take over the weather for the ritual, restoring it afterwards
+  control-weather: true
+  # Radius of the closing shockwave that throws witnesses back
+  witness-radius: 12.0
+  witness-launch-power: 1.4
+
+# ==========================================
 # REPAIR KIT / PEDESTAL
 # ==========================================
 repair-kit:
+  # Announce Repair Rituals to the whole server
+  broadcast: true
   # Energy restored per second
   energy-per-second: 1
   # Maximum total energy a kit can restore

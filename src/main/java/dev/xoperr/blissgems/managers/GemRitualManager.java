@@ -513,6 +513,117 @@ public class GemRitualManager {
     }
 
     /**
+     * Restoration Ritual — the first-gem sequence, but preceded by a storm build-up and
+     * closed out by a shockwave that throws every witness backwards.
+     *
+     * <p>Timeline: rain and distant thunder for the build-up, escalating strikes, then the
+     * standard {@link #performGemRitual} sequence, then the shockwave and a clear sky.
+     *
+     * @param player the player restoring their gem
+     * @param gemId  the gem they will end up with
+     * @param tier   the tier of that gem
+     * @return ticks until the gem should be handed over
+     */
+    public long performRestorationRitual(Player player, String gemId, int tier) {
+        Location loc = player.getLocation().clone();
+        org.bukkit.World world = player.getWorld();
+
+        int buildUpTicks = plugin.getConfig().getInt("restoration.build-up-ticks", 120);
+        double witnessRadius = plugin.getConfig().getDouble("restoration.witness-radius", 12.0);
+        double witnessLaunch = plugin.getConfig().getDouble("restoration.witness-launch-power", 1.4);
+        boolean controlWeather = plugin.getConfig().getBoolean("restoration.control-weather", true);
+
+        final boolean hadStorm = world.isThundering();
+        final boolean hadRain = world.hasStorm();
+
+        // Phase A: the sky turns. Rain first, then a full thunderstorm.
+        if (controlWeather) {
+            world.setStorm(true);
+            world.setWeatherDuration(buildUpTicks + 400);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                world.setThundering(true);
+                world.setThunderDuration(buildUpTicks + 300);
+            }, buildUpTicks / 3L);
+        }
+
+        // Phase B: strikes closing in on the pedestal, quickening as the ritual builds
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || ticks >= buildUpTicks) {
+                    this.cancel();
+                    return;
+                }
+
+                double progress = ticks / (double) buildUpTicks;
+                // Strikes start ~8s apart and end ~0.5s apart
+                int strikeGap = Math.max(10, (int) (160 * (1 - progress)));
+                if (ticks % strikeGap == 0) {
+                    double spread = 14.0 * (1 - progress) + 2.0;
+                    double angle = Math.random() * 2 * Math.PI;
+                    Location strike = loc.clone().add(
+                        Math.cos(angle) * spread, 0, Math.sin(angle) * spread);
+                    world.strikeLightningEffect(strike);
+                    world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.8f + (float) progress * 0.6f);
+                }
+
+                // Dark swirling column while the storm gathers
+                if (ticks % 2 == 0) {
+                    double angle = (ticks / 6.0);
+                    double radius = 3.0 * (1 - progress) + 0.5;
+                    Location swirl = loc.clone().add(
+                        Math.cos(angle) * radius, (ticks % 40) / 10.0, Math.sin(angle) * radius);
+                    world.spawnParticle(Particle.LARGE_SMOKE, swirl, 3, 0.2, 0.2, 0.2, 0.01);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, swirl, 2, 0.2, 0.2, 0.2, 0.05);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Phase C: the standard gem ritual, once the storm has fully gathered
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            world.strikeLightningEffect(loc);
+            performGemRitual(player, gemId, false, tier);
+        }, buildUpTicks);
+
+        // Phase D: shockwave — every witness is thrown back and the sky clears
+        long finaleTick = buildUpTicks + 210L;
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            Location center = player.isOnline() ? player.getLocation() : loc;
+
+            world.strikeLightningEffect(center);
+            world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.6f);
+            world.playSound(center, Sound.ITEM_TOTEM_USE, 1.0f, 0.8f);
+            world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 3, 1.0, 0.5, 1.0, 0.0);
+            world.spawnParticle(Particle.FLASH, center, 5, 0.5, 0.5, 0.5, 0.0);
+
+            for (org.bukkit.entity.Entity entity : world.getNearbyEntities(center, witnessRadius, witnessRadius, witnessRadius)) {
+                if (!(entity instanceof Player witness) || witness.equals(player)) continue;
+                org.bukkit.util.Vector away = witness.getLocation().toVector().subtract(center.toVector());
+                if (away.lengthSquared() < 0.01) {
+                    away = witness.getLocation().getDirection().multiply(-1);
+                }
+                away = away.normalize().multiply(witnessLaunch).setY(0.6);
+                witness.setVelocity(away);
+                witness.playSound(witness.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+            }
+
+            if (controlWeather) {
+                world.setThundering(hadStorm);
+                world.setStorm(hadRain);
+                if (!hadRain) world.setWeatherDuration(6000);
+            }
+        }, finaleTick);
+
+        // The gem lands with the main ritual's convergence burst
+        return buildUpTicks + 200L;
+    }
+
+    /**
      * Performs a revive beacon ritual animation
      * @param player The player activating the revive beacon
      * @param location The beacon location
