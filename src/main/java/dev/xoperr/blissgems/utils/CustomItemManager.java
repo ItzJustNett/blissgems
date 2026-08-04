@@ -338,6 +338,28 @@ public class CustomItemManager {
             "§fPuff §8• §aSpeed §8• §6Strength §8• §eWealth"
         ));
 
+        // Prismatic Edge (legendary sword)
+        registerItem("prismatic_edge", Material.NETHERITE_SWORD, 5001, "§b§l§nPrismatic Edge", List.of(
+            "§7A blade holding the light of every gem.",
+            "",
+            "§bRight Click §7to fire a §dprismatic beam",
+            "§7that freezes whoever it strikes.",
+            "",
+            "§7Land §e5 hits in a row §7and every hit",
+            "§7after that crits - until you are struck."
+        ));
+
+        // Restoration Book (revives a Broken gem)
+        registerItem("restoration_book", Material.ENCHANTED_BOOK, 3002, "§5§l§nRestoration Book", List.of(
+            "§7Right Click while your gem is §c§lBROKEN",
+            "§7to begin a §5Restoration Ritual§7.",
+            "",
+            "§7Your gem is reforged at random and",
+            "§7returns at §bPristine§7.",
+            "",
+            "§8The whole server will know."
+        ));
+
         // Special items (using BlissGems pack materials)
         registerItem("energy_bottle", Material.GHAST_TEAR, 4001, "§b§lEnergy Bottle");
         registerItem("gem_trader", Material.EMERALD, 4002, "§2§lGem Trader");
@@ -513,8 +535,23 @@ public class CustomItemManager {
             meta.setLore(data.lore);
         }
 
+        applySignatureEnchants(id, meta);
+
         item.setItemMeta(meta);
         return item;
+    }
+
+    /**
+     * Enchants that are part of an item's identity rather than something a player applies.
+     * Levels here deliberately exceed the vanilla caps, so they go on unsafely.
+     */
+    private static void applySignatureEnchants(String id, ItemMeta meta) {
+        if (!"prismatic_edge".equals(id)) {
+            return;
+        }
+        meta.addEnchant(Enchantment.SHARPNESS, 7, true);
+        meta.addEnchant(Enchantment.MENDING, 1, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 3, true);
     }
 
     /**
@@ -589,6 +626,7 @@ public class CustomItemManager {
                 meta.getPersistentDataContainer().set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte) 1);
                 applyEnhancedGlint(meta, energy);
             }
+            applySignatureEnchants(id, meta);
             item.setItemMeta(meta);
             return item;
         } catch (Throwable t) {

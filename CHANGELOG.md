@@ -1,5 +1,30 @@
 # Changelog
 
+## BlissGems 4.9.0
+
+### Added
+
+**Prismatic Edge Legendary Sword.** Introduced a new legendary netherite sword (`prismatic_edge`) with pre-applied Sharpness VII, Mending, and Unbreaking III.
+- **Prismatic Beam (Right-Click):** Fires a 24-block rainbow beam dealing 10 HP (5 hearts) damage, freezing targets solid, and granting Regeneration II to wielder (120s cooldown).
+- **Combo Crits:** Landing 5 consecutive hits without being struck back activates guaranteed critical hits (1.5x damage multiplier) on all subsequent hits until you take damage.
+- Custom texture added to Resource Pack V5.2. Em-dashes in messages and lore formatted for clean Minecraft chat rendering.
+
+**Restoration Book & Ritual.** Introduced the `restoration_book` crafted with Echo Shards, Totems of Undying, a Nether Star, Gem Fragments, and a Book. Right-clicking with a BROKEN gem triggers a server-wide Restoration Ritual (thunderstorm sequence) that re-rolls the broken gem back into a Pristine state.
+
+**Gale Clouds for Speed Gem (Quaternary Ability).** Shift + F with Tier 2 Speed Gem grants 3 throwable Gale Cloud projectiles that inflict Slowness II on impact and put enemy Wind Charges on cooldown.
+
+**Broken Gem Damage Bonus.** Attackers holding a active gem deal 1.5x extra damage against targets holding a BROKEN gem (energy 0).
+
+### Fixed & Changed
+
+**Fixed Passive Effect Activation Gate.** Passives are now active at energy stage 1 (Ruined) and above. They are only disabled when a gem is completely BROKEN (energy 0).
+
+**Fixed NaN Vector Normalization Crash in Blur Ability.** Prevented Paper server crashes caused by zero-length vector normalization when targets stand on the exact strike origin.
+
+**Exposed Blur Ability Config.** Added `abilities.blur` settings in `config.yml` (knockback strength, strike count, charge timeout).
+
+---
+
 ## BlissGems 4.8.0 / BlissMythics 1.5.0
 
 ### Added
