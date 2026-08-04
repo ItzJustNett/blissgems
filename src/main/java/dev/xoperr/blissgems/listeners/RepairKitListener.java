@@ -98,6 +98,8 @@ public class RepairKitListener implements Listener {
                                 nearbyPlayer.sendMessage("§d§o" + player.getName() + " created a Repair Kit Pedestal nearby!");
                             }
                         }
+
+                        broadcastRepairRitual(player);
                     } else {
                         // Give item back if failed
                         player.getInventory().addItem(item);
@@ -106,6 +108,18 @@ public class RepairKitListener implements Listener {
                 }
             }
         }.runTaskLater((Plugin) this.plugin, 20L); // Check after 1 second
+    }
+
+    /**
+     * Announce a Repair Ritual server-wide, so it can be contested like the
+     * Restoration Ritual rather than run quietly in a corner.
+     */
+    private void broadcastRepairRitual(Player player) {
+        if (!this.plugin.getConfig().getBoolean("repair-kit.broadcast", true)) {
+            return;
+        }
+        this.plugin.getServer().broadcastMessage("§d§l✦ §d" + player.getName()
+            + " §7has begun a §d§lRepair Ritual§7!");
     }
 
     /**

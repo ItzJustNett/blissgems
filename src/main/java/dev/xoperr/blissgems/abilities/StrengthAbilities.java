@@ -494,6 +494,14 @@ public class StrengthAbilities implements GemAbilityHandler {
                         tracker.spigot().sendMessage(ChatMessageType.ACTION_BAR, msg);
                     }
                 }
+
+                // Laser beam pointing at the tracked player, redrawn a few times a second
+                // (independent of the once-a-second action bar update above). Private to the
+                // tracker only, so the beam doesn't give away either player's position to
+                // bystanders the way a world-visible particle line would.
+                if (ticksElapsed % 4 == 0 && tracker.getWorld().equals(tracked.getWorld())) {
+                    drawTrackerBeam(tracker, tracked.getLocation().add(0, 1.0, 0));
+                }
             }
         }.runTaskTimer(this.plugin, 0L, 1L);
 
@@ -502,6 +510,25 @@ public class StrengthAbilities implements GemAbilityHandler {
 
         player.sendMessage("\u00a7c\u00a7l\u2620 Shadow Stalker \u00a77Tracking \u00a7c" + targetPlayer.getName()
             + " \u00a77for " + durationSeconds + " seconds.");
+    }
+
+    /**
+     * Draws a thin red particle beam from the tracker's eyes to the tracked player, visible
+     * only to the tracker (Player#spawnParticle is a private packet, unlike World#spawnParticle).
+     */
+    private void drawTrackerBeam(Player tracker, Location target) {
+        Location from = tracker.getEyeLocation();
+        double distance = from.distance(target);
+        if (distance < 0.1) return;
+
+        Particle.DustOptions beamDust = new Particle.DustOptions(ParticleUtils.STRENGTH_RED, 0.9f);
+        Vector step = target.toVector().subtract(from.toVector()).multiply(1.0 / distance).multiply(0.5);
+        int points = (int) (distance / 0.5);
+        Location point = from.clone();
+        for (int i = 0; i < points; i++) {
+            point.add(step);
+            tracker.spawnParticle(Particle.DUST, point, 1, 0.0, 0.0, 0.0, 0.0, beamDust, true);
+        }
     }
 
     private void endTracking(Player player) {

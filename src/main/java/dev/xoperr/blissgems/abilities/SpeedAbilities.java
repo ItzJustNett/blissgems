@@ -17,20 +17,16 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.entity.Snowball;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.EulerAngle;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,6 +51,13 @@ public class SpeedAbilities implements GemAbilityHandler {
     // Blur stored-strike state
     private final Map<UUID, Integer> blurCharges = new HashMap<>();
     private final Map<UUID, BukkitTask> blurExpiryTasks = new HashMap<>();
+
+    // Gale Cloud stored-throw state
+    private final Map<UUID, Integer> galeCharges = new HashMap<>();
+    private final Map<UUID, BukkitTask> galeExpiryTasks = new HashMap<>();
+
+    /** Scoreboard tag marking a thrown Gale Cloud snowball, read back on impact. */
+    public static final String GALE_CLOUD_TAG = "blissgems_gale_cloud";
 
     public SpeedAbilities(BlissGems plugin) {
         this.plugin = plugin;
@@ -111,6 +114,11 @@ public class SpeedAbilities implements GemAbilityHandler {
     }
 
     @Override
+    public void onQuaternary(Player player, int tier) {
+        this.galeClouds(player);
+    }
+
+    @Override
     public void cleanup(Player player) {
         this.cleanup(player.getUniqueId());
     }
@@ -161,7 +169,7 @@ public class SpeedAbilities implements GemAbilityHandler {
             return;
         }
 
-        int strikeCount = this.plugin.getConfig().getInt("abilities.blur.strikes", 3);
+        int strikeCount = this.plugin.getConfig().getInt("abilities.blur.strikes", 5);
         int timeoutSeconds = this.plugin.getConfig().getInt("abilities.blur.charge-timeout-seconds", 30);
 
         blurCharges.put(uuid, strikeCount);
@@ -192,6 +200,137 @@ public class SpeedAbilities implements GemAbilityHandler {
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
+    }
+
+    // ========================================================================
+    // 4. GALE CLOUDS — Quaternary
+    //    Activation stores a handful of throwable clouds; each press hurls one.
+    //    On impact the cloud lingers, slowing anyone inside and putting their
+    //    wind charges on cooldown so they cannot simply rocket out of it.
+    // ========================================================================
+
+    public void galeClouds(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Already holding clouds — this press throws one instead of re-activating
+        if (galeCharges.getOrDefault(uuid, 0) > 0) {
+            throwGaleCloud(player);
+            return;
+        }
+
+        String abilityKey = "speed-gale-clouds";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+
+        int cloudCount = this.plugin.getConfig().getInt("abilities.gale-clouds.clouds", 3);
+        int timeoutSeconds = this.plugin.getConfig().getInt("abilities.gale-clouds.charge-timeout-seconds", 20);
+
+        galeCharges.put(uuid, cloudCount);
+
+        BukkitTask expiry = new BukkitRunnable() {
+            @Override
+            public void run() {
+                galeExpiryTasks.remove(uuid);
+                galeCharges.remove(uuid);
+            }
+        }.runTaskLater(this.plugin, timeoutSeconds * 20L);
+        BukkitTask oldExpiry = galeExpiryTasks.put(uuid, expiry);
+        if (oldExpiry != null) oldExpiry.cancel();
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_INHALE, 1.0f, 1.4f);
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Gale Clouds");
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+
+        // Activation throws the first cloud so the ability feels immediate
+        throwGaleCloud(player);
+    }
+
+    private void throwGaleCloud(Player player) {
+        UUID uuid = player.getUniqueId();
+        int remaining = galeCharges.getOrDefault(uuid, 0);
+        if (remaining <= 0) {
+            return;
+        }
+
+        Snowball cloud = player.launchProjectile(Snowball.class);
+        cloud.setVelocity(player.getLocation().getDirection().multiply(1.4));
+        cloud.addScoreboardTag(GALE_CLOUD_TAG);
+        cloud.setItem(new org.bukkit.inventory.ItemStack(org.bukkit.Material.WHITE_DYE));
+
+        player.getWorld().spawnParticle(Particle.CLOUD, player.getEyeLocation(), 15, 0.2, 0.2, 0.2, 0.02);
+        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_SHOOT, 0.9f, 1.6f);
+
+        remaining--;
+        if (remaining <= 0) {
+            galeCharges.remove(uuid);
+            BukkitTask expiry = galeExpiryTasks.remove(uuid);
+            if (expiry != null) expiry.cancel();
+        } else {
+            galeCharges.put(uuid, remaining);
+        }
+        player.sendMessage("§e§oGale Cloud thrown! §7(" + remaining + " left)");
+    }
+
+    /**
+     * Drop a lingering slowing cloud at the impact point. Called by
+     * {@link dev.xoperr.blissgems.listeners.GaleCloudListener} when a tagged snowball lands.
+     *
+     * @param center  impact location
+     * @param thrower the caster, exempt from the cloud's own slow
+     */
+    public void spawnGaleCloud(Location center, Player thrower) {
+        double radius = this.plugin.getConfig().getDouble("abilities.gale-clouds.radius", 3.5);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.gale-clouds.duration-seconds", 5);
+        int slownessLevel = this.plugin.getConfig().getInt("abilities.gale-clouds.slowness-level", 2);
+        int slownessSeconds = this.plugin.getConfig().getInt("abilities.gale-clouds.slowness-duration-seconds", 4);
+        int windChargeSeconds = this.plugin.getConfig().getInt("abilities.gale-clouds.wind-charge-cooldown-seconds", 8);
+
+        center.getWorld().playSound(center, Sound.ENTITY_BREEZE_LAND, 1.0f, 1.2f);
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = durationSeconds * 20;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    this.cancel();
+                    return;
+                }
+
+                // Swirling cloud body
+                for (int i = 0; i < 6; i++) {
+                    double angle = (ticks / 8.0) + (i / 6.0) * 2 * Math.PI;
+                    double x = Math.cos(angle) * radius * 0.8;
+                    double z = Math.sin(angle) * radius * 0.8;
+                    center.getWorld().spawnParticle(Particle.CLOUD,
+                        center.clone().add(x, 0.4, z), 2, 0.15, 0.15, 0.15, 0.01);
+                }
+                center.getWorld().spawnParticle(Particle.GUST, center.clone().add(0, 0.5, 0), 1, 0.4, 0.2, 0.4, 0.0);
+
+                // Apply the slow twice a second to everyone standing in it
+                if (ticks % 10 == 0) {
+                    for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+                        if (!(entity instanceof LivingEntity living)) continue;
+                        if (living.equals(thrower)) continue;
+
+                        living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
+                            slownessSeconds * 20, Math.max(0, slownessLevel - 1), true, true));
+
+                        if (living instanceof Player hit) {
+                            hit.setCooldown(org.bukkit.Material.WIND_CHARGE, windChargeSeconds * 20);
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(this.plugin, 0L, 1L);
     }
 
     private void fireBlurStrike(Player player) {
@@ -235,15 +374,12 @@ public class SpeedAbilities implements GemAbilityHandler {
 
         // A clone of the caster rides the bolt down and delivers the blow — the lightning is
         // the entrance, the clone is what actually hits.
-        final ArmorStand clone = spawnBlurClone(player, strikeLoc);
+        dev.xoperr.blissgems.utils.PlayerCloneNPC.play(this.plugin, player, strikeLoc, CLONE_WINDUP_TICKS, CLONE_LIFETIME_TICKS);
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (clone.isValid()) {
-                    clone.setRightArmPose(new EulerAngle(Math.toRadians(-150.0), 0.0, 0.0));
-                    clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.4f);
-                    clone.getWorld().spawnParticle(Particle.SWEEP_ATTACK, clone.getLocation().add(0, 1.0, 0), 3, 0.6, 0.3, 0.6, 0.0);
-                }
+                strikeLoc.getWorld().playSound(strikeLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 1.4f);
+                strikeLoc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, strikeLoc.clone().add(0, 1.0, 0), 3, 0.6, 0.3, 0.6, 0.0);
 
                 // Damage and knockback enemies in radius
                 for (Entity entity : strikeLoc.getWorld().getNearbyEntities(strikeLoc, 3.5, 3.5, 3.5)) {
@@ -269,9 +405,18 @@ public class SpeedAbilities implements GemAbilityHandler {
                         @Override
                         public void run() {
                             if (knockTarget.isValid() && !knockTarget.isDead()) {
-                                org.bukkit.util.Vector knockback = knockTarget.getLocation().toVector()
-                                    .subtract(knockOrigin.toVector())
-                                    .normalize()
+                                org.bukkit.util.Vector away = knockTarget.getLocation().toVector()
+                                    .subtract(knockOrigin.toVector());
+                                // A target standing exactly on the strike point gives a zero
+                                // vector, and normalizing that yields NaN — push it off the
+                                // strike's facing instead.
+                                if (away.lengthSquared() < 1.0E-4) {
+                                    away = knockOrigin.getDirection().setY(0);
+                                    if (away.lengthSquared() < 1.0E-4) {
+                                        away = new org.bukkit.util.Vector(1, 0, 0);
+                                    }
+                                }
+                                org.bukkit.util.Vector knockback = away.normalize()
                                     .multiply(knockbackPower)
                                     .setY(0.5);
                                 knockTarget.setVelocity(knockback);
@@ -290,11 +435,8 @@ public class SpeedAbilities implements GemAbilityHandler {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (clone.isValid()) {
-                    clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0), 60, 0.4, 0.9, 0.4, 0.0, strikeDust, true);
-                    clone.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, clone.getLocation().add(0, 1, 0), 40, 0.4, 0.9, 0.4, 0.05);
-                    clone.remove();
-                }
+                strikeLoc.getWorld().spawnParticle(Particle.DUST, strikeLoc.clone().add(0, 1, 0), 60, 0.4, 0.9, 0.4, 0.0, strikeDust, true);
+                strikeLoc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, strikeLoc.clone().add(0, 1, 0), 40, 0.4, 0.9, 0.4, 0.05);
             }
         }.runTaskLater(plugin, CLONE_LIFETIME_TICKS);
 
@@ -306,42 +448,6 @@ public class SpeedAbilities implements GemAbilityHandler {
         } else {
             blurCharges.put(uuid, remaining);
         }
-    }
-
-    /**
-     * The Blur clone: an armour stand wearing the caster's skin and gear, standing where the
-     * bolt came down. Marker + invulnerable so it is purely a visual actor — nothing can hit
-     * it, loot it or push it around.
-     */
-    private ArmorStand spawnBlurClone(Player player, Location strikeLoc) {
-        Location standLoc = strikeLoc.clone();
-        standLoc.setYaw(player.getLocation().getYaw());
-        standLoc.setPitch(0.0f);
-
-        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta skullMeta = (SkullMeta) head.getItemMeta();
-        if (skullMeta != null) {
-            skullMeta.setOwningPlayer(player);
-            head.setItemMeta(skullMeta);
-        }
-
-        return strikeLoc.getWorld().spawn(standLoc, ArmorStand.class, stand -> {
-            stand.setInvulnerable(true);
-            stand.setBasePlate(false);
-            stand.setArms(true);
-            stand.setGravity(false);
-            stand.setMarker(true);
-            stand.setSilent(true);
-            stand.setPersistent(false);
-            stand.setCustomName(player.getName());
-            if (stand.getEquipment() != null) {
-                stand.getEquipment().setHelmet(head);
-                stand.getEquipment().setChestplate(player.getInventory().getChestplate());
-                stand.getEquipment().setLeggings(player.getInventory().getLeggings());
-                stand.getEquipment().setBoots(player.getInventory().getBoots());
-                stand.getEquipment().setItemInMainHand(player.getInventory().getItemInMainHand());
-            }
-        });
     }
 
     // ========================================================================

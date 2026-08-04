@@ -11,6 +11,7 @@ heretic:
   bloodlink-launch: 1.25
   bloodlink-rise-ticks: 11
   bloodlink-range: 15.0
+  bloodlink-knockup: 1.4  # Upward velocity added to entities hit by a Bloodlink landing
   cooldowns:
     bloodsaws: 25
     bloodlink: 60
@@ -18,6 +19,7 @@ heretic:
 auratus:
   perforator-damage: 6.0
   slam-damage: 12.0
+  slam-knockup: 1.6  # Upward velocity added to entities hit by a ground slam
   aegis-heal: 5.0
   aegis-window-ms: 1500
   anchor-window-ms: 5000
@@ -28,5 +30,10 @@ auratus:
     min-interval-ms: 2000  # Hard floor between chain shots, so refunded charges can't be spammed
     fly-speed: 4.5
     fly-max-ticks: 60
+  slam:
+    min-height: 10.0  # Blocks of fall height required above the landing spot to trigger a slam
+    launch-force: 2.4  # Vertical launch given to the caster after a successful slam
+    no-windcharge-radius: 5.0  # Blocks around a fresh slam crater where wind charges fizzle
+    no-windcharge-ms: 2500  # How long the wind charge lockout lasts after a slam
   cooldowns:
     aegis: 45

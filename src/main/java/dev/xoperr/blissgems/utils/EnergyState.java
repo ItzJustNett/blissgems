@@ -54,7 +54,7 @@ public enum EnergyState {
     }
 
     public boolean passivesActive() {
-        return this.minEnergy > 1;
+        return this.minEnergy >= 1; // Only Broken (0) loses passives; Ruined (1) keeps them
     }
 
     public boolean abilitiesUsable() {
