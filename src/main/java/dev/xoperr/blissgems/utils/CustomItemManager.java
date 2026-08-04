@@ -342,7 +342,7 @@ public class CustomItemManager {
         registerItem("prismatic_edge", Material.NETHERITE_SWORD, 5001, "§b§l§nPrismatic Edge", List.of(
             "§7A blade holding the light of every gem.",
             "",
-            "§bRight Click §7to fire a §dprismatic beam",
+            "§bSneak + Left Click §7to fire a §dprismatic beam",
             "§7that freezes whoever it strikes.",
             "",
             "§7Land §e5 hits in a row §7and every hit",
