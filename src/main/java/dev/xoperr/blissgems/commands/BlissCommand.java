@@ -143,6 +143,10 @@ TabCompleter {
                 this.handleAutoSmelt(sender, args);
                 break;
             }
+            case "conduction": {
+                this.handleConduction(sender, args);
+                break;
+            }
             case "stats": {
                 this.handleStats(sender, args);
                 break;
@@ -377,6 +381,8 @@ TabCompleter {
             sender.sendMessage("\u00a7b  - gem_trader");
             sender.sendMessage("\u00a7b  - gem_fragment");
             sender.sendMessage("\u00a7b  - gem_upgrader \u00a77(universal - works for all gems)");
+            sender.sendMessage("\u00a7b  - restoration_book \u00a77(revives a Broken gem)");
+            sender.sendMessage("\u00a7b  - prismatic_edge \u00a77(legendary sword)");
             return;
         }
         Player target = Bukkit.getPlayer((String)args[1]);
@@ -406,7 +412,7 @@ TabCompleter {
         ItemStack item = CustomItemManager.getItemById(itemId);
         if (item == null) {
             sender.sendMessage("\u00a7cInvalid item ID: " + itemId);
-            sender.sendMessage("\u00a77Available items: energy_bottle, repair_kit, gem_trader, gem_fragment, gem_upgrader");
+            sender.sendMessage("\u00a77Available items: energy_bottle, repair_kit, gem_trader, gem_fragment, gem_upgrader, restoration_book, prismatic_edge");
             return;
         }
 
@@ -1026,6 +1032,7 @@ TabCompleter {
                 case FLUX: this.plugin.getFluxAbilities().kineticBurst(player); break;
                 case LIFE: this.plugin.getLifeAbilities().heartLock(player); break;
                 case PUFF: this.plugin.getPuffAbilities().updraft(player); break;
+                case SPEED: this.plugin.getSpeedAbilities().galeClouds(player); break;
                 case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
                 case WEALTH: this.plugin.getWealthAbilities().amplification(player); break;
                 default: player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!"); break;
@@ -1323,6 +1330,22 @@ TabCompleter {
         } else {
             player.sendMessage("§c§lAuto-Smelt disabled!");
         }
+    }
+
+    private void handleConduction(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+
+        Player player = (Player) sender;
+
+        if (this.plugin.getGemManager().getGemType(player) != GemType.FLUX) {
+            player.sendMessage("§c§lYou need the Flux Gem to use Conduction!");
+            return;
+        }
+
+        this.plugin.getFluxAbilities().conduction(player);
     }
 
     private void handleStats(CommandSender sender, String[] args) {
@@ -1630,6 +1653,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss pockets \u00a78- Open personal inventory (Wealth T2)");
         sender.sendMessage("\u00a77/bliss amplify \u00a78- Amplify potion effects (Wealth T2)");
         sender.sendMessage("\u00a77/bliss autosmelt \u00a78- Toggle auto-smelting (Wealth T2)");
+        sender.sendMessage("\u00a77/bliss conduction \u00a78- Teleport to nearest copper block (Flux)");
         sender.sendMessage("\u00a77/bliss toggle_click \u00a78- Toggle click activation on/off");
         sender.sendMessage("\u00a77/bliss ability:main \u00a78- Trigger primary ability");
         sender.sendMessage("\u00a77/bliss ability:secondary \u00a78- Trigger secondary ability (T2)");
@@ -1651,7 +1675,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("nocdtoggle")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
@@ -1694,6 +1718,8 @@ TabCompleter {
                 items.add("gem_trader");
                 items.add("gem_fragment");
                 items.add("gem_upgrader"); // Universal upgrader
+                items.add("restoration_book");
+                items.add("prismatic_edge");
                 return items;
             }
             if (args[0].equalsIgnoreCase("transfer")) {

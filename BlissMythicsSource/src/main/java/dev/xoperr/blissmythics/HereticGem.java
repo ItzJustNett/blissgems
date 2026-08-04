@@ -69,6 +69,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double bloodlinkLaunch;
    private final int bloodlinkRiseTicks;
    private final double bloodlinkRange;
+   private final double bloodlinkKnockup;
 
    public HereticGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -87,6 +88,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.bloodlinkLaunch = var1.getConfig().getDouble("heretic.bloodlink-launch", 1.25);
       this.bloodlinkRiseTicks = var1.getConfig().getInt("heretic.bloodlink-rise-ticks", 11);
       this.bloodlinkRange = var1.getConfig().getDouble("heretic.bloodlink-range", 15.0);
+      this.bloodlinkKnockup = var1.getConfig().getDouble("heretic.bloodlink-knockup", 1.4);
       (new BukkitRunnable() {
          public void run() {
             HereticGem.this.bleedTick();
@@ -171,6 +173,11 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                for (int var1x = 0; var1x < 2; var1x++) {
                   Location var2x = var3[0].clone().add(var2[0].clone().multiply(0.45));
                   Block var3x = var2x.getBlock();
+                  if (var3x.getType() == Material.COBWEB) {
+                     var3x.setType(Material.AIR);
+                     var3x.getWorld().playSound(var3x.getLocation(), Sound.BLOCK_COBWEB_BREAK, 1.0F, 1.0F);
+                  }
+
                   if (var3x.getType().isSolid()) {
                      if (++this.bounces > 3) {
                         this.cancel();
@@ -358,6 +365,9 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          public void cancel() {
             HereticGem.this.crashing.remove(var1.getUniqueId());
             Bukkit.getScheduler().runTaskLater(HereticGem.this.plugin, () -> HereticGem.this.crashing.remove(var1.getUniqueId()), 30L);
+            if (var1.isOnline()) {
+               var1.setGliding(false);
+            }
             this.finish();
             super.cancel();
          }
@@ -381,6 +391,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                }
 
                var1.setVelocity(var5);
+               var1.setGliding(false);
                var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.2F, 0.5F);
                this.phase = 1;
                this.airTicks = 0;
@@ -398,10 +409,15 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                   && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 20);
                this.lastY = var11;
                if (this.phase == 1 && var12) {
+                  // Force the player down as before, but let vanilla elytra physics carry that
+                  // impulse into an actual glide (pitch-steered, air-braked) instead of falling
+                  // through the dive as a single rigid velocity vector.
                   var1.setVelocity(diveAim(var1, this.target));
+                  var1.setGliding(true);
                   this.phase = 2;
                } else {
                   if (this.phase == 2 && var1.isOnGround()) {
+                     var1.setGliding(false);
                      var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0F, 0.7F);
                      var1.getWorld().spawnParticle(Particle.EXPLOSION, var1.getLocation(), 2, 0.5, 0.2, 0.5, 0.0);
 
@@ -410,7 +426,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                      for (LivingEntity var2x : var1.getLocation().getNearbyLivingEntities(4.5)) {
                         if (var2x != var1) {
                            var2x.damage(bloodlinkDamage, var1);
-                           var2x.setVelocity(var2x.getVelocity().add(new Vector(0.0, 0.5, 0.0)));
+                           var2x.setVelocity(var2x.getVelocity().add(new Vector(0.0, bloodlinkKnockup, 0.0)));
                            var10 = true;
                            if (var2x instanceof Player var3) {
                               var2.add(var3.getUniqueId());

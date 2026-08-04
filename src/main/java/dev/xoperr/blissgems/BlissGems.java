@@ -27,6 +27,10 @@ import dev.xoperr.blissgems.commands.FixHeartsCommand;
 import dev.xoperr.blissgems.commands.FixedHeartsCommand;
 import dev.xoperr.blissgems.commands.FixGemsCommand;
 import dev.xoperr.blissgems.listeners.AutoEnchantListener;
+import dev.xoperr.blissgems.listeners.BrokenGemDamageListener;
+import dev.xoperr.blissgems.listeners.GaleCloudListener;
+import dev.xoperr.blissgems.listeners.RestorationBookListener;
+import dev.xoperr.blissgems.listeners.PrismaticEdgeListener;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
 import dev.xoperr.blissgems.listeners.KillTrackingListener;
@@ -571,6 +575,10 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.RitualCleanupListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new BrokenGemDamageListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new GaleCloudListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new RestorationBookListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new PrismaticEdgeListener(this), (Plugin)this);
         // Anti-dupe: break the "drop-and-swap" ghost dupe (drop + same-tick hotbar swap).
         dev.xoperr.blissgems.listeners.DropSwapGuard dropSwapGuard = new dev.xoperr.blissgems.listeners.DropSwapGuard(this);
         this.getServer().getPluginManager().registerEvents((Listener)dropSwapGuard, (Plugin)this);

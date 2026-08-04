@@ -159,12 +159,15 @@ public class LifeAbilities implements GemAbilityHandler {
             }
             modifiedInCircle.removeAll(toRemove);
 
-            // Particles
+            // Particles. Every call is forced (force=true) so the circle is visible regardless
+            // of a viewer's particle settings or distance - without it, HEART/SCULK_SOUL/
+            // HAPPY_VILLAGER are silently suppressed for most viewers while DUST still shows,
+            // which is why the circle looked like it wasn't rendering at all.
             Particle.DustOptions pinkCircleDust = new Particle.DustOptions(ParticleUtils.LIFE_PINK_ALT, 1.0f);
             player.getWorld().spawnParticle(Particle.DUST, circleLocation.clone().add(0, 1, 0), 30, 4.0, 0.5, 4.0, 0.0, pinkCircleDust, true);
-            player.getWorld().spawnParticle(Particle.HEART, circleLocation.clone().add(0, 1, 0), 20, 4.0, 0.5, 4.0);
-            player.getWorld().spawnParticle(Particle.SCULK_SOUL, circleLocation.clone().add(0, 0.5, 0), 30, 4.0, 0.2, 4.0);
-            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, circleLocation.clone().add(0, 0.2, 0), 15, 3.0, 0.1, 3.0);
+            player.getWorld().spawnParticle(Particle.HEART, circleLocation.clone().add(0, 1, 0), 20, 4.0, 0.5, 4.0, 0.0, null, true);
+            player.getWorld().spawnParticle(Particle.SCULK_SOUL, circleLocation.clone().add(0, 0.5, 0), 30, 4.0, 0.2, 4.0, 0.0, null, true);
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, circleLocation.clone().add(0, 0.2, 0), 15, 3.0, 0.1, 3.0, 0.0, null, true);
 
             // Circle border
             int circlePoints = 32;
@@ -178,10 +181,10 @@ public class LifeAbilities implements GemAbilityHandler {
                     2, 0.1, 0.1, 0.1, 0.0, pinkCircleDust, true);
                 player.getWorld().spawnParticle(Particle.HEART,
                     circleLocation.clone().add(x, 1.0, z),
-                    1, 0.05, 0.05, 0.05, 0);
+                    1, 0.05, 0.05, 0.05, 0.0, null, true);
                 player.getWorld().spawnParticle(Particle.SCULK_SOUL,
                     circleLocation.clone().add(x, 1.8, z),
-                    1, 0.05, 0.05, 0.05, 0);
+                    1, 0.05, 0.05, 0.05, 0.0, null, true);
             }
 
             ticksElapsed[0] += 20;

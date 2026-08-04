@@ -40,6 +40,8 @@ public class RecipeManager {
         registerGemTraderRecipe();
         registerRepairKitRecipe();
         registerReviveBeaconRecipe();
+        registerRestorationBookRecipe();
+        registerPrismaticEdgeRecipe();
 
         // Register universal upgrader (works for all gem types)
         registerUpgraderRecipe();
@@ -160,6 +162,64 @@ public class RecipeManager {
         recipe.setIngredient('E', Material.ECHO_SHARD);
         recipe.setIngredient('T', Material.TOTEM_OF_UNDYING);
         recipe.setIngredient('B', Material.BEACON);
+
+        plugin.getServer().addRecipe(recipe);
+        registeredRecipes.add(key);
+    }
+
+    /**
+     * Restoration Book Recipe
+     * Pattern:
+     *   F T F
+     *   E N E
+     *   F B F
+     * F = Gem Fragment (Prismarine Shard), T = Totem of Undying, E = Echo Shard,
+     * N = Nether Star, B = Book
+     */
+    private void registerRestorationBookRecipe() {
+        ItemStack restorationBook = CustomItemManager.getItemById("restoration_book");
+        if (restorationBook == null) {
+            plugin.getLogger().warning("Could not create restoration_book item - recipe not registered");
+            return;
+        }
+
+        NamespacedKey key = new NamespacedKey(plugin, "restoration_book");
+        ShapedRecipe recipe = new ShapedRecipe(key, restorationBook);
+
+        recipe.shape("FTF", "ENE", "FBF");
+        recipe.setIngredient('F', Material.PRISMARINE_SHARD); // Prismarine Shard = Gem Fragment
+        recipe.setIngredient('T', Material.TOTEM_OF_UNDYING);
+        recipe.setIngredient('E', Material.ECHO_SHARD);
+        recipe.setIngredient('N', Material.NETHER_STAR);
+        recipe.setIngredient('B', Material.BOOK);
+
+        plugin.getServer().addRecipe(recipe);
+        registeredRecipes.add(key);
+    }
+
+    /**
+     * Prismatic Edge Recipe
+     * Pattern:
+     *   . F .
+     *   . S .
+     *   E N E
+     * F = Gem Fragment (Prismarine Shard), S = Netherite Sword, E = Echo Shard, N = Nether Star
+     */
+    private void registerPrismaticEdgeRecipe() {
+        ItemStack prismaticEdge = CustomItemManager.getItemById("prismatic_edge");
+        if (prismaticEdge == null) {
+            plugin.getLogger().warning("Could not create prismatic_edge item - recipe not registered");
+            return;
+        }
+
+        NamespacedKey key = new NamespacedKey(plugin, "prismatic_edge");
+        ShapedRecipe recipe = new ShapedRecipe(key, prismaticEdge);
+
+        recipe.shape(" F ", " S ", "ENE");
+        recipe.setIngredient('F', Material.PRISMARINE_SHARD); // Prismarine Shard = Gem Fragment
+        recipe.setIngredient('S', Material.NETHERITE_SWORD);
+        recipe.setIngredient('E', Material.ECHO_SHARD);
+        recipe.setIngredient('N', Material.NETHER_STAR);
 
         plugin.getServer().addRecipe(recipe);
         registeredRecipes.add(key);
