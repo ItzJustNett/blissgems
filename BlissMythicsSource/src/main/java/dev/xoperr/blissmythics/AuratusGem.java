@@ -105,8 +105,8 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.chainFlySpeed = var1.getConfig().getDouble("auratus.chain.fly-speed", 4.5);
       this.chainFlyMaxTicks = var1.getConfig().getInt("auratus.chain.fly-max-ticks", 60);
       this.slamKnockup = var1.getConfig().getDouble("auratus.slam-knockup", 1.6);
-      this.slamMinHeight = var1.getConfig().getDouble("auratus.slam.min-height", 10.0);
-      this.slamLaunchForce = var1.getConfig().getDouble("auratus.slam.launch-force", 2.4);
+      this.slamMinHeight = var1.getConfig().getDouble("auratus.slam.min-height", 8.0);
+      this.slamLaunchForce = var1.getConfig().getDouble("auratus.slam.launch-force", 1.2);
       this.slamNoWindchargeRadius = var1.getConfig().getDouble("auratus.slam.no-windcharge-radius", 5.0);
       this.slamNoWindchargeMs = var1.getConfig().getLong("auratus.slam.no-windcharge-ms", 2500L);
       Bukkit.getScheduler().runTaskTimer(var1, this::hasteTick, 20L, 20L);
@@ -411,6 +411,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   double var7x;
                   for (var7x = this.linkCarry; var7x < var4x; var7x += 0.75) {
                      Location var9x = this.tip.clone().add(var6x.clone().multiply(var7x));
+                     breakCobwebAt(var9x);
                      ItemDisplay var10x = (ItemDisplay)var1.getWorld().spawn(var9x, ItemDisplay.class, var2xxx -> {
                         var2xxx.setItemStack(var6);
                         var2xxx.setGlowing(true);
@@ -550,6 +551,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   double var9x;
                   for (var9x = this.linkCarry; var9x < var5x; var9x += 0.75) {
                      Location var11x = this.tip.clone().add(var7x.clone().multiply(var9x));
+                     breakCobwebAt(var11x);
                      ItemDisplay var12 = (ItemDisplay)var1.getWorld().spawn(var11x, ItemDisplay.class, var2xxx -> {
                         var2xxx.setItemStack(var5);
                         var2xxx.setGlowing(true);
@@ -655,7 +657,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    // Chains fly straight through anything in their path except solid terrain, but cobwebs
-   // are "solid" enough to otherwise just stop the tip dead - break them instead.
+   // are "solid" enough to otherwise just stop the tip dead - break them instead. Called for
+   // every link along the path, not just the tip: at 4.5 blocks a tick the tip alone leaps
+   // clean over most webs.
    private static void breakCobwebAt(Location var0) {
       org.bukkit.block.Block var1 = var0.getBlock();
       if (var1.getType() == Material.COBWEB) {
@@ -709,10 +713,12 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
 
                      // Launch the caster out of the crater in the direction of the grapple that
                      // brought them here - straight up if it barely moved them horizontally,
-                     // otherwise keep that horizontal heading but launched higher.
+                     // otherwise the further the grapple carried them the more of that momentum
+                     // they keep, on top of the higher launch.
                      Vector var5 = new Vector(var2.getX(), 0.0, var2.getZ());
-                     Vector var6 = var5.lengthSquared() > 0.25
-                        ? var5.normalize().multiply(1.6)
+                     double var7 = var5.length();
+                     Vector var6 = var7 > 0.5
+                        ? var5.multiply(Math.min(3.0, 0.9 + var7 * 0.1) / var7)
                         : new Vector(0.0, 0.0, 0.0);
                      var6.setY(AuratusGem.this.slamLaunchForce);
                      var1.setVelocity(var6);
