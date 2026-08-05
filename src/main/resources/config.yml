@@ -51,6 +51,10 @@ gems:
   # given to entities, moved by hoppers, or lost in any other way
   prevent-drop: true
 
+  # When a player holding a Tier 2 gem dies, drop a Gem Upgrader at their death spot.
+  # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
+  drop-upgrader-on-tier2-death: false
+
 # ==========================================
 # WORLDGUARD INTEGRATION
 # ==========================================
@@ -445,9 +449,9 @@ abilities:
 auto-enchant:
   enabled: true
   # Let tier 1 gems auto-enchant too, at reduced levels (e.g. Efficiency III instead of V).
-  # Off by default: auto-enchant is normally a tier 2 perk. Strength always applies its
+  # Set to false to keep auto-enchant a tier 2 perk. Strength always applies its
   # Sharpness at both tiers regardless of this setting.
-  tier1-enabled: false
+  tier1-enabled: true
   # Enchantments are applied when holding appropriate tools
   fire:
     flame: true

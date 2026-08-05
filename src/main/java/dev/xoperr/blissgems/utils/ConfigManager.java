@@ -219,11 +219,19 @@ public class ConfigManager {
     }
 
     /**
-     * When enabled, tier 1 gems also auto-enchant (at reduced levels). Off by default,
-     * which keeps auto-enchant a tier 2 perk as it has always been.
+     * When enabled, a player holding a Tier 2 gem drops a Gem Upgrader where they died.
+     * The gem keeps its tier, so this creates a new upgrader on every Tier 2 death.
+     */
+    public boolean isUpgraderDropOnTier2DeathEnabled() {
+        return this.config.getBoolean("gems.drop-upgrader-on-tier2-death", false);
+    }
+
+    /**
+     * When enabled, tier 1 gems also auto-enchant (at reduced levels). On by default -
+     * set to false to keep auto-enchant a tier 2 perk.
      */
     public boolean isTier1AutoEnchantEnabled() {
-        return this.config.getBoolean("auto-enchant.tier1-enabled", false);
+        return this.config.getBoolean("auto-enchant.tier1-enabled", true);
     }
 
     public int getPassiveUpdateInterval() {

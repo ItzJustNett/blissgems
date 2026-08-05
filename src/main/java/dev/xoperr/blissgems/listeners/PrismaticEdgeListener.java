@@ -33,7 +33,7 @@ import java.util.UUID;
  * Prismatic Edge — a legendary sword with two mechanics:
  *
  * <ul>
- *   <li><b>Prismatic Beam</b> (right click): a long-range beam cycling through every gem
+ *   <li><b>Prismatic Beam</b> (sneak + left click): a long-range beam cycling through every gem
  *       colour that damages and freezes whatever it passes through, and heals the wielder.</li>
  *   <li><b>Combo crits</b>: five consecutive hits put the wielder into a crit state where
  *       every following hit crits, until the target lands a hit back.</li>
@@ -77,10 +77,13 @@ public class PrismaticEdgeListener implements Listener {
 
     @EventHandler
     public void onBeamCast(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+        if (event.getAction() != Action.LEFT_CLICK_AIR && event.getAction() != Action.LEFT_CLICK_BLOCK) {
             return;
         }
         if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
+        if (!event.getPlayer().isSneaking()) {
             return;
         }
         if (!isPrismaticEdge(event.getItem())) {

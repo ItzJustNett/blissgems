@@ -66,10 +66,12 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final long sawWindowMs;
    private final long bleedMs;
    private final long linkMs;
-   private final double bloodlinkLaunch;
    private final int bloodlinkRiseTicks;
    private final double bloodlinkRange;
    private final double bloodlinkKnockup;
+   private final double bloodlinkMinRise;
+   private final int bloodlinkMaxHits;
+   private final int sawDragTicks;
 
    public HereticGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -77,7 +79,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.critMultiplier = var1.getConfig().getDouble("heretic.crit-multiplier", 1.5);
       this.bleedMultiplier = var1.getConfig().getDouble("heretic.bleed-multiplier", 2.0);
       this.bloodsawsDamage = var1.getConfig().getDouble("heretic.bloodsaws-damage", 6.0);
-      this.bloodlinkDamage = var1.getConfig().getDouble("heretic.bloodlink-damage", 7.0);
+      this.bloodlinkDamage = var1.getConfig().getDouble("heretic.bloodlink-damage", 9.0);
       this.hurricaneDamage = var1.getConfig().getDouble("heretic.hurricane-damage", 4.0);
       this.maxHitDamage = var1.getConfig().getDouble("heretic.max-hit-cap", 13.0);
       this.bloodsawsCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodsaws", 25);
@@ -85,10 +87,12 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.sawWindowMs = var1.getConfig().getLong("heretic.saw-window-ms", 4000L);
       this.bleedMs = var1.getConfig().getLong("heretic.bleed-ms", 8000L);
       this.linkMs = var1.getConfig().getLong("heretic.bloodlink-duration-ms", 15000L);
-      this.bloodlinkLaunch = var1.getConfig().getDouble("heretic.bloodlink-launch", 1.25);
       this.bloodlinkRiseTicks = var1.getConfig().getInt("heretic.bloodlink-rise-ticks", 11);
       this.bloodlinkRange = var1.getConfig().getDouble("heretic.bloodlink-range", 15.0);
-      this.bloodlinkKnockup = var1.getConfig().getDouble("heretic.bloodlink-knockup", 1.4);
+      this.bloodlinkKnockup = var1.getConfig().getDouble("heretic.bloodlink-knockup", 0.6);
+      this.bloodlinkMinRise = var1.getConfig().getDouble("heretic.bloodlink-min-rise", 1.8);
+      this.bloodlinkMaxHits = var1.getConfig().getInt("heretic.bloodlink-max-hits", 5);
+      this.sawDragTicks = var1.getConfig().getInt("heretic.bloodsaw-drag-ticks", 20);
       (new BukkitRunnable() {
          public void run() {
             HereticGem.this.bleedTick();
@@ -143,6 +147,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       final Vector[] var2 = new Vector[]{var1.getEyeLocation().getDirection().normalize()};
       final Location[] var3 = new Location[]{var1.getEyeLocation().add(var2[0].clone().multiply(1.2))};
       final HashSet var4 = new HashSet();
+      // Everything the blade has bitten, mapped to the tick its drag runs out.
+      final Map<LivingEntity, Integer> dragged = new HashMap<>();
       final DustOptions var5 = new DustOptions(Color.fromRGB(140, 0, 0), 1.6F);
       ItemStack var6 = new ItemStack(Material.ECHO_SHARD);
       ItemMeta var7 = var6.getItemMeta();
@@ -173,11 +179,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                for (int var1x = 0; var1x < 2; var1x++) {
                   Location var2x = var3[0].clone().add(var2[0].clone().multiply(0.45));
                   Block var3x = var2x.getBlock();
-                  if (var3x.getType() == Material.COBWEB) {
-                     var3x.setType(Material.AIR);
-                     var3x.getWorld().playSound(var3x.getLocation(), Sound.BLOCK_COBWEB_BREAK, 1.0F, 1.0F);
-                  }
-
+                  breakCobwebsAround(var2x);
                   if (var3x.getType().isSolid()) {
                      if (++this.bounces > 3) {
                         this.cancel();
@@ -221,8 +223,23 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                         var4.add(var9.getUniqueId());
                         var9.damage(bloodsawsDamage, var1);
                         var9.getWorld().playSound(var9.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0F, 0.7F);
+                        dragged.put(var9, this.life + HereticGem.this.sawDragTicks);
                      }
                   }
+               }
+
+               // Anything the blade cut rides along in its wake until its drag runs out.
+               dragged.entrySet().removeIf(var1x -> var1x.getValue() <= this.life || !var1x.getKey().isValid() || var1x.getKey().isDead());
+
+               for (LivingEntity var10 : dragged.keySet()) {
+                  Vector var11 = var3[0].toVector().subtract(var10.getLocation().add(0.0, 1.0, 0.0).toVector());
+                  double var12 = var11.length();
+                  Vector var14 = var2[0].clone().multiply(0.6);
+                  if (var12 > 0.15) {
+                     var14.add(var11.multiply(Math.min(1.0, var12) / var12 * 0.4));
+                  }
+
+                  var10.setVelocity(var14);
                }
 
                if (var8.isValid()) {
@@ -233,6 +250,22 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
             }
          }
       }).runTaskTimer(this.plugin, 0L, 1L);
+   }
+
+   // A saw is 1.3 blocks wide, so webs it clips have to go too - checking only the block its
+   // centre happens to land in let webs stop a blade that visibly cut straight through them.
+   private static void breakCobwebsAround(Location var0) {
+      for (int var1 = -1; var1 <= 1; var1++) {
+         for (int var2 = -1; var2 <= 1; var2++) {
+            for (int var3 = -1; var3 <= 1; var3++) {
+               Block var4 = var0.clone().add(var1, var2, var3).getBlock();
+               if (var4.getType() == Material.COBWEB) {
+                  var4.setType(Material.AIR);
+                  var4.getWorld().playSound(var4.getLocation(), Sound.BLOCK_COBWEB_BREAK, 1.0F, 1.0F);
+               }
+            }
+         }
+      }
    }
 
    private void spore(final Player var1) {
@@ -274,19 +307,15 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       return (1.0 - Math.pow(0.91, var0)) / 0.09;
    }
 
-   // Whatever the player is looking at: the entity under the crosshair, else the block face.
-   // Null means open sky within range, which leaves the caller on a plain forward nudge.
+   // Exactly where the crosshair points: the block face it lands on, or open air at max range.
+   // Deliberately blind to entities - the hop is aimed by the player, never snapped to a target.
    private Location aimPoint(Player var1) {
       Location var2 = var1.getEyeLocation();
       Vector var3 = var2.getDirection().normalize();
-      RayTraceResult var4 = var1.getWorld()
-         .rayTraceEntities(var2, var3, this.bloodlinkRange, 0.8, var1x -> var1x != var1 && var1x instanceof LivingEntity);
-      if (var4 != null && var4.getHitEntity() != null) {
-         return var4.getHitEntity().getLocation();
-      } else {
-         RayTraceResult var5 = var1.getWorld().rayTraceBlocks(var2, var3, this.bloodlinkRange);
-         return var5 != null && var5.getHitPosition() != null ? var5.getHitPosition().toLocation(var1.getWorld()) : null;
-      }
+      RayTraceResult var4 = var1.getWorld().rayTraceBlocks(var2, var3, this.bloodlinkRange);
+      return var4 != null && var4.getHitPosition() != null
+         ? var4.getHitPosition().toLocation(var1.getWorld())
+         : var2.clone().add(var3.clone().multiply(this.bloodlinkRange));
    }
 
    // Solves the launch impulse that carries the player from var0 to var1 over var2 ticks of
@@ -323,10 +352,48 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          }
       }
 
+      // Landing on top of the aimed point solves to a near-zero arc, which is why the chained
+      // hops used to be a shuffle. Every hop clears the same floor as the first.
       var5.setX(Math.max(-3.9, Math.min(3.9, var5.getX())));
-      var5.setY(Math.max(-3.9, Math.min(3.9, var5.getY())));
+      var5.setY(Math.max(this.bloodlinkMinRise, Math.min(3.9, var5.getY())));
       var5.setZ(Math.max(-3.9, Math.min(3.9, var5.getZ())));
       return var5;
+   }
+
+   // One tick of vanilla elytra motion. The player has no elytra equipped, and the server
+   // clears the fall-flying flag without one, so the glide is flown by hand: pitch aims it,
+   // speed trades for lift, and the air brakes it exactly as a real glide would.
+   private static Vector elytraStep(Player var0, Vector var1) {
+      Location var2 = var0.getEyeLocation();
+      Vector var3 = var2.getDirection();
+      double var4 = Math.sqrt(var3.getX() * var3.getX() + var3.getZ() * var3.getZ());
+      double var6 = Math.sqrt(var1.getX() * var1.getX() + var1.getZ() * var1.getZ());
+      double var8 = Math.toRadians(var2.getPitch());
+      double var10 = Math.cos(var8);
+      var10 = var10 * var10 * Math.min(1.0, var3.length() / 0.4);
+      double var12 = var1.getX();
+      double var14 = var1.getY() + 0.08 * (-1.0 + var10 * 0.75);
+      double var16 = var1.getZ();
+      if (var14 < 0.0 && var4 > 0.0) {
+         double var18 = var14 * -0.1 * var10;
+         var12 += var3.getX() * var18 / var4;
+         var14 += var18;
+         var16 += var3.getZ() * var18 / var4;
+      }
+
+      if (var8 < 0.0 && var4 > 0.0) {
+         double var20 = var6 * -Math.sin(var8) * 0.04;
+         var12 -= var3.getX() * var20 / var4;
+         var14 += var20 * 3.2;
+         var16 -= var3.getZ() * var20 / var4;
+      }
+
+      if (var4 > 0.0) {
+         var12 += (var3.getX() / var4 * var6 - var12) * 0.1;
+         var16 += (var3.getZ() / var4 * var6 - var16) * 0.1;
+      }
+
+      return new Vector(var12 * 0.99, var14 * 0.98, var16 * 0.99);
    }
 
    // At the top of the arc: drop onto the aimed point, keeping just enough horizontal push to
@@ -361,6 +428,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          int phase = 0;
          Location target = null;
          double lastY = 0.0;
+         boolean rising = false;
 
          public void cancel() {
             HereticGem.this.crashing.remove(var1.getUniqueId());
@@ -373,28 +441,18 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          }
 
          public void run() {
-            if (++this.ticks > 200 || !var1.isOnline() || var1.isDead()) {
+            if (++this.ticks > 400 || !var1.isOnline() || var1.isDead()) {
                this.cancel();
             } else if (this.phase == 0) {
                // The hop is solved as a whole arc towards the aimed point, so it reaches
                // targets above and below the player, not just ahead of them.
                this.target = HereticGem.this.aimPoint(var1);
-
-               Vector var5;
-               if (this.target != null) {
-                  var5 = HereticGem.this.leapImpulse(var1, this.target);
-               } else {
-                  Vector var9 = var1.getEyeLocation().getDirection();
-                  var9.setY(0);
-                  var5 = var9.lengthSquared() > 1.0E-4 ? var9.normalize().multiply(0.5) : new Vector();
-                  var5.setY(HereticGem.this.bloodlinkLaunch);
-               }
-
-               var1.setVelocity(var5);
+               var1.setVelocity(HereticGem.this.leapImpulse(var1, this.target));
                var1.setGliding(false);
                var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.2F, 0.5F);
                this.phase = 1;
                this.airTicks = 0;
+               this.rising = false;
                this.lastY = var1.getLocation().getY();
             } else {
                if (this.ticks % 2 == 0) {
@@ -403,19 +461,35 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
 
                this.airTicks++;
                double var11 = var1.getLocation().getY();
+               // The launch impulse only shows up in the server-side position after a client
+               // round-trip, so on a laggy tick the first few samples read as "already
+               // falling" and the hop dived on the spot. Wait for the climb to actually
+               // start before the apex check counts, with a hard timeout so a launch that
+               // never takes (ceiling, blocked) still resolves instead of hanging.
+               if (!this.rising && (var11 > this.lastY + 0.05 || this.airTicks >= 15)) {
+                  this.rising = true;
+               }
+
                // The dive starts at the top of the arc rather than on a fixed tick, so a long
                // or steep hop is allowed to finish climbing before it slams.
                boolean var12 = this.airTicks >= 3
+                  && this.rising
                   && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 20);
                this.lastY = var11;
                if (this.phase == 1 && var12) {
-                  // Force the player down as before, but let vanilla elytra physics carry that
-                  // impulse into an actual glide (pitch-steered, air-braked) instead of falling
-                  // through the dive as a single rigid velocity vector.
+                  // Force the player down as before, but hand the dive over to elytra physics
+                  // so it is flown (pitch-steered, air-braked) instead of falling through as a
+                  // single rigid velocity vector.
                   var1.setVelocity(diveAim(var1, this.target));
                   var1.setGliding(true);
                   this.phase = 2;
                } else {
+                  if (this.phase == 2 && !var1.isOnGround() && !var1.isGliding()) {
+                     // Without an elytra equipped the server drops the fall-flying flag on the
+                     // next tick, so the glide is driven by hand instead.
+                     var1.setVelocity(elytraStep(var1, var1.getVelocity()));
+                  }
+
                   if (this.phase == 2 && var1.isOnGround()) {
                      var1.setGliding(false);
                      var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0F, 0.7F);
@@ -440,7 +514,15 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                         HereticGem.this.spawnHurricane(var1, var1.getLocation().clone().add(0.0, 0.1, 0.0));
                      }
 
-                     if (++this.hops >= 3) {
+                     // The chain is earned hit by hit: a slam that lands nothing ends it, and
+                     // five connected slams is the cap.
+                     if (!var10) {
+                        var1.sendMessage("§4§oSlam missed — the chain breaks.");
+                        this.cancel();
+                        return;
+                     }
+
+                     if (++this.hops >= HereticGem.this.bloodlinkMaxHits) {
                         this.cancel();
                         return;
                      }
