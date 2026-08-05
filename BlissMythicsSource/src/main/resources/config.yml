@@ -2,16 +2,18 @@ heretic:
   crit-multiplier: 1.5
   bleed-multiplier: 2.0
   bloodsaws-damage: 6.0
-  bloodlink-damage: 7.0
+  bloodsaw-drag-ticks: 20  # How long a saw drags something it cut along in its wake
+  bloodlink-damage: 9.0
   hurricane-damage: 4.0
   max-hit-cap: 13.0
   saw-window-ms: 4000
   bleed-ms: 8000
   bloodlink-duration-ms: 15000
-  bloodlink-launch: 1.25
   bloodlink-rise-ticks: 11
   bloodlink-range: 15.0
-  bloodlink-knockup: 1.4  # Upward velocity added to entities hit by a Bloodlink landing
+  bloodlink-knockup: 0.6  # Upward velocity added to entities hit by a Bloodlink landing
+  bloodlink-min-rise: 1.8  # Floor on every hop's upward launch, so chained slams rise like the first
+  bloodlink-max-hits: 5  # Slams in one chain; each has to connect to earn the next
   cooldowns:
     bloodsaws: 25
     bloodlink: 60
@@ -31,8 +33,8 @@ auratus:
     fly-speed: 4.5
     fly-max-ticks: 60
   slam:
-    min-height: 10.0  # Blocks of fall height required above the landing spot to trigger a slam
-    launch-force: 2.4  # Vertical launch given to the caster after a successful slam
+    min-height: 8.0  # Blocks of fall height required above the landing spot to trigger a slam
+    launch-force: 1.2  # Vertical launch given to the caster after a successful slam
     no-windcharge-radius: 5.0  # Blocks around a fresh slam crater where wind charges fizzle
     no-windcharge-ms: 2500  # How long the wind charge lockout lasts after a slam
   cooldowns:

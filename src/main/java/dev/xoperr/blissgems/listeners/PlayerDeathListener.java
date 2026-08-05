@@ -79,6 +79,14 @@ implements Listener {
             }
         }
 
+        // A Tier 2 holder leaves their upgrader behind on death, so the tier can be taken
+        // back off them even though the gem itself is drop-protected.
+        if (this.plugin.getConfigManager().isUpgraderDropOnTier2DeathEnabled()
+                && this.plugin.getGemManager().hasActiveGem(victim)
+                && this.plugin.getGemManager().getGemTier(victim) == 2) {
+            this.dropUpgrader(victim.getLocation());
+        }
+
         // NOTE: Gem drop-protection runs in onPlayerDeathProtectGems() at LOWEST priority
         // (below) so it strips gems out of event.getDrops() BEFORE gravestone / SMP-core
         // plugins snapshot or replace the drop list. Doing it here at HIGHEST ran too late.
@@ -210,6 +218,13 @@ implements Listener {
         ItemStack bottle = CustomItemManager.getItemById((String)"energy_bottle");
         if (bottle != null) {
             location.getWorld().dropItemNaturally(location, bottle);
+        }
+    }
+
+    private void dropUpgrader(Location location) {
+        ItemStack upgrader = CustomItemManager.getItemById((String)"gem_upgrader");
+        if (upgrader != null) {
+            location.getWorld().dropItemNaturally(location, upgrader);
         }
     }
 
