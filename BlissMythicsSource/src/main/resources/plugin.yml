@@ -1,5 +1,5 @@
 name: BlissMythics
-version: '1.5.0'
+version: '1.5.1'
 main: dev.xoperr.blissmythics.BlissMythics
 api-version: '1.21'
 author: magicc
