@@ -90,8 +90,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.bloodlinkRiseTicks = var1.getConfig().getInt("heretic.bloodlink-rise-ticks", 11);
       this.bloodlinkRange = var1.getConfig().getDouble("heretic.bloodlink-range", 15.0);
       this.bloodlinkKnockup = var1.getConfig().getDouble("heretic.bloodlink-knockup", 0.6);
-      this.bloodlinkMinRise = var1.getConfig().getDouble("heretic.bloodlink-min-rise", 1.8);
-      this.bloodlinkMaxHits = var1.getConfig().getInt("heretic.bloodlink-max-hits", 5);
+      this.bloodlinkMinRise = var1.getConfig().getDouble("heretic.bloodlink-min-rise", 2.7);
+      this.bloodlinkMaxHits = var1.getConfig().getInt("heretic.bloodlink-max-hits", 0);
       this.sawDragTicks = var1.getConfig().getInt("heretic.bloodsaw-drag-ticks", 20);
       (new BukkitRunnable() {
          public void run() {
@@ -341,8 +341,9 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    // the solve fits inside the velocity the server accepts, then clamped.
    private Vector leapImpulse(Player var1, Location var2) {
       Location var3 = var1.getLocation();
-      // Aim above the point so the hop comes down onto it; the dive closes the last stretch.
-      Location var4 = var2.clone().add(0.0, 2.0, 0.0);
+      // Aim well above the point so the hop tops out high over it; the glide closes the
+      // last stretch, and the extra height is what the glide has to spend.
+      Location var4 = var2.clone().add(0.0, 4.0, 0.0);
 
       Vector var5 = null;
       for (int var6 = Math.max(8, this.bloodlinkRiseTicks); var6 <= 60; var6 += 2) {
@@ -474,13 +475,14 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                // or steep hop is allowed to finish climbing before it slams.
                boolean var12 = this.airTicks >= 3
                   && this.rising
-                  && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 20);
+                  && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 60);
                this.lastY = var11;
                if (this.phase == 1 && var12) {
-                  // Force the player down as before, but hand the dive over to elytra physics
-                  // so it is flown (pitch-steered, air-braked) instead of falling through as a
-                  // single rigid velocity vector.
-                  var1.setVelocity(diveAim(var1, this.target));
+                  // The apex hands over to a real glide instead of a forced dive: only a gentle
+                  // nose-over towards the aimed point, and from there the player flies it.
+                  Vector var13 = diveAim(var1, this.target);
+                  var13.setY(-0.2);
+                  var1.setVelocity(var13);
                   var1.setGliding(true);
                   this.phase = 2;
                } else {
@@ -522,11 +524,16 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                         return;
                      }
 
-                     if (++this.hops >= HereticGem.this.bloodlinkMaxHits) {
+                     // The chain runs as long as the aim holds; a cap of 0 leaves it unbounded.
+                     ++this.hops;
+                     if (HereticGem.this.bloodlinkMaxHits > 0 && this.hops >= HereticGem.this.bloodlinkMaxHits) {
                         this.cancel();
                         return;
                      }
 
+                     // Every hop gets the same airtime budget as the first, so the 400-tick
+                     // guard bounds a single flight instead of the whole chain.
+                     this.ticks = 0;
                      this.phase = 0;
                   }
                }

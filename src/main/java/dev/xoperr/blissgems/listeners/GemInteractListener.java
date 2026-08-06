@@ -1002,8 +1002,11 @@ implements Listener {
         String gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
 
-        // For secondary abilities, check if tier is 2
-        if (secondary && tier < 2) {
+        // For secondary abilities, check if tier is 2. Gems with no Tier 2 (maxTier 1, e.g. Gold)
+        // unlock everything at Tier 1, so the gate must not apply to them.
+        GemDefinition def = gemId != null && registry != null ? registry.getGem(gemId) : null;
+        boolean unlocksAllAtTier1 = def != null && def.getMaxTier() < 2;
+        if (secondary && tier < 2 && !unlocksAllAtTier1) {
             player.sendMessage("\u00a7c\u00a7lSecondary abilities require Tier 2 gem!");
             return;
         }

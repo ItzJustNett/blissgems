@@ -103,6 +103,11 @@ implements Listener {
         if (this.plugin.getSoulManager() != null) {
             this.plugin.getSoulManager().cleanup(victim);
         }
+        // The Gold Gem is soulbound and stays, but its awakening does not survive a death.
+        if (this.plugin.getGoldGemManager() != null) {
+            this.plugin.getGoldAbilities().cleanup(victim);
+            this.plugin.getGoldGemManager().resetProgress(victim);
+        }
 
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
@@ -123,6 +128,11 @@ implements Listener {
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerDeathProtectGems(PlayerDeathEvent event) {
+        // Harvesting runs before drop-protection on purpose: a gem the Gold Gem takes must
+        // never reach gemsToSave, or the victim would be handed it straight back on respawn.
+        if (this.plugin.getGoldGemManager() != null) {
+            this.plugin.getGoldGemManager().harvestOnDeath(event);
+        }
         if (!this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
             return;
         }

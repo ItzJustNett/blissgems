@@ -14,6 +14,7 @@ package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.EnergyState;
@@ -502,7 +503,7 @@ TabCompleter {
         }
         int delivered = amount - notDelivered;
         if (delivered <= 0) {
-            player.sendMessage("\u00a7c" + target.getName() + "'s inventory is full \u2014 nothing was transferred.");
+            player.sendMessage("\u00a7c" + target.getName() + "'s inventory is full, nothing was transferred.");
             return;
         }
 
@@ -787,6 +788,18 @@ TabCompleter {
     }
 
     /**
+     * True if the gem has no Tier 2 to upgrade into (e.g. Gold). Such gems unlock every
+     * ability at Tier 1, so the usual "requires Tier 2" gate must not apply to them.
+     */
+    private boolean unlocksAllAtTier1(String oraxenId) {
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry == null) return false;
+        String gemId = registry.gemIdFromItemId(oraxenId);
+        GemDefinition def = gemId != null ? registry.getGem(gemId) : null;
+        return def != null && def.getMaxTier() < 2;
+    }
+
+    /**
      * True (and messages the player) if their gem is currently locked by Auratus's Gem Lock.
      * Used to block every ability activation path while locked.
      */
@@ -868,7 +881,7 @@ TabCompleter {
         GemRegistry registry = this.plugin.getGemRegistry();
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
 
-        if (tier < 2) {
+        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
@@ -952,7 +965,7 @@ TabCompleter {
 
         GemRegistry registry = this.plugin.getGemRegistry();
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-        if (tier < 2) {
+        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;
@@ -1011,7 +1024,7 @@ TabCompleter {
 
         GemRegistry registry = this.plugin.getGemRegistry();
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-        if (tier < 2) {
+        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
             if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
             return;

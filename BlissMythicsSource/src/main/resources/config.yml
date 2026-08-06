@@ -12,8 +12,8 @@ heretic:
   bloodlink-rise-ticks: 11
   bloodlink-range: 15.0
   bloodlink-knockup: 0.6  # Upward velocity added to entities hit by a Bloodlink landing
-  bloodlink-min-rise: 1.8  # Floor on every hop's upward launch, so chained slams rise like the first
-  bloodlink-max-hits: 5  # Slams in one chain; each has to connect to earn the next
+  bloodlink-min-rise: 2.7  # Floor on every hop's upward launch, so chained slams rise like the first. Server cap is 3.9
+  bloodlink-max-hits: 0  # Slams in one chain; each has to connect to earn the next. 0 = unlimited
   cooldowns:
     bloodsaws: 25
     bloodlink: 60
@@ -37,5 +37,10 @@ auratus:
     launch-force: 1.2  # Vertical launch given to the caster after a successful slam
     no-windcharge-radius: 5.0  # Blocks around a fresh slam crater where wind charges fizzle
     no-windcharge-ms: 2500  # How long the wind charge lockout lasts after a slam
+    window-ms: 6000  # How long after the grapple the caster can still land a slam
+    fall-grace-ms: 8000  # How long the caster's landings are fall-damage free after a grapple/slam
+  hauling-strike:
+    pull: 0.5  # How hard normal Auratus hits drag the victim towards the holder (0 = no pull)
+    lift: 0.1  # Upward part of that pull
   cooldowns:
     aegis: 45
