@@ -56,6 +56,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final Map<UUID, Long> aegisWindow = new HashMap<>();
    private final Map<UUID, Long> anchorWindow = new HashMap<>();
    private final Map<UUID, Long> slamWindow = new HashMap<>();
+   // The drop into a slam and the launch back out of the crater are the ability doing its job,
+   // so those two landings don't cost the caster any fall damage.
+   private final Map<UUID, Long> slamFallGrace = new HashMap<>();
    private final List<SlamCenter> slamCenters = new java.util.concurrent.CopyOnWriteArrayList<>();
 
    // A recent slam impact point that locks out wind charge use for nearby opponents.
@@ -88,6 +91,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double slamLaunchForce;
    private final double slamNoWindchargeRadius;
    private final long slamNoWindchargeMs;
+   private final long slamWindowMs;
+   private final long slamFallGraceMs;
+   private final double haulingStrikePull;
+   private final double haulingStrikeLift;
 
    public AuratusGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -109,6 +116,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.slamLaunchForce = var1.getConfig().getDouble("auratus.slam.launch-force", 1.2);
       this.slamNoWindchargeRadius = var1.getConfig().getDouble("auratus.slam.no-windcharge-radius", 5.0);
       this.slamNoWindchargeMs = var1.getConfig().getLong("auratus.slam.no-windcharge-ms", 2500L);
+      this.slamWindowMs = var1.getConfig().getLong("auratus.slam.window-ms", 6000L);
+      this.slamFallGraceMs = var1.getConfig().getLong("auratus.slam.fall-grace-ms", 8000L);
+      this.haulingStrikePull = var1.getConfig().getDouble("auratus.hauling-strike.pull", 0.5);
+      this.haulingStrikeLift = var1.getConfig().getDouble("auratus.hauling-strike.lift", 0.1);
       Bukkit.getScheduler().runTaskTimer(var1, this::hasteTick, 20L, 20L);
    }
 
@@ -359,7 +370,8 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                var33.setZ(Math.max(-3.9, Math.min(3.9, var33.getZ())));
                var1.setVelocity(var33);
                var1.getWorld().playSound(var1.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.4F, 0.6F);
-               this.slamWindow.put(var1.getUniqueId(), System.currentTimeMillis() + 3000L);
+               this.slamWindow.put(var1.getUniqueId(), System.currentTimeMillis() + this.slamWindowMs);
+               this.slamFallGrace.put(var1.getUniqueId(), System.currentTimeMillis() + this.slamFallGraceMs);
                this.watchGroundSlam(var1, var3);
                return;
             }
@@ -686,7 +698,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                this.peakY = Math.max(this.peakY, var1.getLocation().getY());
             }
 
-            if (++this.ticks > 70 || !var1.isOnline() || var1.isDead() || !AuratusGem.isActive(AuratusGem.this.slamWindow, var1.getUniqueId())) {
+            if (++this.ticks > AuratusGem.this.slamWindowMs / 50L || !var1.isOnline() || var1.isDead() || !AuratusGem.isActive(AuratusGem.this.slamWindow, var1.getUniqueId())) {
                AuratusGem.this.slamWindow.remove(var1.getUniqueId());
                this.cancel();
             } else if (this.ticks > 6 && var1.isOnGround()) {
@@ -722,6 +734,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                         : new Vector(0.0, 0.0, 0.0);
                      var6.setY(AuratusGem.this.slamLaunchForce);
                      var1.setVelocity(var6);
+
+                     // Re-arm the waiver so coming back down from the launch is free too.
+                     AuratusGem.this.slamFallGrace.put(var1.getUniqueId(),
+                        System.currentTimeMillis() + AuratusGem.this.slamFallGraceMs);
 
                      AuratusGem.this.slamCenters.add(new SlamCenter(var1.getUniqueId(), var1.getLocation().clone(),
                         System.currentTimeMillis() + AuratusGem.this.slamNoWindchargeMs));
@@ -780,7 +796,13 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    )
    public void onFall(EntityDamageEvent var1) {
       if (var1.getCause() == DamageCause.FALL && var1.getEntity() instanceof Player var2 && this.plugin.holds(var2, "auratus")) {
-         var1.setDamage(var1.getDamage() * 0.2);
+         // The waiver is a window, not a single charge: a grapple that clips the ground on the
+         // way up must not eat the waiver and leave the caster paying for the slam landing.
+         if (isActive(this.slamFallGrace, var2.getUniqueId())) {
+            var1.setCancelled(true);
+         } else {
+            var1.setDamage(var1.getDamage() * 0.2);
+         }
       }
    }
 
@@ -797,8 +819,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
             if (var3.isValid() && !var3.isDead()) {
                Vector var2x = var2.getLocation().toVector().subtract(var3.getLocation().toVector());
                var2x.setY(0);
-               if (!(var2x.lengthSquared() < 0.01)) {
-                  var3.setVelocity(var2x.normalize().multiply(0.5).setY(0.1));
+               if (!(var2x.lengthSquared() < 0.01) && this.haulingStrikePull != 0.0) {
+                  var3.setVelocity(var2x.normalize()
+                     .multiply(this.haulingStrikePull)
+                     .setY(this.haulingStrikeLift));
                }
             }
          }, 1L);
@@ -978,5 +1002,6 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.aegisWindow.remove(var2);
       this.anchorWindow.remove(var2);
       this.slamWindow.remove(var2);
+      this.slamFallGrace.remove(var2);
    }
 }
