@@ -9,6 +9,62 @@
                     "type": "model",
                     "model": "blissgems:item/gold_gem"
                 }
+            },
+            {
+                "threshold": 1010,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_1"
+                }
+            },
+            {
+                "threshold": 1011,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_2"
+                }
+            },
+            {
+                "threshold": 1012,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_3"
+                }
+            },
+            {
+                "threshold": 1013,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_4"
+                }
+            },
+            {
+                "threshold": 1014,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_5"
+                }
+            },
+            {
+                "threshold": 1015,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_6"
+                }
+            },
+            {
+                "threshold": 1016,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_7"
+                }
+            },
+            {
+                "threshold": 1017,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:item/gold_gem_8"
+                }
             }
         ],
         "fallback": {

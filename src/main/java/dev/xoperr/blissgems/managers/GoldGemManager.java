@@ -6,7 +6,9 @@ import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.EnergyState;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -42,6 +44,12 @@ public class GoldGemManager {
     /** Eight souls become one - the number of harvests that fully awakens the gem. */
     public static final int SOULS_TO_AWAKEN = 8;
 
+    /**
+     * CustomModelData of the dormant gem. Each harvested soul adds one, so the pack can show
+     * the gem taking on the colours of what it has eaten (1009 dormant .. 1017 awakened).
+     */
+    public static final int BASE_MODEL_DATA = 1009;
+
     private final BlissGems plugin;
 
     // Harvested souls per holder: gem id -> the tier that gem was at when it was taken.
@@ -64,12 +72,22 @@ public class GoldGemManager {
      * its harvested passives run as long as it is on the player at all.
      */
     public boolean holdsGoldGem(Player player) {
+        // The hands are checked by themselves first: gems normally sit in the offhand, and
+        // getContents() has not been reliable about including it across API versions.
+        if (this.isGoldGem(player.getInventory().getItemInOffHand())
+            || this.isGoldGem(player.getInventory().getItemInMainHand())) {
+            return true;
+        }
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item))) {
+            if (this.isGoldGem(item)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isGoldGem(ItemStack item) {
+        return item != null && GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item));
     }
 
     /** Gem ids this player has harvested, in the order they were taken. */
@@ -141,20 +159,34 @@ public class GoldGemManager {
                 break;
             }
         }
-        for (ItemStack item : victim.getInventory().getContents()) {
+        // Slot-indexed rather than Inventory#remove: the offhand is where gems normally sit
+        // and both getContents() and remove() have been unreliable about reaching it, which
+        // left the victim holding the very gem that was supposed to have been torn out.
+        for (int slot = 0; slot < victim.getInventory().getSize(); slot++) {
+            ItemStack item = victim.getInventory().getItem(slot);
             String gemId = this.harvestableGemId(item);
             if (gemId != null) {
                 if (harvestedId == null) {
                     harvestedId = gemId;
                     harvestedTier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(item));
                 }
-                victim.getInventory().remove(item);
+                victim.getInventory().setItem(slot, null);
             }
+        }
+        ItemStack offhand = victim.getInventory().getItemInOffHand();
+        String offhandGemId = this.harvestableGemId(offhand);
+        if (offhandGemId != null) {
+            if (harvestedId == null) {
+                harvestedId = offhandGemId;
+                harvestedTier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(offhand));
+            }
+            victim.getInventory().setItemInOffHand(null);
         }
 
         if (harvestedId == null) {
             return;
         }
+        this.plugin.getGemManager().updateActiveGem(victim);
 
         this.harvested.computeIfAbsent(killer.getUniqueId(), id -> new LinkedHashMap<>())
             .put(harvestedId, harvestedTier);
@@ -162,7 +194,7 @@ public class GoldGemManager {
         this.active.putIfAbsent(killer.getUniqueId(), harvestedId);
         this.save(killer.getUniqueId());
 
-        this.shatter(victim.getLocation());
+        this.shatter(victim.getLocation(), harvestedId);
         this.refreshGoldItem(killer);
 
         String message = this.plugin.getConfigManager().getMessage("gold-soul-repurposed");
@@ -185,35 +217,55 @@ public class GoldGemManager {
     }
 
     /**
-     * Rewrite the Gold Gem's lore in the holder's inventory so the item itself shows how far
-     * the awakening has come, and which souls it is carrying.
+     * Rewrite the Gold Gem in the holder's inventory so the item itself shows how far the
+     * awakening has come: the souls it carries, each in its own colour, and a model that
+     * steps up with every soul taken.
      */
     private void refreshGoldItem(Player player) {
         Map<String, Integer> souls = this.getHarvested(player.getUniqueId());
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item == null || !GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item))) {
-                continue;
-            }
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) {
-                continue;
-            }
-            List<String> lore = new ArrayList<>();
-            lore.add("§f§lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE");
-            lore.add(this.stateLine(souls.size()));
-            lore.add("");
-            lore.add("§6🌟 §6§lHARVESTED SOULS");
-            if (souls.isEmpty()) {
-                lore.add("§8- the gem is silent -");
-            } else {
-                for (Map.Entry<String, Integer> soul : souls.entrySet()) {
-                    lore.add("§7- " + this.plugin.getGemManager().getGemDisplayName(soul.getKey())
-                        + " §8(T" + soul.getValue() + ")");
-                }
-            }
-            meta.setLore(lore);
-            item.setItemMeta(meta);
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            this.refreshGoldStack(player.getInventory().getItem(slot), souls);
         }
+        this.refreshGoldStack(player.getInventory().getItemInOffHand(), souls);
+    }
+
+    private void refreshGoldStack(ItemStack item, Map<String, Integer> souls) {
+        if (!this.isGoldGem(item)) {
+            return;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        List<String> lore = new ArrayList<>();
+        lore.add("§f§lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE");
+        lore.add(this.stateLine(souls.size()));
+        lore.add("");
+        lore.add("§6🌟 §6§lHARVESTED SOULS");
+        if (souls.isEmpty()) {
+            lore.add("§8- the gem is silent -");
+        } else {
+            lore.add(this.colourBar(souls.keySet()));
+            for (Map.Entry<String, Integer> soul : souls.entrySet()) {
+                lore.add(this.plugin.getGemManager().getGemColorCode(soul.getKey()) + "- "
+                    + this.plugin.getGemManager().getGemDisplayName(soul.getKey())
+                    + " §8(T" + soul.getValue() + ")");
+            }
+        }
+        meta.setLore(lore);
+        // Every soul steps the model up one, so the pack can colour the gem's centre with
+        // what it has eaten. Falls back to the dormant model if the pack has no variant.
+        meta.setCustomModelData(BASE_MODEL_DATA + Math.min(souls.size(), SOULS_TO_AWAKEN));
+        item.setItemMeta(meta);
+    }
+
+    /** One pip per harvested soul, each in that gem's colour. */
+    private String colourBar(Iterable<String> gemIds) {
+        StringBuilder bar = new StringBuilder();
+        for (String gemId : gemIds) {
+            bar.append(this.plugin.getGemManager().getGemColorCode(gemId)).append("❖");
+        }
+        return bar.toString();
     }
 
     private String stateLine(int soulCount) {
@@ -245,10 +297,20 @@ public class GoldGemManager {
         return gemId;
     }
 
-    /** Scatter the shattered gem's fragments at the victim's feet. */
-    private void shatter(Location location) {
+    /** Scatter the shattered gem's fragments at the victim's feet, in that gem's own colour. */
+    private void shatter(Location location, String harvestedId) {
+        if (location.getWorld() == null) {
+            return;
+        }
+        // The burst is drawn in the taken gem's colour, so a kill reads as "that colour just
+        // went into the Gold Gem".
+        location.getWorld().spawnParticle(Particle.DUST, location.clone().add(0.0, 1.0, 0.0),
+            40, 0.4, 0.6, 0.4, 0.0,
+            new Particle.DustOptions(this.soulColour(harvestedId), 1.8F));
+        location.getWorld().playSound(location, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1.2F, 0.6F);
+
         int amount = this.plugin.getConfig().getInt("gold.shards-per-harvest", 3);
-        if (amount <= 0 || location.getWorld() == null) {
+        if (amount <= 0) {
             return;
         }
         ItemStack fragment = CustomItemManager.getItemById("gem_fragment");
@@ -257,7 +319,14 @@ public class GoldGemManager {
         }
         fragment.setAmount(amount);
         location.getWorld().dropItemNaturally(location, fragment);
-        location.getWorld().playSound(location, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1.2F, 0.6F);
+    }
+
+    /** Particle colour of a harvested gem, shared with the ritual so the colours match. */
+    private Color soulColour(String gemId) {
+        if (this.plugin.getGemRitualManager() == null) {
+            return Color.fromRGB(255, 215, 0);
+        }
+        return this.plugin.getGemRitualManager().getGemColor(gemId);
     }
 
     /**
@@ -323,6 +392,26 @@ public class GoldGemManager {
             if (handler != null) {
                 handler.applyPassives(player, soul.getValue());
             }
+        }
+        this.drawSoulAura(player);
+    }
+
+    /**
+     * A ring of the collected gems' colours around the holder: the fuller the awakening, the
+     * more colours orbit them, so other players can read how far along a Gold Gem is.
+     */
+    private void drawSoulAura(Player player) {
+        List<String> souls = new ArrayList<>(this.getHarvested(player.getUniqueId()).keySet());
+        if (souls.isEmpty() || player.getWorld() == null) {
+            return;
+        }
+        Location centre = player.getLocation().add(0.0, 1.0, 0.0);
+        int points = souls.size() * 3;
+        for (int i = 0; i < points; i++) {
+            double angle = 2.0 * Math.PI * i / points;
+            Location at = centre.clone().add(Math.cos(angle) * 0.8, 0.0, Math.sin(angle) * 0.8);
+            player.getWorld().spawnParticle(Particle.DUST, at, 1, 0.0, 0.15, 0.0, 0.0,
+                new Particle.DustOptions(this.soulColour(souls.get(i % souls.size())), 0.9F));
         }
     }
 

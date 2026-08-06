@@ -312,6 +312,11 @@ public class GemManager {
                 ? this.plugin.getConfig().getStringList("gems.exclude-from-random")
                 : List.of("auratus", "heretic", "gold");
             for (GemDefinition def : registry.getAllGems()) {
+                // The Gold Gem is craft-only by design: it must never come out of a trader,
+                // a first-join roll or a Restoration Book, whatever the config list says.
+                if ("gold".equals(def.getId())) {
+                    continue;
+                }
                 if (builtInType(def.getId()) == null
                         && !ids.contains(def.getId())
                         && !excluded.contains(def.getId())) {
