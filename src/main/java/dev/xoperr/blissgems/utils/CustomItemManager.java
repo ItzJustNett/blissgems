@@ -715,6 +715,11 @@ public class CustomItemManager {
         if (id == null || !GemType.isGem(id)) {
             return;
         }
+        // The Gold Gem has no energy wear states: its model and lore are driven by the souls
+        // it has harvested, so an energy refresh must not overwrite them.
+        if (id.startsWith("gold_gem")) {
+            return;
+        }
 
         CustomItemData data = ITEM_REGISTRY.get(id);
         if (data == null) {

@@ -6,14 +6,27 @@ source of truth for what the plugin expects, so a future pack rebuild can be re-
 ## Gold Gem item art
 
 The plugin gives the Gold Gem `minecraft:prismarine_crystals` with **CustomModelData 1009**
-(`CustomItemManager.registerItem("gold_gem_t1", ...)`). Unlike the normal gems it has no
-energy wear states, so 1009 is the only model it ever asks for.
+(`CustomItemManager.registerItem("gold_gem_t1", ...)`). It has no energy wear states, but it
+does have **one model per harvested soul**: the plugin sets `1009 + souls`, so the gem asks
+for 1009 while dormant and 1017 once all eight souls are in it
+(`GoldGemManager.BASE_MODEL_DATA`).
 
 | File | Goes to |
 | --- | --- |
 | `assets/blissgems/textures/item/gold_gem.png` | your pack, same path |
 | `assets/blissgems/models/item/gold_gem.json` | your pack, same path |
+| `assets/blissgems/models/item/gold_gem_1.json` … `gold_gem_8.json` | your pack, same path |
 | `assets/minecraft/items/prismarine_crystals.json` | your pack, same path |
+
+All nine models carry the same `display` block as the normal gems (copied from
+`fluxgemtier1.json`), so the Gold Gem stands upright in hand, in the GUI and in item frames
+like the rest of them. Keep it on any model you redraw.
+
+**The soul models are placeholders**: all eight currently point `layer0` at the base
+`blissgems:item/gold_gem` texture, so the gem simply keeps its dormant look until the art
+exists. Draw `gold_gem_1.png` … `gold_gem_8.png` (the centre picking up the colours of the
+gems eaten so far) into `textures/item/` and repoint each model's `layer0` at its own
+texture. Nothing in the plugin changes.
 
 The art lives under `textures/item/` (not `textures/custom/`) because that is the pack's
 convention: every item texture is `blissgems:item/...`, and `models/custom/` only holds the
