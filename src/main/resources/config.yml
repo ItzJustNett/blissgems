@@ -472,6 +472,29 @@ auto-enchant:
     mending: true
 
 # ==========================================
+# GOLD GEM
+# ==========================================
+gold:
+  summon:
+    # Seven Wire Fragments bound by a Fragment Core craft the Gold Gem. Turn this off if the
+    # gem should only ever be handed out by staff (/bliss give <player> gold).
+    recipe-enabled: true
+  # Gem fragments dropped when a harvested gem is shattered.
+  shards-per-harvest: 3
+  beam:
+    # Ticks the beam winds up for before it fires. The charge is visible and audible,
+    # and any damage the caster takes breaks it.
+    charge-ticks: 60
+    range: 60.0
+    # High enough to kill outright. Lower it if the beam should be survivable.
+    damage: 1000.0
+    cooldown: 300
+  damage-boost:
+    # Chance for any hit the holder lands to come through amplified.
+    chance: 0.15
+    multiplier: 1.5
+
+# ==========================================
 # UPGRADER SYSTEM
 # ==========================================
 upgrader:
@@ -588,6 +611,17 @@ messages:
   energy-added: "&aAdded {amount} energy to {player}!"
   energy-removed: "&aRemoved {amount} energy from {player}!"
   no-gem: "&cYou don't have a gem equipped!"
+  gold-soul-repurposed: "&6&oThe soul of {player} was repurposed."
+  gold-soul-harvested: "&6&oYou harvested the {gem} soul! &7({count}/8 awakened)"
+  gold-soul-selected: "&6&oThe Gold Gem now channels {gem}."
+  gold-no-soul: "&c&oThe Gold Gem is dormant, harvest a soul first."
+  gold-progress-reset: "&c&oYour Gold Gem went dark. Every harvested soul is lost."
+  gold-awakened: "&6&lThe Gold Gem in {player}'s hands has awakened. Eight souls are one."
+  gold-beam-charging: "&6&oThe beam is gathering..."
+  gold-beam-cooldown: "&6Sundering Beam &7on cooldown: &c{seconds}s"
+  gold-beam-cancelled: "&7&oYou let the beam disperse."
+  gold-beam-broken: "&c&oThe beam shatters, you were hit while charging!"
+  gold-beam-missed: "&7&oThe beam tore through empty air."
   cannot-drop-gem: "&c&lYou cannot drop your gem!"
   energy-withdrawn: "&aWithdrawn 1 energy into a bottle!"
   not-enough-energy: "&cNot enough energy to withdraw!"

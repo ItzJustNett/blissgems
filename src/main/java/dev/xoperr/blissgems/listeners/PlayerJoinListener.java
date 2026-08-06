@@ -31,6 +31,11 @@ public class PlayerJoinListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        // Restore any souls the Gold Gem had harvested before the player logged off.
+        if (this.plugin.getGoldGemManager() != null) {
+            this.plugin.getGoldGemManager().load(player.getUniqueId());
+        }
+
         // Replace legacy (pre-Oraxen) gem items with their Oraxen-built equivalents.
         // Delayed a second so the inventory is fully synced before we touch it.
         if (dev.xoperr.blissgems.utils.OraxenGemFixer.isFixOnJoinEnabled(this.plugin)) {

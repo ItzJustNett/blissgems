@@ -13,6 +13,7 @@ package dev.xoperr.blissgems;
 import dev.xoperr.blissgems.abilities.AstraAbilities;
 import dev.xoperr.blissgems.abilities.FireAbilities;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
+import dev.xoperr.blissgems.abilities.GoldAbilities;
 import dev.xoperr.blissgems.abilities.LifeAbilities;
 import dev.xoperr.blissgems.abilities.PuffAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
@@ -54,6 +55,7 @@ import dev.xoperr.blissgems.managers.CriticalHitManager;
 import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.GemLockManager;
+import dev.xoperr.blissgems.managers.GoldGemManager;
 import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.managers.GemRitualManager;
 import dev.xoperr.blissgems.managers.AchievementManager;
@@ -110,6 +112,8 @@ implements BlissGemsAPI {
     private RepairKitManager repairKitManager;
     private ReviveBeaconManager reviveBeaconManager;
     private SoulManager soulManager;
+    private GoldGemManager goldGemManager;
+    private GoldAbilities goldAbilities;
     private FlowStateManager flowStateManager;
     private GemLockManager gemLockManager;
     private CriticalHitManager criticalHitManager;
@@ -348,6 +352,14 @@ implements BlissGemsAPI {
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
+        try {
+            this.goldGemManager = new GoldGemManager(this);
+            this.goldAbilities = new GoldAbilities(this);
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GoldGem ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
         // Initialize Gem Registry and register built-in gems + API
         try {
             this.gemRegistry = new GemRegistryImpl(this);
@@ -579,6 +591,9 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new GaleCloudListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new RestorationBookListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PrismaticEdgeListener(this), (Plugin)this);
+        if (this.goldAbilities != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)this.goldAbilities, (Plugin)this);
+        }
         // Anti-dupe: break the "drop-and-swap" ghost dupe (drop + same-tick hotbar swap).
         dev.xoperr.blissgems.listeners.DropSwapGuard dropSwapGuard = new dev.xoperr.blissgems.listeners.DropSwapGuard(this);
         this.getServer().getPluginManager().registerEvents((Listener)dropSwapGuard, (Plugin)this);
@@ -695,6 +710,14 @@ implements BlissGemsAPI {
         return this.reviveBeaconManager;
     }
 
+    public GoldGemManager getGoldGemManager() {
+        return this.goldGemManager;
+    }
+
+    public GoldAbilities getGoldAbilities() {
+        return this.goldAbilities;
+    }
+
     public SoulManager getSoulManager() {
         return this.soulManager;
     }
@@ -789,6 +812,19 @@ implements BlissGemsAPI {
             this.gemRegistry.registerGem(def);
         }
 
+        // The Gold Gem is registered straight into the registry rather than added to the
+        // GemType enum: everything that iterates GemType.values() (recipes, villager trades,
+        // upgraders, GUIs) would otherwise treat it as an ordinary craftable gem.
+        this.gemRegistry.registerGem(new GemDefinition.Builder("gold")
+            .displayName("Gold")
+            .description("Watch the lines of reality fray as eight souls become one")
+            .color("§6")
+            .plugin("BlissGems")
+            .maxTier(1)
+            .material(org.bukkit.Material.PRISMARINE_CRYSTALS)
+            .t1CustomModelData(1009)
+            .build());
+
         // Register ability handlers (each ability class now implements GemAbilityHandler)
         if (this.astraAbilities != null) this.gemRegistry.registerAbilities("astra", this.astraAbilities);
         if (this.fireAbilities != null) this.gemRegistry.registerAbilities("fire", this.fireAbilities);
@@ -798,6 +834,7 @@ implements BlissGemsAPI {
         if (this.speedAbilities != null) this.gemRegistry.registerAbilities("speed", this.speedAbilities);
         if (this.strengthAbilities != null) this.gemRegistry.registerAbilities("strength", this.strengthAbilities);
         if (this.wealthAbilities != null) this.gemRegistry.registerAbilities("wealth", this.wealthAbilities);
+        if (this.goldAbilities != null) this.gemRegistry.registerAbilities("gold", this.goldAbilities);
 
         // Register passive handlers
         if (this.passiveManager != null) {
@@ -847,6 +884,9 @@ implements BlissGemsAPI {
             new CooldownEntry("wealth-rich-rush", "Rush"),
             new CooldownEntry("wealth-item-lock", "Lock"),
             new CooldownEntry("wealth-amplification", "Amplify")
+        ));
+        this.gemRegistry.registerCooldowns("gold", List.of(
+            new CooldownEntry("gold-beam", "Beam")
         ));
     }
 }
