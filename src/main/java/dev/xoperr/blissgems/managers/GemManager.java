@@ -310,7 +310,7 @@ public class GemManager {
         if (registry != null) {
             List<String> excluded = this.plugin.getConfig().contains("gems.exclude-from-random")
                 ? this.plugin.getConfig().getStringList("gems.exclude-from-random")
-                : List.of("auratus", "heretic");
+                : List.of("auratus", "heretic", "gold");
             for (GemDefinition def : registry.getAllGems()) {
                 if (builtInType(def.getId()) == null
                         && !ids.contains(def.getId())

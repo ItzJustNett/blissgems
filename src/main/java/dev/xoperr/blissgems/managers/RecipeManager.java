@@ -42,6 +42,7 @@ public class RecipeManager {
         registerReviveBeaconRecipe();
         registerRestorationBookRecipe();
         registerPrismaticEdgeRecipe();
+        registerGoldGemRecipe();
 
         // Register universal upgrader (works for all gem types)
         registerUpgraderRecipe();
@@ -220,6 +221,40 @@ public class RecipeManager {
         recipe.setIngredient('S', Material.NETHERITE_SWORD);
         recipe.setIngredient('E', Material.ECHO_SHARD);
         recipe.setIngredient('N', Material.NETHER_STAR);
+
+        plugin.getServer().addRecipe(recipe);
+        registeredRecipes.add(key);
+    }
+
+    /**
+     * Gold Gem summon
+     * Pattern:
+     *   W W W
+     *   W C W
+     *   W   W
+     * W = Wire Fragment, C = Fragment Core - seven fragments bound by the core.
+     *
+     * Unlike the other recipes this one matches on the exact custom items rather than their
+     * base materials: a gem this powerful must not fall out of seven plain lightning rods.
+     */
+    private void registerGoldGemRecipe() {
+        if (!plugin.getConfig().getBoolean("gold.summon.recipe-enabled", true)) {
+            return;
+        }
+        ItemStack goldGem = CustomItemManager.getItemById("gold_gem_t1");
+        ItemStack wire = CustomItemManager.getItemById("wire_fragment");
+        ItemStack core = CustomItemManager.getItemById("fragment_core");
+        if (goldGem == null || wire == null || core == null) {
+            plugin.getLogger().warning("Could not create Gold Gem components - summon recipe not registered");
+            return;
+        }
+
+        NamespacedKey key = new NamespacedKey(plugin, "gold_gem");
+        ShapedRecipe recipe = new ShapedRecipe(key, goldGem);
+
+        recipe.shape("WWW", "WCW", "W W");
+        recipe.setIngredient('W', new org.bukkit.inventory.RecipeChoice.ExactChoice(wire));
+        recipe.setIngredient('C', new org.bukkit.inventory.RecipeChoice.ExactChoice(core));
 
         plugin.getServer().addRecipe(recipe);
         registeredRecipes.add(key);

@@ -147,6 +147,29 @@ public class CustomItemManager {
             "§8Unfortunate & more!"
         ));
 
+        // Gold Gem - the mythic that harvests the other eight. Its own material sets it apart
+        // from the normal gems, and while Dormant the lore is unreadable on purpose.
+        registerItem("gold_gem_t1", Material.PRISMARINE_CRYSTALS, 1009, "§6§lGOLD GEM", List.of(
+            "§f§lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE",
+            "§6(Dormant)",
+            "",
+            "§6🌟 §6§lPASSIVES",
+            "§7- §kunstable power",
+            "§7- §kharvested souls",
+            "§7- §ksoulbound vessel",
+            "§7- §kfraying lines",
+            "",
+            "§6🌟 §6§lABILITY",
+            "§7- §ksundering beam",
+            "",
+            "§6🌟 §6§lPOWERS",
+            "§7- §kchannelled soul",
+            "§7- §krepurposing",
+            "",
+            "§7- §kawakening",
+            "§7- §keight as one"
+        ));
+
         // Gems - Tier 2 (using ECHO_SHARD for BlissGems pack)
         registerItem("astra_gem_t2", Material.ECHO_SHARD, 2001, "§d§lASTRA GEM", List.of(
             "§f§lMANAGE THE TIDES OF THE COSMOS",
@@ -365,6 +388,18 @@ public class CustomItemManager {
         registerItem("gem_trader", Material.EMERALD, 4002, "§2§lGem Trader");
         registerItem("repair_kit", Material.BEACON, 4003, "§d§lRepair Kit");
         registerItem("gem_fragment", Material.PRISMARINE_SHARD, 4004, "§3§lGem Fragment");
+        // Components the Gold Gem is summoned from.
+        registerItem("wire_fragment", Material.LIGHTNING_ROD, 4006, "§6§lWire Fragment", List.of(
+            "§7A strand torn from the lines of reality.",
+            "",
+            "§8Seven of these and a Fragment Core",
+            "§8summon the Gold Gem."
+        ));
+        registerItem("fragment_core", Material.NETHER_STAR, 4007, "§6§lFragment Core", List.of(
+            "§7What was left behind after the Golden Dream.",
+            "",
+            "§8Binds seven Wire Fragments into one."
+        ));
         registerItem("revive_beacon", Material.BEACON, 4005, "§e§lRevive Beacon", java.util.Arrays.asList(
             "§7A powerful beacon that can revive players",
             "§7from the brink of death.",
@@ -562,6 +597,11 @@ public class CustomItemManager {
      * Energy 9-10: Pristine 4 (pristine/least broken) - +40
      */
     private static int getPristineModelData(int baseModelData, int energy, String itemId) {
+        // The Gold Gem has one texture and no wear states, so it never takes a pristine
+        // offset - otherwise it would ask the pack for models that do not exist.
+        if (itemId != null && itemId.startsWith("gold_gem")) {
+            return baseModelData;
+        }
         int pristineOffset;
         if (energy <= 2) {
             pristineOffset = 0; // Base texture - most broken (no pristine1 textures exist)

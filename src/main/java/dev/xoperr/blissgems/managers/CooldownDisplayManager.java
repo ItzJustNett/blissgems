@@ -1,6 +1,7 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.abilities.GoldAbilities;
 import dev.xoperr.blissgems.api.CooldownEntry;
 import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
@@ -18,6 +19,10 @@ import java.util.List;
 import java.util.Arrays;
 
 public class CooldownDisplayManager {
+    // Resource-pack glyphs (assets/blissgems/textures/icons, mapped in minecraft/font/default.json)
+    private static final String GOLD_GEM_GLYPH = "\uE020";
+    private static final String GOLD_BEAM_GLYPH = "\uE021";
+
     private final BlissGems plugin;
     private BukkitTask displayTask;
 
@@ -225,6 +230,12 @@ public class CooldownDisplayManager {
 
         GemType gemType = gemInfo.type;
         int tier = gemInfo.tier;
+
+        // The Gold Gem sits in the registry rather than the GemType enum, but it ships with
+        // BlissGems, so its bar is drawn here instead of by an addon.
+        if ("gold".equals(gemInfo.gemId)) {
+            return buildGoldDisplay(player);
+        }
 
         // For addon gems (gemType is null), let the addon draw its own action bar
         // (e.g. BlissMythics' MythicStatusBar) instead of BlissGems drawing it.
@@ -572,6 +583,52 @@ public class CooldownDisplayManager {
         }
 
         return display.toString();
+    }
+
+    /**
+     * Gold Gem display: the awakening counter, then the channelled soul's own ability icons
+     * with the Sundering Beam in the separator where every other gem shows its tertiary.
+     * Format: goldIcon 3/8 | soulIcon1 Ready (beamIcon Ready) soulIcon2 Ready
+     */
+    private String buildGoldDisplay(Player player) {
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null) {
+            return "";
+        }
+        AbilityManager abilityManager = this.plugin.getAbilityManager();
+        StringBuilder display = new StringBuilder();
+
+        // Glyphs are prefixed with §f: a colour code tints the bitmap, and these icons are
+        // already drawn in their own colours.
+        int souls = gold.getHarvested(player.getUniqueId()).size();
+        display.append("§f").append(GOLD_GEM_GLYPH).append(" §6").append(souls)
+            .append("§7/").append(GoldGemManager.SOULS_TO_AWAKEN);
+
+        // The beam is the gem's own power and works with no soul harvested at all.
+        int beam = abilityManager.getRemainingCooldown(player, GoldAbilities.BEAM_COOLDOWN_ID);
+        String beamBlock = " §6(§f" + GOLD_BEAM_GLYPH + " " + readyOrSeconds(beam) + "§6)";
+
+        GemType soul = GemManager.builtInType(gold.getActive(player.getUniqueId()));
+        List<String[]> soulAbilities = soul != null ? GEM_ABILITIES.get(soul) : null;
+        if (soulAbilities == null) {
+            return display.append(beamBlock).append(" §8| §7no soul").toString();
+        }
+
+        display.append(" §8| §f").append(getAbilityIcon(soul, 0)).append(" ")
+            .append(readyOrSeconds(abilityManager.getRemainingCooldown(player, soulAbilities.get(0)[0])));
+        display.append(beamBlock);
+
+        // A harvested Tier 2 soul brings its secondary along with it.
+        if (gold.getActiveTier(player.getUniqueId()) == 2 && soulAbilities.size() > 1) {
+            display.append(" §f").append(getAbilityIcon(soul, 1)).append(" ")
+                .append(readyOrSeconds(abilityManager.getRemainingCooldown(player, soulAbilities.get(1)[0])));
+        }
+
+        return display.toString();
+    }
+
+    private String readyOrSeconds(int remaining) {
+        return remaining > 0 ? "§c" + remaining + "s" : "§aReady";
     }
 
     /**

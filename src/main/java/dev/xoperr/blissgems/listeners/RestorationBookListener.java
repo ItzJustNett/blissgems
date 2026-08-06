@@ -90,7 +90,7 @@ public class RestorationBookListener implements Listener {
                 player.sendMessage("§5§l» §fYour gem has been reforged: " + gemColor + "§l" + gemName + " §f(Tier " + tier + ")§5§l «");
                 broadcastRitualComplete(player, gemColor + gemName);
             } else {
-                player.sendMessage("§c§oThe ritual failed to reforge your gem — contact staff.");
+                player.sendMessage("§c§oThe ritual failed to reforge your gem, contact staff.");
             }
         }, grantDelay);
     }

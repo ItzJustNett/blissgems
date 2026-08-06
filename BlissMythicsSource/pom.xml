@@ -6,7 +6,7 @@
 
     <groupId>dev.xoperr</groupId>
     <artifactId>blissmythics</artifactId>
-    <version>1.5.1</version>
+    <version>1.5.3</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -41,9 +41,9 @@
         <dependency>
             <groupId>dev.xoperr</groupId>
             <artifactId>blissgems</artifactId>
-            <version>4.9.4</version>
+            <version>4.9.6</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/../target/BlissGems-4.9.4.jar</systemPath>
+            <systemPath>${project.basedir}/../target/BlissGems-4.9.6.jar</systemPath>
         </dependency>
     </dependencies>
 
