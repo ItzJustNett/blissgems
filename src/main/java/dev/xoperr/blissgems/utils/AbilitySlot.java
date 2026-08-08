@@ -1,15 +1,20 @@
 package dev.xoperr.blissgems.utils;
 
 /**
- * The four ability slots a gem can expose. Slot is gem-defined (Primary, Secondary,
- * Tertiary, Quaternary); the input that triggers each slot is player-configurable
- * via AbilityBinding.
+ * The six ability slots a gem can expose. Slot is gem-defined (Primary, Secondary,
+ * Tertiary, Quaternary, Quinary, Senary); the input that triggers each slot is
+ * player-configurable via AbilityBinding.
+ *
+ * Normal gems only define four. The last two exist for the Gold Gem, which needs six
+ * inputs to reach a harvested soul's full set of four abilities alongside its own two.
  */
 public enum AbilitySlot {
     PRIMARY("primary", "Primary"),
     SECONDARY("secondary", "Secondary"),
     TERTIARY("tertiary", "Tertiary"),
-    QUATERNARY("quaternary", "Quaternary");
+    QUATERNARY("quaternary", "Quaternary"),
+    QUINARY("quinary", "Quinary"),
+    SENARY("senary", "Senary");
 
     private final String id;
     private final String displayName;

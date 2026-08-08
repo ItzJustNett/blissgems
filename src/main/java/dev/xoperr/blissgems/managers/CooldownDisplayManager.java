@@ -586,9 +586,12 @@ public class CooldownDisplayManager {
     }
 
     /**
-     * Gold Gem display: the awakening counter, then the channelled soul's own ability icons
-     * with the Sundering Beam in the separator where every other gem shows its tertiary.
-     * Format: goldIcon 3/8 | soulIcon1 Ready (beamIcon Ready) soulIcon2 Ready
+     * Gold Gem display: the awakening counter and the Sundering Beam, then every harvested
+     * soul in turn. The channelled soul is opened out into the abilities it can actually cast
+     * right now; the rest collapse to their gem icon and their primary's cooldown, so the
+     * holder can see at a glance which soul is worth switching to mid-fight.
+     *
+     * Format: goldIcon 3/8 (beamIcon Ready) | «fireIcon 4s fireIcon2 Ready» puffIcon Ready
      */
     private String buildGoldDisplay(Player player) {
         GoldGemManager gold = this.plugin.getGoldGemManager();
@@ -596,35 +599,56 @@ public class CooldownDisplayManager {
             return "";
         }
         AbilityManager abilityManager = this.plugin.getAbilityManager();
+        Map<String, GoldGemManager.Harvest> souls = gold.getHarvested(player.getUniqueId());
         StringBuilder display = new StringBuilder();
 
         // Glyphs are prefixed with §f: a colour code tints the bitmap, and these icons are
         // already drawn in their own colours.
-        int souls = gold.getHarvested(player.getUniqueId()).size();
-        display.append("§f").append(GOLD_GEM_GLYPH).append(" §6").append(souls)
+        display.append("§f").append(GOLD_GEM_GLYPH).append(" §6").append(souls.size())
             .append("§7/").append(GoldGemManager.SOULS_TO_AWAKEN);
 
         // The beam is the gem's own power and works with no soul harvested at all.
         int beam = abilityManager.getRemainingCooldown(player, GoldAbilities.BEAM_COOLDOWN_ID);
-        String beamBlock = " §6(§f" + GOLD_BEAM_GLYPH + " " + readyOrSeconds(beam) + "§6)";
+        display.append(" §6(§f").append(GOLD_BEAM_GLYPH).append(" ").append(readyOrSeconds(beam)).append("§6)");
 
-        GemType soul = GemManager.builtInType(gold.getActive(player.getUniqueId()));
-        List<String[]> soulAbilities = soul != null ? GEM_ABILITIES.get(soul) : null;
-        if (soulAbilities == null) {
-            return display.append(beamBlock).append(" §8| §7no soul").toString();
+        if (souls.isEmpty()) {
+            return display.append(" §8| §7no soul").toString();
         }
+        display.append(" §8|");
 
-        display.append(" §8| §f").append(getAbilityIcon(soul, 0)).append(" ")
-            .append(readyOrSeconds(abilityManager.getRemainingCooldown(player, soulAbilities.get(0)[0])));
-        display.append(beamBlock);
-
-        // A harvested Tier 2 soul brings its secondary along with it.
-        if (gold.getActiveTier(player.getUniqueId()) == 2 && soulAbilities.size() > 1) {
-            display.append(" §f").append(getAbilityIcon(soul, 1)).append(" ")
-                .append(readyOrSeconds(abilityManager.getRemainingCooldown(player, soulAbilities.get(1)[0])));
+        String active = gold.getActive(player.getUniqueId());
+        for (Map.Entry<String, GoldGemManager.Harvest> entry : souls.entrySet()) {
+            GemType soul = GemManager.builtInType(entry.getKey());
+            List<String[]> abilities = soul != null ? GEM_ABILITIES.get(soul) : null;
+            if (abilities == null || abilities.isEmpty()) {
+                continue;
+            }
+            boolean channelled = entry.getKey().equals(active);
+            if (!channelled) {
+                // A dormant soul shows only its primary — it is a switch target, not a bar.
+                display.append(" §f").append(getAbilityIcon(soul, 0)).append(" §8")
+                    .append(shortCooldown(abilityManager.getRemainingCooldown(player, abilities.get(0)[0])));
+                continue;
+            }
+            // A soul harvested at Tier 1 gave up only its primary, exactly as the Gold Gem's
+            // own tier gate rules it.
+            int usable = entry.getValue().tier() >= 2 ? Math.min(abilities.size(), 4) : 1;
+            display.append(" ").append(getGemColor(soul)).append("«");
+            for (int i = 0; i < usable; i++) {
+                display.append("§f").append(getAbilityIcon(soul, i)).append(" ")
+                    .append(readyOrSeconds(abilityManager.getRemainingCooldown(player, abilities.get(i)[0])));
+                if (i < usable - 1) {
+                    display.append(" ");
+                }
+            }
+            display.append(getGemColor(soul)).append("»");
         }
-
         return display.toString();
+    }
+
+    /** Compact cooldown for the souls that aren't being channelled: a dot when ready. */
+    private String shortCooldown(int remaining) {
+        return remaining > 0 ? "§c" + remaining + "s" : "§a•";
     }
 
     private String readyOrSeconds(int remaining) {
