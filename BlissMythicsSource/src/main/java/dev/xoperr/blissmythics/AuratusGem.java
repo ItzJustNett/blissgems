@@ -795,7 +795,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       ignoreCancelled = true
    )
    public void onFall(EntityDamageEvent var1) {
-      if (var1.getCause() == DamageCause.FALL && var1.getEntity() instanceof Player var2 && this.plugin.holds(var2, "auratus")) {
+      // holdingAuratus, not plugin.holds: the API's "has gem" answers for a gem anywhere in
+      // the inventory, which let Feathered Fall work with Auratus stashed in a backpack slot.
+      if (var1.getCause() == DamageCause.FALL && var1.getEntity() instanceof Player var2 && this.holdingAuratus(var2)) {
          // The waiver is a window, not a single charge: a grapple that clips the ground on the
          // way up must not eat the waiver and leave the caster paying for the slam landing.
          if (isActive(this.slamFallGrace, var2.getUniqueId())) {
@@ -814,7 +816,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       if (var1.getCause() == DamageCause.ENTITY_ATTACK
          && var1.getDamager() instanceof Player var2
          && var1.getEntity() instanceof LivingEntity var3
-         && this.plugin.holds(var2, "auratus")) {
+         && this.holdingAuratus(var2)) {
          Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             if (var3.isValid() && !var3.isDead()) {
                Vector var2x = var2.getLocation().toVector().subtract(var3.getLocation().toVector());
@@ -866,7 +868,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    )
    public void onArmorDamage(PlayerItemDamageEvent var1) {
       Player var2 = var1.getPlayer();
-      if (this.plugin.holds(var2, "auratus")
+      if (this.holdingAuratus(var2)
          && var1.getItem().getType().name().matches(".*(_HELMET|_CHESTPLATE|_LEGGINGS|_BOOTS)$")
          && ThreadLocalRandom.current().nextDouble() < 0.1) {
          var1.setCancelled(true);

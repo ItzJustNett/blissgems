@@ -632,6 +632,7 @@ messages:
   gold-soul-harvested: "&6&oYou harvested the {gem} soul! &7({count}/8 awakened)"
   gold-soul-selected: "&6&oThe Gold Gem now channels {gem}."
   gold-no-soul: "&c&oThe Gold Gem is dormant, harvest a soul first."
+  gold-soul-too-weak: "&c&oThe {gem} soul was taken at Tier 1, it has no second power to give."
   gold-progress-reset: "&c&oYour Gold Gem went dark. Every harvested soul is lost."
   gold-awakened: "&6&lThe Gold Gem in {player}'s hands has awakened. Eight souls are one."
   gold-beam-charging: "&6&oThe beam is gathering..."
