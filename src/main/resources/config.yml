@@ -10,6 +10,19 @@ config-version: "1.0.0"
 disable-optional-messages: true
 
 # ==========================================
+# AUTO-UPDATE (Modrinth)
+# ==========================================
+# On startup, check Modrinth for a newer build. A running jar can't be swapped live,
+# so a new version is downloaded into plugins/update/ and applied on the next restart.
+auto-update:
+  enabled: true
+  # Your Modrinth project slug or id (REQUIRED). Find it in the project URL:
+  # modrinth.com/plugin/<slug>. Leave empty to disable the check.
+  modrinth-project: ""
+  # true = only log that an update exists, never download it automatically.
+  notify-only: false
+
+# ==========================================
 # ENERGY SYSTEM
 # ==========================================
 energy:

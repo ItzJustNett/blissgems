@@ -469,6 +469,14 @@ implements BlissGemsAPI {
         this.getLogger().info("BlissGems has been enabled!");
         this.getLogger().info("Version: " + this.getDescription().getVersion());
         this.getLogger().info("Using custom item system with vanilla Minecraft items");
+
+        // Auto-update: pull the latest build from Modrinth into the update folder.
+        new dev.xoperr.blissgems.managers.UpdateChecker(this).checkAsync();
+    }
+
+    /** Exposes the running plugin jar so the auto-updater can drop a replacement of the same name. */
+    public java.io.File getPluginFile() {
+        return this.getFile();
     }
 
     public void onDisable() {
