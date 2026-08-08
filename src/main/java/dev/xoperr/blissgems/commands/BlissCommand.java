@@ -120,6 +120,14 @@ TabCompleter {
                 this.handleAbilityQuaternary(sender, args);
                 break;
             }
+            case "ability:quinary": {
+                this.handleExtraSlot(sender, dev.xoperr.blissgems.utils.AbilitySlot.QUINARY);
+                break;
+            }
+            case "ability:senary": {
+                this.handleExtraSlot(sender, dev.xoperr.blissgems.utils.AbilitySlot.SENARY);
+                break;
+            }
             case "trust": {
                 this.handleTrust(sender, args);
                 break;
@@ -933,6 +941,60 @@ TabCompleter {
         handleAbilityQuaternary(player, new String[0]);
     }
 
+    public void triggerQuinary(Player player) {
+        handleExtraSlot(player, dev.xoperr.blissgems.utils.AbilitySlot.QUINARY);
+    }
+
+    public void triggerSenary(Player player) {
+        handleExtraSlot(player, dev.xoperr.blissgems.utils.AbilitySlot.SENARY);
+    }
+
+    /**
+     * Dispatch the two extra slots. Unlike the first four there is no GemType switch here:
+     * only registry-backed gems define these slots, and today only the Gold Gem does — a
+     * built-in gem lands on the handler's no-op default and the input stays silent.
+     */
+    private void handleExtraSlot(CommandSender sender, dev.xoperr.blissgems.utils.AbilitySlot slot) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return;
+        }
+        Player player = (Player) sender;
+        if (blockedByGemLock(player)) return;
+
+        String oraxenId = findGemInHand(player);
+        if (oraxenId == null) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
+        }
+
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry == null) return;
+        int tier = registry.tierFromItemId(oraxenId);
+        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
+        }
+
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            return;
+        }
+
+        String gemId = registry.gemIdFromItemId(oraxenId);
+        GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+        if (handler == null) return;
+        if (slot == dev.xoperr.blissgems.utils.AbilitySlot.QUINARY) {
+            handler.onQuinary(player, tier);
+        } else {
+            handler.onSenary(player, tier);
+        }
+    }
+
     /**
      * Dispatch an ability based on the configured slot. Returns false if slot is null
      * (caller should treat that as "input is unbound").
@@ -944,6 +1006,8 @@ TabCompleter {
             case SECONDARY: triggerSecondary(player); return true;
             case TERTIARY: triggerTertiary(player); return true;
             case QUATERNARY: triggerQuaternary(player); return true;
+            case QUINARY: triggerQuinary(player); return true;
+            case SENARY: triggerSenary(player); return true;
         }
         return false;
     }

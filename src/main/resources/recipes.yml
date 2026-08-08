@@ -1,0 +1,157 @@
+# ==========================================
+# BLISSGEMS CRAFTING RECIPES
+# ==========================================
+# Every craftable BlissGems item lives here. Change a shape, swap an ingredient, raise an
+# output amount or switch a recipe off entirely — nothing needs a code change.
+#
+# A recipe looks like this:
+#
+#   my_recipe:
+#     enabled: true
+#     result: repair_kit        # BlissGems item id (see the list at the bottom of this file)
+#     amount: 1                 # how many the craft produces
+#     shape:                    # 1-3 rows, each 1-3 characters wide. A space is an empty slot.
+#       - "FAF"
+#       - "NTN"
+#       - "FAF"
+#     ingredients:              # one entry per character used in the shape
+#       F: PRISMARINE_SHARD     # a plain Minecraft material
+#       A: ANVIL
+#       N: NETHERITE_INGOT
+#       T: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+#
+# Ingredients come in two forms:
+#   MATERIAL_NAME          - any vanilla material, matched by type alone
+#   blissgems:<item_id>    - a BlissGems custom item, matched exactly. Use this when a plain
+#                            material must NOT work: "blissgems:wire_fragment" will not accept
+#                            an ordinary lightning rod.
+#
+# Recipe keys must be unique. Removing a recipe block removes the craft.
+
+# Master switch. Setting this to false unregisters every recipe below.
+enabled: true
+
+recipes:
+
+  # Base ingredient for most other recipes.
+  gem_fragment:
+    enabled: true
+    result: gem_fragment
+    amount: 4
+    shape:
+      - "DAD"
+      - "EIE"
+      - "DAD"
+    ingredients:
+      D: DIAMOND
+      A: AMETHYST_CLUSTER
+      E: EMERALD
+      I: IRON_BLOCK
+
+  # Trades your current gem for another.
+  gem_trader:
+    enabled: true
+    result: gem_trader
+    amount: 1
+    shape:
+      - "BDB"
+      - "DSD"
+      - "BDB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      D: DRAGON_BREATH
+      S: SCULK_CATALYST
+
+  repair_kit:
+    enabled: true
+    result: repair_kit
+    amount: 1
+    shape:
+      - "FAF"
+      - "NTN"
+      - "FAF"
+    ingredients:
+      F: PRISMARINE_SHARD
+      A: ANVIL
+      N: NETHERITE_INGOT
+      T: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+
+  revive_beacon:
+    enabled: true
+    result: revive_beacon
+    amount: 1
+    shape:
+      - "ETE"
+      - "TBT"
+      - "ETE"
+    ingredients:
+      E: ECHO_SHARD
+      T: TOTEM_OF_UNDYING
+      B: BEACON
+
+  # Starts the restoration ritual that hands a broken gem back its power.
+  restoration_book:
+    enabled: true
+    result: restoration_book
+    amount: 1
+    shape:
+      - "FTF"
+      - "ENE"
+      - "FBF"
+    ingredients:
+      F: PRISMARINE_SHARD
+      T: TOTEM_OF_UNDYING
+      E: ECHO_SHARD
+      N: NETHER_STAR
+      B: BOOK
+
+  prismatic_edge:
+    enabled: true
+    result: prismatic_edge
+    amount: 1
+    shape:
+      - " F "
+      - " S "
+      - "ENE"
+    ingredients:
+      F: PRISMARINE_SHARD
+      S: NETHERITE_SWORD
+      E: ECHO_SHARD
+      N: NETHER_STAR
+
+  # Works for every gem type.
+  gem_upgrader:
+    enabled: true
+    result: gem_upgrader
+    amount: 1
+    shape:
+      - "BBB"
+      - "BSB"
+      - "BBB"
+    ingredients:
+      B: DIAMOND_BLOCK
+      S: NETHER_STAR
+
+  # Seven Wire Fragments bound by a Fragment Core. The exact custom items are required on
+  # purpose — a gem this powerful must not fall out of seven plain lightning rods.
+  # Whether this craft can be used more than once per server is controlled by
+  # gold.summon.once-per-server in config.yml.
+  gold_gem:
+    enabled: true
+    result: gold_gem_t1
+    amount: 1
+    shape:
+      - "WWW"
+      - "WCW"
+      - "W W"
+    ingredients:
+      W: blissgems:wire_fragment
+      C: blissgems:fragment_core
+
+# ==========================================
+# AVAILABLE RESULT ITEM IDS
+# ==========================================
+# gem_fragment, gem_trader, repair_kit, revive_beacon, restoration_book, prismatic_edge,
+# gem_upgrader, wire_fragment, fragment_core, energy_bottle, gold_gem_t1,
+# and any gem: astra_gem_t1, fire_gem_t1, flux_gem_t1, life_gem_t1, puff_gem_t1,
+# speed_gem_t1, strength_gem_t1, wealth_gem_t1 (and the matching _t2 forms).

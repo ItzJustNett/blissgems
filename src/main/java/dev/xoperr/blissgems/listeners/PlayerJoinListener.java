@@ -34,6 +34,8 @@ public class PlayerJoinListener implements Listener {
         // Restore any souls the Gold Gem had harvested before the player logged off.
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().load(player.getUniqueId());
+            // Gems taken from this player and given back while they were offline.
+            this.plugin.getGoldGemManager().deliverPendingGems(player);
         }
 
         // Replace legacy (pre-Oraxen) gem items with their Oraxen-built equivalents.
