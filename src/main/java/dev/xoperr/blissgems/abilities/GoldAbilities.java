@@ -50,6 +50,15 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
     public static final String BEAM_COOLDOWN_ID = "gold-beam";
     private static final String SOUL_MENU_TITLE = "§6§lHarvested Souls";
 
+    /**
+     * Souls whose own primary is itself a Tier-2 ability (Wealth's Unfortunate, Strength's
+     * Chad Strength), unlike every other gem's primary. The Gold Gem's PRIMARY slot is
+     * otherwise deliberately exempt from the soul-tier gate below, so without this list a
+     * Tier-1 Wealth/Strength soul would reach the handler and spam its own raw
+     * "This ability requires Tier 2!" instead of the Gold Gem's own message.
+     */
+    private static final java.util.Set<String> PRIMARY_REQUIRES_TIER_2 = java.util.Set.of("wealth", "strength");
+
     private final BlissGems plugin;
     // Players currently charging the beam, mapped to the task winding it up.
     private final Map<UUID, BukkitRunnable> charging = new HashMap<>();
@@ -106,7 +115,8 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         // A soul only gives up what it had: a gem harvested at Tier 1 is refused by its own
         // handler's Tier 2 gate, so say that in the Gold Gem's own words rather than letting
         // it read as "your gem is Tier 1" - the Gold Gem has no Tier 2 to reach.
-        if (slot != AbilitySlot.PRIMARY && soulTier < 2) {
+        boolean primaryNeedsTier2 = slot == AbilitySlot.PRIMARY && PRIMARY_REQUIRES_TIER_2.contains(soul);
+        if ((slot != AbilitySlot.PRIMARY || primaryNeedsTier2) && soulTier < 2) {
             // Live configs predate this key, so fall back rather than sending an empty line.
             String message = this.plugin.getConfigManager().getMessage("gold-soul-too-weak");
             if (message.isEmpty()) {

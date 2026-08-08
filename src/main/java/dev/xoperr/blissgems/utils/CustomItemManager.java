@@ -26,6 +26,9 @@ public class CustomItemManager {
     private static NamespacedKey UNDROPPABLE_KEY;
     // Hidden owner stamp (crafter UUID) used by Shadow Stalker to track item owners.
     private static NamespacedKey OWNER_KEY;
+    // Per-item identity for the Gold Gem, so its harvested-souls progress can be tied to this
+    // physical item rather than to whichever player happens to hold it (see GoldGemManager).
+    private static NamespacedKey GOLD_INSTANCE_KEY;
 
     // Register all custom items
     static {
@@ -413,6 +416,49 @@ public class CustomItemManager {
         // Use same key name as DropItemControl for compatibility
         UNDROPPABLE_KEY = new NamespacedKey(plugin, "locked_item");
         OWNER_KEY = new NamespacedKey(plugin, "item_owner");
+        GOLD_INSTANCE_KEY = new NamespacedKey(plugin, "gold_instance_id");
+    }
+
+    /**
+     * Read the Gold Gem instance id stamped on this item, or null if it has none (either not
+     * a Gold Gem, or a legacy one created before this tag existed).
+     */
+    public static UUID getGoldInstanceId(ItemStack item) {
+        if (GOLD_INSTANCE_KEY == null || item == null) {
+            return null;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        String raw = meta.getPersistentDataContainer().get(GOLD_INSTANCE_KEY, PersistentDataType.STRING);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Stamp a Gold Gem instance id onto this item, generating one if it doesn't have one yet. */
+    public static UUID ensureGoldInstanceId(ItemStack item) {
+        UUID existing = getGoldInstanceId(item);
+        if (existing != null) {
+            return existing;
+        }
+        if (GOLD_INSTANCE_KEY == null || item == null) {
+            return null;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        UUID id = UUID.randomUUID();
+        meta.getPersistentDataContainer().set(GOLD_INSTANCE_KEY, PersistentDataType.STRING, id.toString());
+        item.setItemMeta(meta);
+        return id;
     }
 
     /**
@@ -533,6 +579,10 @@ public class CustomItemManager {
         // Prefer the Oraxen item so gems carry the pack cosmetics (itemname/lore/model)
         ItemStack oraxenItem = buildOraxenItem(id, data, energy);
         if (oraxenItem != null) {
+            // A fresh Gold Gem starts its own, blank harvest history - see GoldGemManager.
+            if ("gold_gem_t1".equals(id)) {
+                ensureGoldInstanceId(oraxenItem);
+            }
             return oraxenItem;
         }
 
@@ -573,6 +623,9 @@ public class CustomItemManager {
         applySignatureEnchants(id, meta);
 
         item.setItemMeta(meta);
+        if ("gold_gem_t1".equals(id)) {
+            ensureGoldInstanceId(item);
+        }
         return item;
     }
 

@@ -42,6 +42,9 @@ import java.util.UUID;
 public class PrismaticEdgeListener implements Listener {
     private static final String ITEM_ID = "prismatic_edge";
 
+    /** Cooldown key for the Prismatic Beam - routed through AbilityManager so /bliss nocdstoggle reaches it. */
+    private static final String BEAM_COOLDOWN_ID = "prismatic-beam";
+
     /** Beam colours, one per built-in gem, cycled along the beam's length. */
     private static final Color[] PRISM_COLORS = {
         Color.fromRGB(106, 11, 184),   // Astra
@@ -60,8 +63,6 @@ public class PrismaticEdgeListener implements Listener {
     private final Map<UUID, Integer> comboHits = new HashMap<>();
     /** Wielders whose combo has matured into guaranteed crits. */
     private final Set<UUID> critState = new HashSet<>();
-    /** Beam cooldown expiry, in millis since epoch. */
-    private final Map<UUID, Long> beamCooldowns = new HashMap<>();
 
     public PrismaticEdgeListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -94,14 +95,12 @@ public class PrismaticEdgeListener implements Listener {
         event.setCancelled(true);
 
         int cooldownSeconds = this.plugin.getConfig().getInt("prismatic-edge.beam.cooldown-seconds", 120);
-        long now = System.currentTimeMillis();
-        long readyAt = beamCooldowns.getOrDefault(player.getUniqueId(), 0L);
-        if (now < readyAt) {
-            long remaining = (readyAt - now + 999) / 1000;
+        if (this.plugin.getAbilityManager().isOnCooldown(player, BEAM_COOLDOWN_ID)) {
+            int remaining = this.plugin.getAbilityManager().getRemainingCooldown(player, BEAM_COOLDOWN_ID);
             player.sendMessage("§c§oPrismatic Beam is recharging - §f" + remaining + "s§c§o left.");
             return;
         }
-        beamCooldowns.put(player.getUniqueId(), now + cooldownSeconds * 1000L);
+        this.plugin.getAbilityManager().setCooldown(player, BEAM_COOLDOWN_ID, cooldownSeconds);
 
         fireBeam(player);
     }
@@ -227,6 +226,5 @@ public class PrismaticEdgeListener implements Listener {
         UUID id = event.getPlayer().getUniqueId();
         comboHits.remove(id);
         critState.remove(id);
-        beamCooldowns.remove(id);
     }
 }

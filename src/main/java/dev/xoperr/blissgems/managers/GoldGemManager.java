@@ -63,6 +63,10 @@ public class GoldGemManager {
     private final Map<UUID, Map<String, Harvest>> harvested = new HashMap<>();
     // The soul whose abilities the Gold Gem currently channels.
     private final Map<UUID, String> active = new HashMap<>();
+    // Which physical Gold Gem (by its own PDC instance id) this player's harvested/active
+    // state above belongs to - so a fresh Gold Gem (e.g. from /give after clearing the old
+    // one) starts dormant instead of inheriting whatever the last one had absorbed.
+    private final Map<UUID, UUID> trackedInstance = new HashMap<>();
 
     public GoldGemManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -79,18 +83,58 @@ public class GoldGemManager {
      * its harvested passives run as long as it is on the player at all.
      */
     public boolean holdsGoldGem(Player player) {
+        ItemStack gem = this.findGoldGem(player);
+        if (gem == null) {
+            return false;
+        }
+        this.syncInstance(player, gem);
+        return true;
+    }
+
+    /** The Gold Gem stack this player is carrying, or null if they have none. */
+    private ItemStack findGoldGem(Player player) {
         // The hands are checked by themselves first: gems normally sit in the offhand, and
         // getContents() has not been reliable about including it across API versions.
-        if (this.isGoldGem(player.getInventory().getItemInOffHand())
-            || this.isGoldGem(player.getInventory().getItemInMainHand())) {
-            return true;
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (this.isGoldGem(offhand)) {
+            return offhand;
+        }
+        ItemStack mainhand = player.getInventory().getItemInMainHand();
+        if (this.isGoldGem(mainhand)) {
+            return mainhand;
         }
         for (ItemStack item : player.getInventory().getContents()) {
             if (this.isGoldGem(item)) {
-                return true;
+                return item;
             }
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * Notice when the Gold Gem this player is holding is not the one their harvested/active
+     * state belongs to, and wipe that stale state - otherwise a brand new Gold Gem (from
+     * /give, a fresh craft, etc.) would read as already awakened. The first time a player is
+     * ever seen holding a gem (including right after a server restart, when this map starts
+     * empty), its state is adopted as-is rather than wiped, so existing progress survives.
+     */
+    private void syncInstance(Player player, ItemStack gem) {
+        UUID onItem = CustomItemManager.ensureGoldInstanceId(gem);
+        if (onItem == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        UUID tracked = this.trackedInstance.get(playerId);
+        if (tracked == null) {
+            this.trackedInstance.put(playerId, onItem);
+            return;
+        }
+        if (!tracked.equals(onItem)) {
+            this.harvested.remove(playerId);
+            this.active.remove(playerId);
+            this.trackedInstance.put(playerId, onItem);
+            this.save(playerId);
+        }
     }
 
     /** True only when the Gold Gem sits in the player's MAIN hand (used to gate the beam). */
@@ -111,19 +155,33 @@ public class GoldGemManager {
 
     /** Souls this player has harvested, keyed by gem id, in the order they were taken. */
     public Map<String, Harvest> getHarvested(UUID playerId) {
+        this.syncInstanceIfOnline(playerId);
         return this.harvested.getOrDefault(playerId, Map.of());
     }
 
     /** The gem id whose abilities the Gold Gem currently casts, or null if none is selected. */
     public String getActive(UUID playerId) {
+        this.syncInstanceIfOnline(playerId);
         return this.active.get(playerId);
     }
 
     /** The tier of the selected soul, or 1 if nothing is selected. */
     public int getActiveTier(UUID playerId) {
-        String gemId = this.active.get(playerId);
+        String gemId = this.getActive(playerId);
         Harvest soul = gemId != null ? this.getHarvested(playerId).get(gemId) : null;
         return soul != null ? soul.tier() : 1;
+    }
+
+    /** Runs the same instance check as {@link #holdsGoldGem}, for callers that only have a UUID. */
+    private void syncInstanceIfOnline(UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) {
+            return;
+        }
+        ItemStack gem = this.findGoldGem(player);
+        if (gem != null) {
+            this.syncInstance(player, gem);
+        }
     }
 
     /**
@@ -136,6 +194,20 @@ public class GoldGemManager {
         this.active.put(player.getUniqueId(), gemId);
         this.save(player.getUniqueId());
         return true;
+    }
+
+    /**
+     * Admin-only: add a harvested soul straight to this player's awakening, bypassing the
+     * kill requirement. Used by {@code /bliss goldgem fill}. Has no owner to return the soul
+     * to on death.
+     */
+    public void fillSoul(Player player, String gemId, int tier) {
+        UUID playerId = player.getUniqueId();
+        this.harvested.computeIfAbsent(playerId, id -> new LinkedHashMap<>())
+            .put(gemId, new Harvest(gemId, tier, null));
+        this.active.putIfAbsent(playerId, gemId);
+        this.save(playerId);
+        this.refreshGoldItem(player);
     }
 
     // ========================================================================

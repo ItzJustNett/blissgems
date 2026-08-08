@@ -246,6 +246,10 @@ TabCompleter {
                 this.handleSetAbility(sender, args);
                 break;
             }
+            case "goldgem": {
+                this.handleGoldGem(sender, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -318,6 +322,70 @@ TabCompleter {
         } else {
             sender.sendMessage("\u00a7cFailed to give gem!");
         }
+    }
+
+    /** /bliss goldgem fill <player> <soulType> <tier> - forcibly harvest a soul into a player's Gold Gem. */
+    private void handleGoldGem(CommandSender sender, String[] args) {
+        if (!requireAdmin(sender)) {
+            return;
+        }
+        if (args.length < 2 || !"fill".equalsIgnoreCase(args[1])) {
+            sender.sendMessage("§cUsage: /bliss goldgem fill <player> <soulType> <tier>");
+            return;
+        }
+        if (args.length < 5) {
+            sender.sendMessage("§cUsage: /bliss goldgem fill <player> <soulType> <tier>");
+            return;
+        }
+        Player target = Bukkit.getPlayer(args[2]);
+        if (target == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+
+        // Resolve the soul's gem: try built-in GemType first, then addon gems via registry -
+        // same resolution handleGive uses for /bliss give.
+        String gemIdArg = args[3].toLowerCase();
+        String resolvedGemId = null;
+        String resolvedDisplayName = null;
+
+        for (GemType type : GemType.values()) {
+            if (type.getId().equalsIgnoreCase(gemIdArg) || type.getDisplayName().equalsIgnoreCase(gemIdArg)) {
+                resolvedGemId = type.getId();
+                resolvedDisplayName = type.getDisplayName();
+                break;
+            }
+        }
+        if (resolvedGemId == null) {
+            GemRegistry registry = this.plugin.getGemRegistry();
+            if (registry != null) {
+                GemDefinition def = registry.getGem(gemIdArg);
+                if (def != null) {
+                    resolvedGemId = def.getId();
+                    resolvedDisplayName = def.getDisplayName();
+                }
+            }
+        }
+        if (resolvedGemId == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-gem-type", new Object[0]));
+            return;
+        }
+
+        int tier;
+        try {
+            tier = Integer.parseInt(args[4]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
+            return;
+        }
+        if (tier < 1 || tier > 2) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
+            return;
+        }
+
+        this.plugin.getGoldGemManager().fillSoul(target, resolvedGemId, tier);
+        sender.sendMessage("§aFilled " + target.getName() + "'s Gold Gem with a Tier " + tier + " "
+            + resolvedDisplayName + " soul.");
     }
 
     private void handleReroll(CommandSender sender, String[] args) {
@@ -1738,13 +1806,14 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss normalise \u00a78- Reset attack cooldowns for all players (Admin)");
         sender.sendMessage("\u00a77/bliss clearcds <player|all> \u00a78- Clear ability cooldowns (Admin)");
         sender.sendMessage("\u00a77/bliss nocdtoggle <player> \u00a78- Toggle no ability cooldowns (Admin)");
+        sender.sendMessage("\u00a77/bliss goldgem fill <player> <soulType> <tier> \u00a78- Add a harvested soul (Admin)");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("nocdtoggle")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
@@ -1766,7 +1835,13 @@ TabCompleter {
             if (args[0].equalsIgnoreCase("smp")) {
                 return Arrays.asList("start");
             }
+            if (args[0].equalsIgnoreCase("goldgem")) {
+                return Arrays.asList("fill");
+            }
         } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("goldgem") && args[1].equalsIgnoreCase("fill")) {
+                return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            }
             if (args[0].equalsIgnoreCase("give")) {
                 List<String> gemIds = Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
                 GemRegistry registry = this.plugin.getGemRegistry();
@@ -1807,6 +1882,13 @@ TabCompleter {
             }
             if (args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("transfer")) {
                 return Arrays.asList("1", "8", "16", "32", "64");
+            }
+            if (args[0].equalsIgnoreCase("goldgem") && args[1].equalsIgnoreCase("fill")) {
+                return Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
+            }
+        } else if (args.length == 5) {
+            if (args[0].equalsIgnoreCase("goldgem") && args[1].equalsIgnoreCase("fill")) {
+                return Arrays.asList("1", "2");
             }
         }
         return completions.stream().filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase())).collect(Collectors.toList());
