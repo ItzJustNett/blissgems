@@ -7,6 +7,8 @@ deploy.sh
 # Maven
 target/
 .claude/
+.env
+/blissgems-main/
 BlissGems fabric/
 addon-template/
 pom.xml.tag
