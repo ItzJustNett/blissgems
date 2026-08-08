@@ -28,7 +28,6 @@ public class ParticleManager {
         this.plugin = plugin;
         this.activeParticles = new ArrayList<>();
 
-        // Start cleanup task to remove invalid particles
         startCleanupTask();
     }
 
@@ -40,31 +39,24 @@ public class ParticleManager {
             throw new IllegalArgumentException("Location and world cannot be null");
         }
 
-        // Create the ItemDisplay entity
         ItemDisplay display = location.getWorld().spawn(location, ItemDisplay.class, entity -> {
-            // Set the item with custom model data
-            ItemStack item = builder.buildItemStack();
-            entity.setItemStack(item);
+            entity.setItemStack(builder.buildItemStack());
 
-            // Configure display properties
             entity.setBillboard(builder.getBillboard());
             entity.setBrightness(new Display.Brightness(builder.getBlockLight(), builder.getSkyLight()));
             entity.setViewRange(builder.getViewRange());
             entity.setInterpolationDuration(builder.getInterpolationDuration());
             entity.setInterpolationDelay(builder.getInterpolationDelay());
 
-            // Set scale transformation
             float scale = builder.getScale();
-            Transformation transformation = new Transformation(
+            entity.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0), // translation
                     new AxisAngle4f(0, 0, 0, 1), // left rotation
                     new Vector3f(scale, scale, scale), // scale
                     new AxisAngle4f(0, 0, 0, 1) // right rotation
-            );
-            entity.setTransformation(transformation);
+            ));
         });
 
-        // Create the CustomParticle wrapper
         CustomParticle particle = new CustomParticle(display, builder.getParticleId());
         activeParticles.add(particle);
 

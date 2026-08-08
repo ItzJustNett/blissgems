@@ -1,13 +1,3 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  org.bukkit.command.CommandExecutor
- *  org.bukkit.command.TabCompleter
- *  org.bukkit.event.Listener
- *  org.bukkit.plugin.Plugin
- *  org.bukkit.plugin.java.JavaPlugin
- */
 package dev.xoperr.blissgems;
 
 import dev.xoperr.blissgems.abilities.AstraAbilities;
@@ -22,7 +12,6 @@ import dev.xoperr.blissgems.abilities.WealthAbilities;
 import dev.xoperr.blissgems.api.BlissGemsAPI;
 import dev.xoperr.blissgems.api.CooldownEntry;
 import dev.xoperr.blissgems.api.GemDefinition;
-import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.commands.BlissCommand;
 import dev.xoperr.blissgems.commands.FixHeartsCommand;
 import dev.xoperr.blissgems.commands.FixedHeartsCommand;
@@ -89,7 +78,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class BlissGems
@@ -139,141 +127,33 @@ implements BlissGemsAPI {
     public void onEnable() {
         this.saveDefaultConfig();
 
-        try {
-            CustomItemManager.initialize(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CustomItemManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        initStep("CustomItemManager", () -> CustomItemManager.initialize(this));
 
-        // Initialize internal XoperrCore managers
-        try {
-            this.protectionManager = new ProtectionManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ProtectionManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.particleManager = new ParticleManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ParticleManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.textManager = new TextManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: TextManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.autoEnchantManager = new AutoEnchantManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AutoEnchantManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.regionManager = new RegionManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RegionManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        initStep("ProtectionManager", () -> this.protectionManager = new ProtectionManager(this));
+        initStep("ParticleManager", () -> this.particleManager = new ParticleManager(this));
+        initStep("TextManager", () -> this.textManager = new TextManager(this));
+        initStep("AutoEnchantManager", () -> this.autoEnchantManager = new AutoEnchantManager(this));
+        initStep("RegionManager", () -> this.regionManager = new RegionManager(this));
 
-        // Initialize XoperrCore APIs
-        try {
+        initStep("Core APIs", () -> {
             GemProtectionAPI.initialize(protectionManager);
             ParticleAPI.initialize(particleManager);
             InventoryTextAPI.initialize(textManager);
             AutoEnchantAPI.initialize(autoEnchantManager);
             RegionAPI.initialize(regionManager);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Core APIs ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        });
 
-        try {
-            this.configManager = new ConfigManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ConfigManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.energyManager = new EnergyManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: EnergyManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.gemManager = new GemManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GemManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.abilityManager = new AbilityManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AbilityManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.abilityBindingManager = new AbilityBindingManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AbilityBindingManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.passiveManager = new PassiveManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PassiveManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.clickActivationManager = new ClickActivationManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ClickActivationManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.trustedPlayersManager = new TrustedPlayersManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: TrustedPlayersManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.repairKitManager = new RepairKitManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RepairKitManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.reviveBeaconManager = new ReviveBeaconManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: ReviveBeaconManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.soulManager = new SoulManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SoulManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        initStep("ConfigManager", () -> this.configManager = new ConfigManager(this));
+        initStep("EnergyManager", () -> this.energyManager = new EnergyManager(this));
+        initStep("GemManager", () -> this.gemManager = new GemManager(this));
+        initStep("AbilityManager", () -> this.abilityManager = new AbilityManager(this));
+        initStep("AbilityBindingManager", () -> this.abilityBindingManager = new AbilityBindingManager(this));
+        initStep("PassiveManager", () -> this.passiveManager = new PassiveManager(this));
+        initStep("ClickActivationManager", () -> this.clickActivationManager = new ClickActivationManager(this));
+        initStep("TrustedPlayersManager", () -> this.trustedPlayersManager = new TrustedPlayersManager(this));
+        initStep("RepairKitManager", () -> this.repairKitManager = new RepairKitManager(this));
+        initStep("ReviveBeaconManager", () -> this.reviveBeaconManager = new ReviveBeaconManager(this));
+        initStep("SoulManager", () -> this.soulManager = new SoulManager(this));
         try {
             this.flowStateManager = new FlowStateManager(this);
             this.gemLockManager = new GemLockManager(this);
@@ -282,169 +162,48 @@ implements BlissGemsAPI {
             this.getLogger().severe(e.getMessage());
             e.printStackTrace();
         }
-        try {
-            this.criticalHitManager = new CriticalHitManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CriticalHitManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.pluginMessagingManager = new PluginMessagingManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PluginMessagingManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.astraAbilities = new AstraAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AstraAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.fireAbilities = new FireAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FireAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.fluxAbilities = new FluxAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: FluxAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.lifeAbilities = new LifeAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: LifeAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.puffAbilities = new PuffAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: PuffAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.speedAbilities = new SpeedAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SpeedAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.strengthAbilities = new StrengthAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: StrengthAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.wealthAbilities = new WealthAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: WealthAbilities ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
+        initStep("CriticalHitManager", () -> this.criticalHitManager = new CriticalHitManager(this));
+        initStep("PluginMessagingManager", () -> this.pluginMessagingManager = new PluginMessagingManager(this));
+        initStep("AstraAbilities", () -> this.astraAbilities = new AstraAbilities(this));
+        initStep("FireAbilities", () -> this.fireAbilities = new FireAbilities(this));
+        initStep("FluxAbilities", () -> this.fluxAbilities = new FluxAbilities(this));
+        initStep("LifeAbilities", () -> this.lifeAbilities = new LifeAbilities(this));
+        initStep("PuffAbilities", () -> this.puffAbilities = new PuffAbilities(this));
+        initStep("SpeedAbilities", () -> this.speedAbilities = new SpeedAbilities(this));
+        initStep("StrengthAbilities", () -> this.strengthAbilities = new StrengthAbilities(this));
+        initStep("WealthAbilities", () -> this.wealthAbilities = new WealthAbilities(this));
+        initStep("GoldGem", () -> {
             this.goldGemManager = new GoldGemManager(this);
             this.goldAbilities = new GoldAbilities(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GoldGem ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        // Initialize Gem Registry and register built-in gems + API
-        try {
+        });
+        initStep("GemRegistry/API", () -> {
             this.gemRegistry = new GemRegistryImpl(this);
             this.registerBuiltInGems();
             this.getServer().getServicesManager().register(
                 BlissGemsAPI.class, this, this, ServicePriority.Normal);
             this.getLogger().info("BlissGems Addon API registered via ServicesManager");
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GemRegistry/API ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        });
 
-        try {
-            this.cooldownDisplayManager = new CooldownDisplayManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: CooldownDisplayManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.statsManager = new StatsManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: StatsManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.achievementManager = new AchievementManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AchievementManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
-            this.enhancedGuiManager = new EnhancedGuiManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: EnhancedGuiManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
+        initStep("CooldownDisplayManager", () -> this.cooldownDisplayManager = new CooldownDisplayManager(this));
+        initStep("StatsManager", () -> this.statsManager = new StatsManager(this));
+        initStep("AchievementManager", () -> this.achievementManager = new AchievementManager(this));
+        initStep("EnhancedGuiManager", () -> this.enhancedGuiManager = new EnhancedGuiManager(this));
+        initStep("RecipeManager/GemRitualManager", () -> {
             this.recipeManager = new RecipeManager(this);
             this.gemRitualManager = new GemRitualManager(this);
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: RecipeManager/GemRitualManager ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        try {
+        });
+        initStep("Recipe Registration", () -> {
             if (this.recipeManager != null) {
                 this.recipeManager.registerRecipes();
             }
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Recipe Registration ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
-        // Auto-detect SMP start based on existing playerdata
-        try {
-            this.checkAutoStartSmp();
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: SMP Auto-Start Check ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        });
+        initStep("SMP Auto-Start Check", this::checkAutoStartSmp);
 
-        try {
-            this.registerListeners();
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Listener Registration ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        initStep("Listener Registration", this::registerListeners);
 
         // Command registration — MUST always run so /bliss doesn't show bare usage message
-        try {
-            this.registerCommands();
-        } catch (Exception e) {
-            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: Command Registration ===");
-            this.getLogger().severe(e.getMessage());
-            e.printStackTrace();
-        }
+        initStep("Command Registration", this::registerCommands);
 
-        // Initialize FastStats metrics (if enabled in config)
         if (this.getConfig().getBoolean("send-anonymous-metrics", true)) {
             try {
                 this.metrics = BukkitMetrics.factory()
@@ -468,8 +227,21 @@ implements BlissGemsAPI {
         this.getLogger().info("Using custom item system with vanilla Minecraft items");
     }
 
+    /**
+     * Runs a single start-up step, logging and swallowing any failure so one broken
+     * subsystem cannot abort the rest of onEnable().
+     */
+    private void initStep(String name, Runnable step) {
+        try {
+            step.run();
+        } catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: " + name + " ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void onDisable() {
-        // Cleanup XoperrCore managers
         if (this.particleManager != null) {
             this.particleManager.cleanup();
         }
@@ -499,7 +271,6 @@ implements BlissGemsAPI {
             this.recipeManager.unregisterRecipes();
         }
 
-        // Clean up all gem ability tasks
         for (org.bukkit.entity.Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
             if (this.astraAbilities != null) {
                 this.astraAbilities.cleanup(player);
@@ -571,28 +342,29 @@ implements BlissGemsAPI {
         // ItemDropListener removed - gems can now be dropped
         // InventoryInteractListener removed - gems can now be moved to containers
 
-        // Register BlissGems listeners
-        this.getServer().getPluginManager().registerEvents((Listener)new PlayerDeathListener(this), (Plugin)this);
+        // Registration order below is load-bearing — keep it as-is.
+        registerEvents(new PlayerDeathListener(this));
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new RepairKitListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new ReviveBeaconListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new VillagerTradeListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new SwapHandAbilityListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.RitualCleanupListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new BrokenGemDamageListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new GaleCloudListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new RestorationBookListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new PrismaticEdgeListener(this), (Plugin)this);
+        registerEvents(
+            new GemInteractListener(this),
+            new UpgraderListener(this),
+            new PassiveListener(this),
+            new PlayerJoinListener(this),
+            new AutoEnchantListener(this),
+            new StunListener(this),
+            new RepairKitListener(this),
+            new ReviveBeaconListener(this),
+            new KillTrackingListener(this),
+            new TeleportListener(this),
+            new VillagerTradeListener(this),
+            new SwapHandAbilityListener(this),
+            new dev.xoperr.blissgems.listeners.RitualCleanupListener(this),
+            new BrokenGemDamageListener(this),
+            new GaleCloudListener(this),
+            new RestorationBookListener(this),
+            new PrismaticEdgeListener(this));
         if (this.goldAbilities != null) {
-            this.getServer().getPluginManager().registerEvents((Listener)this.goldAbilities, (Plugin)this);
+            registerEvents(this.goldAbilities);
         }
         // Anti-dupe: break the "drop-and-swap" ghost dupe (drop + same-tick hotbar swap).
         dev.xoperr.blissgems.listeners.DropSwapGuard dropSwapGuard = new dev.xoperr.blissgems.listeners.DropSwapGuard(this);
@@ -610,28 +382,31 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
     }
 
+    /** Registers the given listeners with this plugin, in argument order. */
+    private void registerEvents(Listener... listeners) {
+        for (Listener listener : listeners) {
+            this.getServer().getPluginManager().registerEvents(listener, this);
+        }
+    }
+
     private void registerCommands() {
         this.blissCommand = new BlissCommand(this);
         this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
         this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
 
-        FixHeartsCommand fixHearts = new FixHeartsCommand(this);
-        if (this.getCommand("fixhearts") != null) {
-            this.getCommand("fixhearts").setExecutor((CommandExecutor)fixHearts);
-            this.getCommand("fixhearts").setTabCompleter((TabCompleter)fixHearts);
-        }
+        bindCommand("fixhearts", new FixHeartsCommand(this));
+        bindCommand("fixedhearts", new FixedHeartsCommand(this));
+        bindCommand("fixgems", new FixGemsCommand(this));
+    }
 
-        FixedHeartsCommand fixedHearts = new FixedHeartsCommand(this);
-        if (this.getCommand("fixedhearts") != null) {
-            this.getCommand("fixedhearts").setExecutor((CommandExecutor)fixedHearts);
-            this.getCommand("fixedhearts").setTabCompleter((TabCompleter)fixedHearts);
+    /** Wires an executor + tab completer onto a command, skipping it if plugin.yml omits it. */
+    private <T extends CommandExecutor & TabCompleter> void bindCommand(String name, T handler) {
+        org.bukkit.command.PluginCommand command = this.getCommand(name);
+        if (command == null) {
+            return;
         }
-
-        FixGemsCommand fixGems = new FixGemsCommand(this);
-        if (this.getCommand("fixgems") != null) {
-            this.getCommand("fixgems").setExecutor((CommandExecutor)fixGems);
-            this.getCommand("fixgems").setTabCompleter((TabCompleter)fixGems);
-        }
+        command.setExecutor(handler);
+        command.setTabCompleter(handler);
     }
 
     public BlissCommand getBlissCommand() {
@@ -758,7 +533,6 @@ implements BlissGemsAPI {
         return this.pluginMessagingManager;
     }
 
-    // XoperrCore getters
     public ProtectionManager getProtectionManager() {
         return this.protectionManager;
     }
@@ -779,10 +553,6 @@ implements BlissGemsAPI {
         return this.regionManager;
     }
 
-    // ========================================================================
-    // Gem Registry & Addon API
-    // ========================================================================
-
     @Override
     public GemRegistryImpl getGemRegistry() {
         return this.gemRegistry;
@@ -791,8 +561,7 @@ implements BlissGemsAPI {
     @Override
     public boolean playerHasGem(org.bukkit.entity.Player player, String gemId) {
         GemManager.ActiveGem gem = this.gemManager.getActiveGem(player);
-        if (gem == null) return false;
-        return gemId.equals(gem.getGemId());
+        return gem != null && gemId.equals(gem.getGemId());
     }
 
     /**
@@ -800,7 +569,6 @@ implements BlissGemsAPI {
      * and cooldown display entries with the gem registry.
      */
     private void registerBuiltInGems() {
-        // Register gem definitions
         for (dev.xoperr.blissgems.utils.GemType type : dev.xoperr.blissgems.utils.GemType.values()) {
             GemDefinition def = new GemDefinition.Builder(type.getId())
                 .displayName(type.getDisplayName())

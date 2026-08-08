@@ -14,6 +14,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
@@ -24,7 +25,6 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -81,7 +81,6 @@ public class FireAbilities implements GemAbilityHandler {
      */
     private static boolean isContainer(Material material) {
         String name = material.name();
-        // Check for all container types
         return name.contains("CHEST") ||
                name.contains("SHULKER_BOX") ||
                name.contains("BARREL") ||
@@ -155,18 +154,15 @@ public class FireAbilities implements GemAbilityHandler {
     public void chargedFireball(Player player) {
         String abilityKey = "fire-fireball";
 
-        // If already charging, fire the shot
         if (isCharging(player)) {
             fireChargedShot(player);
             return;
         }
 
-        // Check cooldown before starting charge
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
 
-        // Start charging
         UUID uuid = player.getUniqueId();
         chargingPlayers.put(uuid, 0);
 
@@ -176,12 +172,8 @@ public class FireAbilities implements GemAbilityHandler {
         // Spawn a glowing fire-charge ItemDisplay above the player's head.
         // Brightness override (15,15) makes it look fully lit even at night.
         spawnChargeDisplay(player);
-
-        // One-shot burst of fire particles around the player marking the start of charging.
-        // After this, the floating fireball is the only visual — no per-tick fluff.
         spawnChargeStartBurst(player);
 
-        // Charging task - increases charge over 15 seconds, then decays
         BukkitTask task = new BukkitRunnable() {
             int ticksElapsed = 0;
             boolean maxChargeNotified = false;
@@ -203,7 +195,6 @@ public class FireAbilities implements GemAbilityHandler {
                 int chargeDurationTicks = Math.max(1,
                     plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", CHARGE_DURATION_TICKS));
                 if (!decaying) {
-                    // Charging phase: increase charge over configured duration
                     newCharge = Math.min((ticksElapsed * MAX_CHARGE) / chargeDurationTicks, MAX_CHARGE);
 
                     if (newCharge >= MAX_CHARGE) {
@@ -211,7 +202,6 @@ public class FireAbilities implements GemAbilityHandler {
                         newCharge = MAX_CHARGE;
                     }
                 } else {
-                    // Decay phase: check if standing on obsidian
                     Block blockBelow = player.getLocation().subtract(0, 1, 0).getBlock();
                     if (blockBelow.getType() == Material.OBSIDIAN || blockBelow.getType() == Material.CRYING_OBSIDIAN) {
                         // Standing on obsidian — hold charge
@@ -221,7 +211,6 @@ public class FireAbilities implements GemAbilityHandler {
                         newCharge = currentCharge - 1;
                     }
 
-                    // Charge fizzled out
                     if (newCharge <= 0) {
                         player.sendMessage("\u00a7c\u00a7oFireball charge fizzled!");
                         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
@@ -233,18 +222,13 @@ public class FireAbilities implements GemAbilityHandler {
 
                 chargingPlayers.put(uuid, newCharge);
 
-                // Update the floating fireball: scale up with charge, follow player
                 updateChargeDisplay(player, newCharge);
-
-                // Show charge bar in action bar
                 showChargeBar(player, newCharge);
 
-                // Sound feedback at milestones
                 if (newCharge == 25 || newCharge == 50 || newCharge == 75) {
                     player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.5f, 1.0f + (newCharge / 100.0f));
                 }
 
-                // Max charge reached - notify only once
                 if (newCharge >= MAX_CHARGE && !maxChargeNotified) {
                     player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 1.5f);
                     player.sendMessage("\u00a76\u00a7lFully charged! \u00a7eRight-click to fire!");
@@ -262,9 +246,9 @@ public class FireAbilities implements GemAbilityHandler {
 
         for (int i = 0; i < 20; i++) {
             if (i < bars) {
-                bar.append("\u2588"); // Full block
+                bar.append("\u2588");
             } else {
-                bar.append("\u00a78\u2588"); // Dark gray block
+                bar.append("\u00a78\u2588");
             }
         }
 
@@ -277,7 +261,6 @@ public class FireAbilities implements GemAbilityHandler {
         UUID uuid = player.getUniqueId();
         int charge = chargingPlayers.getOrDefault(uuid, 0);
 
-        // Cancel charging task
         BukkitTask task = chargingTasks.remove(uuid);
         if (task != null) {
             task.cancel();
@@ -290,9 +273,6 @@ public class FireAbilities implements GemAbilityHandler {
             return;
         }
 
-        // Calculate damage and yield based on charge
-        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.fire-fireball", 9.0);
-        double damageMultiplier = charge / 100.0;
         double yieldBase = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-base", 1.5);
         double yieldPerPercent = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-per-percent", 0.025);
         float yield = (float) (yieldBase + (yieldPerPercent * charge));
@@ -305,7 +285,6 @@ public class FireAbilities implements GemAbilityHandler {
         fireball.setYield(yield);
         fireball.setIsIncendiary(true);
 
-        // Visual feedback based on charge
         int particles = 20 + (charge / 2);
         player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f + (charge / 200.0f));
         player.spawnParticle(Particle.FLAME, eyeLoc, particles, 0.5, 0.5, 0.5, 0.1);
@@ -330,6 +309,7 @@ public class FireAbilities implements GemAbilityHandler {
      */
     private void spawnChargeStartBurst(Player player) {
         Location loc = player.getLocation();
+        World world = player.getWorld();
         Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
 
         // Ring of flames around the feet
@@ -337,22 +317,18 @@ public class FireAbilities implements GemAbilityHandler {
             double angle = (i / 24.0) * 2 * Math.PI;
             double x = Math.cos(angle) * 1.4;
             double z = Math.sin(angle) * 1.4;
-            player.getWorld().spawnParticle(Particle.FLAME,
+            world.spawnParticle(Particle.FLAME,
                 loc.clone().add(x, 0.2, z), 2, 0.05, 0.05, 0.05, 0.02);
-            player.getWorld().spawnParticle(Particle.DUST,
+            world.spawnParticle(Particle.DUST,
                 loc.clone().add(x, 0.4, z), 1, 0.05, 0.05, 0.05, 0.0, orangeDust, true);
         }
 
         // Upward puff of flame at the center
-        player.getWorld().spawnParticle(Particle.FLAME,
+        world.spawnParticle(Particle.FLAME,
             loc.clone().add(0, 0.6, 0), 25, 0.4, 0.4, 0.4, 0.06);
-        player.getWorld().spawnParticle(Particle.LAVA,
+        world.spawnParticle(Particle.LAVA,
             loc.clone().add(0, 0.3, 0), 6, 0.5, 0.1, 0.5, 0);
     }
-
-    // ------------------------------------------------------------------
-    // Floating fire-charge display above the head while charging
-    // ------------------------------------------------------------------
 
     private void spawnChargeDisplay(Player player) {
         try {
@@ -415,53 +391,42 @@ public class FireAbilities implements GemAbilityHandler {
 
         UUID uuid = player.getUniqueId();
 
-        // Remove existing campfire if player has one
         if (activeCampfires.containsKey(uuid)) {
             removeCampfire(player);
         }
 
-        // Get the block at player's feet
         Block targetBlock = player.getLocation().getBlock();
 
-        // Find suitable location for campfire
         if (targetBlock.getType() != Material.AIR) {
             targetBlock = targetBlock.getRelative(0, 1, 0);
         }
 
-        // Check if we can place a block there
         if (targetBlock.getType() != Material.AIR && targetBlock.getType() != Material.CAVE_AIR) {
             player.sendMessage("\u00a7c\u00a7oCannot place campfire here!");
             return;
         }
 
-        // Place the campfire block
-        Material previousMaterial = targetBlock.getType();
         targetBlock.setType(Material.CAMPFIRE);
         Location campfireLocation = targetBlock.getLocation().clone();
+        World campfireWorld = campfireLocation.getWorld();
 
-        // Store campfire location
         activeCampfires.put(uuid, campfireLocation);
 
-        // Get config values
         double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 5.0);
         double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 2.0);
         int burnDuration = this.plugin.getConfig().getInt("abilities.fire-campfire.burn-duration", 3);
         int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60) * 20; // Convert to ticks
 
-        // Play placement sound
         player.playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 1.0f, 1.0f);
         player.sendMessage("\u00a76\u00a7oPlaced Campfire! Heals you and burns enemies for 1 minute.");
 
-        // Create campfire effect task
         BukkitTask campfireTask = new BukkitRunnable() {
             int ticksElapsed = 0;
 
             @Override
             public void run() {
-                // Check if campfire still exists
                 Block currentBlock = campfireLocation.getBlock();
                 if (currentBlock.getType() != Material.CAMPFIRE) {
-                    // Campfire was broken
                     activeCampfires.remove(uuid);
                     campfireTasks.remove(uuid);
                     player.sendMessage("\u00a76\u00a7oCampfire was destroyed!");

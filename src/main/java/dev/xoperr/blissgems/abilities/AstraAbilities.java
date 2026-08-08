@@ -2,14 +2,14 @@
  * Astra Gem Abilities — dimensional stealth and ranged daggers
  *
  * Tier 1:
- *   - Astral Daggers (Primary): Fire 3 phantom daggers that deal damage
+ *   - Astral Daggers (Primary): Conjure 5 phantom daggers in a cross formation, each press launches one
  *   - Soul Capture passive + Soul Absorption (temporary max hearts on kill, handled by SoulManager)
  *
  * Tier 2 (all Tier 1 abilities plus):
  *   - Astral Daggers (Primary, no shift): Same as T1
  *   - Astral Projection (Shift): Enter spectator mode to scout, bounded to 8 chunk radius, returns to origin
- *   - Dimensional Drift (Double-shift / secondary command): Invisible horse + player invisibility
- *   - Dimensional Void (Sneak + Swap / tertiary): Nullify enemy gem abilities in radius
+ *   - Dimensional Drift (Tertiary): Forward dash with brief invisibility and fall-damage immunity
+ *   - Dimensional Void (Quaternary): Nullify enemy gem abilities in radius
  */
 package dev.xoperr.blissgems.abilities;
 
@@ -18,16 +18,13 @@ import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Horse;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -39,6 +36,7 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Transformation;
+import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -70,10 +68,6 @@ public class AstraAbilities implements GemAbilityHandler {
     public AstraAbilities(BlissGems plugin) {
         this.plugin = plugin;
     }
-
-    // ========================================================================
-    // Right-click routing
-    // ========================================================================
 
     public void onRightClick(Player player, int tier) {
         if (tier == 2 && player.isSneaking()) {
@@ -108,8 +102,7 @@ public class AstraAbilities implements GemAbilityHandler {
      * or can be triggered via a keybind)
      */
     public void activateDimensionalDrift(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (!requireTier2(player)) {
             return;
         }
         dimensionalDrift(player);
@@ -119,17 +112,28 @@ public class AstraAbilities implements GemAbilityHandler {
      * Activates Dimensional Void (called from command /bliss ability:tertiary or special keybind)
      */
     public void activateDimensionalVoid(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (!requireTier2(player)) {
             return;
         }
         dimensionalVoid(player);
     }
 
-    // ========================================================================
-    // State checkers
-    // ========================================================================
+    /** Warns and returns false when the player is not on a Tier 2 gem. */
+    private boolean requireTier2(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            return false;
+        }
+        return true;
+    }
 
+    /** Sends the configured "ability activated" line, when one is configured. */
+    private void announceActivation(Player player, String abilityName) {
+        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", abilityName);
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+    }
 
     public boolean isProjecting(Player player) {
         return projectingPlayers.contains(player.getUniqueId());
@@ -155,10 +159,6 @@ public class AstraAbilities implements GemAbilityHandler {
         return voidActivePlayers.contains(player.getUniqueId());
     }
 
-    // ========================================================================
-    // 1. ASTRAL DAGGERS — Tier 1+2 Primary
-    // ========================================================================
-
     public void astralDaggers(Player player) {
         String abilityKey = "astra-daggers";
         UUID id = player.getUniqueId();
@@ -178,18 +178,23 @@ public class AstraAbilities implements GemAbilityHandler {
         volley = new DaggerVolley();
         daggerVolleys.put(id, volley);
 
-        // Conjure 3 hovering dagger models fanned out in front of the player.
-        for (int i = 0; i < 3; i++) {
-            volley.pending.addLast(spawnDaggerDisplay(player));
+        // Conjure 5 daggers in the cross formation; slot 0 is dead ahead and launches first.
+        // Position + facing are recomputed from the live look each tick (so they always sit
+        // ahead and point forward in first person), and Display interpolation smooths it.
+        for (int i = 0; i < 5; i++) {
+            ItemDisplay dg = spawnDaggerDisplay(player);
+            volley.slot.put(dg, i);
+            volley.pending.addLast(dg);
         }
         positionHoveringDaggers(player, volley);
 
         player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, player.getEyeLocation(), 30, 0.5, 0.5, 0.5, 0.03);
         player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 1.0f, 1.4f);
 
-        // Hover + auto-fire loop: keeps pending daggers arrayed in front, and auto-launches
-        // any left unfired within the idle window.
-        final int autoFireTicks = this.plugin.getConfig().getInt("abilities.astra-daggers.auto-fire-ticks", 80);
+        // Hover loop — keeps the formation softly tracking the head. NO auto-fire: each press
+        // launches the next dagger. A long safety window discards leftovers so a cast can't
+        // hover forever (and then arms the cooldown).
+        final int hoverTimeoutTicks = this.plugin.getConfig().getInt("abilities.astra-daggers.hover-timeout-ticks", 600);
         final DaggerVolley tracked = volley;
         tracked.task = new BukkitRunnable() {
             @Override
@@ -205,21 +210,18 @@ public class AstraAbilities implements GemAbilityHandler {
                     return;
                 }
                 positionHoveringDaggers(player, v);
-                if (++v.idleTicks >= autoFireTicks) {
-                    while (!v.pending.isEmpty()) {
-                        launchNextDagger(player, v);
-                    }
+                if (++v.idleTicks >= hoverTimeoutTicks) {
+                    discardVolley(player, v);
+                    daggerVolleys.remove(id);
+                    plugin.getAbilityManager().useAbility(player, abilityKey);
+                    this.cancel();
                 }
             }
         }.runTaskTimer(this.plugin, 1L, 1L);
 
-        // Per the design, the initial cast also launches the first dagger.
-        launchNextDagger(player, volley);
-
-        String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Astral Daggers");
-        if (msg != null && !msg.isEmpty()) {
-            player.sendMessage(msg);
-        }
+        // The cast only conjures the daggers — all 5 hover in formation and each press
+        // launches the next, starting with the one dead ahead.
+        announceActivation(player, "Astral Daggers");
     }
 
     /** Build the dagger item (ECHO_SHARD + the astra_dagger custom model). */
@@ -234,51 +236,75 @@ public class AstraAbilities implements GemAbilityHandler {
     }
 
     private ItemDisplay spawnDaggerDisplay(Player player) {
-        return player.getWorld().spawn(player.getEyeLocation(), ItemDisplay.class, d -> {
+        // Spawn with zero entity rotation so orientDagger's transformation is world-space
+        // (a FIXED-billboard display's final facing = entity yaw/pitch ∘ transformation).
+        Location at = player.getEyeLocation();
+        at.setYaw(0f);
+        at.setPitch(0f);
+        return player.getWorld().spawn(at, ItemDisplay.class, d -> {
             d.setItemStack(buildDaggerItem());
             d.setBillboard(Display.Billboard.FIXED);
             d.setBrightness(new Display.Brightness(15, 15));
-            d.setInterpolationDuration(2);
+            // Smooth the head-follow: glide position over a few ticks and ease rotation,
+            // so the array trails the head softly instead of snapping every tick.
+            d.setInterpolationDuration(3);
+            d.setTeleportDuration(3);
             d.setPersistent(false);
         });
     }
 
-    /** Keep the still-pending daggers hovering in a fan in front of the player, aiming where they look. */
+    /**
+     * Keep the still-pending daggers arrayed around the head, always sitting ahead and
+     * pointing forward (first-person: they read as "always in front, always forward").
+     * Position and facing are recomputed from the live look each tick; Display teleport +
+     * transformation interpolation smooth the motion so it follows the head softly rather
+     * than snapping. Teleports use zero yaw/pitch so the world-space transform is preserved.
+     */
     private void positionHoveringDaggers(Player player, DaggerVolley volley) {
         Location eye = player.getEyeLocation();
+        var world = eye.getWorld();
         Vector look = eye.getDirection().normalize();
         Vector right = look.clone().crossProduct(new Vector(0, 1, 0));
         if (right.lengthSquared() < 1.0E-6) {
             right = new Vector(1, 0, 0);
         }
         right.normalize();
-        int n = volley.pending.size();
-        int idx = 0;
+
+        double d = this.plugin.getConfig().getDouble("abilities.astra-daggers.hover-distance", 1.6);
+        Vector fwd = look.clone().multiply(d);
+        Vector rgt = right.clone().multiply(d);
+        Vector down = new Vector(0, -0.2, 0);
+        // Blades hover facing the opposite way (cocked back), flipped 180° from their flight.
+        Vector face = look.clone().rotateAroundY(Math.PI);
+
         for (ItemDisplay dagger : volley.pending) {
-            if (dagger != null && !dagger.isDead()) {
-                double offset = (idx - (n - 1) / 2.0) * 0.6;
-                Location hover = eye.clone()
-                        .add(look.clone().multiply(1.6))
-                        .add(right.clone().multiply(offset))
-                        .add(0, -0.2, 0);
-                Vector flatLook = look.clone();
-                flatLook.setY(0);
-                if (flatLook.lengthSquared() < 1.0E-6) {
-                    flatLook = new Vector(0, 0, 1);
-                }
-                flatLook.normalize();
-                orientDagger(dagger, flatLook);
-                dagger.teleport(hover);
+            if (dagger == null || dagger.isDead()) {
+                continue;
             }
-            idx++;
+            int slot = volley.slot.getOrDefault(dagger, 0);
+            Vector off = switch (slot) {
+                case 1 -> rgt.clone().multiply(-1);          // left
+                case 2 -> rgt.clone();                        // right
+                case 3 -> fwd.clone().subtract(rgt);          // front-left corner
+                case 4 -> fwd.clone().add(rgt);               // front-right corner
+                default -> fwd.clone();                       // slot 0 — dead ahead
+            };
+            off.add(down);
+            Location hover = new Location(world,
+                    eye.getX() + off.getX(), eye.getY() + off.getY(), eye.getZ() + off.getZ(), 0f, 0f);
+            orientDagger(dagger, face);
+            dagger.teleport(hover);
         }
     }
 
     private void launchNextDagger(Player player, DaggerVolley volley) {
         ItemDisplay dagger = volley.pending.pollFirst();
         volley.idleTicks = 0;
-        if (dagger != null && !dagger.isDead()) {
-            flyDagger(player, dagger);
+        if (dagger != null) {
+            volley.slot.remove(dagger);
+            if (!dagger.isDead()) {
+                flyDagger(player, dagger);
+            }
         }
         if (volley.pending.isEmpty()) {
             if (volley.task != null) {
@@ -295,11 +321,15 @@ public class AstraAbilities implements GemAbilityHandler {
         final double speed = this.plugin.getConfig().getDouble("abilities.astra-daggers.speed", 1.1);
         final double range = this.plugin.getConfig().getInt("abilities.astra-daggers.range", 30);
         final double damage = this.plugin.getConfigManager().getAbilityDamage("astra-daggers");
+        final Vector step = dir.clone().multiply(speed);
+        // Flight must be crisp — drop the hover glide so the projectile doesn't lag its path.
+        dagger.setTeleportDuration(0);
         orientDagger(dagger, dir);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.6f);
 
         new BukkitRunnable() {
-            final Location loc = player.getEyeLocation().add(dir.clone().multiply(1.2));
+            final Location loc = zeroRot(player.getEyeLocation().add(dir.clone().multiply(1.2)));
+            final Particle.DustOptions trailDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.9f);
             double travelled = 0;
 
             @Override
@@ -315,7 +345,7 @@ public class AstraAbilities implements GemAbilityHandler {
                     return;
                 }
 
-                loc.add(dir.clone().multiply(speed));
+                loc.add(step);
                 travelled += speed;
 
                 if (loc.getBlock().getType().isSolid()) {
@@ -326,15 +356,12 @@ public class AstraAbilities implements GemAbilityHandler {
                 }
 
                 for (Entity entity : loc.getWorld().getNearbyEntities(loc, 0.6, 0.6, 0.6)) {
-                    if (!(entity instanceof LivingEntity) || entity == player) {
+                    if (!(entity instanceof LivingEntity target) || entity == player) {
                         continue;
                     }
-                    LivingEntity target = (LivingEntity) entity;
-                    if (entity instanceof Player) {
-                        Player tp = (Player) entity;
-                        if (!player.canSee(tp) || plugin.getTrustedPlayersManager().isTrusted(player, tp)) {
-                            continue;
-                        }
+                    if (entity instanceof Player tp
+                            && (!player.canSee(tp) || plugin.getTrustedPlayersManager().isTrusted(player, tp))) {
+                        continue;
                     }
                     target.damage(damage, (Entity) player);
                     onDaggerHit(player, target);
@@ -345,9 +372,9 @@ public class AstraAbilities implements GemAbilityHandler {
                 }
 
                 dagger.teleport(loc);
-                Particle.DustOptions purple = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 0.9f);
-                loc.getWorld().spawnParticle(Particle.DUST, loc, 3, 0.05, 0.05, 0.05, 0.0, purple, true);
-                loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 2, 0.03, 0.03, 0.03, 0.01);
+                var world = loc.getWorld();
+                world.spawnParticle(Particle.DUST, loc, 3, 0.05, 0.05, 0.05, 0.0, trailDust, true);
+                world.spawnParticle(Particle.REVERSE_PORTAL, loc, 2, 0.03, 0.03, 0.03, 0.01);
             }
 
             private void impact(Location at, boolean hit) {
@@ -374,6 +401,13 @@ public class AstraAbilities implements GemAbilityHandler {
         }
     }
 
+    /** Strip yaw/pitch off a location so a FIXED display's world-space transformation is preserved on teleport. */
+    private static Location zeroRot(Location l) {
+        l.setYaw(0f);
+        l.setPitch(0f);
+        return l;
+    }
+
     /** Align the dagger model's +Y axis to the given direction (best-effort; tweak model-scale in config). */
     private void orientDagger(ItemDisplay dagger, Vector dir) {
         float scale = (float) this.plugin.getConfig().getDouble("abilities.astra-daggers.model-scale", 1.4);
@@ -387,9 +421,20 @@ public class AstraAbilities implements GemAbilityHandler {
         if (d.lengthSquared() < 1.0E-6) {
             d = new Vector(0, 0, 1);
         }
-        Quaternionf rot = new Quaternionf().rotationTo(
-                new Vector3f(0f, 1f, 0f),
-                new Vector3f((float) d.getX(), (float) d.getY(), (float) d.getZ()).normalize());
+        // Build a stable orientation: model +Y aligns to the aim, and roll is pinned to
+        // world-up so the blade never spins about its own axis as the head turns.
+        Vector3f yAxis = new Vector3f((float) d.getX(), (float) d.getY(), (float) d.getZ()).normalize();
+        Vector3f xAxis = new Vector3f(0f, 1f, 0f).cross(yAxis);
+        if (xAxis.lengthSquared() < 1.0E-6f) {
+            xAxis.set(1f, 0f, 0f);   // aim is vertical — pick any stable right axis
+        } else {
+            xAxis.normalize();
+        }
+        Vector3f zAxis = new Vector3f(yAxis).cross(xAxis).normalize();
+        Quaternionf rot = new Matrix3f(xAxis, yAxis, zAxis).getNormalizedRotation(new Quaternionf());
+        // Start easing toward the new facing immediately (paired with the spawn-set
+        // interpolation-duration), so head turns rotate the blades smoothly.
+        dagger.setInterpolationDelay(0);
         dagger.setTransformation(new Transformation(
                 new Vector3f(0f, 0f, 0f),
                 rot,
@@ -414,6 +459,11 @@ public class AstraAbilities implements GemAbilityHandler {
     /** Per-player state for a set of conjured daggers waiting to be launched. */
     private static final class DaggerVolley {
         final Deque<ItemDisplay> pending = new ArrayDeque<>();
+        // Formation slot (0 ahead, 1 left, 2 right, 3 front-left, 4 front-right). The
+        // hover position/orientation are recomputed from the live look each tick, but
+        // Display interpolation smooths the motion so they follow the head softly
+        // instead of snapping tick-to-tick.
+        final Map<ItemDisplay, Integer> slot = new HashMap<>();
         BukkitTask task;
         int idleTicks;
     }
@@ -647,8 +697,9 @@ public class AstraAbilities implements GemAbilityHandler {
 
         voidActivePlayers.add(uuid);
 
-        // Massive activation visual — dome of Astra purple
+        // Massive activation visual — dome of Astra purple + the void bubble snapping in.
         ParticleUtils.drawDome(center, ParticleUtils.ASTRA_PURPLE, 1.2f, radius);
+        drawVoidSphere(player.getLocation(), Math.min(radius, 2.8), 0);
         player.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.5f);
         player.playSound(center, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
 
@@ -693,29 +744,22 @@ public class AstraAbilities implements GemAbilityHandler {
                     }
                 }
 
-                // Visual dome every 10 ticks
+                // Purple void bubble hugging the caster + white swirls — rendered often so it
+                // reads as a solid, glowing sphere rather than a flickering shell.
+                if (ticksElapsed % 4 == 0) {
+                    drawVoidSphere(player.getLocation(), Math.min(radius, 2.8), ticksElapsed * 0.12);
+                }
+
+                // Ground circle marking the true nullify radius, every 10 ticks — violet only.
                 if (ticksElapsed % 10 == 0) {
                     Location playerLoc = player.getLocation();
                     Particle.DustOptions voidDust = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.0f);
-                    // Ground circle
                     for (int i = 0; i < 32; i++) {
                         double angle = (i / 32.0) * 2 * Math.PI;
                         double x = Math.cos(angle) * radius;
                         double z = Math.sin(angle) * radius;
                         playerLoc.getWorld().spawnParticle(Particle.DUST,
                             playerLoc.clone().add(x, 0.3, z), 2, 0.1, 0.1, 0.1, 0.0, voidDust, true);
-                        playerLoc.getWorld().spawnParticle(Particle.REVERSE_PORTAL,
-                            playerLoc.clone().add(x, 0.8, z), 1, 0.1, 0.1, 0.1, 0.01);
-                    }
-                    // Vertical pillars at cardinal points
-                    for (int dir = 0; dir < 4; dir++) {
-                        double angle = dir * Math.PI / 2;
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-                        for (double y = 0; y < 3; y += 0.5) {
-                            playerLoc.getWorld().spawnParticle(Particle.SOUL,
-                                playerLoc.clone().add(x, y, z), 1, 0.05, 0.1, 0.05, 0.01);
-                        }
                     }
                 }
 
@@ -735,6 +779,55 @@ public class AstraAbilities implements GemAbilityHandler {
             player.sendMessage(msg);
         }
         player.sendMessage("\u00a7d\u00a7oDimensional Void active for " + durationSeconds + "s. Enemy abilities nullified in " + (int) radius + " block radius.");
+    }
+
+    /**
+     * Purple Astra "void bubble" — a spherical shell of enchant-purple dust with a
+     * couple of bright white swirl lines coiling around it. {@code phase} rotates the
+     * swirls each call so the bubble looks alive. Radius is kept small (body-sized)
+     * so it reads as an aura around the caster, not a giant mesh.
+     */
+    private void drawVoidSphere(Location center, double sphereRadius, double phase) {
+        var world = center.getWorld();
+        if (world == null) {
+            return;
+        }
+        Particle.DustOptions purple = new Particle.DustOptions(ParticleUtils.ASTRA_PURPLE, 1.1f);
+        // Centre the bubble on the caster's body rather than their feet.
+        Location mid = center.clone().add(0, sphereRadius * 0.9, 0);
+
+        // Dense purple shell: stacked latitude rings.
+        int rings = 10;
+        for (int r = 1; r < rings; r++) {
+            double theta = Math.PI * r / rings;
+            double ringRadius = sphereRadius * Math.sin(theta);
+            double y = sphereRadius * Math.cos(theta);
+            int pts = Math.max(10, (int) (ringRadius * 13));
+            for (int i = 0; i < pts; i++) {
+                double a = (i / (double) pts) * 2 * Math.PI;
+                double x = Math.cos(a) * ringRadius;
+                double z = Math.sin(a) * ringRadius;
+                world.spawnParticle(Particle.DUST, mid.clone().add(x, y, z), 1, 0, 0, 0, 0.0, purple, true);
+            }
+        }
+
+        // Bright-white SWIRLS (not a cage): a few pole-to-pole spirals that coil around the
+        // ball, so the white reads as curling streaks. END_ROD glows like the reference.
+        int swirls = 3;
+        int spiralPts = 64;
+        double turns = 2.0;
+        for (int s = 0; s < swirls; s++) {
+            double startAngle = phase + s * (2 * Math.PI / swirls);
+            for (int i = 0; i < spiralPts; i++) {
+                double t = i / (double) (spiralPts - 1);          // 0..1 bottom→top
+                double y = (t - 0.5) * 2.0 * sphereRadius * 0.95; // near pole to pole
+                double rr = Math.sqrt(Math.max(0.0, sphereRadius * sphereRadius - y * y));
+                double a = t * turns * 2 * Math.PI + startAngle;  // wrap around while rising
+                double x = Math.cos(a) * rr;
+                double z = Math.sin(a) * rr;
+                world.spawnParticle(Particle.END_ROD, mid.clone().add(x, y, z), 0, 0, 0, 0, 0.0);
+            }
+        }
     }
 
     private void endVoid(Player player) {

@@ -18,10 +18,10 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -55,8 +55,8 @@ public class WealthAbilities implements GemAbilityHandler {
 
     public WealthAbilities(BlissGems plugin) {
         this.plugin = plugin;
-        this.pocketsInventories = new HashMap<UUID, Inventory>();
-        this.autoSmeltEnabled = new HashMap<UUID, Boolean>();
+        this.pocketsInventories = new HashMap<>();
+        this.autoSmeltEnabled = new HashMap<>();
         this.pocketsDataFolder = new File(plugin.getDataFolder(), "pockets");
         if (!this.pocketsDataFolder.exists()) {
             this.pocketsDataFolder.mkdirs();
@@ -91,13 +91,21 @@ public class WealthAbilities implements GemAbilityHandler {
         this.amplification(player);
     }
 
+    /** Shared tier gate: messages the player and returns false when they are below Tier 2. */
+    private boolean requireTier2(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) >= 2) {
+            return true;
+        }
+        player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        return false;
+    }
+
     public void pockets(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (!requireTier2(player)) {
             return;
         }
         Inventory pockets = this.pocketsInventories.computeIfAbsent(player.getUniqueId(), uuid -> {
-            Inventory inv = Bukkit.createInventory(null, (int)9, (String)"\u00a76\u00a7lPockets");
+            Inventory inv = Bukkit.createInventory(null, 9, "\u00a76\u00a7lPockets");
             loadPocketsInventory(player.getUniqueId(), inv);
             return inv;
         });
@@ -106,42 +114,36 @@ public class WealthAbilities implements GemAbilityHandler {
     }
 
     public void unfortunate(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (!requireTier2(player)) {
             return;
         }
-        Entity entity2;
         String abilityKey = "wealth-unfortunate";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
         RayTraceResult target = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 15.0, entity -> entity instanceof Player && entity != player);
-        if (target == null || !((entity2 = target.getHitEntity()) instanceof Player)) {
+        if (target == null || !(target.getHitEntity() instanceof Player targetPlayer)) {
             player.sendMessage("\u00a7cNo player target found!");
             return;
         }
-        Player targetPlayer = (Player)entity2;
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-unfortunate");
 
-        // Add target to unfortunate set (disables actions)
+        // Membership in this set is what actually disables the target's actions (PassiveListener).
         UUID targetUUID = targetPlayer.getUniqueId();
         unfortunatePlayers.add(targetUUID);
 
-        // Schedule removal after duration
-        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             unfortunatePlayers.remove(targetUUID);
             if (targetPlayer.isOnline()) {
                 targetPlayer.sendMessage("\u00a7a\u00a7oUnfortunate has worn off.");
             }
         }, duration * 20L);
 
-        // Particles + sound
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, greenDust, true);
         targetPlayer.getWorld().spawnParticle(Particle.SMOKE, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITCH_CELEBRATE, 1.0f, 0.8f);
 
-        // Notify target
         targetPlayer.sendMessage("\u00a7c\u00a7oYou've been afflicted with Unfortunate! Actions disabled for " + duration + "s!");
 
         this.plugin.getAbilityManager().useAbility(player, abilityKey);
@@ -149,8 +151,7 @@ public class WealthAbilities implements GemAbilityHandler {
     }
 
     public void itemLock(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (!requireTier2(player)) {
             return;
         }
         String abilityKey = "wealth-item-lock";
@@ -158,11 +159,10 @@ public class WealthAbilities implements GemAbilityHandler {
             return;
         }
         RayTraceResult target = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 15.0, entity -> entity instanceof Player && entity != player);
-        if (target == null || !(target.getHitEntity() instanceof Player)) {
+        if (target == null || !(target.getHitEntity() instanceof Player targetPlayer)) {
             player.sendMessage("\u00a7cNo player target found!");
             return;
         }
-        Player targetPlayer = (Player)target.getHitEntity();
         ItemStack targetItem = targetPlayer.getInventory().getItemInMainHand();
 
         if (targetItem == null || targetItem.getType().isAir()) {
@@ -170,26 +170,23 @@ public class WealthAbilities implements GemAbilityHandler {
             return;
         }
 
-        // Lock the target's held item
+        // Snapshot the held item: the listener matches by isSimilar, so it must be a copy.
         UUID targetUUID = targetPlayer.getUniqueId();
         itemLockedPlayers.put(targetUUID, targetItem.clone());
 
         int duration = this.plugin.getConfig().getInt("abilities.durations.wealth-item-lock", 10);
 
-        // Schedule removal after duration
-        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             itemLockedPlayers.remove(targetUUID);
             if (targetPlayer.isOnline()) {
                 targetPlayer.sendMessage("\u00a7a\u00a7oItem Lock has worn off.");
             }
         }, duration * 20L);
 
-        // Particles + sound
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, greenDust, true);
         targetPlayer.playSound(targetPlayer.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 0.5f);
 
-        // Get item name for message
         String itemName = targetItem.getType().name().toLowerCase().replace('_', ' ');
         if (targetItem.hasItemMeta() && targetItem.getItemMeta().hasDisplayName()) {
             itemName = targetItem.getItemMeta().getDisplayName();

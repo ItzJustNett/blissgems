@@ -29,17 +29,14 @@ public class AutoEnchantManager {
 
     private final Plugin plugin;
     private final Map<String, EnchantmentRule> rules;
-    private final NamespacedKey autoEnchantKey;
     private BukkitTask updateTask;
     private boolean enabled;
 
     public AutoEnchantManager(Plugin plugin) {
         this.plugin = plugin;
         this.rules = new HashMap<>();
-        this.autoEnchantKey = new NamespacedKey(plugin, "auto_enchant");
         this.enabled = true;
 
-        // Start periodic update task
         startUpdateTask();
     }
 
@@ -82,7 +79,6 @@ public class AutoEnchantManager {
             return;
         }
 
-        // Find all gems in player's inventory
         Set<String> gemsInInventory = findGemsInInventory(player);
 
         for (EquipmentSlot slot : PLAYER_SLOTS) {
@@ -118,27 +114,19 @@ public class AutoEnchantManager {
             return;
         }
 
-        // Collect all enchantments that should be applied
         Map<Enchantment, Integer> enchantsToApply = new HashMap<>();
 
         for (String gemId : gemsInInventory) {
             EnchantmentRule rule = rules.get(gemId);
             if (rule != null && rule.hasEnchantsForSlot(slot)) {
-                Map<Enchantment, Integer> ruleEnchants = rule.getEnchantsForSlot(slot);
-                for (Map.Entry<Enchantment, Integer> entry : ruleEnchants.entrySet()) {
-                    Enchantment enchant = entry.getKey();
-                    int level = entry.getValue();
-
+                for (Map.Entry<Enchantment, Integer> entry : rule.getEnchantsForSlot(slot).entrySet()) {
                     // Take highest level if multiple gems provide same enchant
-                    enchantsToApply.merge(enchant, level, Math::max);
+                    enchantsToApply.merge(entry.getKey(), entry.getValue(), Math::max);
                 }
             }
         }
 
-        // Remove auto-enchants that are no longer needed
         removeOutdatedAutoEnchants(item, enchantsToApply);
-
-        // Apply new auto-enchants
         applyAutoEnchants(item, enchantsToApply);
     }
 
@@ -152,23 +140,24 @@ public class AutoEnchantManager {
         }
 
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
-        Map<Enchantment, Integer> currentEnchants = meta.getEnchants();
 
-        for (Enchantment enchant : new HashSet<>(currentEnchants.keySet())) {
-            // Check if this is an auto-enchant
-            NamespacedKey enchantKey = new NamespacedKey(plugin, "auto_" + enchant.getKey().getKey());
+        for (Enchantment enchant : new HashSet<>(meta.getEnchants().keySet())) {
+            NamespacedKey enchantKey = autoEnchantKey(enchant);
 
-            if (pdc.has(enchantKey, PersistentDataType.BYTE)) {
-                // This is an auto-enchant
-                if (!newEnchants.containsKey(enchant)) {
-                    // Should be removed
-                    meta.removeEnchant(enchant);
-                    pdc.remove(enchantKey);
-                }
+            if (pdc.has(enchantKey, PersistentDataType.BYTE) && !newEnchants.containsKey(enchant)) {
+                meta.removeEnchant(enchant);
+                pdc.remove(enchantKey);
             }
         }
 
         item.setItemMeta(meta);
+    }
+
+    /**
+     * Key marking an enchantment as auto-applied (rather than player-owned).
+     */
+    private NamespacedKey autoEnchantKey(Enchantment enchant) {
+        return new NamespacedKey(plugin, "auto_" + enchant.getKey().getKey());
     }
 
     /**
@@ -191,19 +180,15 @@ public class AutoEnchantManager {
             Enchantment enchant = entry.getKey();
             int level = entry.getValue();
 
-            // Check if item already has this enchantment
             int currentLevel = meta.getEnchantLevel(enchant);
-            NamespacedKey enchantKey = new NamespacedKey(plugin, "auto_" + enchant.getKey().getKey());
-
+            NamespacedKey enchantKey = autoEnchantKey(enchant);
             boolean isAutoEnchant = pdc.has(enchantKey, PersistentDataType.BYTE);
 
             if (currentLevel == 0) {
-                // No enchant exists, apply it
                 meta.addEnchant(enchant, level, true);
                 pdc.set(enchantKey, PersistentDataType.BYTE, (byte) 1);
                 modified = true;
             } else if (isAutoEnchant && currentLevel != level) {
-                // Update auto-enchant level
                 meta.removeEnchant(enchant);
                 meta.addEnchant(enchant, level, true);
                 modified = true;
@@ -238,11 +223,10 @@ public class AutoEnchantManager {
         }
 
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
-        Map<Enchantment, Integer> enchants = meta.getEnchants();
         boolean modified = false;
 
-        for (Enchantment enchant : new HashSet<>(enchants.keySet())) {
-            NamespacedKey enchantKey = new NamespacedKey(plugin, "auto_" + enchant.getKey().getKey());
+        for (Enchantment enchant : new HashSet<>(meta.getEnchants().keySet())) {
+            NamespacedKey enchantKey = autoEnchantKey(enchant);
 
             if (pdc.has(enchantKey, PersistentDataType.BYTE)) {
                 meta.removeEnchant(enchant);
@@ -277,7 +261,6 @@ public class AutoEnchantManager {
         this.enabled = enabled;
 
         if (!enabled) {
-            // Clear all auto-enchants when disabled
             for (Player player : plugin.getServer().getOnlinePlayers()) {
                 clearPlayerEnchantments(player);
             }
@@ -299,7 +282,6 @@ public class AutoEnchantManager {
             updateTask.cancel();
         }
 
-        // Clear all auto-enchants
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             clearPlayerEnchantments(player);
         }

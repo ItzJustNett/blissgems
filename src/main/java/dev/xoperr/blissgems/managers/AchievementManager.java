@@ -34,18 +34,22 @@ public class AchievementManager {
 
     public Set<Achievement> getUnlocked(Player player) {
         UUID uuid = player.getUniqueId();
-        if (!unlockedCache.containsKey(uuid)) {
+        Set<Achievement> unlocked = unlockedCache.get(uuid);
+        if (unlocked == null) {
             loadPlayerData(player);
+            unlocked = unlockedCache.get(uuid);
         }
-        return unlockedCache.getOrDefault(uuid, new HashSet<>());
+        return unlocked;
     }
 
     public int getProgress(Player player, Achievement achievement) {
         UUID uuid = player.getUniqueId();
-        if (!progressCache.containsKey(uuid)) {
+        Map<Achievement, Integer> progress = progressCache.get(uuid);
+        if (progress == null) {
             loadPlayerData(player);
+            progress = progressCache.get(uuid);
         }
-        return progressCache.getOrDefault(uuid, new HashMap<>()).getOrDefault(achievement, 0);
+        return progress.getOrDefault(achievement, 0);
     }
 
     /**
@@ -56,9 +60,7 @@ public class AchievementManager {
 
         UUID uuid = player.getUniqueId();
         Map<Achievement, Integer> playerProgress = progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
-        int current = playerProgress.getOrDefault(achievement, 0);
-        int newProgress = current + amount;
-        playerProgress.put(achievement, newProgress);
+        int newProgress = playerProgress.merge(achievement, amount, Integer::sum);
 
         if (newProgress >= achievement.getTargetProgress()) {
             unlock(player, achievement);
@@ -94,7 +96,6 @@ public class AchievementManager {
         Map<Achievement, Integer> playerProgress = progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
         playerProgress.put(achievement, achievement.getTargetProgress());
 
-        // Notification
         player.sendMessage("\u00a76\u00a7l\u2b50 ACHIEVEMENT UNLOCKED! \u00a7e" + achievement.getDisplayName());
         player.sendMessage("\u00a77\u00a7o" + achievement.getDescription());
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
@@ -130,8 +131,8 @@ public class AchievementManager {
         File file = new File(dataFolder, uuid + ".yml");
         FileConfiguration data = new YamlConfiguration();
 
-        Map<Achievement, Integer> progress = progressCache.getOrDefault(uuid, new HashMap<>());
-        Set<Achievement> unlocked = unlockedCache.getOrDefault(uuid, new HashSet<>());
+        Map<Achievement, Integer> progress = progressCache.getOrDefault(uuid, Collections.emptyMap());
+        Set<Achievement> unlocked = unlockedCache.getOrDefault(uuid, Collections.emptySet());
 
         for (Achievement achievement : Achievement.values()) {
             String key = achievement.name().toLowerCase();
