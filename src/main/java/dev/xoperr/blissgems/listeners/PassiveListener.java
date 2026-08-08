@@ -122,7 +122,7 @@ implements Listener {
         if (!this.canUsePassives(player)) {
             return;
         }
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.ASTRA);
         double phaseChance = this.plugin.getConfigManager().getPhaseChance(tier);
         if (Math.random() < phaseChance) {
             event.setCancelled(true);
@@ -154,7 +154,7 @@ implements Listener {
             return;
         }
         if (Tag.ENTITY_TYPES_SENSITIVE_TO_SMITE.isTagged(victim.getType())) {
-            int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+            int tier = this.plugin.getGemManager().getTierFor(player, GemType.LIFE);
             double multiplier = this.plugin.getConfigManager().getUndeadDamageMultiplier(tier);
             event.setDamage(event.getDamage() * multiplier);
         }
@@ -325,7 +325,7 @@ implements Listener {
         jumpsRemaining.put(uuid, remaining - 1);
 
         // Apply jump velocity
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.PUFF);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
@@ -456,7 +456,7 @@ implements Listener {
         int foodLevelAfter = event.getFoodLevel();
         if (foodLevelAfter > foodLevelBefore) {
             int gain = foodLevelAfter - foodLevelBefore;
-            int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+            int tier = this.plugin.getGemManager().getTierFor(player, GemType.LIFE);
             float saturationGain = (float)gain * (float)this.plugin.getConfigManager().getSaturationMultiplier(tier);
             player.setSaturation(player.getSaturation() + saturationGain);
         }
@@ -497,7 +497,7 @@ implements Listener {
         LivingEntity target = (LivingEntity) hitEntity;
 
         // Deal electric damage based on tier
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.FLUX);
         double shockDamage = this.plugin.getConfigManager().getShockingArrowDamage(tier);
         target.damage(shockDamage, player);
 
@@ -538,7 +538,7 @@ implements Listener {
 
         // Check if sculk immunity is enabled for this tier
         int tier = inOffhand
-            ? this.plugin.getGemManager().getTierFromOffhand(player)
+            ? this.plugin.getGemManager().getTierFor(player, GemType.PUFF)
             : GemType.getTierFromOraxenId(CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand()));
         if (!this.plugin.getConfigManager().isSculkImmunity(tier)) {
             return;
@@ -739,7 +739,7 @@ implements Listener {
         if (!this.canUsePassives(player)) return;
 
         // Get tier
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.STRENGTH);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
@@ -802,7 +802,7 @@ implements Listener {
         if (!this.canUsePassives(player)) return;
 
         // Get tier for config lookup
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
@@ -855,7 +855,7 @@ implements Listener {
         if (!hasWealth) return;
         if (!this.canUsePassives(player)) return;
 
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
@@ -904,7 +904,7 @@ implements Listener {
         if (!hasWealth) return;
         if (!this.canUsePassives(player)) return;
 
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);
@@ -1096,7 +1096,7 @@ implements Listener {
         if (!this.canUsePassives(player)) return;
 
         // Chad Strength is T2 only
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierFor(player, GemType.STRENGTH);
         if (tier == 0) {
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             String oraxenId = CustomItemManager.getIdByItem(mainHand);

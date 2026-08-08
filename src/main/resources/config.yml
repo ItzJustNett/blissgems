@@ -55,6 +55,12 @@ gems:
   # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
   drop-upgrader-on-tier2-death: false
 
+  # Gems listed here are left in the death drops instead of being kept and handed back on
+  # respawn — losing a fight to someone means losing the gem to them. Use the plain gem id,
+  # with no tier suffix. Everything not listed stays soulbound.
+  # Example: [heretic, auratus, gold]
+  droppable-on-death: []
+
 # ==========================================
 # WORLDGUARD INTEGRATION
 # ==========================================
@@ -478,7 +484,36 @@ gold:
   summon:
     # Seven Wire Fragments bound by a Fragment Core craft the Gold Gem. Turn this off if the
     # gem should only ever be handed out by staff (/bliss give <player> gold).
+    # The shape and ingredients themselves live in recipes.yml.
     recipe-enabled: true
+    # The Gold Gem is a one-time event: once someone crafts it, the recipe never produces
+    # another. Set to false to let it be crafted again after it is lost.
+    once-per-server: true
+  harvest-ceremony:
+    # The blow that would kill a gem holder is caught, both players are pinned in place, and
+    # the stolen gem rises between them before the kill goes through. Turn this off and the
+    # gem is simply taken on death with no animation.
+    enabled: true
+    # How long the whole thing lasts, in ticks. 80 = 4 seconds.
+    duration-ticks: 80
+    # How far the gem climbs while it is being torn out.
+    rise-height: 3.0
+    # Wash both screens in the stolen gem's colour for the duration.
+    screen-tint: true
+  death:
+    # Dying hands every stolen gem back to the player it was taken from.
+    return-souls: true
+    # ...and leaves the holder's own Gold Gem Broken, so it has to be restored with a
+    # Restoration Book before it does anything at all.
+    break-gem: true
+  armour-trim:
+    # Gild the holder's armour while they carry the gem. Armour the player has already
+    # trimmed themselves is left alone, and this plugin's gilding is removed again when the
+    # gem's power is lost.
+    enabled: true
+    # Any vanilla trim pattern: SENTRY, EYE, VEX, WARD, SILENCE, TIDE, SNOUT, RIB, SPIRE,
+    # WAYFINDER, SHAPER, RAISER, HOST, DUNE, COAST, WILD.
+    pattern: SENTRY
   # Gem fragments dropped when a harvested gem is shattered.
   shards-per-harvest: 3
   beam:
@@ -618,6 +653,10 @@ messages:
   gold-soul-too-weak: "&c&oThe {gem} soul was taken at Tier 1, it has no second power to give."
   gold-progress-reset: "&c&oYour Gold Gem went dark. Every harvested soul is lost."
   gold-awakened: "&6&lThe Gold Gem in {player}'s hands has awakened. Eight souls are one."
+  gold-gem-broken: "&c&oYour Gold Gem shattered on death. Restore it with a Restoration Book."
+  gold-soul-returned: "&a&oYour gem was torn back out of {player}'s Gold Gem. The {gem} is yours again."
+  gold-summoned: "&6&lThe Gold Gem has been summoned by {player}. There will not be another."
+  gold-already-summoned: "&c&oThe Gold Gem has already been summoned. There is only ever one."
   gold-beam-charging: "&6&oThe beam is gathering..."
   gold-beam-cooldown: "&6Sundering Beam &7on cooldown: &c{seconds}s"
   gold-beam-cancelled: "&7&oYou let the beam disperse."
