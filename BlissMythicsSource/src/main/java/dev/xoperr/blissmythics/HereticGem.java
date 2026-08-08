@@ -72,6 +72,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double bloodlinkMinRise;
    private final int bloodlinkMaxHits;
    private final int sawDragTicks;
+   private final int bloodsawMaxBounces;
+   private final int bloodsawLifeTicks;
 
    public HereticGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -93,6 +95,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.bloodlinkMinRise = var1.getConfig().getDouble("heretic.bloodlink-min-rise", 2.7);
       this.bloodlinkMaxHits = var1.getConfig().getInt("heretic.bloodlink-max-hits", 0);
       this.sawDragTicks = var1.getConfig().getInt("heretic.bloodsaw-drag-ticks", 20);
+      this.bloodsawMaxBounces = var1.getConfig().getInt("heretic.bloodsaw-max-bounces", 3);
+      this.bloodsawLifeTicks = var1.getConfig().getInt("heretic.bloodsaw-life-ticks", 60);
       (new BukkitRunnable() {
          public void run() {
             HereticGem.this.bleedTick();
@@ -175,20 +179,20 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          }
 
          public void run() {
-            if (++this.life <= 60 && var1.isOnline()) {
+            if (++this.life <= HereticGem.this.bloodsawLifeTicks && var1.isOnline()) {
                for (int var1x = 0; var1x < 2; var1x++) {
                   Location var2x = var3[0].clone().add(var2[0].clone().multiply(0.45));
                   Block var3x = var2x.getBlock();
                   breakCobwebsAround(var2x);
                   if (var3x.getType().isSolid()) {
-                     if (++this.bounces > 3) {
+                     if (++this.bounces > HereticGem.this.bloodsawMaxBounces) {
                         this.cancel();
                         return;
                      }
 
                      // A bounced saw must not camp in the fight area (trees, walls) and hit
                      // players who are knocked into it seconds later - cut its remaining life.
-                     this.life = Math.max(this.life, 48);
+                     this.life = Math.max(this.life, HereticGem.this.bloodsawLifeTicks - 12);
 
                      Vector var4x = var2[0];
                      Location var5x = var3[0].clone().add(new Vector(var4x.getX(), 0.0, 0.0).multiply(0.45));

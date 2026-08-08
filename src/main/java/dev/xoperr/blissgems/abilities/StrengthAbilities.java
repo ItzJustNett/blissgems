@@ -415,6 +415,9 @@ public class StrengthAbilities implements GemAbilityHandler {
             }
         }
 
+        // Tell the tracker whose item they used and who they are now hunting.
+        player.sendMessage("\u00a75\u00a7l\u2620 \u00a7dNow tracking \u00a7f" + targetPlayer.getName() + "\u00a7d.");
+
         // Notify victim
         targetPlayer.sendMessage("\u00a7c\u00a7l\u26a0 \u00a7c\u00a7oYou are being hunted...");
         targetPlayer.playSound(targetPlayer.getLocation(), Sound.ENTITY_WARDEN_NEARBY_CLOSER, 0.7f, 1.5f);

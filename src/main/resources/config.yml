@@ -134,6 +134,10 @@ passives:
   # How often to apply passive effects (in ticks, 20 ticks = 1 second)
   update-interval: 20
 
+  # Also grant gem passives when the gem sits anywhere in the hotbar (not just the
+  # offhand). Helps Bedrock players who can't easily use the offhand slot.
+  apply-in-hotbar: true
+
   # Extra potion effects applied to the player every passive tick while the
   # gem is held in the offhand (stacks on top of built-in passives).
   # Use Bukkit PotionEffectType names (SPEED, NIGHT_VISION, JUMP_BOOST, etc.).

@@ -95,6 +95,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final long slamFallGraceMs;
    private final double haulingStrikePull;
    private final double haulingStrikeLift;
+   private final boolean haulingStrikeEnabled;
+   private final boolean sneakHasteEnabled;
+   private final double slamDecalSize;
 
    public AuratusGem(BlissMythics var1, BlissGemsAPI var2) {
       this.plugin = var1;
@@ -120,6 +123,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.slamFallGraceMs = var1.getConfig().getLong("auratus.slam.fall-grace-ms", 8000L);
       this.haulingStrikePull = var1.getConfig().getDouble("auratus.hauling-strike.pull", 0.5);
       this.haulingStrikeLift = var1.getConfig().getDouble("auratus.hauling-strike.lift", 0.1);
+      this.haulingStrikeEnabled = var1.getConfig().getBoolean("auratus.passives.hauling-strike", true);
+      this.sneakHasteEnabled = var1.getConfig().getBoolean("auratus.passives.sneak-haste", true);
+      this.slamDecalSize = var1.getConfig().getDouble("auratus.slam.decal-size", 3.0);
       Bukkit.getScheduler().runTaskTimer(var1, this::hasteTick, 20L, 20L);
    }
 
@@ -127,6 +133,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    // passive system only runs for offhand gems, so this self-contained task makes the
    // sneak-haste work while the gem is used as a main-hand weapon too.
    private void hasteTick() {
+      if (!this.sneakHasteEnabled) {
+         return;
+      }
       int var1;
       try {
          var1 = this.api.getConfigManager().getPassiveUpdateInterval() + 20;
@@ -696,6 +705,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
          public void run() {
             if (var1.isOnline() && !var1.isDead()) {
                this.peakY = Math.max(this.peakY, var1.getLocation().getY());
+               // Clear cobwebs the caster flies through during the grapple/slam, like the
+               // blood saws do — so a web can't stop the launch mid-air.
+               breakCobwebAt(var1.getLocation());
+               breakCobwebAt(var1.getEyeLocation());
             }
 
             if (++this.ticks > AuratusGem.this.slamWindowMs / 50L || !var1.isOnline() || var1.isDead() || !AuratusGem.isActive(AuratusGem.this.slamWindow, var1.getUniqueId())) {
@@ -773,7 +786,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   new Transformation(
                      new Vector3f(0.0F, 0.0F, 0.0F),
                      new Quaternionf().rotationX((float)Math.toRadians(90.0)),
-                     new Vector3f(3.0F, 3.0F, 3.0F),
+                     new Vector3f((float)this.slamDecalSize, (float)this.slamDecalSize, (float)this.slamDecalSize),
                      new Quaternionf()
                   )
                );
@@ -821,7 +834,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
             if (var3.isValid() && !var3.isDead()) {
                Vector var2x = var2.getLocation().toVector().subtract(var3.getLocation().toVector());
                var2x.setY(0);
-               if (!(var2x.lengthSquared() < 0.01) && this.haulingStrikePull != 0.0) {
+               if (this.haulingStrikeEnabled && !(var2x.lengthSquared() < 0.01) && this.haulingStrikePull != 0.0) {
                   var3.setVelocity(var2x.normalize()
                      .multiply(this.haulingStrikePull)
                      .setY(this.haulingStrikeLift));
