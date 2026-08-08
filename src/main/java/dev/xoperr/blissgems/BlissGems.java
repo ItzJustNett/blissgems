@@ -56,6 +56,7 @@ import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.GemLockManager;
 import dev.xoperr.blissgems.managers.GoldGemManager;
+import dev.xoperr.blissgems.managers.GoldHarvestCeremony;
 import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.managers.GemRitualManager;
 import dev.xoperr.blissgems.managers.AchievementManager;
@@ -114,6 +115,7 @@ implements BlissGemsAPI {
     private SoulManager soulManager;
     private GoldGemManager goldGemManager;
     private GoldAbilities goldAbilities;
+    private GoldHarvestCeremony goldHarvestCeremony;
     private FlowStateManager flowStateManager;
     private GemLockManager gemLockManager;
     private CriticalHitManager criticalHitManager;
@@ -355,6 +357,7 @@ implements BlissGemsAPI {
         try {
             this.goldGemManager = new GoldGemManager(this);
             this.goldAbilities = new GoldAbilities(this);
+            this.goldHarvestCeremony = new GoldHarvestCeremony(this);
         } catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GoldGem ===");
             this.getLogger().severe(e.getMessage());
@@ -492,6 +495,9 @@ implements BlissGemsAPI {
         if (this.reviveBeaconManager != null) {
             this.reviveBeaconManager.cleanup();
         }
+        if (this.goldHarvestCeremony != null) {
+            this.goldHarvestCeremony.cleanup();
+        }
         if (this.pluginMessagingManager != null) {
             this.pluginMessagingManager.shutdown();
         }
@@ -594,6 +600,11 @@ implements BlissGemsAPI {
         if (this.goldAbilities != null) {
             this.getServer().getPluginManager().registerEvents((Listener)this.goldAbilities, (Plugin)this);
         }
+        if (this.goldHarvestCeremony != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)this.goldHarvestCeremony, (Plugin)this);
+        }
+        this.getServer().getPluginManager().registerEvents(
+            (Listener)new dev.xoperr.blissgems.listeners.GoldSummonListener(this), (Plugin)this);
         // Anti-dupe: break the "drop-and-swap" ghost dupe (drop + same-tick hotbar swap).
         dev.xoperr.blissgems.listeners.DropSwapGuard dropSwapGuard = new dev.xoperr.blissgems.listeners.DropSwapGuard(this);
         this.getServer().getPluginManager().registerEvents((Listener)dropSwapGuard, (Plugin)this);
@@ -716,6 +727,10 @@ implements BlissGemsAPI {
 
     public GoldAbilities getGoldAbilities() {
         return this.goldAbilities;
+    }
+
+    public GoldHarvestCeremony getGoldHarvestCeremony() {
+        return this.goldHarvestCeremony;
     }
 
     public SoulManager getSoulManager() {

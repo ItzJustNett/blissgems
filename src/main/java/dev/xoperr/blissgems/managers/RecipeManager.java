@@ -2,20 +2,31 @@ package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
-import dev.xoperr.blissgems.utils.GemType;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Manages custom crafting recipes for BlissGems items
- * Based on Bliss SMP Season 3 recipes
+ * Registers BlissGems' crafting recipes from recipes.yml.
+ *
+ * Every recipe — shape, ingredients, output amount, whether it exists at all — is data.
+ * Server owners retune crafts by editing that file; nothing here is hard-coded beyond the
+ * defaults shipped in the jar, which are written out on first run.
  */
 public class RecipeManager {
+
+    /** Prefix marking an ingredient as a BlissGems custom item rather than a material. */
+    private static final String CUSTOM_PREFIX = "blissgems:";
+
     private final BlissGems plugin;
     private final List<NamespacedKey> registeredRecipes = new ArrayList<>();
 
@@ -24,266 +35,131 @@ public class RecipeManager {
     }
 
     /**
-     * Registers all crafting recipes
+     * Registers every enabled recipe in recipes.yml.
+     *
+     * The legacy {@code crafting.enabled} switch in config.yml still turns the whole system
+     * off, so servers that had crafting disabled stay that way after the upgrade.
      */
     public void registerRecipes() {
-        // Check if recipes are enabled in config
         if (!plugin.getConfig().getBoolean("crafting.enabled", true)) {
             plugin.getLogger().info("Crafting recipes are disabled in config");
             return;
         }
-
-        // Register base items first
-        registerGemFragmentRecipe();
-
-        // Register special items
-        registerGemTraderRecipe();
-        registerRepairKitRecipe();
-        registerReviveBeaconRecipe();
-        registerRestorationBookRecipe();
-        registerPrismaticEdgeRecipe();
-        registerGoldGemRecipe();
-
-        // Register universal upgrader (works for all gem types)
-        registerUpgraderRecipe();
-
+        FileConfiguration recipes = loadRecipeFile();
+        if (!recipes.getBoolean("enabled", true)) {
+            plugin.getLogger().info("Crafting recipes are disabled in recipes.yml");
+            return;
+        }
+        ConfigurationSection section = recipes.getConfigurationSection("recipes");
+        if (section == null) {
+            plugin.getLogger().warning("recipes.yml has no 'recipes' section - no crafts registered");
+            return;
+        }
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection recipe = section.getConfigurationSection(key);
+            if (recipe == null || !recipe.getBoolean("enabled", true)) {
+                continue;
+            }
+            // Predates recipes.yml, and servers that turned the Gold Gem craft off there
+            // must stay turned off after the upgrade.
+            if ("gold_gem".equals(key) && !plugin.getConfig().getBoolean("gold.summon.recipe-enabled", true)) {
+                continue;
+            }
+            register(key, recipe);
+        }
         plugin.getLogger().info("Registered " + registeredRecipes.size() + " custom crafting recipes");
     }
 
-    /**
-     * Gem Fragment Recipe (ingredient for other recipes)
-     * Pattern:
-     *   D A D
-     *   E I E
-     *   D A D
-     * D = Diamond, A = Amethyst Cluster, E = Emerald, I = Iron Block
-     *
-     * Creates a custom gem fragment item (prismarine shard with custom PDC)
-     */
-    private void registerGemFragmentRecipe() {
-        ItemStack gemFragment = CustomItemManager.getItemById("gem_fragment");
-        if (gemFragment == null) {
-            plugin.getLogger().warning("Could not create gem_fragment item - recipe not registered");
+    /** Load recipes.yml, writing the packaged defaults out the first time. */
+    private FileConfiguration loadRecipeFile() {
+        File file = new File(plugin.getDataFolder(), "recipes.yml");
+        if (!file.exists()) {
+            plugin.saveResource("recipes.yml", false);
+        }
+        return YamlConfiguration.loadConfiguration(file);
+    }
+
+    private void register(String key, ConfigurationSection recipe) {
+        String resultId = recipe.getString("result");
+        if (resultId == null) {
+            plugin.getLogger().warning("Recipe '" + key + "' has no result - skipped");
+            return;
+        }
+        ItemStack result = CustomItemManager.getItemById(resultId);
+        if (result == null) {
+            plugin.getLogger().warning("Recipe '" + key + "' produces unknown item '" + resultId + "' - skipped");
+            return;
+        }
+        result.setAmount(Math.max(1, recipe.getInt("amount", 1)));
+
+        List<String> shape = recipe.getStringList("shape");
+        if (shape.isEmpty() || shape.size() > 3) {
+            plugin.getLogger().warning("Recipe '" + key + "' needs a shape of 1-3 rows - skipped");
             return;
         }
 
-        // Set amount to 4 (balanced crafting output)
-        gemFragment.setAmount(4);
+        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
+        ShapedRecipe shaped = new ShapedRecipe(namespacedKey, result);
+        try {
+            shaped.shape(shape.toArray(new String[0]));
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Recipe '" + key + "' has an invalid shape: " + e.getMessage());
+            return;
+        }
 
-        NamespacedKey key = new NamespacedKey(plugin, "gem_fragment");
-        ShapedRecipe recipe = new ShapedRecipe(key, gemFragment);
+        ConfigurationSection ingredients = recipe.getConfigurationSection("ingredients");
+        if (ingredients == null) {
+            plugin.getLogger().warning("Recipe '" + key + "' has no ingredients - skipped");
+            return;
+        }
+        for (String symbol : ingredients.getKeys(false)) {
+            if (symbol.length() != 1) {
+                plugin.getLogger().warning("Recipe '" + key + "': ingredient key '" + symbol
+                    + "' must be a single character - skipped");
+                return;
+            }
+            if (!setIngredient(key, shaped, symbol.charAt(0), ingredients.getString(symbol))) {
+                return;
+            }
+        }
 
-        recipe.shape("DAD", "EIE", "DAD");
-        recipe.setIngredient('D', Material.DIAMOND);
-        recipe.setIngredient('A', Material.AMETHYST_CLUSTER);
-        recipe.setIngredient('E', Material.EMERALD);
-        recipe.setIngredient('I', Material.IRON_BLOCK);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
+        try {
+            plugin.getServer().addRecipe(shaped);
+        } catch (IllegalStateException e) {
+            // A recipe key that survived a reload is already registered; leave the live one.
+            plugin.getLogger().warning("Recipe '" + key + "' is already registered - skipped");
+            return;
+        }
+        registeredRecipes.add(namespacedKey);
     }
 
     /**
-     * Gem Trader Recipe
-     * Pattern:
-     *   B D B
-     *   D S D
-     *   B D B
-     * B = Diamond Block, D = Dragon's Breath, S = Sculk Catalyst
+     * Resolve one ingredient onto the recipe. Returns false (having logged why) if the
+     * ingredient can't be resolved, so the caller abandons the whole recipe rather than
+     * registering a craft that is missing a slot.
      */
-    private void registerGemTraderRecipe() {
-        ItemStack gemTrader = CustomItemManager.getItemById("gem_trader");
-        if (gemTrader == null) {
-            plugin.getLogger().warning("Could not create gem_trader item - recipe not registered");
-            return;
+    private boolean setIngredient(String key, ShapedRecipe recipe, char symbol, String value) {
+        if (value == null || value.isBlank()) {
+            plugin.getLogger().warning("Recipe '" + key + "': ingredient '" + symbol + "' has no value");
+            return false;
         }
-
-        NamespacedKey key = new NamespacedKey(plugin, "gem_trader");
-        ShapedRecipe recipe = new ShapedRecipe(key, gemTrader);
-
-        recipe.shape("BDB", "DSD", "BDB");
-        recipe.setIngredient('B', Material.DIAMOND_BLOCK);
-        recipe.setIngredient('D', Material.DRAGON_BREATH);
-        recipe.setIngredient('S', Material.SCULK_CATALYST);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Repair Kit Recipe
-     * Pattern:
-     *   F A F
-     *   N T N
-     *   F A F
-     * F = Gem Fragment (Prismarine Shard), A = Anvil, N = Netherite Ingot, T = Netherite Upgrade Template
-     *
-     * Note: Uses regular prismarine shards as "Gem Fragments"
-     * Players should craft gem fragments first, which produces prismarine shards with custom data
-     */
-    private void registerRepairKitRecipe() {
-        ItemStack repairKit = CustomItemManager.getItemById("repair_kit");
-        if (repairKit == null) {
-            plugin.getLogger().warning("Could not create repair_kit item - recipe not registered");
-            return;
+        if (value.toLowerCase().startsWith(CUSTOM_PREFIX)) {
+            String itemId = value.substring(CUSTOM_PREFIX.length());
+            ItemStack custom = CustomItemManager.getItemById(itemId);
+            if (custom == null) {
+                plugin.getLogger().warning("Recipe '" + key + "': unknown BlissGems item '" + itemId + "'");
+                return false;
+            }
+            recipe.setIngredient(symbol, new RecipeChoice.ExactChoice(custom));
+            return true;
         }
-
-        NamespacedKey key = new NamespacedKey(plugin, "repair_kit");
-        ShapedRecipe recipe = new ShapedRecipe(key, repairKit);
-
-        recipe.shape("FAF", "NTN", "FAF");
-        recipe.setIngredient('F', Material.PRISMARINE_SHARD); // Prismarine Shard = Gem Fragment
-        recipe.setIngredient('A', Material.ANVIL);
-        recipe.setIngredient('N', Material.NETHERITE_INGOT);
-        recipe.setIngredient('T', Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Revive Beacon Recipe
-     * Pattern:
-     *   E T E
-     *   T B T
-     *   E T E
-     * E = Echo Shard, T = Totem of Undying, B = Beacon
-     */
-    private void registerReviveBeaconRecipe() {
-        ItemStack reviveBeacon = CustomItemManager.getItemById("revive_beacon");
-        if (reviveBeacon == null) {
-            plugin.getLogger().warning("Could not create revive_beacon item - recipe not registered");
-            return;
+        Material material = Material.matchMaterial(value.toUpperCase());
+        if (material == null) {
+            plugin.getLogger().warning("Recipe '" + key + "': unknown material '" + value + "'");
+            return false;
         }
-
-        NamespacedKey key = new NamespacedKey(plugin, "revive_beacon");
-        ShapedRecipe recipe = new ShapedRecipe(key, reviveBeacon);
-
-        recipe.shape("ETE", "TBT", "ETE");
-        recipe.setIngredient('E', Material.ECHO_SHARD);
-        recipe.setIngredient('T', Material.TOTEM_OF_UNDYING);
-        recipe.setIngredient('B', Material.BEACON);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Restoration Book Recipe
-     * Pattern:
-     *   F T F
-     *   E N E
-     *   F B F
-     * F = Gem Fragment (Prismarine Shard), T = Totem of Undying, E = Echo Shard,
-     * N = Nether Star, B = Book
-     */
-    private void registerRestorationBookRecipe() {
-        ItemStack restorationBook = CustomItemManager.getItemById("restoration_book");
-        if (restorationBook == null) {
-            plugin.getLogger().warning("Could not create restoration_book item - recipe not registered");
-            return;
-        }
-
-        NamespacedKey key = new NamespacedKey(plugin, "restoration_book");
-        ShapedRecipe recipe = new ShapedRecipe(key, restorationBook);
-
-        recipe.shape("FTF", "ENE", "FBF");
-        recipe.setIngredient('F', Material.PRISMARINE_SHARD); // Prismarine Shard = Gem Fragment
-        recipe.setIngredient('T', Material.TOTEM_OF_UNDYING);
-        recipe.setIngredient('E', Material.ECHO_SHARD);
-        recipe.setIngredient('N', Material.NETHER_STAR);
-        recipe.setIngredient('B', Material.BOOK);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Prismatic Edge Recipe
-     * Pattern:
-     *   . F .
-     *   . S .
-     *   E N E
-     * F = Gem Fragment (Prismarine Shard), S = Netherite Sword, E = Echo Shard, N = Nether Star
-     */
-    private void registerPrismaticEdgeRecipe() {
-        ItemStack prismaticEdge = CustomItemManager.getItemById("prismatic_edge");
-        if (prismaticEdge == null) {
-            plugin.getLogger().warning("Could not create prismatic_edge item - recipe not registered");
-            return;
-        }
-
-        NamespacedKey key = new NamespacedKey(plugin, "prismatic_edge");
-        ShapedRecipe recipe = new ShapedRecipe(key, prismaticEdge);
-
-        recipe.shape(" F ", " S ", "ENE");
-        recipe.setIngredient('F', Material.PRISMARINE_SHARD); // Prismarine Shard = Gem Fragment
-        recipe.setIngredient('S', Material.NETHERITE_SWORD);
-        recipe.setIngredient('E', Material.ECHO_SHARD);
-        recipe.setIngredient('N', Material.NETHER_STAR);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Gold Gem summon
-     * Pattern:
-     *   W W W
-     *   W C W
-     *   W   W
-     * W = Wire Fragment, C = Fragment Core - seven fragments bound by the core.
-     *
-     * Unlike the other recipes this one matches on the exact custom items rather than their
-     * base materials: a gem this powerful must not fall out of seven plain lightning rods.
-     */
-    private void registerGoldGemRecipe() {
-        if (!plugin.getConfig().getBoolean("gold.summon.recipe-enabled", true)) {
-            return;
-        }
-        ItemStack goldGem = CustomItemManager.getItemById("gold_gem_t1");
-        ItemStack wire = CustomItemManager.getItemById("wire_fragment");
-        ItemStack core = CustomItemManager.getItemById("fragment_core");
-        if (goldGem == null || wire == null || core == null) {
-            plugin.getLogger().warning("Could not create Gold Gem components - summon recipe not registered");
-            return;
-        }
-
-        NamespacedKey key = new NamespacedKey(plugin, "gold_gem");
-        ShapedRecipe recipe = new ShapedRecipe(key, goldGem);
-
-        recipe.shape("WWW", "WCW", "W W");
-        recipe.setIngredient('W', new org.bukkit.inventory.RecipeChoice.ExactChoice(wire));
-        recipe.setIngredient('C', new org.bukkit.inventory.RecipeChoice.ExactChoice(core));
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
-    }
-
-    /**
-     * Universal Gem Upgrader Recipe (works for ALL gem types)
-     * Pattern:
-     *   B B B
-     *   B S B
-     *   B B B
-     * B = Diamond Block, S = Nether Star
-     */
-    private void registerUpgraderRecipe() {
-        ItemStack upgrader = CustomItemManager.getItemById("gem_upgrader");
-        if (upgrader == null) {
-            plugin.getLogger().warning("Could not create gem_upgrader - recipe not registered");
-            return;
-        }
-
-        NamespacedKey key = new NamespacedKey(plugin, "gem_upgrader");
-        ShapedRecipe recipe = new ShapedRecipe(key, upgrader);
-
-        recipe.shape("BBB", "BSB", "BBB");
-        recipe.setIngredient('B', Material.DIAMOND_BLOCK);
-        recipe.setIngredient('S', Material.NETHER_STAR);
-
-        plugin.getServer().addRecipe(recipe);
-        registeredRecipes.add(key);
+        recipe.setIngredient(symbol, material);
+        return true;
     }
 
     /**

@@ -26,6 +26,7 @@ import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.GemType;
+import dev.xoperr.blissgems.managers.GoldGemManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -167,13 +168,20 @@ implements Listener {
      * happens (vanilla behavior preserved for everyone who hasn't customized).
      */
     private void handleLeftClickAbility(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
         ItemStack item = event.getItem();
-        if (item == null) return;
-        String id = CustomItemManager.getIdByItem(item);
-        if (id == null || (!id.endsWith("_gem_t1") && !id.endsWith("_gem_t2"))) {
+        String id = item != null ? CustomItemManager.getIdByItem(item) : null;
+        boolean heldGem = id != null && (id.endsWith("_gem_t1") || id.endsWith("_gem_t2"));
+        // The Gold Gem's two extra slots hang off left-click, and the gem lives in the
+        // offhand — which a left-click event never reports. Reach it from there, but only
+        // for swings at air: cancelling a LEFT_CLICK_BLOCK would stop the player breaking
+        // blocks with whatever is in their main hand.
+        boolean offhandGold = this.plugin.getGoldGemManager() != null
+            && this.plugin.getGoldGemManager().isGoldGem(player.getInventory().getItemInOffHand());
+        if (!heldGem && !(offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
             return;
         }
-        Player player = event.getPlayer();
+
         dev.xoperr.blissgems.utils.AbilityBinding input =
             dev.xoperr.blissgems.utils.AbilityBinding.leftClick(player.isSneaking());
 
@@ -183,6 +191,13 @@ implements Listener {
                 : null;
         if (slot == null) {
             return; // input unbound — let vanilla handle the click
+        }
+        // Only the Gold Gem defines the two extra slots. Every other gem would swallow the
+        // click for a no-op — and with it the block the player was trying to break.
+        boolean extraSlot = slot == dev.xoperr.blissgems.utils.AbilitySlot.QUINARY
+            || slot == dev.xoperr.blissgems.utils.AbilitySlot.SENARY;
+        if (extraSlot && !offhandGold && !GoldGemManager.GOLD_ITEM_ID.equals(id)) {
+            return;
         }
         event.setCancelled(true);
         if (!gateAbility(player)) return;

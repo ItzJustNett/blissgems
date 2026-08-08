@@ -32,6 +32,18 @@ public interface GemAbilityHandler {
     default void onQuaternary(Player player, int tier) {}
 
     /**
+     * Quinary ability (left-click by default / ability:quinary command).
+     * Only the Gold Gem uses this slot; default no-op for every other gem.
+     */
+    default void onQuinary(Player player, int tier) {}
+
+    /**
+     * Senary ability (Shift+left-click by default / ability:senary command).
+     * Only the Gold Gem uses this slot; default no-op for every other gem.
+     */
+    default void onSenary(Player player, int tier) {}
+
+    /**
      * Called when a player's active gem changes away from this gem type,
      * or the player disconnects. Use this to cancel running tasks, remove entities, etc.
      */
