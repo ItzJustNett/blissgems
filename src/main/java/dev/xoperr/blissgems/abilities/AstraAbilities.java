@@ -324,7 +324,9 @@ public class AstraAbilities implements GemAbilityHandler {
         final Vector step = dir.clone().multiply(speed);
         // Flight must be crisp — drop the hover glide so the projectile doesn't lag its path.
         dagger.setTeleportDuration(0);
-        orientDagger(dagger, dir);
+        // Point the blade along travel (same 180° flip the hover uses), so it flies tip-first
+        // instead of rear-first.
+        orientDagger(dagger, dir.clone().rotateAroundY(Math.PI));
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.6f);
 
         new BukkitRunnable() {
@@ -430,7 +432,9 @@ public class AstraAbilities implements GemAbilityHandler {
         } else {
             xAxis.normalize();
         }
-        Vector3f zAxis = new Vector3f(yAxis).cross(xAxis).normalize();
+        // Right-handed frame (X × Y = Z); using yAxis×xAxis here gives a reflection
+        // (det = -1) which makes getNormalizedRotation spit out a spinning quaternion.
+        Vector3f zAxis = new Vector3f(xAxis).cross(yAxis).normalize();
         Quaternionf rot = new Matrix3f(xAxis, yAxis, zAxis).getNormalizedRotation(new Quaternionf());
         // Start easing toward the new facing immediately (paired with the spawn-set
         // interpolation-duration), so head turns rotate the blades smoothly.

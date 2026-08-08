@@ -38,7 +38,7 @@ public class PassiveManager {
             public void run() {
                 for (Player player : PassiveManager.this.plugin.getServer().getOnlinePlayers()) {
                     if (player.isDead()) continue;
-                    if (!PassiveManager.this.plugin.getGemManager().hasGemInOffhand(player) || !PassiveManager.this.plugin.getEnergyManager().arePassivesActive(player)) continue;
+                    if (!PassiveManager.this.plugin.getGemManager().hasGemForPassives(player) || !PassiveManager.this.plugin.getEnergyManager().arePassivesActive(player)) continue;
                     PassiveManager.this.applyPassiveEffects(player);
                 }
             }
@@ -56,11 +56,12 @@ public class PassiveManager {
             return; // Silently skip passives in disabled regions
         }
 
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
-        String gemId = this.plugin.getGemManager().getGemIdFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
+        String gemId = this.plugin.getGemManager().getGemIdForPassives(player);
 
         // Try built-in gem via GemType switch (preserves exact existing behavior)
-        GemType gemType = this.plugin.getGemManager().getGemTypeFromOffhand(player);
+        // Detection also covers hotbar slots (see GemManager.getPassiveGemItemId).
+        GemType gemType = this.plugin.getGemManager().getGemTypeForPassives(player);
         if (gemType != null) {
             switch (gemType) {
                 case ASTRA: this.applyAstraPassives(player); break;

@@ -86,6 +86,11 @@ public class GoldGemManager {
         return false;
     }
 
+    /** True only when the Gold Gem sits in the player's MAIN hand (used to gate the beam). */
+    public boolean isGoldGemInMainHand(Player player) {
+        return this.isGoldGem(player.getInventory().getItemInMainHand());
+    }
+
     private boolean isGoldGem(ItemStack item) {
         return item != null && GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item));
     }
@@ -305,7 +310,7 @@ public class GoldGemManager {
         // The burst is drawn in the taken gem's colour, so a kill reads as "that colour just
         // went into the Gold Gem".
         location.getWorld().spawnParticle(Particle.DUST, location.clone().add(0.0, 1.0, 0.0),
-            40, 0.4, 0.6, 0.4, 0.0,
+            12, 0.4, 0.6, 0.4, 0.0,
             new Particle.DustOptions(this.soulColour(harvestedId), 1.8F));
         location.getWorld().playSound(location, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1.2F, 0.6F);
 

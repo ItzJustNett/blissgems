@@ -96,10 +96,18 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
             player.sendMessage(message.replace("{gem}", this.plugin.getGemManager().getGemDisplayName(soul)));
             return;
         }
-        if (primary) {
-            handler.onPrimary(player, soulTier);
-        } else {
-            handler.onSecondary(player, soulTier);
+        // Make the soul's own Tier-2 gate see the tier it was harvested at, not the Gold
+        // Gem's (which has no Tier 2) — otherwise Tier-2 soul abilities wrongly report
+        // "requires Tier 2".
+        this.plugin.getGemManager().setChannelTierOverride(player.getUniqueId(), soulTier);
+        try {
+            if (primary) {
+                handler.onPrimary(player, soulTier);
+            } else {
+                handler.onSecondary(player, soulTier);
+            }
+        } finally {
+            this.plugin.getGemManager().clearChannelTierOverride(player.getUniqueId());
         }
     }
 
@@ -112,6 +120,11 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         UUID playerId = player.getUniqueId();
         if (this.charging.containsKey(playerId)) {
             this.breakCharge(player, "gold-beam-cancelled");
+            return;
+        }
+        // The beam only winds up from the MAIN hand — left-clicking with the gem in the
+        // offhand must not charge it.
+        if (!this.plugin.getGoldGemManager().isGoldGemInMainHand(player)) {
             return;
         }
         if (this.plugin.getAbilityManager().isOnCooldown(player, BEAM_COOLDOWN_ID)) {

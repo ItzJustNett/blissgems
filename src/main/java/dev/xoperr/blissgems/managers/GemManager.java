@@ -92,7 +92,27 @@ public class GemManager {
         return gem != null ? gem.getType() : null;
     }
 
+    /**
+     * While the Gold Gem channels a harvested soul, the soul's tier temporarily stands in
+     * for the holder's own gem tier — so the soul's Tier-2 gate sees the tier it was
+     * harvested at instead of "the Gold Gem is Tier 1".
+     */
+    private final java.util.Map<java.util.UUID, Integer> channelTierOverride =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    public void setChannelTierOverride(java.util.UUID id, int tier) {
+        this.channelTierOverride.put(id, tier);
+    }
+
+    public void clearChannelTierOverride(java.util.UUID id) {
+        this.channelTierOverride.remove(id);
+    }
+
     public int getGemTier(Player player) {
+        Integer override = this.channelTierOverride.get(player.getUniqueId());
+        if (override != null) {
+            return override;
+        }
         ActiveGem gem = this.getActiveGem(player);
         return gem != null ? gem.getTier() : 1;
     }
@@ -194,6 +214,68 @@ public class GemManager {
             return GemType.getTierFromOraxenId(itemId);
         }
         // Check addon via registry
+        GemRegistry registry = this.plugin.getGemRegistry();
+        if (registry != null && registry.isRegisteredGem(itemId)) {
+            return registry.tierFromItemId(itemId);
+        }
+        return 1;
+    }
+
+    // ---- Passive detection that also scans the whole hotbar. Some Bedrock players keep the
+    // ---- gem in a hotbar slot (offhanding is awkward on Bedrock), so their passives were
+    // ---- never applied. Gated by config passives.apply-in-hotbar (default true).
+    private String getPassiveGemItemId(Player player) {
+        String held = this.getHeldGemItemId(player);
+        if (held != null) {
+            return held;
+        }
+        if (!this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
+            return null;
+        }
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack it = player.getInventory().getItem(slot);
+            String id = it != null ? CustomItemManager.getIdByItem(it) : null;
+            if (id != null && this.isAnyGem(id)) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    /** True if the player has a gem eligible for passives (offhand/main hand, or hotbar when enabled). */
+    public boolean hasGemForPassives(Player player) {
+        return this.getPassiveGemItemId(player) != null;
+    }
+
+    public GemType getGemTypeForPassives(Player player) {
+        String itemId = this.getPassiveGemItemId(player);
+        if (itemId == null || !GemType.isGem(itemId)) {
+            return null;
+        }
+        return GemType.fromOraxenId(itemId);
+    }
+
+    public String getGemIdForPassives(Player player) {
+        String itemId = this.getPassiveGemItemId(player);
+        if (itemId == null) {
+            return null;
+        }
+        GemType type = GemType.fromOraxenId(itemId);
+        if (type != null) {
+            return type.getId();
+        }
+        GemRegistry registry = this.plugin.getGemRegistry();
+        return registry != null ? registry.gemIdFromItemId(itemId) : null;
+    }
+
+    public int getTierForPassives(Player player) {
+        String itemId = this.getPassiveGemItemId(player);
+        if (itemId == null) {
+            return 1;
+        }
+        if (GemType.isGem(itemId)) {
+            return GemType.getTierFromOraxenId(itemId);
+        }
         GemRegistry registry = this.plugin.getGemRegistry();
         if (registry != null && registry.isRegisteredGem(itemId)) {
             return registry.tierFromItemId(itemId);

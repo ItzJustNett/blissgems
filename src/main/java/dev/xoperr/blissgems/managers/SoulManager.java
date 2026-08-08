@@ -82,12 +82,15 @@ public class SoulManager {
         // Visual and sound effects
         player.getWorld().spawnParticle(Particle.SOUL,
             player.getLocation().add(0, 1, 0),
-            15, 0.5, 0.5, 0.5, 0.05);
+            6, 0.5, 0.5, 0.5, 0.05);
         player.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
             player.getLocation().add(0, 1, 0),
-            10, 0.5, 0.5, 0.5, 0);
+            4, 0.5, 0.5, 0.5, 0);
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.5f);
         player.playSound(player.getLocation(), Sound.BLOCK_SOUL_SAND_BREAK, 1.0f, 1.5f);
+        // Slight regeneration for the duration of the absorbed soul.
+        player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+            org.bukkit.potion.PotionEffectType.REGENERATION, durationSeconds * 20, 0, false, true, true));
 
         String entityName = isPlayer ? ((Player) killedEntity).getName() :
             killedEntity.getType().toString().toLowerCase().replace("_", " ");
