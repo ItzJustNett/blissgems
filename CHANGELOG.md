@@ -1,5 +1,66 @@
 # Changelog
 
+## BlissGems 4.9.8
+
+### Added
+
+**The harvest ceremony.** The blow that would kill a gem holder is now caught before it lands.
+Both players are pinned where they stand and made untouchable, the victim's gem tears loose and
+rises turning in the air between them, both cameras are dragged onto it with a slow sway, and
+each screen washes over in that gem's colour. When the gem finishes rising it goes into the Gold
+Gem and the death goes through, still credited to the holder. Kills the ceremony never sees — a
+fall finishing the fight, `/kill`, or `gold.harvest-ceremony.enabled: false` — harvest the old
+way with no animation. Timing, rise height and the screen tint are all configurable.
+
+**Stolen passives actually fire.** Harvesting a gem used to hand over only its potion-based
+passives; everything driven by an event — Puff's double jump, Wealth's durability chip and armor
+mend, Strength's bloodthorns, Astra's, Life's and Flux's on-hit passives — silently did nothing.
+All of them now run for the Gold Gem's holder, and they stack: four harvested souls means four
+sets of passives at once. Each runs at the tier its gem was taken at, so a soul torn off a Tier 1
+victim keeps Tier 1 numbers no matter how awake the gem carrying it is.
+
+**Two more ability inputs.** `AbilitySlot` gained Quinary and Senary, bound by default to
+left-click and shift+left-click. Only the Gold Gem defines them — it uses them for the channelled
+soul's tertiary and quaternary, so all four of a soul's abilities are reachable instead of two,
+with the Sundering Beam and the soul menu still on F and shift+F. Every other gem leaves both
+slots undefined, and left-click keeps its vanilla behaviour for them. Also available as
+`/bliss ability:quinary` and `ability:senary`.
+
+**Every craft moved into `recipes.yml`.** Shape, ingredients, output amount and an on/off switch
+for each of the nine recipes, no code change needed. Ingredients are either a plain material or
+`blissgems:<item_id>` for an exact custom-item match — which is how the Gold Gem summon refuses
+to accept seven ordinary lightning rods. The old `crafting.enabled` and `gold.summon.recipe-enabled`
+switches still work.
+
+**The Gold Gem is a one-time event.** With `gold.summon.once-per-server` on, the summon craft
+works exactly once per server; afterwards the result blanks out in the crafting grid. The summon
+is announced server-wide and recorded in `gold.yml`.
+
+**Gilded armour.** Carrying the Gold Gem puts a gold trim on the holder's armour. Pieces the
+player already trimmed themselves are left alone, and the plugin's own gilding is marked so
+removing it can never strip someone's smithing-table work.
+
+### Changed
+
+**Dying costs the Gold Gem everything.** Every stolen gem now goes back to the player it was
+taken from — straight into their offhand if they're online, queued to their playerdata and handed
+over on their next join if they aren't — and the holder is left with a Broken gem that does
+nothing until a Restoration Book reforges it. Both halves are switchable
+(`gold.death.return-souls`, `gold.death.break-gem`).
+
+**A restoration ritual can no longer be interrupted.** The caster is untouchable and rooted to
+the spot for the fifteen seconds it runs, but keeps full control of their head — standing still
+for a quarter of a minute was otherwise an open invitation.
+
+**The cooldown bar shows every harvested soul.** The channelled one opens out into the abilities
+it can actually cast right now; the rest collapse to their gem icon and their primary's cooldown,
+so it's readable at a glance which soul is worth switching to mid-fight.
+
+**`gems.droppable-on-death` is documented in `config.yml`.** The setting already worked; it was
+only ever readable from the source.
+
+---
+
 ## BlissGems 4.9.1
 
 ### Changed
