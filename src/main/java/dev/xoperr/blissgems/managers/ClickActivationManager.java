@@ -30,53 +30,36 @@ public class ClickActivationManager {
     }
 
     /**
-     * Check if click activation is enabled for a player
-     * @param player The player to check
-     * @return true if click activation is enabled (default), false if disabled
+     * @return true if click activation is enabled (the default), false if disabled
      */
     public boolean isClickActivationEnabled(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Check cache first
-        if (clickActivationCache.containsKey(uuid)) {
-            return clickActivationCache.get(uuid);
+        Boolean cached = clickActivationCache.get(uuid);
+        if (cached != null) {
+            return cached;
         }
 
-        // Load from file
         boolean enabled = loadClickActivation(player);
         clickActivationCache.put(uuid, enabled);
         return enabled;
     }
 
     /**
-     * Toggle click activation for a player
-     * @param player The player
-     * @return The new state (true = enabled, false = disabled)
+     * @return the new state (true = enabled, false = disabled)
      */
     public boolean toggleClickActivation(Player player) {
-        boolean currentState = isClickActivationEnabled(player);
-        boolean newState = !currentState;
-
+        boolean newState = !isClickActivationEnabled(player);
         setClickActivation(player, newState);
         return newState;
     }
 
-    /**
-     * Set click activation state for a player
-     * @param player The player
-     * @param enabled true to enable, false to disable
-     */
     public void setClickActivation(Player player, boolean enabled) {
         UUID uuid = player.getUniqueId();
         clickActivationCache.put(uuid, enabled);
         saveClickActivation(player, enabled);
     }
 
-    /**
-     * Load click activation state from player data file
-     * @param player The player
-     * @return true if enabled (default), false if disabled
-     */
     private boolean loadClickActivation(Player player) {
         File playerFile = getPlayerFile(player);
 
@@ -88,11 +71,6 @@ public class ClickActivationManager {
         return config.getBoolean("click-activation-enabled", true);
     }
 
-    /**
-     * Save click activation state to player data file
-     * @param player The player
-     * @param enabled The state to save
-     */
     private void saveClickActivation(Player player, boolean enabled) {
         File playerFile = getPlayerFile(player);
         FileConfiguration config = YamlConfiguration.loadConfiguration(playerFile);
@@ -106,16 +84,11 @@ public class ClickActivationManager {
         }
     }
 
-    /**
-     * Get the player data file
-     */
     private File getPlayerFile(Player player) {
         return new File(playerDataFolder, player.getUniqueId() + ".yml");
     }
 
-    /**
-     * Clear cache for a player (call on logout)
-     */
+    /** Clears the cached state for a player (call on logout). */
     public void clearCache(Player player) {
         clickActivationCache.remove(player.getUniqueId());
     }

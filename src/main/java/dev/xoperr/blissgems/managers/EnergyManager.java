@@ -1,11 +1,3 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  org.bukkit.configuration.file.FileConfiguration
- *  org.bukkit.configuration.file.YamlConfiguration
- *  org.bukkit.entity.Player
- */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
@@ -28,7 +20,7 @@ public class EnergyManager {
     public EnergyManager(BlissGems plugin) {
         this.plugin = plugin;
         this.dataFolder = new File(plugin.getDataFolder(), "playerdata");
-        this.energyCache = new HashMap<UUID, Integer>();
+        this.energyCache = new HashMap<>();
         if (!this.dataFolder.exists()) {
             this.dataFolder.mkdirs();
         }
@@ -46,10 +38,8 @@ public class EnergyManager {
         energy = Math.max(0, Math.min(maxEnergy, energy));
         this.energyCache.put(player.getUniqueId(), energy);
         this.savePlayerEnergy(player, energy);
-        // Update gem textures to reflect new energy state
         this.plugin.getGemManager().updateGemTextures(player);
 
-        // Achievement checks
         if (this.plugin.getAchievementManager() != null) {
             if (energy == 0) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.SHATTERED);
@@ -84,18 +74,22 @@ public class EnergyManager {
         return this.getEnergyState(player).abilitiesUsable();
     }
 
+    private File playerFile(Player player) {
+        return new File(this.dataFolder, player.getUniqueId() + ".yml");
+    }
+
     private FileConfiguration loadPlayerData(Player player) {
-        File file = new File(this.dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
+        File file = this.playerFile(player);
         if (!file.exists()) {
             return new YamlConfiguration();
         }
-        return YamlConfiguration.loadConfiguration((File)file);
+        return YamlConfiguration.loadConfiguration(file);
     }
 
     private void savePlayerEnergy(Player player, int energy) {
-        File file = new File(this.dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
+        File file = this.playerFile(player);
         FileConfiguration data = this.loadPlayerData(player);
-        data.set("energy", (Object)energy);
+        data.set("energy", energy);
         try {
             data.save(file);
         }
@@ -106,8 +100,9 @@ public class EnergyManager {
 
     public void saveAll() {
         for (Player player : this.plugin.getServer().getOnlinePlayers()) {
-            if (!this.energyCache.containsKey(player.getUniqueId())) continue;
-            this.savePlayerEnergy(player, this.energyCache.get(player.getUniqueId()));
+            Integer cached = this.energyCache.get(player.getUniqueId());
+            if (cached == null) continue;
+            this.savePlayerEnergy(player, cached);
         }
     }
 

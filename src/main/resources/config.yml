@@ -55,6 +55,18 @@ gems:
   # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
   drop-upgrader-on-tier2-death: false
 
+  # Gems that must NOT appear in the random starter pool for new players.
+  # These stay obtainable through their own means (mythics via rituals, etc.)
+  # but are kept out of the random roll. Defaults to the same list if omitted.
+  exclude-from-random:
+    - auratus
+    - heretic
+    - gold
+
+  # Gems that ARE allowed to drop on death (by gem id). Empty = nothing drops on
+  # death; every gem is saved/kept as usual. Add ids here to make them droppable.
+  droppable-on-death: []
+
 # ==========================================
 # WORLDGUARD INTEGRATION
 # ==========================================
@@ -92,6 +104,11 @@ smp:
 # Toggle in-game with: /fixedhearts everyone true|false
 fixed-hearts:
   enabled: false
+
+  # When true, /fixedhearts only strips BlissGems' OWN max-health modifiers and
+  # leaves hearts granted by other plugins (Ranked SMP, lifesteal, etc.) intact.
+  # Set false to hard-force exactly 10 hearts, wiping all external max-health.
+  respect-external-hearts: true
 
 # ==========================================
 # CRAFTING RECIPES
@@ -252,7 +269,7 @@ abilities:
 
   # Specific ability cooldowns (in seconds)
   cooldowns:
-    astra-daggers: 15
+    astra-daggers: 45
     astra-projection: 60  # 1 minute (set when projection ends)
     astra-drift: 90  # Dimensional Drift (set when drift ends)
     astra-void: 120  # 2 minutes - Dimensional Void

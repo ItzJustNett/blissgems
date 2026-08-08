@@ -20,70 +20,46 @@ public class ReviveBeaconManager {
     }
 
     /**
-     * Activates a revive beacon for a player
-     * @param player The player activating the beacon
-     * @param location The location of the beacon
+     * Activates a revive beacon for a player, replacing any beacon they already had.
      * @param duration Duration in seconds
      * @param range Range in blocks
      */
     public void activateBeacon(Player player, Location location, int duration, double range) {
         UUID playerId = player.getUniqueId();
 
-        // Remove old beacon if exists
-        if (activeBeacons.containsKey(playerId)) {
-            activeBeacons.get(playerId).cancel();
+        ReviveBeacon previous = activeBeacons.get(playerId);
+        if (previous != null) {
+            previous.cancel();
         }
 
-        // Create new beacon
         ReviveBeacon beacon = new ReviveBeacon(plugin, player, location, duration, range);
         activeBeacons.put(playerId, beacon);
         beacon.start();
     }
 
     /**
-     * Checks if a player has an active beacon and if they're in range
-     * @param player The player to check
-     * @return true if the player can be revived by their beacon
+     * @return true if the player has an active beacon and is standing in its range
      */
     public boolean canRevive(Player player) {
-        UUID playerId = player.getUniqueId();
-        if (!activeBeacons.containsKey(playerId)) {
-            return false;
-        }
-
-        ReviveBeacon beacon = activeBeacons.get(playerId);
-        return beacon.isActive() && beacon.isInRange(player.getLocation());
+        ReviveBeacon beacon = activeBeacons.get(player.getUniqueId());
+        return beacon != null && beacon.isActive() && beacon.isInRange(player.getLocation());
     }
 
     /**
-     * Gets the revive location for a player
-     * @param player The player
-     * @return The revive location, or null if no beacon
+     * @return the revive location, or null if the player has no beacon
      */
     public Location getReviveLocation(Player player) {
-        UUID playerId = player.getUniqueId();
-        if (!activeBeacons.containsKey(playerId)) {
-            return null;
-        }
-
-        return activeBeacons.get(playerId).getLocation();
+        ReviveBeacon beacon = activeBeacons.get(player.getUniqueId());
+        return beacon != null ? beacon.getLocation() : null;
     }
 
-    /**
-     * Removes a player's beacon
-     * @param player The player
-     */
     public void removeBeacon(Player player) {
-        UUID playerId = player.getUniqueId();
-        if (activeBeacons.containsKey(playerId)) {
-            activeBeacons.get(playerId).cancel();
-            activeBeacons.remove(playerId);
+        ReviveBeacon beacon = activeBeacons.remove(player.getUniqueId());
+        if (beacon != null) {
+            beacon.cancel();
         }
     }
 
-    /**
-     * Cleans up all beacons
-     */
     public void cleanup() {
         for (ReviveBeacon beacon : activeBeacons.values()) {
             beacon.cancel();
@@ -91,9 +67,6 @@ public class ReviveBeaconManager {
         activeBeacons.clear();
     }
 
-    /**
-     * Inner class representing an active revive beacon
-     */
     private static class ReviveBeacon {
         private final BlissGems plugin;
         private final Player player;
@@ -112,21 +85,18 @@ public class ReviveBeaconManager {
         }
 
         public void start() {
-            // Schedule expiry task
             int durationTicks = (int) ((expiryTime - System.currentTimeMillis()) / 50);
             taskId = plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
                 active = false;
                 player.sendMessage("§c§lYour Revive Beacon has expired!");
             }, durationTicks);
 
-            // Spawn particles periodically
             plugin.getServer().getScheduler().runTaskTimer(plugin, (task) -> {
                 if (!active || System.currentTimeMillis() >= expiryTime) {
                     task.cancel();
                     return;
                 }
 
-                // Spawn particles at beacon location
                 if (location.getWorld() != null) {
                     location.getWorld().spawnParticle(
                         org.bukkit.Particle.TOTEM_OF_UNDYING,
@@ -144,10 +114,7 @@ public class ReviveBeaconManager {
         }
 
         public boolean isInRange(Location loc) {
-            if (location.getWorld() == null || loc.getWorld() == null) {
-                return false;
-            }
-            if (!location.getWorld().equals(loc.getWorld())) {
+            if (location.getWorld() == null || !location.getWorld().equals(loc.getWorld())) {
                 return false;
             }
             return location.distance(loc) <= range;

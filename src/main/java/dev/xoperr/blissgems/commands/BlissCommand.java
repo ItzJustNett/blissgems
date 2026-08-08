@@ -1,15 +1,3 @@
-/*
- * Decompiled with CFR 0.152.
- *
- * Could not load the following classes:
- *  org.bukkit.Bukkit
- *  org.bukkit.command.Command
- *  org.bukkit.command.CommandExecutor
- *  org.bukkit.command.CommandSender
- *  org.bukkit.command.TabCompleter
- *  org.bukkit.entity.Player
- *  org.bukkit.inventory.ItemStack
- */
 package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
@@ -20,7 +8,6 @@ import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.CustomItemManager;
-import dev.xoperr.blissgems.commands.StatsCommand;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,10 +31,72 @@ TabCompleter {
         this.plugin = plugin;
     }
 
+    /** Rejects console/command-block senders with the shared message. True when the sender is a player. */
+    private boolean requirePlayer(CommandSender sender) {
+        if (sender instanceof Player) {
+            return true;
+        }
+        sender.sendMessage("§cOnly players can use this command!");
+        return false;
+    }
+
+    /** Rejects senders without blissgems.admin using the configured message. True when allowed. */
+    private boolean requireAdmin(CommandSender sender) {
+        if (sender.hasPermission("blissgems.admin")) {
+            return true;
+        }
+        sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+        return false;
+    }
+
+    /** Sends a configured message only when it resolves to something non-empty. */
+    private void sendConfigMessageIfPresent(Player player, String key) {
+        String msg = this.plugin.getConfigManager().getFormattedMessage(key);
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
+    }
+
+    /** Tier of a gem item id: from the registry when available, else the legacy "_gem_t2" suffix. */
+    private int gemTierOf(GemRegistry registry, String oraxenId) {
+        return registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
+    }
+
+    /** Parses a true/false toggle argument; null when the value is not recognised. */
+    private static Boolean parseToggle(String value) {
+        switch (value.toLowerCase()) {
+            case "true":
+            case "on":
+            case "yes":
+            case "1":
+                return Boolean.TRUE;
+            case "false":
+            case "off":
+            case "no":
+            case "0":
+                return Boolean.FALSE;
+            default:
+                return null;
+        }
+    }
+
+    /** Strips every gem (built-in and addon) out of the player's main inventory slots. */
+    private void clearGemsFromInventory(Player target) {
+        org.bukkit.inventory.PlayerInventory inv = target.getInventory();
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item != null && this.plugin.getGemManager().isAnyGem(CustomItemManager.getIdByItem(item))) {
+                inv.setItem(i, null);
+            }
+        }
+    }
+
+    private static List<String> onlinePlayerNames() {
+        return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+    }
+
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        String subcommand;
         if (args.length == 0) {
-            // Show GUI if player, otherwise show help
             if (sender instanceof Player) {
                 this.plugin.getEnhancedGuiManager().openMainMenu((Player) sender);
             } else {
@@ -55,7 +104,7 @@ TabCompleter {
             }
             return true;
         }
-        switch (subcommand = args[0].toLowerCase()) {
+        switch (args[0].toLowerCase()) {
             case "give": {
                 this.handleGive(sender, args);
                 break;
@@ -197,8 +246,7 @@ TabCompleter {
     }
 
     private void handleGive(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+        if (!requireAdmin(sender)) {
             return;
         }
         if (args.length < 3) {
@@ -213,24 +261,21 @@ TabCompleter {
 
         // Resolve gem: try built-in GemType first, then addon gems via registry
         String gemIdArg = args[2].toLowerCase();
-        GemType gemType = null;
         String resolvedGemId = null;
         String resolvedDisplayName = null;
 
         for (GemType type : GemType.values()) {
             if (type.getId().equalsIgnoreCase(gemIdArg) || type.getDisplayName().equalsIgnoreCase(gemIdArg)) {
-                gemType = type;
                 resolvedGemId = type.getId();
                 resolvedDisplayName = type.getDisplayName();
                 break;
             }
         }
 
-        // If not a built-in gem, check addon gems via registry
-        if (gemType == null) {
+        if (resolvedGemId == null) {
             GemRegistry registry = this.plugin.getGemRegistry();
             if (registry != null) {
-                dev.xoperr.blissgems.api.GemDefinition def = registry.getGem(gemIdArg);
+                GemDefinition def = registry.getGem(gemIdArg);
                 if (def != null) {
                     resolvedGemId = def.getId();
                     resolvedDisplayName = def.getDisplayName();
@@ -258,16 +303,7 @@ TabCompleter {
             }
         }
 
-        // Remove old gem(s) from inventory first (built-in AND addon)
-        for (int i = 0; i < target.getInventory().getSize(); i++) {
-            ItemStack item = target.getInventory().getItem(i);
-            if (item != null) {
-                String itemId = CustomItemManager.getIdByItem(item);
-                if (this.plugin.getGemManager().isAnyGem(itemId)) {
-                    target.getInventory().setItem(i, null);
-                }
-            }
-        }
+        clearGemsFromInventory(target);
 
         if (this.plugin.getGemManager().giveGem(target, resolvedGemId, tier)) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-given", "player", target.getName(), "gem", resolvedDisplayName, "tier", tier));
@@ -277,8 +313,7 @@ TabCompleter {
     }
 
     private void handleReroll(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+        if (!requireAdmin(sender)) {
             return;
         }
         if (args.length < 2) {
@@ -299,7 +334,6 @@ TabCompleter {
             return;
         }
 
-        // Get tier (default to 1)
         int tier = 1;
         if (args.length >= 3) {
             try {
@@ -315,16 +349,7 @@ TabCompleter {
             }
         }
 
-        // Remove old gem(s) from inventory first (built-in AND addon)
-        for (int i = 0; i < target.getInventory().getSize(); i++) {
-            ItemStack item = target.getInventory().getItem(i);
-            if (item != null) {
-                String itemId = CustomItemManager.getIdByItem(item);
-                if (this.plugin.getGemManager().isAnyGem(itemId)) {
-                    target.getInventory().setItem(i, null);
-                }
-            }
-        }
+        clearGemsFromInventory(target);
         // Explicitly clear an offhand gem too — the loop's slot range doesn't reliably
         // cover the offhand, and gems normally live there, so a stale gem left in the
         // offhand would keep driving abilities (e.g. F) after the reroll.
@@ -333,12 +358,10 @@ TabCompleter {
             target.getInventory().setItemInOffHand(null);
         }
 
-        // Notify command sender that ritual is starting
         sender.sendMessage("\u00a7d\u00a7lInitiating gem ritual for " + target.getName() + "...");
         target.sendMessage("\u00a7d\u00a7l\u00a7nGEM REROLL RITUAL");
         target.sendMessage("\u00a77\u00a7oThe ancient powers are choosing your fate...");
 
-        // Start the ritual animation
         final int finalTier = tier;
         this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false, finalTier);
 
@@ -370,8 +393,7 @@ TabCompleter {
     }
 
     private void handleGiveItem(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+        if (!requireAdmin(sender)) {
             return;
         }
         if (args.length < 3) {
@@ -393,7 +415,6 @@ TabCompleter {
         }
         String itemId = args[2].toLowerCase();
 
-        // Get amount (default to 1)
         int amount = 1;
         if (args.length >= 4) {
             try {
@@ -409,7 +430,6 @@ TabCompleter {
             }
         }
 
-        // Validate and create item
         ItemStack item = CustomItemManager.getItemById(itemId);
         if (item == null) {
             sender.sendMessage("\u00a7cInvalid item ID: " + itemId);
@@ -417,12 +437,11 @@ TabCompleter {
             return;
         }
 
-        // Set amount and give to player
         item.setAmount(amount);
         target.getInventory().addItem(new ItemStack[]{item});
 
-        // Success message
-        String itemName = item.getItemMeta() != null ? item.getItemMeta().getDisplayName() : itemId;
+        org.bukkit.inventory.meta.ItemMeta itemMeta = item.getItemMeta();
+        String itemName = itemMeta != null ? itemMeta.getDisplayName() : itemId;
         sender.sendMessage("\u00a7aGave " + amount + "x " + itemName + " \u00a7ato " + target.getName() + "!");
         target.sendMessage("\u00a7aYou received " + amount + "x " + itemName + "\u00a7a!");
     }
@@ -567,9 +586,7 @@ TabCompleter {
         }
 
         // Admin-only functionality for modifying other players' energy
-        int amount;
-        if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+        if (!requireAdmin(sender)) {
             return;
         }
         if (args.length < 4) {
@@ -582,6 +599,7 @@ TabCompleter {
             return;
         }
         String action = args[2].toLowerCase();
+        int amount;
         try {
             amount = Integer.parseInt(args[3]);
         }
@@ -629,8 +647,7 @@ TabCompleter {
     }
 
     private void handleWithdraw(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
@@ -674,8 +691,7 @@ TabCompleter {
     }
 
     private void handleInfo(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
@@ -700,58 +716,49 @@ TabCompleter {
     }
 
     private void handlePockets(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
 
-        // Check if player has a Wealth gem
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         if (gemType != GemType.WEALTH) {
             this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-gem-pockets");
             return;
         }
 
-        // Check tier
         int tier = this.plugin.getGemManager().getGemTier(player);
         if (tier < 2) {
             this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-t2-pockets");
             return;
         }
 
-        // Open pockets inventory
         this.plugin.getWealthAbilities().pockets(player);
     }
 
     private void handleAmplify(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
 
-        // Check if player has a Wealth gem
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         if (gemType != GemType.WEALTH) {
             player.sendMessage("\u00a7cYou need a Wealth gem to use Amplification!");
             return;
         }
 
-        // Check tier
         int tier = this.plugin.getGemManager().getGemTier(player);
         if (tier < 2) {
             player.sendMessage("\u00a7cAmplification requires Tier 2 Wealth gem!");
             return;
         }
 
-        // Use amplification ability
         this.plugin.getWealthAbilities().amplification(player);
     }
 
     private void handleToggleClick(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
@@ -815,8 +822,7 @@ TabCompleter {
     }
 
     private void handleAbilityMain(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
@@ -865,8 +871,7 @@ TabCompleter {
     }
 
     private void handleAbilitySecondary(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
@@ -949,8 +954,7 @@ TabCompleter {
     }
 
     private void handleAbilityTertiary(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1008,8 +1012,7 @@ TabCompleter {
     }
 
     private void handleAbilityQuaternary(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1062,8 +1065,7 @@ TabCompleter {
     }
 
     private void handleAbilityBindingsList(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1099,8 +1101,7 @@ TabCompleter {
     }
 
     private void handleSetAbility(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1156,8 +1157,7 @@ TabCompleter {
     }
 
     private void handleTrust(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1185,8 +1185,7 @@ TabCompleter {
     }
 
     private void handleUntrust(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1214,8 +1213,7 @@ TabCompleter {
     }
 
     private void handleTrustedList(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1313,8 +1311,7 @@ TabCompleter {
     }
 
     private void handleAutoSmelt(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1346,8 +1343,7 @@ TabCompleter {
     }
 
     private void handleConduction(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1362,8 +1358,7 @@ TabCompleter {
     }
 
     private void handleStats(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
 
@@ -1373,8 +1368,7 @@ TabCompleter {
     }
 
     private void handleReleaseSouls(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1394,8 +1388,7 @@ TabCompleter {
     }
 
     private void handleSoulsInfo(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
@@ -1627,8 +1620,7 @@ TabCompleter {
     }
 
     private void handleAchievements(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("\u00a7cOnly players can use this command!");
+        if (!requirePlayer(sender)) {
             return;
         }
         Player player = (Player) sender;
