@@ -788,7 +788,7 @@ public class GemRitualManager {
      * Get the color associated with a gem ID. Addon gems carry a chat color code
      * in their GemDefinition, which is mapped to the matching RGB value.
      */
-    private org.bukkit.Color getGemColor(String gemId) {
+    public org.bukkit.Color getGemColor(String gemId) {
         GemType gemType = GemManager.builtInType(gemId);
         if (gemType != null) {
             return switch (gemType) {

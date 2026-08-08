@@ -84,6 +84,18 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
             return;
         }
         int soulTier = gold.getActiveTier(player.getUniqueId());
+        // A soul only gives up what it had: a gem harvested at Tier 1 is refused by its own
+        // handler's Tier 2 gate, so say that in the Gold Gem's own words rather than letting
+        // it read as "your gem is Tier 1" - the Gold Gem has no Tier 2 to reach.
+        if (!primary && soulTier < 2) {
+            // Live configs predate this key, so fall back rather than sending an empty line.
+            String message = this.plugin.getConfigManager().getMessage("gold-soul-too-weak");
+            if (message.isEmpty()) {
+                message = "§c§oThe {gem} soul was taken at Tier 1, it has no second power to give.";
+            }
+            player.sendMessage(message.replace("{gem}", this.plugin.getGemManager().getGemDisplayName(soul)));
+            return;
+        }
         if (primary) {
             handler.onPrimary(player, soulTier);
         } else {
@@ -164,17 +176,40 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         RayTraceResult entityHit = player.getWorld().rayTraceEntities(eye, direction, reach, 0.6,
             entity -> entity instanceof LivingEntity && !entity.equals(player));
 
-        for (double distance = 0.0; distance <= reach; distance += 0.4) {
-            player.getWorld().spawnParticle(Particle.DUST,
-                eye.clone().add(direction.clone().multiply(distance)), 3, 0.05, 0.05, 0.05, 0.0,
-                new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.6F));
+        // A thick core with a wider corona around it: at this cooldown the beam should look
+        // like the thing that just cost you five minutes, not a line of dust.
+        Vector sideways = direction.clone().crossProduct(new Vector(0.0, 1.0, 0.0));
+        if (sideways.lengthSquared() < 1.0E-4) {
+            sideways = new Vector(1.0, 0.0, 0.0);
+        }
+        sideways.normalize();
+        Vector upwards = direction.clone().crossProduct(sideways).normalize();
+        Particle.DustOptions core = new Particle.DustOptions(Color.fromRGB(255, 235, 130), 3.0F);
+        Particle.DustOptions corona = new Particle.DustOptions(Color.fromRGB(255, 170, 0), 1.6F);
+
+        for (double distance = 0.0; distance <= reach; distance += 0.2) {
+            Location at = eye.clone().add(direction.clone().multiply(distance));
+            player.getWorld().spawnParticle(Particle.DUST, at, 6, 0.12, 0.12, 0.12, 0.0, core);
+            player.getWorld().spawnParticle(Particle.END_ROD, at, 1, 0.05, 0.05, 0.05, 0.0);
+            // Four points on a ring around the core, rotating along the beam so the corona
+            // reads as a spiral rather than a tube.
+            double spin = distance * 1.2;
+            for (int step = 0; step < 4; step++) {
+                double angle = spin + step * Math.PI / 2.0;
+                Location ring = at.clone()
+                    .add(sideways.clone().multiply(Math.cos(angle) * 0.55))
+                    .add(upwards.clone().multiply(Math.sin(angle) * 0.55));
+                player.getWorld().spawnParticle(Particle.DUST, ring, 2, 0.05, 0.05, 0.05, 0.0, corona);
+            }
         }
         player.getWorld().playSound(eye, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.6F, 1.2F);
         this.plugin.getAbilityManager().setCooldown(player, BEAM_COOLDOWN_ID, cooldown);
 
         if (entityHit != null && entityHit.getHitEntity() instanceof LivingEntity target) {
             target.damage(damage, player);
-            target.getWorld().spawnParticle(Particle.EXPLOSION, target.getLocation(), 3, 0.4, 0.4, 0.4, 0.0);
+            target.getWorld().spawnParticle(Particle.EXPLOSION, target.getLocation(), 6, 0.6, 0.6, 0.6, 0.0);
+            target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0),
+                60, 0.5, 0.7, 0.5, 0.0, core);
         } else {
             player.sendMessage(this.plugin.getConfigManager().getMessage("gold-beam-missed"));
         }
