@@ -41,7 +41,11 @@ public class AbilityBindingManager {
         DEFAULTS.put(AbilityBinding.SHIFT_RIGHT_CLICK, AbilitySlot.SECONDARY);
         DEFAULTS.put(AbilityBinding.SWAP_HAND, AbilitySlot.TERTIARY);
         DEFAULTS.put(AbilityBinding.SHIFT_SWAP_HAND, AbilitySlot.QUATERNARY);
-        // LEFT_CLICK and SHIFT_LEFT_CLICK left unbound by default
+        // The two left-click inputs drive the extra slots. Only the Gold Gem defines them,
+        // so for every other gem these bindings stay inert and left-click keeps its
+        // vanilla behaviour.
+        DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.QUINARY);
+        DEFAULTS.put(AbilityBinding.SHIFT_LEFT_CLICK, AbilitySlot.SENARY);
 
         // Bedrock: all four abilities reachable via the four click gestures,
         // since the F key isn't dependable. Right-click slots match Java for parity.
@@ -49,6 +53,8 @@ public class AbilityBindingManager {
         BEDROCK_DEFAULTS.put(AbilityBinding.SHIFT_RIGHT_CLICK, AbilitySlot.SECONDARY);
         BEDROCK_DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.TERTIARY);
         BEDROCK_DEFAULTS.put(AbilityBinding.SHIFT_LEFT_CLICK, AbilitySlot.QUATERNARY);
+        // Bedrock has no input left over for the Gold Gem's extra two slots; those players
+        // reach them with /bliss ability:quinary and :senary, or by rebinding.
     }
 
     /**

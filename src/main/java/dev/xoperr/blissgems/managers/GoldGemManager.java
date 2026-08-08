@@ -8,14 +8,21 @@ import dev.xoperr.blissgems.utils.EnergyState;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -33,8 +40,8 @@ import java.util.UUID;
  * victims, and which of those souls is currently selected.
  *
  * The Gold Gem itself is soulbound - it survives death like any other gem - but the
- * awakening does not. Dying wipes every harvested soul, so the holder has to hunt the
- * gems down again.
+ * awakening does not. Dying hands every stolen gem back to the player it was taken from and
+ * leaves the holder with a broken gem, so the whole hunt has to be done again from scratch.
  */
 public class GoldGemManager {
 
@@ -52,8 +59,8 @@ public class GoldGemManager {
 
     private final BlissGems plugin;
 
-    // Harvested souls per holder: gem id -> the tier that gem was at when it was taken.
-    private final Map<UUID, Map<String, Integer>> harvested = new HashMap<>();
+    // Harvested souls per holder: gem id -> what was taken, and from whom.
+    private final Map<UUID, Map<String, Harvest>> harvested = new HashMap<>();
     // The soul whose abilities the Gold Gem currently channels.
     private final Map<UUID, String> active = new HashMap<>();
 
@@ -91,12 +98,19 @@ public class GoldGemManager {
         return this.isGoldGem(player.getInventory().getItemInMainHand());
     }
 
-    private boolean isGoldGem(ItemStack item) {
+    public boolean isGoldGem(ItemStack item) {
         return item != null && GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item));
     }
 
-    /** Gem ids this player has harvested, in the order they were taken. */
-    public Map<String, Integer> getHarvested(UUID playerId) {
+    /**
+     * A gem torn out of a victim: which gem it was, the tier it was at, and who it was taken
+     * from. The owner is remembered because the souls do not stay stolen forever - when the
+     * holder dies, every gem goes back to the player it was taken from.
+     */
+    public record Harvest(String gemId, int tier, UUID owner) {}
+
+    /** Souls this player has harvested, keyed by gem id, in the order they were taken. */
+    public Map<String, Harvest> getHarvested(UUID playerId) {
         return this.harvested.getOrDefault(playerId, Map.of());
     }
 
@@ -108,10 +122,8 @@ public class GoldGemManager {
     /** The tier of the selected soul, or 1 if nothing is selected. */
     public int getActiveTier(UUID playerId) {
         String gemId = this.active.get(playerId);
-        if (gemId == null) {
-            return 1;
-        }
-        return this.getHarvested(playerId).getOrDefault(gemId, 1);
+        Harvest soul = gemId != null ? this.getHarvested(playerId).get(gemId) : null;
+        return soul != null ? soul.tier() : 1;
     }
 
     /**
@@ -142,64 +154,105 @@ public class GoldGemManager {
     public void harvestOnDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
-        if (killer == null || killer.equals(victim) || !this.holdsGoldGem(killer)) {
+        if (!this.canHarvest(killer, victim)) {
             return;
+        }
+        Harvest taken = this.takeGem(victim, event.getDrops());
+        if (taken == null) {
+            return;
+        }
+        this.absorb(killer, victim, taken);
+    }
+
+    /**
+     * True if this killer could tear a gem out of this victim. Checked by the harvest
+     * ceremony before it intercepts a fatal blow, and again by the death handler for kills
+     * the ceremony never saw (fall damage finishing a fight, /kill, a disabled ceremony).
+     */
+    public boolean canHarvest(Player killer, Player victim) {
+        if (killer == null || victim == null || killer.equals(victim) || !this.holdsGoldGem(killer)) {
+            return false;
         }
         // A broken gem holds nothing worth taking.
-        if (this.plugin.getEnergyManager().getEnergyState(victim) == EnergyState.BROKEN) {
-            return;
-        }
+        return this.plugin.getEnergyManager().getEnergyState(victim) != EnergyState.BROKEN;
+    }
 
-        String harvestedId = null;
-        int harvestedTier = 1;
+    /**
+     * The gem this victim would give up, without taking it. The ceremony needs to know what
+     * it is showing before the animation starts, but must not strip the victim until the
+     * animation has actually finished.
+     */
+    public Harvest peekGem(Player victim) {
+        UUID owner = victim.getUniqueId();
+        for (int slot = 0; slot < victim.getInventory().getSize(); slot++) {
+            Harvest found = this.describe(victim.getInventory().getItem(slot), owner);
+            if (found != null) {
+                return found;
+            }
+        }
+        return this.describe(victim.getInventory().getItemInOffHand(), owner);
+    }
+
+    /**
+     * Tear the victim's gem out of their inventory (and, on death, out of their drops).
+     * Returns what was taken, or null if they had nothing harvestable.
+     *
+     * @param drops the death drop list, or null when the gem is taken from a living player
+     */
+    public Harvest takeGem(Player victim, List<ItemStack> drops) {
+        Harvest taken = null;
+        UUID owner = victim.getUniqueId();
 
         // Pull the gem out of the drops first, then sweep the inventory in case a
         // keep-inventory setup meant it never reached the drop list.
-        for (ItemStack item : new ArrayList<>(event.getDrops())) {
-            String gemId = this.harvestableGemId(item);
-            if (gemId != null) {
-                harvestedId = gemId;
-                harvestedTier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(item));
-                event.getDrops().remove(item);
-                break;
+        if (drops != null) {
+            for (ItemStack item : new ArrayList<>(drops)) {
+                Harvest found = this.describe(item, owner);
+                if (found != null) {
+                    taken = found;
+                    drops.remove(item);
+                    break;
+                }
             }
         }
         // Slot-indexed rather than Inventory#remove: the offhand is where gems normally sit
         // and both getContents() and remove() have been unreliable about reaching it, which
         // left the victim holding the very gem that was supposed to have been torn out.
         for (int slot = 0; slot < victim.getInventory().getSize(); slot++) {
-            ItemStack item = victim.getInventory().getItem(slot);
-            String gemId = this.harvestableGemId(item);
-            if (gemId != null) {
-                if (harvestedId == null) {
-                    harvestedId = gemId;
-                    harvestedTier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(item));
+            Harvest found = this.describe(victim.getInventory().getItem(slot), owner);
+            if (found != null) {
+                if (taken == null) {
+                    taken = found;
                 }
                 victim.getInventory().setItem(slot, null);
             }
         }
-        ItemStack offhand = victim.getInventory().getItemInOffHand();
-        String offhandGemId = this.harvestableGemId(offhand);
-        if (offhandGemId != null) {
-            if (harvestedId == null) {
-                harvestedId = offhandGemId;
-                harvestedTier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(offhand));
+        Harvest offhand = this.describe(victim.getInventory().getItemInOffHand(), owner);
+        if (offhand != null) {
+            if (taken == null) {
+                taken = offhand;
             }
             victim.getInventory().setItemInOffHand(null);
         }
 
-        if (harvestedId == null) {
-            return;
+        if (taken != null) {
+            this.plugin.getGemManager().updateActiveGem(victim);
         }
-        this.plugin.getGemManager().updateActiveGem(victim);
+        return taken;
+    }
 
+    /**
+     * Add a taken gem to the killer's awakening: bookkeeping, the shattering burst at the
+     * victim's feet, the reskinned Gold Gem and the announcements.
+     */
+    public void absorb(Player killer, Player victim, Harvest taken) {
         this.harvested.computeIfAbsent(killer.getUniqueId(), id -> new LinkedHashMap<>())
-            .put(harvestedId, harvestedTier);
+            .put(taken.gemId(), taken);
         // The first soul taken becomes the active one so the gem is usable straight away.
-        this.active.putIfAbsent(killer.getUniqueId(), harvestedId);
+        this.active.putIfAbsent(killer.getUniqueId(), taken.gemId());
         this.save(killer.getUniqueId());
 
-        this.shatter(victim.getLocation(), harvestedId);
+        this.shatter(victim.getLocation(), taken.gemId());
         this.refreshGoldItem(killer);
 
         String message = this.plugin.getConfigManager().getMessage("gold-soul-repurposed");
@@ -209,7 +262,7 @@ public class GoldGemManager {
         killer.playSound(killer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0F, 0.7F);
         int soulCount = this.getHarvested(killer.getUniqueId()).size();
         killer.sendMessage(this.plugin.getConfigManager().getMessage("gold-soul-harvested")
-            .replace("{gem}", this.plugin.getGemManager().getGemDisplayName(harvestedId))
+            .replace("{gem}", this.plugin.getGemManager().getGemDisplayName(taken.gemId()))
             .replace("{count}", String.valueOf(soulCount)));
 
         // Eight souls become one - the gem is fully awake and everyone should know.
@@ -221,20 +274,30 @@ public class GoldGemManager {
         }
     }
 
+    /** Describe a stack as a harvestable gem, or null if it is not one. */
+    private Harvest describe(ItemStack item, UUID owner) {
+        String gemId = this.harvestableGemId(item);
+        if (gemId == null) {
+            return null;
+        }
+        int tier = this.plugin.getGemRegistry().tierFromItemId(CustomItemManager.getIdByItem(item));
+        return new Harvest(gemId, tier, owner);
+    }
+
     /**
      * Rewrite the Gold Gem in the holder's inventory so the item itself shows how far the
      * awakening has come: the souls it carries, each in its own colour, and a model that
      * steps up with every soul taken.
      */
     private void refreshGoldItem(Player player) {
-        Map<String, Integer> souls = this.getHarvested(player.getUniqueId());
+        Map<String, Harvest> souls = this.getHarvested(player.getUniqueId());
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
             this.refreshGoldStack(player.getInventory().getItem(slot), souls);
         }
         this.refreshGoldStack(player.getInventory().getItemInOffHand(), souls);
     }
 
-    private void refreshGoldStack(ItemStack item, Map<String, Integer> souls) {
+    private void refreshGoldStack(ItemStack item, Map<String, Harvest> souls) {
         if (!this.isGoldGem(item)) {
             return;
         }
@@ -251,10 +314,10 @@ public class GoldGemManager {
             lore.add("§8- the gem is silent -");
         } else {
             lore.add(this.colourBar(souls.keySet()));
-            for (Map.Entry<String, Integer> soul : souls.entrySet()) {
+            for (Map.Entry<String, Harvest> soul : souls.entrySet()) {
                 lore.add(this.plugin.getGemManager().getGemColorCode(soul.getKey()) + "- "
                     + this.plugin.getGemManager().getGemDisplayName(soul.getKey())
-                    + " §8(T" + soul.getValue() + ")");
+                    + " §8(T" + soul.getValue().tier() + ")");
             }
         }
         meta.setLore(lore);
@@ -327,7 +390,7 @@ public class GoldGemManager {
     }
 
     /** Particle colour of a harvested gem, shared with the ritual so the colours match. */
-    private Color soulColour(String gemId) {
+    public Color soulColour(String gemId) {
         if (this.plugin.getGemRitualManager() == null) {
             return Color.fromRGB(255, 215, 0);
         }
@@ -335,18 +398,103 @@ public class GoldGemManager {
     }
 
     /**
-     * Wipe a holder's awakening. The Gold Gem is kept on death like every other gem, but
-     * everything it had absorbed is lost and has to be re-harvested.
+     * Wipe a holder's awakening. The Gold Gem itself is soulbound and stays with them, but
+     * dying costs them everything it had absorbed: every stolen gem goes back to the player
+     * it was taken from, and the gem they are left holding is broken - no passives, no
+     * abilities, until a Restoration Book brings it back.
      */
     public void resetProgress(Player player) {
         UUID playerId = player.getUniqueId();
-        boolean hadSouls = !this.getHarvested(playerId).isEmpty();
+        Map<String, Harvest> souls = this.getHarvested(playerId);
+        boolean hadSouls = !souls.isEmpty();
+        if (hadSouls && this.plugin.getConfig().getBoolean("gold.death.return-souls", true)) {
+            for (Harvest soul : new ArrayList<>(souls.values())) {
+                this.returnSoul(player, soul);
+            }
+        }
         this.harvested.remove(playerId);
         this.active.remove(playerId);
         this.save(playerId);
         this.refreshGoldItem(player);
+        this.clearTrims(player);
         if (hadSouls) {
             player.sendMessage(this.plugin.getConfigManager().getMessage("gold-progress-reset"));
+        }
+        // Breaking the gem is what makes a death actually cost something: the holder keeps
+        // the item but none of its power until they restore it.
+        if (this.plugin.getConfig().getBoolean("gold.death.break-gem", true) && this.holdsGoldGem(player)) {
+            this.plugin.getEnergyManager().setEnergy(player, 0);
+            player.sendMessage(this.plugin.getConfigManager().getMessage("gold-gem-broken"));
+        }
+    }
+
+    /**
+     * Hand a stolen gem back to the player it was taken from. An owner who is offline gets it
+     * queued to their playerdata and handed over the next time they join - a gem must never
+     * be lost just because its owner happened not to be watching.
+     */
+    private void returnSoul(Player holder, Harvest soul) {
+        if (soul.owner() == null || soul.owner().equals(holder.getUniqueId())) {
+            return;
+        }
+        String itemId = soul.gemId() + "_gem_t" + soul.tier();
+        Player owner = this.plugin.getServer().getPlayer(soul.owner());
+        if (owner != null && owner.isOnline()) {
+            // Straight into the offhand where gem resolution looks first, so the returned gem
+            // starts working the moment it lands.
+            this.plugin.getGemManager().giveGemToOffhand(owner, soul.gemId(), soul.tier());
+            owner.sendMessage(this.plugin.getConfigManager().getMessage("gold-soul-returned")
+                .replace("{player}", holder.getName())
+                .replace("{gem}", this.plugin.getGemManager().getGemDisplayName(soul.gemId())));
+            return;
+        }
+        this.queuePendingGem(soul.owner(), itemId);
+    }
+
+    private void queuePendingGem(UUID ownerId, String itemId) {
+        File file = this.getPlayerFile(ownerId);
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        List<String> pending = data.getStringList("gold.pending-return");
+        pending.add(itemId);
+        data.set("gold.pending-return", pending);
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to queue a returned gem for " + ownerId + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hand over any gems that were returned to this player while they were offline. Called
+     * from the join handler, right after their Gold Gem state is loaded.
+     */
+    public void deliverPendingGems(Player player) {
+        File file = this.getPlayerFile(player.getUniqueId());
+        if (!file.exists()) {
+            return;
+        }
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        List<String> pending = data.getStringList("gold.pending-return");
+        if (pending.isEmpty()) {
+            return;
+        }
+        for (String itemId : pending) {
+            int marker = itemId.indexOf("_gem_t");
+            if (marker <= 0) {
+                continue;
+            }
+            String gemId = itemId.substring(0, marker);
+            int tier = "2".equals(itemId.substring(marker + 6)) ? 2 : 1;
+            this.plugin.getGemManager().giveGemToOffhand(player, gemId, tier);
+            player.sendMessage(this.plugin.getConfigManager().getMessage("gold-soul-returned")
+                .replace("{player}", "a fallen Gold Gem")
+                .replace("{gem}", this.plugin.getGemManager().getGemDisplayName(gemId)));
+        }
+        data.set("gold.pending-return", null);
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to clear returned gems for " + player.getName() + ": " + e.getMessage());
         }
     }
 
@@ -365,16 +513,14 @@ public class GoldGemManager {
             @Override
             public void run() {
                 for (Player player : GoldGemManager.this.plugin.getServer().getOnlinePlayers()) {
-                    if (player.isDead()) {
+                    if (player.isDead() || !GoldGemManager.this.holdsGoldGem(player)) {
                         continue;
                     }
-                    if (GoldGemManager.this.getHarvested(player.getUniqueId()).isEmpty()) {
-                        continue;
+                    // The gilding marks the holder whether or not the gem has woken up yet.
+                    GoldGemManager.this.applyTrims(player);
+                    if (!GoldGemManager.this.getHarvested(player.getUniqueId()).isEmpty()) {
+                        GoldGemManager.this.applyHarvestedPassives(player);
                     }
-                    if (!GoldGemManager.this.holdsGoldGem(player)) {
-                        continue;
-                    }
-                    GoldGemManager.this.applyHarvestedPassives(player);
                 }
             }
         }.runTaskTimer((Plugin) this.plugin, interval, interval);
@@ -392,10 +538,10 @@ public class GoldGemManager {
         if (registry == null) {
             return;
         }
-        for (Map.Entry<String, Integer> soul : this.getHarvested(player.getUniqueId()).entrySet()) {
+        for (Map.Entry<String, Harvest> soul : this.getHarvested(player.getUniqueId()).entrySet()) {
             GemPassiveHandler handler = registry.getPassiveHandler(soul.getKey());
             if (handler != null) {
-                handler.applyPassives(player, soul.getValue());
+                handler.applyPassives(player, soul.getValue().tier());
             }
         }
         this.drawSoulAura(player);
@@ -421,8 +567,134 @@ public class GoldGemManager {
     }
 
     // ========================================================================
+    // Gold trim
+    // ========================================================================
+
+    /**
+     * Gild the holder's armour. A Gold Gem should be visible on the player carrying it, so
+     * every worn piece takes a gold trim for as long as they have the gem.
+     *
+     * Only untrimmed pieces are touched, and the ones this does trim are marked, so removing
+     * the gilding later can never strip a trim the player applied themselves at a smithing
+     * table.
+     */
+    private void applyTrims(Player player) {
+        if (!this.plugin.getConfig().getBoolean("gold.armour-trim.enabled", true)) {
+            return;
+        }
+        TrimPattern pattern = this.trimPattern();
+        ItemStack[] armour = player.getInventory().getArmorContents();
+        boolean changed = false;
+        for (ItemStack piece : armour) {
+            if (piece == null || !(piece.getItemMeta() instanceof ArmorMeta meta) || meta.hasTrim()) {
+                continue;
+            }
+            meta.setTrim(new ArmorTrim(TrimMaterial.GOLD, pattern));
+            meta.getPersistentDataContainer().set(this.trimKey(), PersistentDataType.BYTE, (byte) 1);
+            piece.setItemMeta(meta);
+            changed = true;
+        }
+        if (changed) {
+            player.getInventory().setArmorContents(armour);
+        }
+    }
+
+    /** Strip the gilding this plugin applied, leaving any trim the player chose themselves. */
+    private void clearTrims(Player player) {
+        ItemStack[] armour = player.getInventory().getArmorContents();
+        boolean changed = false;
+        for (ItemStack piece : armour) {
+            if (piece == null || !(piece.getItemMeta() instanceof ArmorMeta meta)) {
+                continue;
+            }
+            if (!meta.getPersistentDataContainer().has(this.trimKey(), PersistentDataType.BYTE)) {
+                continue;
+            }
+            meta.setTrim(null);
+            meta.getPersistentDataContainer().remove(this.trimKey());
+            piece.setItemMeta(meta);
+            changed = true;
+        }
+        if (changed) {
+            player.getInventory().setArmorContents(armour);
+        }
+    }
+
+    private NamespacedKey trimKey() {
+        return new NamespacedKey(this.plugin, "gold_trim");
+    }
+
+    /** The trim pattern from config, falling back to Sentry if the name is not a real pattern. */
+    private TrimPattern trimPattern() {
+        String name = this.plugin.getConfig().getString("gold.armour-trim.pattern", "SENTRY");
+        TrimPattern pattern = Registry.TRIM_PATTERN.get(NamespacedKey.minecraft(name.toLowerCase()));
+        return pattern != null ? pattern : TrimPattern.SENTRY;
+    }
+
+    // ========================================================================
+    // Summoning
+    // ========================================================================
+
+    private File getSummonFile() {
+        return new File(this.plugin.getDataFolder(), "gold.yml");
+    }
+
+    /**
+     * True if a Gold Gem has already been summoned on this server. With
+     * {@code gold.summon.once-per-server} on, the craft is a one-time event: the gem that
+     * exists is the only one there will ever be, and losing track of it is permanent.
+     */
+    public boolean isSummoned() {
+        return YamlConfiguration.loadConfiguration(this.getSummonFile()).getBoolean("summoned", false);
+    }
+
+    /** Record that the one Gold Gem has been crafted. */
+    public void markSummoned(Player summoner) {
+        File file = this.getSummonFile();
+        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        data.set("summoned", true);
+        data.set("summoned-by", summoner.getUniqueId().toString());
+        data.set("summoned-by-name", summoner.getName());
+        data.set("summoned-at", System.currentTimeMillis());
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to record the Gold Gem summon: " + e.getMessage());
+        }
+    }
+
+    // ========================================================================
     // Persistence
     // ========================================================================
+
+    /**
+     * Parse one stored soul. Written as "<gemId>:<tier>:<ownerUuid>"; entries saved before
+     * owners were tracked have no third field and come back with a null owner, which simply
+     * means that gem has nobody to be returned to.
+     */
+    private Harvest deserialise(String stored) {
+        String[] parts = stored.split(":");
+        if (parts.length == 0 || parts[0].isEmpty()) {
+            return null;
+        }
+        int tier = 1;
+        if (parts.length > 1) {
+            try {
+                tier = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException ignored) {
+                tier = 1;
+            }
+        }
+        UUID owner = null;
+        if (parts.length > 2) {
+            try {
+                owner = UUID.fromString(parts[2]);
+            } catch (IllegalArgumentException ignored) {
+                owner = null;
+            }
+        }
+        return new Harvest(parts[0], tier, owner);
+    }
 
     private File getPlayerFile(UUID playerId) {
         File folder = new File(this.plugin.getDataFolder(), "playerdata");
@@ -438,18 +710,11 @@ public class GoldGemManager {
         FileConfiguration data = YamlConfiguration.loadConfiguration(file);
         List<String> souls = data.getStringList("gold.harvested");
         if (!souls.isEmpty()) {
-            Map<String, Integer> parsed = new LinkedHashMap<>();
+            Map<String, Harvest> parsed = new LinkedHashMap<>();
             for (String soul : souls) {
-                // Stored as "<gemId>:<tier>" so a harvested Tier 2 keeps its stronger passives.
-                int split = soul.lastIndexOf(':');
-                if (split <= 0) {
-                    parsed.put(soul, 1);
-                } else {
-                    try {
-                        parsed.put(soul.substring(0, split), Integer.parseInt(soul.substring(split + 1)));
-                    } catch (NumberFormatException ignored) {
-                        parsed.put(soul.substring(0, split), 1);
-                    }
+                Harvest entry = this.deserialise(soul);
+                if (entry != null) {
+                    parsed.put(entry.gemId(), entry);
                 }
             }
             this.harvested.put(playerId, parsed);
@@ -463,14 +728,15 @@ public class GoldGemManager {
     public void save(UUID playerId) {
         File file = this.getPlayerFile(playerId);
         FileConfiguration data = YamlConfiguration.loadConfiguration(file);
-        Map<String, Integer> souls = this.getHarvested(playerId);
+        Map<String, Harvest> souls = this.getHarvested(playerId);
         if (souls.isEmpty()) {
             data.set("gold.harvested", null);
             data.set("gold.active", null);
         } else {
             List<String> serialised = new ArrayList<>();
-            for (Map.Entry<String, Integer> soul : souls.entrySet()) {
-                serialised.add(soul.getKey() + ":" + soul.getValue());
+            for (Harvest soul : souls.values()) {
+                serialised.add(soul.gemId() + ":" + soul.tier()
+                    + (soul.owner() != null ? ":" + soul.owner() : ""));
             }
             data.set("gold.harvested", serialised);
             data.set("gold.active", this.active.get(playerId));

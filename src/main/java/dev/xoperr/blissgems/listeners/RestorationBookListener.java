@@ -95,6 +95,39 @@ public class RestorationBookListener implements Listener {
         }, grantDelay);
     }
 
+    /**
+     * A ritual in progress cannot be interrupted. The caster is untouchable for its duration
+     * - the ritual takes fifteen seconds of standing still, and without this it would simply
+     * be an invitation to be killed mid-reforge.
+     */
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
+    public void onRitualDamage(org.bukkit.event.entity.EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player player && this.activeRituals.contains(player.getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Root the caster to the spot they started on. Only the position is held - the rotation
+     * from the move event is passed straight through, so they can still look around and watch
+     * the ritual play out around them.
+     */
+    @EventHandler
+    public void onRitualMove(org.bukkit.event.player.PlayerMoveEvent event) {
+        if (!this.activeRituals.contains(event.getPlayer().getUniqueId()) || event.getTo() == null) {
+            return;
+        }
+        org.bukkit.Location from = event.getFrom();
+        org.bukkit.Location to = event.getTo();
+        if (from.getX() == to.getX() && from.getY() == to.getY() && from.getZ() == to.getZ()) {
+            return; // pure look, let it through
+        }
+        org.bukkit.Location held = from.clone();
+        held.setYaw(to.getYaw());
+        held.setPitch(to.getPitch());
+        event.setTo(held);
+    }
+
     /** Strip the old broken gem so the reforged one is the only gem in play. */
     private void clearExistingGems(Player player) {
         for (int i = 0; i < player.getInventory().getSize(); i++) {

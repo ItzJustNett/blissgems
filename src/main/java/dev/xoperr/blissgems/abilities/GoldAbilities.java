@@ -4,6 +4,7 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.managers.GoldGemManager;
+import dev.xoperr.blissgems.utils.AbilitySlot;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -36,10 +37,12 @@ import java.util.UUID;
  * The gem has one power of its own - a charged beam - and otherwise channels whichever
  * harvested soul the holder has selected:
  *
- *   use          -> the selected soul's primary
- *   shift + use  -> the selected soul's secondary
- *   F            -> Sundering Beam (charges in the open, then fires)
- *   shift + F    -> the soul selection menu
+ *   use               -> the selected soul's primary
+ *   shift + use       -> the selected soul's secondary
+ *   left-click        -> the selected soul's tertiary
+ *   shift+left-click  -> the selected soul's quaternary
+ *   F                 -> Sundering Beam (charges in the open, then fires)
+ *   shift + F         -> the soul selection menu
  */
 public class GoldAbilities implements GemAbilityHandler, Listener {
 
@@ -61,16 +64,32 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
 
     @Override
     public void onPrimary(Player player, int tier) {
-        this.channel(player, true);
+        this.channel(player, AbilitySlot.PRIMARY);
     }
 
     @Override
     public void onSecondary(Player player, int tier) {
-        this.channel(player, false);
+        this.channel(player, AbilitySlot.SECONDARY);
     }
 
-    /** Hand the activation over to the selected soul's own handler. */
-    private void channel(Player player, boolean primary) {
+    /** Left-click: the selected soul's tertiary, the first of the two extra inputs. */
+    @Override
+    public void onQuinary(Player player, int tier) {
+        this.channel(player, AbilitySlot.TERTIARY);
+    }
+
+    /** Shift + left-click: the selected soul's quaternary. */
+    @Override
+    public void onSenary(Player player, int tier) {
+        this.channel(player, AbilitySlot.QUATERNARY);
+    }
+
+    /**
+     * Hand the activation over to the selected soul's own handler. The Gold Gem reaches all
+     * four of a soul's slots: its own two powers sit on F and shift+F, the soul's on the
+     * right-click and left-click pairs.
+     */
+    private void channel(Player player, AbilitySlot slot) {
         GoldGemManager gold = this.plugin.getGoldGemManager();
         String soul = gold.getActive(player.getUniqueId());
         if (soul == null) {
@@ -87,7 +106,7 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         // A soul only gives up what it had: a gem harvested at Tier 1 is refused by its own
         // handler's Tier 2 gate, so say that in the Gold Gem's own words rather than letting
         // it read as "your gem is Tier 1" - the Gold Gem has no Tier 2 to reach.
-        if (!primary && soulTier < 2) {
+        if (slot != AbilitySlot.PRIMARY && soulTier < 2) {
             // Live configs predate this key, so fall back rather than sending an empty line.
             String message = this.plugin.getConfigManager().getMessage("gold-soul-too-weak");
             if (message.isEmpty()) {
@@ -101,10 +120,11 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         // "requires Tier 2".
         this.plugin.getGemManager().setChannelTierOverride(player.getUniqueId(), soulTier);
         try {
-            if (primary) {
-                handler.onPrimary(player, soulTier);
-            } else {
-                handler.onSecondary(player, soulTier);
+            switch (slot) {
+                case PRIMARY -> handler.onPrimary(player, soulTier);
+                case SECONDARY -> handler.onSecondary(player, soulTier);
+                case TERTIARY -> handler.onTertiary(player, soulTier);
+                default -> handler.onQuaternary(player, soulTier);
             }
         } finally {
             this.plugin.getGemManager().clearChannelTierOverride(player.getUniqueId());
@@ -258,7 +278,7 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
 
     /** Show every harvested soul; clicking one makes it the channelled gem. */
     public void openSoulMenu(Player player) {
-        Map<String, Integer> souls = this.plugin.getGoldGemManager().getHarvested(player.getUniqueId());
+        Map<String, GoldGemManager.Harvest> souls = this.plugin.getGoldGemManager().getHarvested(player.getUniqueId());
         if (souls.isEmpty()) {
             player.sendMessage(this.plugin.getConfigManager().getMessage("gold-no-soul"));
             return;
@@ -266,8 +286,8 @@ public class GoldAbilities implements GemAbilityHandler, Listener {
         Inventory menu = Bukkit.createInventory(null, 27, SOUL_MENU_TITLE);
         String selected = this.plugin.getGoldGemManager().getActive(player.getUniqueId());
         int slot = 0;
-        for (Map.Entry<String, Integer> soul : souls.entrySet()) {
-            ItemStack icon = CustomItemManager.getItemById(soul.getKey() + "_gem_t" + soul.getValue());
+        for (Map.Entry<String, GoldGemManager.Harvest> soul : souls.entrySet()) {
+            ItemStack icon = CustomItemManager.getItemById(soul.getKey() + "_gem_t" + soul.getValue().tier());
             if (icon == null) {
                 continue;
             }

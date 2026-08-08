@@ -166,7 +166,46 @@ public class GemManager {
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
         return this.isGemOfType(player.getInventory().getItemInOffHand(), type)
-            || this.isGemOfType(player.getInventory().getItemInMainHand(), type);
+            || this.isGemOfType(player.getInventory().getItemInMainHand(), type)
+            || this.hasHarvestedSoul(player, type);
+    }
+
+    /**
+     * True if this player carries a Gold Gem that has harvested the given gem's soul.
+     *
+     * Every event-driven passive gates on {@link #hasGemTypeInOffhand}, so answering here is
+     * what makes a stolen gem's passives - Puff's double jump, Wealth's durability chip, the
+     * rest - actually fire for the Gold Gem's holder. Absorbed souls stack: a holder who has
+     * taken four gems has all four sets of passives at once.
+     */
+    private boolean hasHarvestedSoul(Player player, GemType type) {
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null || type == null) {
+            return false;
+        }
+        return gold.getHarvested(player.getUniqueId()).containsKey(type.getId())
+            && gold.holdsGoldGem(player);
+    }
+
+    /**
+     * The tier a passive should run at for a specific gem type: the held gem's own tier
+     * normally, or the tier that soul was harvested at when the power comes from a Gold Gem.
+     * A soul only ever gives up what it had, so a Tier 1 gem taken off a victim keeps its
+     * Tier 1 numbers even in the hands of a fully awakened holder.
+     */
+    public int getTierFor(Player player, GemType type) {
+        if (type != null
+                && !this.isGemOfType(player.getInventory().getItemInOffHand(), type)
+                && !this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
+            GoldGemManager gold = this.plugin.getGoldGemManager();
+            GoldGemManager.Harvest soul = gold != null
+                ? gold.getHarvested(player.getUniqueId()).get(type.getId())
+                : null;
+            if (soul != null) {
+                return soul.tier();
+            }
+        }
+        return this.getTierFromOffhand(player);
     }
 
     private boolean isGemOfType(ItemStack item, GemType type) {
