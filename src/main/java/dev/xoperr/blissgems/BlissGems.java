@@ -586,7 +586,11 @@ implements BlissGemsAPI {
         // InventoryInteractListener removed - gems can now be moved to containers
 
         // Register BlissGems listeners
-        this.getServer().getPluginManager().registerEvents((Listener)new PlayerDeathListener(this), (Plugin)this);
+        PlayerDeathListener deathListener = new PlayerDeathListener(this);
+        this.getServer().getPluginManager().registerEvents((Listener)deathListener, (Plugin)this);
+        // A tick later, so addon gems (the mythics) have registered before their ids are
+        // checked against gems.droppable-on-death.
+        this.getServer().getScheduler().runTask((Plugin)this, deathListener::validateDroppableOnDeathConfig);
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);

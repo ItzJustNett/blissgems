@@ -143,6 +143,44 @@ combat:
     damage-multiplier: 1.5
 
 # ==========================================
+# ABILITY KEYBINDS
+# ==========================================
+# Which input fires which ability slot, for players who have not rebound anything
+# themselves. Players override these for their own account with
+#   /bliss ability                      - show my current bindings
+#   /bliss set_ability <slot> <input>   - rebind one slot
+#   /bliss set_ability <slot> none      - unbind a slot
+#   /bliss set_ability reset            - back to the defaults below
+#
+# Inputs: right_click, shift_right_click, left_click, shift_left_click,
+#         swap_hand (F), shift_swap_hand
+# Slots:  primary, secondary, tertiary, quaternary, and quinary + senary, which only
+#         the Gold Gem defines (its harvested soul's 3rd and 4th abilities).
+#
+# One input per slot and one slot per input. Set a slot to "none" to leave that input
+# alone - unbound left-click keeps its vanilla behaviour (mining, attacking).
+# Delete this whole section to fall back to the built-in defaults.
+ability-bindings:
+  defaults:
+    right_click: primary
+    shift_right_click: secondary
+    swap_hand: tertiary
+    shift_swap_hand: quaternary
+    # The Gold Gem's two extra inputs. Left-click is the default because there is no
+    # other key left - set these to "none" if you would rather not spend left-click on
+    # them, and reach those abilities with /bliss ability:quinary / :senary instead.
+    left_click: quinary
+    shift_left_click: senary
+
+  # Bedrock (Floodgate) players cannot use the swap-hand key reliably through Geyser,
+  # so they get all four normal abilities on the click gestures instead.
+  bedrock-defaults:
+    right_click: primary
+    shift_right_click: secondary
+    left_click: tertiary
+    shift_left_click: quaternary
+
+# ==========================================
 # PASSIVE EFFECTS
 # ==========================================
 passives:
@@ -541,9 +579,9 @@ gold:
     # trimmed themselves is left alone, and this plugin's gilding is removed again when the
     # gem's power is lost.
     enabled: true
-    # Any vanilla trim pattern: SENTRY, EYE, VEX, WARD, SILENCE, TIDE, SNOUT, RIB, SPIRE,
-    # WAYFINDER, SHAPER, RAISER, HOST, DUNE, COAST, WILD.
-    pattern: SENTRY
+    # Any vanilla trim pattern: FLOW, BOLT, SENTRY, EYE, VEX, WARD, SILENCE, TIDE, SNOUT,
+    # RIB, SPIRE, WAYFINDER, SHAPER, RAISER, HOST, DUNE, COAST, WILD.
+    pattern: FLOW
   # Gem fragments dropped when a harvested gem is shattered.
   shards-per-harvest: 3
   beam:

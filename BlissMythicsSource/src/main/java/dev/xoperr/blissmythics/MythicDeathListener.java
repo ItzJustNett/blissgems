@@ -46,6 +46,24 @@ public final class MythicDeathListener implements Listener {
       }
    }
 
+   /**
+    * True if this mythic gem is already in the death drops. BlissGems strips undroppable gems
+    * out of the drop list at LOWEST priority, but leaves behind any gem listed in its
+    * gems.droppable-on-death config - and adding a second copy of one of those would drop the
+    * mythic twice.
+    */
+   private boolean alreadyDropping(PlayerDeathEvent var1, ItemStack var2) {
+      String var3 = CustomItemManager.getIdByItem(var2);
+
+      for (ItemStack var5 : var1.getDrops()) {
+         if (this.isMythicGemItem(var5) && var3 != null && var3.equals(CustomItemManager.getIdByItem(var5))) {
+            return true;
+         }
+      }
+
+      return false;
+   }
+
    @EventHandler(
       priority = EventPriority.MONITOR,
       ignoreCancelled = true
@@ -57,7 +75,12 @@ public final class MythicDeathListener implements Listener {
 
          for (ItemStack var7 : var2.getInventory().getContents()) {
             if (this.isMythicGemItem(var7)) {
-               var1.getDrops().add(var7.clone());
+               // The gem is dropping either way, so the player is told and their inventory
+               // swept on respawn - but only add it when nothing else already did.
+               if (!this.alreadyDropping(var1, var7)) {
+                  var1.getDrops().add(var7.clone());
+               }
+
                var3 = true;
             }
          }

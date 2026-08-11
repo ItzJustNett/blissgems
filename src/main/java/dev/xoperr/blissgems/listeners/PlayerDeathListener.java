@@ -160,6 +160,10 @@ implements Listener {
     /**
      * True if the item is a gem whose type is configured to drop on death (e.g. heretic/auratus),
      * so it is left in the death drops instead of being kept and re-given on respawn.
+     *
+     * Matching ignores case and accepts either the plain gem id ("auratus") or a full item id
+     * ("auratus_gem_t1"), because both are the obvious thing to write and a config that only
+     * accepted one of them looked simply broken to anyone who guessed the other.
      */
     private boolean isDroppableOnDeath(ItemStack item, List<String> droppableGems) {
         if (droppableGems.isEmpty()) {
@@ -173,7 +177,42 @@ implements Listener {
         if (gemMarker <= 0) {
             return false;
         }
-        return droppableGems.contains(id.substring(0, gemMarker));
+        String gemId = id.substring(0, gemMarker);
+        for (String entry : droppableGems) {
+            if (entry == null) {
+                continue;
+            }
+            String trimmed = entry.trim();
+            if (trimmed.equalsIgnoreCase(gemId) || trimmed.equalsIgnoreCase(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Log any {@code gems.droppable-on-death} entry that names no gem the server knows about.
+     * Called a tick after startup so addon gems (the mythics) have registered themselves
+     * first. A typo here fails silently at death time, which is exactly when nobody is
+     * reading the console - so it is reported up front instead.
+     */
+    public void validateDroppableOnDeathConfig() {
+        List<String> configured = this.plugin.getConfig().getStringList("gems.droppable-on-death");
+        for (String entry : configured) {
+            if (entry == null || entry.trim().isEmpty()) {
+                continue;
+            }
+            String gemId = entry.trim().toLowerCase();
+            int gemMarker = gemId.indexOf("_gem_t");
+            if (gemMarker > 0) {
+                gemId = gemId.substring(0, gemMarker);
+            }
+            if (this.plugin.getGemRegistry() == null || this.plugin.getGemRegistry().getGem(gemId) == null) {
+                this.plugin.getLogger().warning("gems.droppable-on-death lists '" + entry
+                    + "', which is not a known gem - it will never drop. Use the plain gem id"
+                    + " (e.g. auratus, heretic).");
+            }
+        }
     }
 
     @EventHandler
