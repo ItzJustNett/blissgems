@@ -65,9 +65,55 @@ public class AbilityBindingManager {
         return player != null && player.getName().startsWith(BEDROCK_NAME_PREFIX);
     }
 
-    /** The default binding set appropriate for this player's platform. */
-    private static EnumMap<AbilityBinding, AbilitySlot> defaultsFor(Player player) {
-        return new EnumMap<>(isBedrock(player) ? BEDROCK_DEFAULTS : DEFAULTS);
+    /**
+     * The default binding set appropriate for this player's platform, overridden by
+     * config.yml when {@code ability-bindings.defaults} (or {@code .bedrock-defaults} for
+     * Floodgate players) lists any bindings. Only players who have never customised their
+     * own bindings are affected - a saved binding set always wins over the config.
+     */
+    private EnumMap<AbilityBinding, AbilitySlot> defaultsFor(Player player) {
+        boolean bedrock = isBedrock(player);
+        EnumMap<AbilityBinding, AbilitySlot> configured =
+            readConfigDefaults(bedrock ? "ability-bindings.bedrock-defaults" : "ability-bindings.defaults");
+        if (configured != null) {
+            return configured;
+        }
+        return new EnumMap<>(bedrock ? BEDROCK_DEFAULTS : DEFAULTS);
+    }
+
+    /**
+     * Read one {@code <input>: <slot>} section from config.yml. Null when the section is
+     * absent or produced nothing usable, so the built-in defaults stay in charge. Entries
+     * naming an unknown input or slot are logged and skipped rather than silently dropped -
+     * a typo in the config should say so, not quietly unbind an ability.
+     */
+    private EnumMap<AbilityBinding, AbilitySlot> readConfigDefaults(String path) {
+        if (!plugin.getConfig().isConfigurationSection(path)) {
+            return null;
+        }
+        EnumMap<AbilityBinding, AbilitySlot> map = new EnumMap<>(AbilityBinding.class);
+        for (String key : plugin.getConfig().getConfigurationSection(path).getKeys(false)) {
+            AbilityBinding input = AbilityBinding.fromId(key);
+            String slotId = plugin.getConfig().getString(path + "." + key);
+            AbilitySlot slot = AbilitySlot.fromId(slotId);
+            if (input == null) {
+                plugin.getLogger().warning("[AbilityBindings] " + path + ": unknown input '" + key + "' - ignored.");
+                continue;
+            }
+            if (slot == null) {
+                // "none" is the documented way to leave an input unbound, so it is not a typo.
+                if (slotId != null && (slotId.equalsIgnoreCase("none") || slotId.isEmpty())) {
+                    continue;
+                }
+                plugin.getLogger().warning("[AbilityBindings] " + path + "." + key
+                    + ": unknown slot '" + slotId + "' - ignored.");
+                continue;
+            }
+            // Same one-to-one rule as setBinding: the last input wins a contested slot.
+            map.entrySet().removeIf(e -> e.getValue() == slot);
+            map.put(input, slot);
+        }
+        return map.isEmpty() ? null : map;
     }
 
     public AbilityBindingManager(BlissGems plugin) {

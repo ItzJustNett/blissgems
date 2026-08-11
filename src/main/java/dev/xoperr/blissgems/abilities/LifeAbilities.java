@@ -70,6 +70,13 @@ public class LifeAbilities implements GemAbilityHandler {
             player.sendMessage("\u00a7cNo target found!");
             return;
         }
+        // Skip trusted players - draining them would wither and damage an ally, the same
+        // reason Heart Lock and Circle of Life refuse to touch them.
+        if (target instanceof Player targetPlayer
+                && this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+            player.sendMessage("\u00a7c\u00a7oYou cannot Heart Drain a trusted player!");
+            return;
+        }
         int duration = this.plugin.getConfigManager().getAbilityDuration("life-drainer");
         target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, duration * 20, 1, false, true));
 

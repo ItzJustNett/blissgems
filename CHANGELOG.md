@@ -1,5 +1,58 @@
 # Changelog
 
+## BlissGems 4.9.9 / BlissMythics 1.5.5
+
+### Fixed
+
+**Heart Drainer no longer hits trusted players.** The Life Gem's primary was the one Life ability
+with no trust check — Circle of Life and Heart Lock both had one — so it withered and drained
+allies. It now refuses a trusted target the way Heart Lock does.
+
+**A fresh Gold Gem no longer inherits the last one's souls.** Each Gold Gem carries its own
+instance id, but the record of which gem a holder's harvested souls belonged to lived only in
+memory. Any relog or restart wiped it, and the stored souls were then adopted onto whatever Gold
+Gem the player next picked up — so clearing a filled gem and handing out a new one gave back an
+already-awakened gem. The instance is now persisted to `playerdata/<uuid>.yml` as `gold.instance`
+and dropped on logout. Existing saves have no instance recorded, so each holder's next gem is
+adopted once and tracked correctly from then on.
+
+**`/bliss give <player> gold 2` explains itself.** The Gold Gem has no Tier 2 — its second-tier
+abilities come from the tier of the *soul* it channels — so asking for one built an item id that
+was never registered and failed with a bare "Failed to give gem!". It now clamps to Tier 1 and
+says where secondary abilities actually come from.
+
+**`gems.droppable-on-death` matches properly.** Entries were compared case-sensitively against the
+plain gem id, so `- Auratus` or `- auratus_gem_t1` silently did nothing while `- auratus` worked.
+Matching now ignores case and accepts either form, and any entry naming no known gem is reported
+in the console one tick after startup, once addon gems have registered.
+
+**A mythic listed in `droppable-on-death` no longer drops twice.** BlissMythics adds mythic gems to
+the death drops itself; with the gem also left in the drops by BlissGems' config, both copies
+landed. BlissMythics now skips a gem that is already dropping.
+
+### Added
+
+**Gold Gem soul commands.** `/bliss goldgem remove <player> <soul>` takes one soul back out,
+`clear <player>` empties the gem to dormant, and `list <player>` prints what it holds and which
+soul is selected. Removing the active soul falls back to another one automatically. These join the
+existing `fill`, and all four tab-complete.
+
+**Ability keybind defaults live in `config.yml`.** A new `ability-bindings` section sets which
+input drives which slot for players who haven't rebound anything themselves, with a separate
+`bedrock-defaults` for Floodgate players. Set an input to `none` to leave it alone — useful for
+`left_click`, which otherwise drives the Gold Gem's quinary slot. Per-player rebinding via
+`/bliss set_ability` is unchanged and still wins over these defaults.
+
+### Changed
+
+**The Gold Gem gilds armour with the Flow trim** instead of Sentry. Still configurable at
+`gold.armour-trim.pattern`, which now also documents `FLOW` and `BOLT`.
+
+**`/bliss` help lists the keybind commands.** `/bliss ability` and `/bliss set_ability` existed but
+appeared in neither the help output nor tab-completion, so nobody found them.
+
+---
+
 ## BlissGems 4.9.8
 
 ### Added

@@ -114,9 +114,12 @@ public class GoldGemManager {
     /**
      * Notice when the Gold Gem this player is holding is not the one their harvested/active
      * state belongs to, and wipe that stale state - otherwise a brand new Gold Gem (from
-     * /give, a fresh craft, etc.) would read as already awakened. The first time a player is
-     * ever seen holding a gem (including right after a server restart, when this map starts
-     * empty), its state is adopted as-is rather than wiped, so existing progress survives.
+     * /give, a fresh craft, etc.) would read as already awakened.
+     *
+     * The tracked instance is persisted alongside the souls themselves, so a relog or a
+     * server restart cannot make a fresh gem inherit the last one's awakening: the only
+     * time a gem is adopted as-is is when there is nothing stored to contradict it, which
+     * is either a player who has never held one or a save written before instances existed.
      */
     private void syncInstance(Player player, ItemStack gem) {
         UUID onItem = CustomItemManager.ensureGoldInstanceId(gem);
@@ -127,6 +130,7 @@ public class GoldGemManager {
         UUID tracked = this.trackedInstance.get(playerId);
         if (tracked == null) {
             this.trackedInstance.put(playerId, onItem);
+            this.save(playerId);
             return;
         }
         if (!tracked.equals(onItem)) {
@@ -208,6 +212,44 @@ public class GoldGemManager {
         this.active.putIfAbsent(playerId, gemId);
         this.save(playerId);
         this.refreshGoldItem(player);
+    }
+
+    /**
+     * Admin-only: take one harvested soul back out of this player's awakening. Returns false
+     * if they never had that soul. The soul is discarded, not returned to whoever it was
+     * taken from - use death for that.
+     */
+    public boolean removeSoul(Player player, String gemId) {
+        UUID playerId = player.getUniqueId();
+        this.getHarvested(playerId); // resolve any stale state against the gem they hold first
+        Map<String, Harvest> souls = this.harvested.get(playerId);
+        if (souls == null || souls.remove(gemId) == null) {
+            return false;
+        }
+        // The selected soul cannot be one they no longer have: fall back to whatever is left.
+        if (gemId.equals(this.active.get(playerId))) {
+            this.active.remove(playerId);
+            if (!souls.isEmpty()) {
+                this.active.put(playerId, souls.keySet().iterator().next());
+            }
+        }
+        if (souls.isEmpty()) {
+            this.harvested.remove(playerId);
+        }
+        this.save(playerId);
+        this.refreshGoldItem(player);
+        return true;
+    }
+
+    /** Admin-only: empty this player's Gold Gem back to dormant. Returns how many souls went. */
+    public int clearSouls(Player player) {
+        UUID playerId = player.getUniqueId();
+        int removed = this.getHarvested(playerId).size();
+        this.harvested.remove(playerId);
+        this.active.remove(playerId);
+        this.save(playerId);
+        this.refreshGoldItem(player);
+        return removed;
     }
 
     // ========================================================================
@@ -696,11 +738,11 @@ public class GoldGemManager {
         return new NamespacedKey(this.plugin, "gold_trim");
     }
 
-    /** The trim pattern from config, falling back to Sentry if the name is not a real pattern. */
+    /** The trim pattern from config, falling back to Flow if the name is not a real pattern. */
     private TrimPattern trimPattern() {
-        String name = this.plugin.getConfig().getString("gold.armour-trim.pattern", "SENTRY");
+        String name = this.plugin.getConfig().getString("gold.armour-trim.pattern", "FLOW");
         TrimPattern pattern = Registry.TRIM_PATTERN.get(NamespacedKey.minecraft(name.toLowerCase()));
-        return pattern != null ? pattern : TrimPattern.SENTRY;
+        return pattern != null ? pattern : TrimPattern.FLOW;
     }
 
     // ========================================================================
@@ -795,6 +837,14 @@ public class GoldGemManager {
         if (selected != null) {
             this.active.put(playerId, selected);
         }
+        String instance = data.getString("gold.instance");
+        if (instance != null) {
+            try {
+                this.trackedInstance.put(playerId, UUID.fromString(instance));
+            } catch (IllegalArgumentException ignored) {
+                // Unreadable id: fall back to adopting whichever gem they turn up holding.
+            }
+        }
     }
 
     public void save(UUID playerId) {
@@ -813,6 +863,10 @@ public class GoldGemManager {
             data.set("gold.harvested", serialised);
             data.set("gold.active", this.active.get(playerId));
         }
+        // Which physical gem the state above belongs to. Written even when there are no
+        // souls, so a cleared-and-re-given gem is still recognised as a different one.
+        UUID instance = this.trackedInstance.get(playerId);
+        data.set("gold.instance", instance != null ? instance.toString() : null);
         try {
             data.save(file);
         } catch (IOException e) {
@@ -824,5 +878,6 @@ public class GoldGemManager {
     public void unload(UUID playerId) {
         this.harvested.remove(playerId);
         this.active.remove(playerId);
+        this.trackedInstance.remove(playerId);
     }
 }
