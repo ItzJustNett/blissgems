@@ -2,6 +2,11 @@
 
 # BlissGems Push Script
 # Stages all changes, commits, and pushes to GitHub
+# Usage: ./push.sh ["commit message"]
+
+set -e
+
+cd "$(dirname "$0")"
 
 # Add all changes
 git add -A
@@ -12,9 +17,12 @@ if git diff --staged --quiet; then
     exit 0
 fi
 
-# Commit with message
-echo "Enter commit message:"
-read -r commit_message
+# Commit message from argument, or ask for one
+commit_message="$1"
+if [ -z "$commit_message" ]; then
+    echo "Enter commit message:"
+    read -r commit_message
+fi
 
 if [ -z "$commit_message" ]; then
     echo "Commit message cannot be empty"
@@ -23,8 +31,6 @@ fi
 
 git commit -m "$commit_message"
 
-# Push to GitHub using the deploy key
-unset SSH_AUTH_SOCK
-GIT_SSH_COMMAND="ssh -i /tmp/claude/blissgems_deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -F /dev/null -o IdentitiesOnly=yes" git push origin main
+git push origin main
 
 echo "Successfully pushed to GitHub!"

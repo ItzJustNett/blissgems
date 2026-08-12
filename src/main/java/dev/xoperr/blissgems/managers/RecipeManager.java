@@ -13,7 +13,9 @@ import org.bukkit.inventory.ShapedRecipe;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Registers BlissGems' crafting recipes from recipes.yml.
@@ -65,7 +67,12 @@ public class RecipeManager {
             if ("gold_gem".equals(key) && !plugin.getConfig().getBoolean("gold.summon.recipe-enabled", true)) {
                 continue;
             }
-            register(key, recipe);
+            // One malformed recipe must not take the rest of the file down with it.
+            try {
+                register(key, recipe);
+            } catch (RuntimeException e) {
+                plugin.getLogger().warning("Recipe '" + key + "' could not be registered: " + e.getMessage());
+            }
         }
         plugin.getLogger().info("Registered " + registeredRecipes.size() + " custom crafting recipes");
     }
@@ -112,15 +119,36 @@ public class RecipeManager {
             plugin.getLogger().warning("Recipe '" + key + "' has no ingredients - skipped");
             return;
         }
+        // Every non-space character in the shape needs an ingredient, and an ingredient the
+        // shape never uses cannot be set at all. Both are what an edited shape leaves behind,
+        // so they are reported by name rather than thrown from inside Bukkit.
+        Set<Character> unfilled = new HashSet<>();
+        for (String row : shape) {
+            for (char slot : row.toCharArray()) {
+                if (slot != ' ') {
+                    unfilled.add(slot);
+                }
+            }
+        }
         for (String symbol : ingredients.getKeys(false)) {
             if (symbol.length() != 1) {
                 plugin.getLogger().warning("Recipe '" + key + "': ingredient key '" + symbol
                     + "' must be a single character - skipped");
                 return;
             }
+            if (!unfilled.remove(symbol.charAt(0))) {
+                plugin.getLogger().warning("Recipe '" + key + "': ingredient '" + symbol
+                    + "' does not appear in the shape - ignored");
+                continue;
+            }
             if (!setIngredient(key, shaped, symbol.charAt(0), ingredients.getString(symbol))) {
                 return;
             }
+        }
+        if (!unfilled.isEmpty()) {
+            plugin.getLogger().warning("Recipe '" + key + "': the shape uses " + unfilled
+                + " with no matching ingredient - skipped");
+            return;
         }
 
         try {
@@ -128,6 +156,9 @@ public class RecipeManager {
         } catch (IllegalStateException e) {
             // A recipe key that survived a reload is already registered; leave the live one.
             plugin.getLogger().warning("Recipe '" + key + "' is already registered - skipped");
+            return;
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Recipe '" + key + "' was rejected by the server: " + e.getMessage());
             return;
         }
         registeredRecipes.add(namespacedKey);
