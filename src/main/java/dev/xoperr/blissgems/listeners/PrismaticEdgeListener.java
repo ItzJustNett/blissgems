@@ -171,13 +171,14 @@ public class PrismaticEdgeListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onComboHit(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player attacker)) {
-            return;
-        }
-
-        // Being hit breaks the victim's own combo, whatever the attacker is holding
+        // Being hit breaks the victim's own combo, whatever hit them - a mob, an arrow or
+        // another player. Checked before the attacker below, which is a player only.
         if (event.getEntity() instanceof Player victim) {
             resetCombo(victim);
+        }
+
+        if (!(event.getDamager() instanceof Player attacker)) {
+            return;
         }
 
         if (!isPrismaticEdge(attacker.getInventory().getItemInMainHand())) {
