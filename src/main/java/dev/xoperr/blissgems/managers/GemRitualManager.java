@@ -1,609 +1,431 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Color
+ *  org.bukkit.Location
+ *  org.bukkit.Particle
+ *  org.bukkit.Particle$DustOptions
+ *  org.bukkit.Server
+ *  org.bukkit.Sound
+ *  org.bukkit.World
+ *  org.bukkit.entity.Display$Billboard
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.ItemDisplay
+ *  org.bukkit.entity.Player
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.potion.PotionEffect
+ *  org.bukkit.potion.PotionEffectType
+ *  org.bukkit.scheduler.BukkitRunnable
+ *  org.bukkit.util.Transformation
+ *  org.bukkit.util.Vector
+ *  org.joml.AxisAngle4f
+ *  org.joml.Vector3f
+ */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.Server;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Transformation;
+import org.bukkit.util.Vector;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
-import java.util.ArrayList;
-import java.util.List;
 
-/**
- * Manages elaborate ritual animations for gem-related events
- * (rerolls, first gem receiving, etc.)
- */
 public class GemRitualManager {
     private final BlissGems plugin;
-
-    /**
-     * Scoreboard tag on every ItemDisplay the ritual spawns, so orphans (e.g. a player who
-     * first-joined then insta-rejoined mid-ritual) can be swept — the per-runnable cleanup
-     * misses entities in unloaded chunks.
-     */
     public static final String RITUAL_TAG = "blissgems_ritual_display";
 
     public GemRitualManager(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /** Remove every orphaned ritual display entity in a single world. */
-    public static int sweepWorld(org.bukkit.World world) {
+    public static int sweepWorld(World world) {
         int removed = 0;
-        for (org.bukkit.entity.Entity e : world.getEntitiesByClasses(ItemDisplay.class)) {
-            if (e.getScoreboardTags().contains(RITUAL_TAG)) {
-                e.remove();
-                removed++;
-            }
+        for (Entity e : world.getEntitiesByClasses(new Class[]{ItemDisplay.class})) {
+            if (!e.getScoreboardTags().contains(RITUAL_TAG)) continue;
+            e.remove();
+            ++removed;
         }
         return removed;
     }
 
-    /** Sweep orphaned ritual display entities across all loaded worlds. */
-    public static int sweepAll(org.bukkit.Server server) {
+    public static int sweepAll(Server server) {
         int removed = 0;
-        for (org.bukkit.World world : server.getWorlds()) {
-            removed += sweepWorld(world);
+        for (World world : server.getWorlds()) {
+            removed += GemRitualManager.sweepWorld(world);
         }
         return removed;
     }
 
-    /**
-     * Performs an elaborate totem-like ritual animation for gem receiving
-     * @param player The player receiving the gem
-     * @param gemType The gem type being received
-     * @param isFirstGem Whether this is the player's first gem
-     * @param tier The gem tier (1 or 2) — spinning gems match this tier
-     */
     public void performGemRitual(Player player, GemType gemType, boolean isFirstGem, int tier) {
-        performGemRitual(player, gemType != null ? gemType.getId() : null, isFirstGem, tier);
+        this.performGemRitual(player, gemType != null ? gemType.getId() : null, isFirstGem, tier);
     }
 
-    /**
-     * Performs the ritual for any gem ID — built-in or addon.
-     * @param player The player receiving the gem
-     * @param gemId The gem ID being received (e.g. "fire", or an addon's "ice")
-     * @param isFirstGem Whether this is the player's first gem
-     * @param tier The gem tier (1 or 2) — spinning gems match this tier
-     */
-    public void performGemRitual(Player player, String gemId, boolean isFirstGem, int tier) {
-        // Achievement: Reawakening (complete a restoration ritual)
+    public void performGemRitual(final Player player, final String gemId, boolean isFirstGem, int tier) {
         if (!isFirstGem && this.plugin.getAchievementManager() != null) {
             this.plugin.getAchievementManager().unlock(player, Achievement.REAWAKENING);
         }
-
-        Location loc = player.getLocation().clone();
-        org.bukkit.Color gemColor = getGemColor(gemId);
-
-        // Apply slow falling during ritual (extends for full 15-second sequence)
+        final Location loc = player.getLocation().clone();
+        final Color gemColor = this.getGemColor(gemId);
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 300, 0, false, false));
         player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 40, 1, false, false));
-
-        // Phase 0: every ritual gem spinning in orbit (0-4 seconds)
-        List<ItemDisplay> orbitingGems = new ArrayList<>();
-        final List<String> allGems = getRitualGemIds(tier);
+        final ArrayList<ItemDisplay> orbitingGems = new ArrayList<ItemDisplay>();
+        List<String> allGems = this.getRitualGemIds(tier);
         Location playerLoc = player.getLocation();
-
-        // Spawn ItemDisplay entities for each gem (pristine+ texture, glowing)
-        for (int i = 0; i < allGems.size(); i++) {
-            String gemItemId = getGemItemId(allGems.get(i), tier);
-            ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
+        for (int i = 0; i < allGems.size(); ++i) {
+            String gemItemId = this.getGemItemId(allGems.get(i), tier);
+            ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10);
             if (gemItem == null) continue;
-
-            double angleOffset = (i / (double) allGems.size()) * 2 * Math.PI;
+            double angleOffset = (double)i / (double)allGems.size() * 2.0 * Math.PI;
             double radius = 2.5;
             double height = 1.5;
-
             double x = Math.cos(angleOffset) * radius;
             double z = Math.sin(angleOffset) * radius;
             Location gemLoc = playerLoc.clone().add(x, height, z);
-
-            ItemDisplay itemDisplay = player.getWorld().spawn(gemLoc, ItemDisplay.class);
+            ItemDisplay itemDisplay = (ItemDisplay)player.getWorld().spawn(gemLoc, ItemDisplay.class);
             itemDisplay.setItemStack(gemItem);
             itemDisplay.setBillboard(Display.Billboard.FIXED);
-            itemDisplay.setViewRange(100);
+            itemDisplay.setViewRange(100.0f);
             itemDisplay.setGlowing(true);
             itemDisplay.addScoreboardTag(RITUAL_TAG);
             orbitingGems.add(itemDisplay);
         }
-
-        new BukkitRunnable() {
+        new BukkitRunnable(){
             int ticks = 0;
-            final int maxTicks = 80; // 4 seconds
+            final int maxTicks = 80;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || ticks >= maxTicks) {
-                    // Clean up gem entities
+                if (!player.isOnline() || this.ticks >= 80) {
                     for (ItemDisplay gem : orbitingGems) {
-                        if (gem != null && gem.isValid()) {
-                            gem.remove();
-                        }
+                        if (gem == null || !gem.isValid()) continue;
+                        gem.remove();
                     }
                     orbitingGems.clear();
                     this.cancel();
                     return;
                 }
-
-                // Update positions of every orbiting gem item
-                for (int i = 0; i < orbitingGems.size(); i++) {
-                    ItemDisplay gem = orbitingGems.get(i);
+                for (int i = 0; i < orbitingGems.size(); ++i) {
+                    ItemDisplay gem = (ItemDisplay)orbitingGems.get(i);
                     if (gem == null || !gem.isValid()) continue;
-
-                    double angleOffset = (i / (double) orbitingGems.size()) * 2 * Math.PI;
-                    double angle = (ticks / 20.0) * Math.PI + angleOffset; // 2 rotations in 4s
+                    double angleOffset = (double)i / (double)orbitingGems.size() * 2.0 * Math.PI;
+                    double angle = (double)this.ticks / 20.0 * Math.PI + angleOffset;
                     double radius = 2.5;
-                    double height = 1.5 + Math.sin(ticks / 10.0) * 0.3; // Gentle bob
-
+                    double height = 1.5 + Math.sin((double)this.ticks / 10.0) * 0.3;
                     double x = Math.cos(angle) * radius;
                     double z = Math.sin(angle) * radius;
                     Location newLoc = player.getLocation().clone().add(x, height, z);
                     gem.teleport(newLoc);
-
-                    // Rotate gem for visual effect
-                    float rotation = (ticks * 5) % 360;
-                    Transformation transform = new Transformation(
-                        new Vector3f(0, 0, 0),
-                        new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
-                        new Vector3f(0.7f, 0.7f, 0.7f),
-                        new AxisAngle4f(0, 0, 0, 1)
-                    );
+                    float rotation = this.ticks * 5 % 360;
+                    Transformation transform = new Transformation(new Vector3f(0.0f, 0.0f, 0.0f), new AxisAngle4f((float)Math.toRadians(rotation), 0.0f, 1.0f, 0.0f), new Vector3f(0.7f, 0.7f, 0.7f), new AxisAngle4f(0.0f, 0.0f, 0.0f, 1.0f));
                     gem.setTransformation(transform);
                 }
-
-                // Sound every half second
-                if (ticks % 10 == 0) {
-                    player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.0f + (ticks / 80.0f));
+                if (this.ticks % 10 == 0) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.0f + (float)this.ticks / 80.0f);
                 }
-
-                ticks++;
+                ++this.ticks;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        // Phase 1: Selection and divergence - winner goes to player, others fall (4-6 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            // Player left during the orbit — don't spawn displays that would orphan.
-            if (!player.isOnline()) return;
-            Location playerCenter = player.getLocation().add(0, 1.5, 0);
-            List<ItemDisplay> selectionGems = new ArrayList<>();
-            // Gem ID behind each entity in selectionGems, kept in step with it so the
-            // winner lookup below stays correct even if a gem fails to spawn.
-            final List<String> selectionIds = new ArrayList<>();
-
-            // Spawn fresh gem entities for selection phase (pristine+, glowing)
-            for (int i = 0; i < allGems.size(); i++) {
-                String gemItemId = getGemItemId(allGems.get(i), tier);
-                ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10); // Energy 10 = pristine+ texture
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            final Location playerCenter = player.getLocation().add(0.0, 1.5, 0.0);
+            final ArrayList<ItemDisplay> selectionGems = new ArrayList<ItemDisplay>();
+            final ArrayList<String> selectionIds = new ArrayList<String>();
+            for (int i = 0; i < allGems.size(); ++i) {
+                String gemItemId = this.getGemItemId((String)allGems.get(i), tier);
+                ItemStack gemItem = CustomItemManager.getItemById(gemItemId, 10);
                 if (gemItem == null) continue;
-
-                double angleOffset = (i / (double) allGems.size()) * 2 * Math.PI;
-                double startAngle = (4.0) * Math.PI + angleOffset;
+                double angleOffset = (double)i / (double)allGems.size() * 2.0 * Math.PI;
+                double startAngle = Math.PI * 4 + angleOffset;
                 double radius = 2.5;
                 double height = 1.5;
-
                 double x = Math.cos(startAngle) * radius;
                 double z = Math.sin(startAngle) * radius;
                 Location startLoc = player.getLocation().clone().add(x, height, z);
-
-                ItemDisplay itemDisplay = player.getWorld().spawn(startLoc, ItemDisplay.class);
+                ItemDisplay itemDisplay = (ItemDisplay)player.getWorld().spawn(startLoc, ItemDisplay.class);
                 itemDisplay.setItemStack(gemItem);
                 itemDisplay.setBillboard(Display.Billboard.FIXED);
-                itemDisplay.setViewRange(100);
+                itemDisplay.setViewRange(100.0f);
                 itemDisplay.setGlowing(true);
                 itemDisplay.addScoreboardTag(RITUAL_TAG);
                 selectionGems.add(itemDisplay);
-                selectionIds.add(allGems.get(i));
+                selectionIds.add((String)allGems.get(i));
             }
-
-            new BukkitRunnable() {
+            new BukkitRunnable(){
                 int ticks = 0;
-                final int maxTicks = 40; // 2 seconds
+                final int maxTicks = 40;
 
-                @Override
                 public void run() {
-                    if (!player.isOnline() || ticks >= maxTicks) {
-                        // Clean up selection gem entities
+                    if (!player.isOnline() || this.ticks >= 40) {
                         for (ItemDisplay gem : selectionGems) {
-                            if (gem != null && gem.isValid()) {
-                                gem.remove();
-                            }
+                            if (gem == null || !gem.isValid()) continue;
+                            gem.remove();
                         }
                         selectionGems.clear();
                         this.cancel();
                         return;
                     }
-
-                    double progress = ticks / (double) maxTicks;
-
-                    for (int i = 0; i < selectionGems.size(); i++) {
-                        ItemDisplay gem = selectionGems.get(i);
+                    double progress = (double)this.ticks / 40.0;
+                    for (int i = 0; i < selectionGems.size(); ++i) {
+                        ItemDisplay gem = (ItemDisplay)selectionGems.get(i);
                         if (gem == null || !gem.isValid()) continue;
-
-                        String currentGem = selectionIds.get(i);
-
-                        // Starting orbit position (where phase 0 ended)
-                        double angleOffset = (i / (double) selectionGems.size()) * 2 * Math.PI;
-                        double startAngle = (4.0) * Math.PI + angleOffset;
+                        String currentGem = (String)selectionIds.get(i);
+                        double angleOffset = (double)i / (double)selectionGems.size() * 2.0 * Math.PI;
+                        double startAngle = Math.PI * 4 + angleOffset;
                         double startRadius = 2.5;
                         double startHeight = 1.5;
-
-                        Location startLoc = player.getLocation().add(
-                            Math.cos(startAngle) * startRadius,
-                            startHeight,
-                            Math.sin(startAngle) * startRadius
-                        );
-
+                        Location startLoc = player.getLocation().add(Math.cos(startAngle) * startRadius, startHeight, Math.sin(startAngle) * startRadius);
                         boolean isWinner = currentGem.equals(gemId);
-
-                        Location targetLoc;
-                        if (isWinner) {
-                            // Winner gem: move to player center
-                            targetLoc = playerCenter.clone();
-                        } else {
-                            // Loser gems: move down and outward
-                            targetLoc = startLoc.clone().add(0, -3.0, 0);
-                        }
-
-                        // Interpolate position
-                        Location currentLoc = startLoc.clone().add(
-                            (targetLoc.getX() - startLoc.getX()) * progress,
-                            (targetLoc.getY() - startLoc.getY()) * progress,
-                            (targetLoc.getZ() - startLoc.getZ()) * progress
-                        );
+                        Location targetLoc = isWinner ? playerCenter.clone() : startLoc.clone().add(0.0, -3.0, 0.0);
+                        Location currentLoc = startLoc.clone().add((targetLoc.getX() - startLoc.getX()) * progress, (targetLoc.getY() - startLoc.getY()) * progress, (targetLoc.getZ() - startLoc.getZ()) * progress);
                         gem.teleport(currentLoc);
-
-                        // Rotate winner gem faster
-                        float rotation = isWinner ? (ticks * 15) % 360 : (ticks * 3) % 360;
-                        Transformation transform = new Transformation(
-                            new Vector3f(0, 0, 0),
-                            new AxisAngle4f((float) Math.toRadians(rotation), 0, 1, 0),
-                            isWinner ? new Vector3f(1.0f, 1.0f, 1.0f) : new Vector3f(0.7f, 0.7f, 0.7f),
-                            new AxisAngle4f(0, 0, 0, 1)
-                        );
+                        float rotation = isWinner ? (float)(this.ticks * 15 % 360) : (float)(this.ticks * 3 % 360);
+                        Transformation transform = new Transformation(new Vector3f(0.0f, 0.0f, 0.0f), new AxisAngle4f((float)Math.toRadians(rotation), 0.0f, 1.0f, 0.0f), isWinner ? new Vector3f(1.0f, 1.0f, 1.0f) : new Vector3f(0.7f, 0.7f, 0.7f), new AxisAngle4f(0.0f, 0.0f, 0.0f, 1.0f));
                         gem.setTransformation(transform);
-
-                        // Particle effect for winner only
-                        if (isWinner) {
-                            Color color = getGemColor(currentGem);
-                            player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 3, 0.1, 0.1, 0.1, 0.05);
-                            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 2, 0.1, 0.1, 0.1, 0.01);
-                        }
+                        if (!isWinner) continue;
+                        Color color = GemRitualManager.this.getGemColor(currentGem);
+                        player.getWorld().spawnParticle(Particle.FIREWORK, currentLoc, 3, 0.1, 0.1, 0.1, 0.05);
+                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, currentLoc, 2, 0.1, 0.1, 0.1, 0.01);
                     }
-
-                    // Sound progression
-                    if (ticks % 5 == 0) {
-                        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE,
-                            0.7f, 1.0f + (float) progress);
+                    if (this.ticks % 5 == 0) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.7f, 1.0f + (float)progress);
                     }
-
-                    ticks++;
+                    ++this.ticks;
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-
-            // Final selection sound
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
                 player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
             }, 40L);
+        }, 80L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> new BukkitRunnable(){
+            int ticks = 0;
 
-        }, 80L); // Start after 4-second orbit
-
-        // Phase 2: Ground circle formation (6-7 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            new BukkitRunnable() {
-                int ticks = 0;
-
-                @Override
-                public void run() {
-                    if (!player.isOnline() || ticks >= 20) {
-                        this.cancel();
-                        return;
-                    }
-
-                    // Expanding circle on ground
-                    double radius = (ticks / 20.0) * 5.0;
-                    for (int i = 0; i < 32; i++) {
-                        double angle = (i / 32.0) * 2 * Math.PI;
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-                        Location particleLoc = loc.clone().add(x, 0.1, z);
-
-                        Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.5f);
-                        player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0.0, dust, true);
-                        player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 1, 0.0, 0.0, 0.0, 0.01);
-                    }
-
-                    // Sound effects
-                    if (ticks % 5 == 0) {
-                        player.playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.5f);
-                    }
-
-                    ticks++;
+            public void run() {
+                if (!player.isOnline() || this.ticks >= 20) {
+                    this.cancel();
+                    return;
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-        }, 120L);
-
-        // Phase 3: Spiral totem effect (7-9 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            new BukkitRunnable() {
-                int ticks = 0;
-                final int maxTicks = 40; // 2 seconds
-
-                @Override
-                public void run() {
-                    if (!player.isOnline() || ticks >= maxTicks) {
-                        this.cancel();
-                        return;
-                    }
-
-                    double progress = ticks / (double) maxTicks;
-                    double height = progress * 5.0;
-
-                    // Triple helix spiral
-                    for (int spiral = 0; spiral < 3; spiral++) {
-                        double spiralOffset = (spiral / 3.0) * 2 * Math.PI;
-                        double angle = (progress * 6 * Math.PI) + spiralOffset;
-                        double radius = 1.5 * (1 - progress * 0.5);
-
-                        double x = Math.cos(angle) * radius;
-                        double z = Math.sin(angle) * radius;
-                        Location particleLoc = loc.clone().add(x, height, z);
-
-                        Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.8f);
-                        player.getWorld().spawnParticle(Particle.DUST, particleLoc, 5, 0.1, 0.1, 0.1, 0.0, dust, true);
-                        player.getWorld().spawnParticle(Particle.ENCHANT, particleLoc, 8, 0.2, 0.2, 0.2, 0.5);
-                        player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
-                    }
-
-                    // Pillar particles
-                    for (double y = 0; y <= height; y += 0.3) {
-                        Particle.DustOptions pillarDust = new Particle.DustOptions(gemColor, 0.8f);
-                        player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, y, 0), 2, 0.15, 0.1, 0.15, 0.0, pillarDust, true);
-                    }
-
-                    // Sound effects
-                    if (ticks % 10 == 0) {
-                        player.playSound(loc, Sound.BLOCK_BELL_USE, 0.7f, 1.0f + (float) progress);
-                        player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.5f);
-                    }
-
-                    ticks++;
+                double radius = (double)this.ticks / 20.0 * 5.0;
+                for (int i = 0; i < 32; ++i) {
+                    double angle = (double)i / 32.0 * 2.0 * Math.PI;
+                    double x = Math.cos(angle) * radius;
+                    double z = Math.sin(angle) * radius;
+                    Location particleLoc = loc.clone().add(x, 0.1, z);
+                    Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.5f);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0.0, (Object)dust, true);
+                    player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 1, 0.0, 0.0, 0.0, 0.01);
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-        }, 140L);
+                if (this.ticks % 5 == 0) {
+                    player.playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.5f);
+                }
+                ++this.ticks;
+            }
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L), 120L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> new BukkitRunnable(){
+            int ticks = 0;
+            final int maxTicks = 40;
 
-        // Phase 4: Explosion and convergence (9-10 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            Location center = loc.clone().add(0, 5, 0);
-
-
-            // Massive totem-like explosion
+            public void run() {
+                if (!player.isOnline() || this.ticks >= 40) {
+                    this.cancel();
+                    return;
+                }
+                double progress = (double)this.ticks / 40.0;
+                double height = progress * 5.0;
+                for (int spiral = 0; spiral < 3; ++spiral) {
+                    double spiralOffset = (double)spiral / 3.0 * 2.0 * Math.PI;
+                    double angle = progress * 6.0 * Math.PI + spiralOffset;
+                    double radius = 1.5 * (1.0 - progress * 0.5);
+                    double x = Math.cos(angle) * radius;
+                    double z = Math.sin(angle) * radius;
+                    Location particleLoc = loc.clone().add(x, height, z);
+                    Particle.DustOptions dust = new Particle.DustOptions(gemColor, 1.8f);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 5, 0.1, 0.1, 0.1, 0.0, (Object)dust, true);
+                    player.getWorld().spawnParticle(Particle.ENCHANT, particleLoc, 8, 0.2, 0.2, 0.2, 0.5);
+                    player.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
+                }
+                for (double y = 0.0; y <= height; y += 0.3) {
+                    Particle.DustOptions pillarDust = new Particle.DustOptions(gemColor, 0.8f);
+                    player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0.0, y, 0.0), 2, 0.15, 0.1, 0.15, 0.0, (Object)pillarDust, true);
+                }
+                if (this.ticks % 10 == 0) {
+                    player.playSound(loc, Sound.BLOCK_BELL_USE, 0.7f, 1.0f + (float)progress);
+                    player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.5f);
+                }
+                ++this.ticks;
+            }
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L), 140L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            Location center = loc.clone().add(0.0, 5.0, 0.0);
             Particle.DustOptions explosionDust = new Particle.DustOptions(gemColor, 2.5f);
-            player.getWorld().spawnParticle(Particle.DUST, center, 200, 1.5, 1.5, 1.5, 0.0, explosionDust, true);
+            player.getWorld().spawnParticle(Particle.DUST, center, 200, 1.5, 1.5, 1.5, 0.0, (Object)explosionDust, true);
             player.getWorld().spawnParticle(Particle.FIREWORK, center, 100, 1.0, 1.0, 1.0, 0.2);
             player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center, 80, 1.2, 1.2, 1.2, 0.1);
             player.getWorld().spawnParticle(Particle.END_ROD, center, 60, 1.5, 1.5, 1.5, 0.15);
             player.getWorld().spawnParticle(Particle.ENCHANT, center, 150, 2.0, 2.0, 2.0, 1.0);
-
-            // Beacon beam effect
-            for (double y = 0; y <= 10; y += 0.2) {
+            for (double y = 0.0; y <= 10.0; y += 0.2) {
                 Particle.DustOptions beamDust = new Particle.DustOptions(gemColor, 1.5f);
-                player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, y, 0), 8, 0.2, 0.1, 0.2, 0.0, beamDust, true);
-                player.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0, y, 0), 3, 0.15, 0.1, 0.15, 0.02);
+                player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0.0, y, 0.0), 8, 0.2, 0.1, 0.2, 0.0, (Object)beamDust, true);
+                player.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0.0, y, 0.0), 3, 0.15, 0.1, 0.15, 0.02);
             }
-
-            // Epic sounds
             player.playSound(loc, Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
             player.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 2.0f);
             player.playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
             player.playSound(loc, Sound.BLOCK_END_PORTAL_SPAWN, 0.5f, 1.5f);
-
-            // Convergence particles falling to player
-            new BukkitRunnable() {
+            new BukkitRunnable(){
                 int ticks = 0;
 
-                @Override
                 public void run() {
-                    if (!player.isOnline() || ticks >= 20) {
+                    if (!player.isOnline() || this.ticks >= 20) {
                         this.cancel();
                         return;
                     }
-
-                    // Particles converging from above
-                    for (int i = 0; i < 10; i++) {
+                    for (int i = 0; i < 10; ++i) {
                         double randomX = (Math.random() - 0.5) * 3.0;
                         double randomZ = (Math.random() - 0.5) * 3.0;
-                        double heightOffset = 5 - (ticks / 20.0) * 4.5;
-
+                        double heightOffset = 5.0 - (double)this.ticks / 20.0 * 4.5;
                         Location convergeStart = loc.clone().add(randomX, heightOffset, randomZ);
-                        Location playerLoc = player.getLocation().add(0, 1, 0);
-
-                        // Particle moving towards player
+                        Location playerLoc = player.getLocation().add(0.0, 1.0, 0.0);
                         Particle.DustOptions convergeDust = new Particle.DustOptions(gemColor, 1.2f);
-                        player.getWorld().spawnParticle(Particle.DUST, convergeStart, 1, 0.0, 0.0, 0.0, 0.0, convergeDust, true);
+                        player.getWorld().spawnParticle(Particle.DUST, convergeStart, 1, 0.0, 0.0, 0.0, 0.0, (Object)convergeDust, true);
                         player.getWorld().spawnParticle(Particle.END_ROD, convergeStart, 1, 0.0, 0.0, 0.0, 0.01);
                     }
-
-                    ticks++;
+                    ++this.ticks;
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-
+            }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
         }, 180L);
-
-        // Phase 5: Final burst at player (10 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            Location playerCenter = player.getLocation().add(0, 1, 0);
-
-            // Final absorption burst
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            Location playerCenter = player.getLocation().add(0.0, 1.0, 0.0);
             Particle.DustOptions finalDust = new Particle.DustOptions(gemColor, 2.0f);
-            player.getWorld().spawnParticle(Particle.DUST, playerCenter, 150, 0.8, 1.0, 0.8, 0.0, finalDust, true);
+            player.getWorld().spawnParticle(Particle.DUST, playerCenter, 150, 0.8, 1.0, 0.8, 0.0, (Object)finalDust, true);
             player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, playerCenter, 50, 0.5, 0.8, 0.5, 0.1);
             player.getWorld().spawnParticle(Particle.ENCHANT, playerCenter, 100, 0.6, 1.0, 0.6, 0.8);
             player.getWorld().spawnParticle(Particle.FIREWORK, playerCenter, 30, 0.5, 0.5, 0.5, 0.1);
             player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, playerCenter, 40, 0.6, 0.8, 0.6, 0.0);
-
-            // Radial burst
             for (int i = 0; i < 360; i += 10) {
                 double angle = Math.toRadians(i);
                 double x = Math.cos(angle) * 2.0;
                 double z = Math.sin(angle) * 2.0;
-
                 Particle.DustOptions burstDust = new Particle.DustOptions(gemColor, 1.5f);
-                player.getWorld().spawnParticle(Particle.DUST, playerCenter.clone().add(x, 0, z), 5, 0.1, 0.1, 0.1, 0.0, burstDust, true);
-                player.getWorld().spawnParticle(Particle.END_ROD, playerCenter.clone().add(x, 0, z), 2, 0.0, 0.0, 0.0, 0.05);
+                player.getWorld().spawnParticle(Particle.DUST, playerCenter.clone().add(x, 0.0, z), 5, 0.1, 0.1, 0.1, 0.0, (Object)burstDust, true);
+                player.getWorld().spawnParticle(Particle.END_ROD, playerCenter.clone().add(x, 0.0, z), 2, 0.0, 0.0, 0.0, 0.05);
             }
-
-            // Final sounds
             player.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
             player.playSound(loc, Sound.BLOCK_BELL_USE, 1.0f, 2.0f);
             player.playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 2.0f);
-
-            // Give glowing effect briefly
             player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, false, false));
-
         }, 200L);
-
-        // Phase 6: Lingering particles (10-12 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            new BukkitRunnable() {
-                int ticks = 0;
-
-                @Override
-                public void run() {
-                    if (!player.isOnline() || ticks >= 40) {
-                        this.cancel();
-                        return;
-                    }
-
-                    // Gentle orbiting particles
-                    double angle = (ticks / 40.0) * 4 * Math.PI;
-                    double radius = 1.5;
-                    double x = Math.cos(angle) * radius;
-                    double z = Math.sin(angle) * radius;
-
-                    Location orbitLoc = player.getLocation().add(x, 1.5, z);
-                    Particle.DustOptions orbitDust = new Particle.DustOptions(gemColor, 1.0f);
-                    player.getWorld().spawnParticle(Particle.DUST, orbitLoc, 3, 0.1, 0.1, 0.1, 0.0, orbitDust, true);
-                    player.getWorld().spawnParticle(Particle.END_ROD, orbitLoc, 1, 0.0, 0.0, 0.0, 0.01);
-
-                    // Ambient sparkles
-                    if (ticks % 5 == 0) {
-                        Location playerLoc = player.getLocation().add(0, 1, 0);
-                        player.getWorld().spawnParticle(Particle.END_ROD, playerLoc, 3, 0.5, 0.5, 0.5, 0.02);
-                    }
-
-                    ticks++;
-                }
-            }.runTaskTimer(plugin, 0L, 1L);
-
-        }, 200L);
-    }
-
-    /**
-     * Restoration Ritual — the first-gem sequence, but preceded by a storm build-up and
-     * closed out by a shockwave that throws every witness backwards.
-     *
-     * <p>Timeline: rain and distant thunder for the build-up, escalating strikes, then the
-     * standard {@link #performGemRitual} sequence, then the shockwave and a clear sky.
-     *
-     * @param player the player restoring their gem
-     * @param gemId  the gem they will end up with
-     * @param tier   the tier of that gem
-     * @return ticks until the gem should be handed over
-     */
-    public long performRestorationRitual(Player player, String gemId, int tier) {
-        Location loc = player.getLocation().clone();
-        org.bukkit.World world = player.getWorld();
-
-        int buildUpTicks = plugin.getConfig().getInt("restoration.build-up-ticks", 120);
-        double witnessRadius = plugin.getConfig().getDouble("restoration.witness-radius", 12.0);
-        double witnessLaunch = plugin.getConfig().getDouble("restoration.witness-launch-power", 1.4);
-        boolean controlWeather = plugin.getConfig().getBoolean("restoration.control-weather", true);
-
-        final boolean hadStorm = world.isThundering();
-        final boolean hadRain = world.hasStorm();
-
-        // Phase A: the sky turns. Rain first, then a full thunderstorm.
-        if (controlWeather) {
-            world.setStorm(true);
-            world.setWeatherDuration(buildUpTicks + 400);
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                world.setThundering(true);
-                world.setThunderDuration(buildUpTicks + 300);
-            }, buildUpTicks / 3L);
-        }
-
-        // Phase B: strikes closing in on the pedestal, quickening as the ritual builds
-        new BukkitRunnable() {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> new BukkitRunnable(){
             int ticks = 0;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || ticks >= buildUpTicks) {
+                if (!player.isOnline() || this.ticks >= 40) {
                     this.cancel();
                     return;
                 }
-
-                double progress = ticks / (double) buildUpTicks;
-                // Strikes start ~8s apart and end ~0.5s apart
-                int strikeGap = Math.max(10, (int) (160 * (1 - progress)));
-                if (ticks % strikeGap == 0) {
-                    double spread = 14.0 * (1 - progress) + 2.0;
-                    double angle = Math.random() * 2 * Math.PI;
-                    Location strike = loc.clone().add(
-                        Math.cos(angle) * spread, 0, Math.sin(angle) * spread);
-                    world.strikeLightningEffect(strike);
-                    world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.8f + (float) progress * 0.6f);
+                double angle = (double)this.ticks / 40.0 * 4.0 * Math.PI;
+                double radius = 1.5;
+                double x = Math.cos(angle) * radius;
+                double z = Math.sin(angle) * radius;
+                Location orbitLoc = player.getLocation().add(x, 1.5, z);
+                Particle.DustOptions orbitDust = new Particle.DustOptions(gemColor, 1.0f);
+                player.getWorld().spawnParticle(Particle.DUST, orbitLoc, 3, 0.1, 0.1, 0.1, 0.0, (Object)orbitDust, true);
+                player.getWorld().spawnParticle(Particle.END_ROD, orbitLoc, 1, 0.0, 0.0, 0.0, 0.01);
+                if (this.ticks % 5 == 0) {
+                    Location playerLoc = player.getLocation().add(0.0, 1.0, 0.0);
+                    player.getWorld().spawnParticle(Particle.END_ROD, playerLoc, 3, 0.5, 0.5, 0.5, 0.02);
                 }
+                ++this.ticks;
+            }
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L), 200L);
+    }
 
-                // Dark swirling column while the storm gathers
-                if (ticks % 2 == 0) {
-                    double angle = (ticks / 6.0);
-                    double radius = 3.0 * (1 - progress) + 0.5;
-                    Location swirl = loc.clone().add(
-                        Math.cos(angle) * radius, (ticks % 40) / 10.0, Math.sin(angle) * radius);
+    public long performRestorationRitual(final Player player, String gemId, int tier) {
+        final Location loc = player.getLocation().clone();
+        final World world = player.getWorld();
+        final int buildUpTicks = this.plugin.getConfig().getInt("restoration.build-up-ticks", 120);
+        double witnessRadius = this.plugin.getConfig().getDouble("restoration.witness-radius", 12.0);
+        double witnessLaunch = this.plugin.getConfig().getDouble("restoration.witness-launch-power", 1.4);
+        boolean controlWeather = this.plugin.getConfig().getBoolean("restoration.control-weather", true);
+        boolean hadStorm = world.isThundering();
+        boolean hadRain = world.hasStorm();
+        if (controlWeather) {
+            world.setStorm(true);
+            world.setWeatherDuration(buildUpTicks + 400);
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                world.setThundering(true);
+                world.setThunderDuration(buildUpTicks + 300);
+            }, (long)buildUpTicks / 3L);
+        }
+        new BukkitRunnable(){
+            int ticks = 0;
+
+            public void run() {
+                if (!player.isOnline() || this.ticks >= buildUpTicks) {
+                    this.cancel();
+                    return;
+                }
+                double progress = (double)this.ticks / (double)buildUpTicks;
+                int strikeGap = Math.max(10, (int)(160.0 * (1.0 - progress)));
+                if (this.ticks % strikeGap == 0) {
+                    double spread = 14.0 * (1.0 - progress) + 2.0;
+                    double angle = Math.random() * 2.0 * Math.PI;
+                    Location strike = loc.clone().add(Math.cos(angle) * spread, 0.0, Math.sin(angle) * spread);
+                    world.strikeLightningEffect(strike);
+                    world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.8f + (float)progress * 0.6f);
+                }
+                if (this.ticks % 2 == 0) {
+                    double angle = (double)this.ticks / 6.0;
+                    double radius = 3.0 * (1.0 - progress) + 0.5;
+                    Location swirl = loc.clone().add(Math.cos(angle) * radius, (double)(this.ticks % 40) / 10.0, Math.sin(angle) * radius);
                     world.spawnParticle(Particle.LARGE_SMOKE, swirl, 3, 0.2, 0.2, 0.2, 0.01);
                     world.spawnParticle(Particle.ELECTRIC_SPARK, swirl, 2, 0.2, 0.2, 0.2, 0.05);
                 }
-
-                ticks++;
+                ++this.ticks;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        // Phase C: the standard gem ritual, once the storm has fully gathered
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
             world.strikeLightningEffect(loc);
-            performGemRitual(player, gemId, false, tier);
-        }, buildUpTicks);
-
-        // Phase D: shockwave — every witness is thrown back and the sky clears
-        long finaleTick = buildUpTicks + 210L;
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            this.performGemRitual(player, gemId, false, tier);
+        }, (long)buildUpTicks);
+        long finaleTick = (long)buildUpTicks + 210L;
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             Location center = player.isOnline() ? player.getLocation() : loc;
-
             world.strikeLightningEffect(center);
             world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 0.6f);
             world.playSound(center, Sound.ITEM_TOTEM_USE, 1.0f, 0.8f);
             world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 3, 1.0, 0.5, 1.0, 0.0);
             world.spawnParticle(Particle.FLASH, center, 5, 0.5, 0.5, 0.5, 0.0);
-
-            for (org.bukkit.entity.Entity entity : world.getNearbyEntities(center, witnessRadius, witnessRadius, witnessRadius)) {
-                if (!(entity instanceof Player witness) || witness.equals(player)) continue;
-                org.bukkit.util.Vector away = witness.getLocation().toVector().subtract(center.toVector());
+            for (Entity entity : world.getNearbyEntities(center, witnessRadius, witnessRadius, witnessRadius)) {
+                Player witness;
+                if (!(entity instanceof Player) || (witness = (Player)entity).equals((Object)player)) continue;
+                Vector away = witness.getLocation().toVector().subtract(center.toVector());
                 if (away.lengthSquared() < 0.01) {
                     away = witness.getLocation().getDirection().multiply(-1);
                 }
@@ -611,222 +433,159 @@ public class GemRitualManager {
                 witness.setVelocity(away);
                 witness.playSound(witness.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
             }
-
             if (controlWeather) {
                 world.setThundering(hadStorm);
                 world.setStorm(hadRain);
-                if (!hadRain) world.setWeatherDuration(6000);
+                if (!hadRain) {
+                    world.setWeatherDuration(6000);
+                }
             }
         }, finaleTick);
-
-        // The gem lands with the main ritual's convergence burst
-        return buildUpTicks + 200L;
+        return (long)buildUpTicks + 200L;
     }
 
-    /**
-     * Performs a revive beacon ritual animation
-     * @param player The player activating the revive beacon
-     * @param location The beacon location
-     */
-    public void performReviveBeaconRitual(Player player, Location location) {
-        org.bukkit.Color ritualColor = Color.fromRGB(255, 215, 0); // Gold
-
-        // Apply levitation during ritual
+    public void performReviveBeaconRitual(final Player player, final Location location) {
+        final Color ritualColor = Color.fromRGB((int)255, (int)215, (int)0);
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 100, 0, false, false));
-
-        // Phase 1: Ground circle formation (0-1 seconds)
-        new BukkitRunnable() {
+        new BukkitRunnable(){
             int ticks = 0;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || ticks >= 20) {
+                if (!player.isOnline() || this.ticks >= 20) {
                     this.cancel();
                     return;
                 }
-
-                // Expanding circle on ground
-                double radius = (ticks / 20.0) * 6.0;
-                for (int i = 0; i < 32; i++) {
-                    double angle = (i / 32.0) * 2 * Math.PI;
+                double radius = (double)this.ticks / 20.0 * 6.0;
+                for (int i = 0; i < 32; ++i) {
+                    double angle = (double)i / 32.0 * 2.0 * Math.PI;
                     double x = Math.cos(angle) * radius;
                     double z = Math.sin(angle) * radius;
                     Location particleLoc = location.clone().add(x, 0.1, z);
-
                     Particle.DustOptions dust = new Particle.DustOptions(ritualColor, 2.0f);
-                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 5, 0.1, 0.1, 0.1, 0.0, dust, true);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 5, 0.1, 0.1, 0.1, 0.0, (Object)dust, true);
                     player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, particleLoc, 2, 0.0, 0.0, 0.0, 0.02);
                 }
-
-                // Sound effects
-                if (ticks % 5 == 0) {
+                if (this.ticks % 5 == 0) {
                     player.playSound(location, Sound.BLOCK_BEACON_AMBIENT, 0.7f, 1.5f);
                 }
-
-                ticks++;
+                ++this.ticks;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> new BukkitRunnable(){
+            int ticks = 0;
+            final int maxTicks = 30;
 
-        // Phase 2: Rising pillar effect (1-2.5 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            new BukkitRunnable() {
-                int ticks = 0;
-                final int maxTicks = 30; // 1.5 seconds
-
-                @Override
-                public void run() {
-                    if (!player.isOnline() || ticks >= maxTicks) {
-                        this.cancel();
-                        return;
-                    }
-
-                    double progress = ticks / (double) maxTicks;
-                    double height = progress * 8.0;
-
-                    // Central pillar
-                    for (double y = 0; y <= height; y += 0.3) {
-                        Particle.DustOptions pillarDust = new Particle.DustOptions(ritualColor, 1.5f);
-                        player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0, y, 0), 3, 0.2, 0.1, 0.2, 0.0, pillarDust, true);
-                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, y, 0), 1, 0.1, 0.1, 0.1, 0.01);
-                    }
-
-                    // Sound effects
-                    if (ticks % 10 == 0) {
-                        player.playSound(location, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.0f + (float) progress);
-                    }
-
-                    ticks++;
+            public void run() {
+                if (!player.isOnline() || this.ticks >= 30) {
+                    this.cancel();
+                    return;
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-        }, 20L);
-
-        // Phase 3: Explosion and beacon beam (2.5-3 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            Location center = location.clone().add(0, 8, 0);
-
-            // Massive golden explosion
+                double progress = (double)this.ticks / 30.0;
+                double height = progress * 8.0;
+                for (double y = 0.0; y <= height; y += 0.3) {
+                    Particle.DustOptions pillarDust = new Particle.DustOptions(ritualColor, 1.5f);
+                    player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0.0, y, 0.0), 3, 0.2, 0.1, 0.2, 0.0, (Object)pillarDust, true);
+                    player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0.0, y, 0.0), 1, 0.1, 0.1, 0.1, 0.01);
+                }
+                if (this.ticks % 10 == 0) {
+                    player.playSound(location, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.0f + (float)progress);
+                }
+                ++this.ticks;
+            }
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L), 20L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            Location center = location.clone().add(0.0, 8.0, 0.0);
             Particle.DustOptions explosionDust = new Particle.DustOptions(ritualColor, 3.0f);
-            player.getWorld().spawnParticle(Particle.DUST, center, 300, 2.0, 2.0, 2.0, 0.0, explosionDust, true);
+            player.getWorld().spawnParticle(Particle.DUST, center, 300, 2.0, 2.0, 2.0, 0.0, (Object)explosionDust, true);
             player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center, 150, 1.5, 1.5, 1.5, 0.15);
             player.getWorld().spawnParticle(Particle.FIREWORK, center, 80, 1.0, 1.0, 1.0, 0.2);
             player.getWorld().spawnParticle(Particle.END_ROD, center, 100, 2.0, 2.0, 2.0, 0.2);
-
-            // Beacon beam shooting up
-            for (double y = 0; y <= 20; y += 0.2) {
+            for (double y = 0.0; y <= 20.0; y += 0.2) {
                 Particle.DustOptions beamDust = new Particle.DustOptions(ritualColor, 2.0f);
-                player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0, y, 0), 12, 0.3, 0.1, 0.3, 0.0, beamDust, true);
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, y, 0), 3, 0.2, 0.1, 0.2, 0.03);
+                player.getWorld().spawnParticle(Particle.DUST, location.clone().add(0.0, y, 0.0), 12, 0.3, 0.1, 0.3, 0.0, (Object)beamDust, true);
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0.0, y, 0.0), 3, 0.2, 0.1, 0.2, 0.03);
             }
-
-            // Epic sounds
             player.playSound(location, Sound.BLOCK_BEACON_ACTIVATE, 1.5f, 1.0f);
             player.playSound(location, Sound.ITEM_TOTEM_USE, 1.0f, 1.2f);
             player.playSound(location, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 2.0f);
-
         }, 50L);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> new BukkitRunnable(){
+            int ticks = 0;
 
-        // Phase 4: Lingering beacon effect (3-5 seconds)
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            new BukkitRunnable() {
-                int ticks = 0;
-
-                @Override
-                public void run() {
-                    if (!player.isOnline() || ticks >= 40) {
-                        this.cancel();
-                        return;
-                    }
-
-                    // Orbiting particles around beacon
-                    double angle = (ticks / 40.0) * 4 * Math.PI;
-                    double radius = 2.0;
-
-                    for (int ring = 0; ring < 3; ring++) {
-                        double ringHeight = ring * 2.0 + 1.0;
-                        double x = Math.cos(angle + ring * Math.PI / 1.5) * radius;
-                        double z = Math.sin(angle + ring * Math.PI / 1.5) * radius;
-
-                        Location orbitLoc = location.clone().add(x, ringHeight, z);
-                        Particle.DustOptions orbitDust = new Particle.DustOptions(ritualColor, 1.2f);
-                        player.getWorld().spawnParticle(Particle.DUST, orbitLoc, 5, 0.1, 0.1, 0.1, 0.0, orbitDust, true);
-                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, orbitLoc, 1, 0.0, 0.0, 0.0, 0.01);
-                    }
-
-                    // Central glow
-                    if (ticks % 5 == 0) {
-                        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, 2, 0), 5, 0.5, 0.5, 0.5, 0.02);
-                    }
-
-                    ticks++;
+            public void run() {
+                if (!player.isOnline() || this.ticks >= 40) {
+                    this.cancel();
+                    return;
                 }
-            }.runTaskTimer(plugin, 0L, 1L);
-
-        }, 60L);
+                double angle = (double)this.ticks / 40.0 * 4.0 * Math.PI;
+                double radius = 2.0;
+                for (int ring = 0; ring < 3; ++ring) {
+                    double ringHeight = (double)ring * 2.0 + 1.0;
+                    double x = Math.cos(angle + (double)ring * Math.PI / 1.5) * radius;
+                    double z = Math.sin(angle + (double)ring * Math.PI / 1.5) * radius;
+                    Location orbitLoc = location.clone().add(x, ringHeight, z);
+                    Particle.DustOptions orbitDust = new Particle.DustOptions(ritualColor, 1.2f);
+                    player.getWorld().spawnParticle(Particle.DUST, orbitLoc, 5, 0.1, 0.1, 0.1, 0.0, (Object)orbitDust, true);
+                    player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, orbitLoc, 1, 0.0, 0.0, 0.0, 0.01);
+                }
+                if (this.ticks % 5 == 0) {
+                    player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0.0, 2.0, 0.0), 5, 0.5, 0.5, 0.5, 0.02);
+                }
+                ++this.ticks;
+            }
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L), 60L);
     }
 
-    /**
-     * Gem IDs that take part in the ritual orbit: everything grantable, minus any
-     * gem with no renderable item at this tier (an addon capped at tier 1 has no
-     * "_gem_t2" item). Filtering up front keeps the orbit evenly spaced, since the
-     * angle of each gem is derived from its index in this list.
-     */
     private List<String> getRitualGemIds(int tier) {
-        List<String> ids = new ArrayList<>(this.plugin.getGemManager().getAvailableGemIds());
-        ids.removeIf(id -> CustomItemManager.getItemById(getGemItemId(id, tier), 10) == null);
+        ArrayList<String> ids = new ArrayList<String>(this.plugin.getGemManager().getAvailableGemIds());
+        ids.removeIf(id -> CustomItemManager.getItemById(this.getGemItemId((String)id, tier), 10) == null);
         return ids;
     }
 
-    /**
-     * Get the custom item ID for displaying a gem at the given tier.
-     * Built-in and addon gems share the "<id>_gem_t<tier>" format.
-     */
     private String getGemItemId(String gemId, int tier) {
         return gemId + "_gem_t" + tier;
     }
 
-    /**
-     * Get the color associated with a gem ID. Addon gems carry a chat color code
-     * in their GemDefinition, which is mapped to the matching RGB value.
-     */
-    public org.bukkit.Color getGemColor(String gemId) {
+    public Color getGemColor(String gemId) {
         GemType gemType = GemManager.builtInType(gemId);
         if (gemType != null) {
             return switch (gemType) {
-                case ASTRA -> Color.fromRGB(106, 11, 184);    // Deep purple
-                case FIRE -> Color.fromRGB(255, 85, 85);      // Bright red
-                case FLUX -> Color.fromRGB(85, 255, 255);     // Cyan/aqua
-                case LIFE -> Color.fromRGB(85, 255, 85);      // Bright green
-                case PUFF -> Color.fromRGB(255, 255, 255);    // White
-                case SPEED -> Color.fromRGB(255, 255, 85);    // Yellow
-                case STRENGTH -> Color.fromRGB(170, 0, 0);    // Dark red
-                case WEALTH -> Color.fromRGB(255, 170, 0);    // Gold
+                case ASTRA -> Color.fromRGB((int)106, (int)11, (int)184);
+                case FIRE -> Color.fromRGB((int)255, (int)85, (int)85);
+                case FLUX -> Color.fromRGB((int)85, (int)255, (int)255);
+                case LIFE -> Color.fromRGB((int)85, (int)255, (int)85);
+                case PUFF -> Color.fromRGB((int)255, (int)255, (int)255);
+                case SPEED -> Color.fromRGB((int)255, (int)255, (int)85);
+                case STRENGTH -> Color.fromRGB((int)170, (int)0, (int)0);
+                case WEALTH -> Color.fromRGB((int)255, (int)170, (int)0);
+                default -> Color.WHITE;
             };
         }
-        return colorFromChatCode(this.plugin.getGemManager().getGemColorCode(gemId));
+        return this.colorFromChatCode(this.plugin.getGemManager().getGemColorCode(gemId));
     }
 
-    /**
-     * Map a chat color code (e.g. "§d") to its RGB value, for addon gem particles.
-     */
-    private org.bukkit.Color colorFromChatCode(String code) {
-        if (code == null || code.length() < 2) return Color.fromRGB(255, 255, 255);
+    private Color colorFromChatCode(String code) {
+        if (code == null || code.length() < 2) {
+            return Color.fromRGB((int)255, (int)255, (int)255);
+        }
         return switch (Character.toLowerCase(code.charAt(1))) {
-            case '0' -> Color.fromRGB(0, 0, 0);
-            case '1' -> Color.fromRGB(0, 0, 170);
-            case '2' -> Color.fromRGB(0, 170, 0);
-            case '3' -> Color.fromRGB(0, 170, 170);
-            case '4' -> Color.fromRGB(170, 0, 0);
-            case '5' -> Color.fromRGB(170, 0, 170);
-            case '6' -> Color.fromRGB(255, 170, 0);
-            case '7' -> Color.fromRGB(170, 170, 170);
-            case '8' -> Color.fromRGB(85, 85, 85);
-            case '9' -> Color.fromRGB(85, 85, 255);
-            case 'a' -> Color.fromRGB(85, 255, 85);
-            case 'b' -> Color.fromRGB(85, 255, 255);
-            case 'c' -> Color.fromRGB(255, 85, 85);
-            case 'd' -> Color.fromRGB(255, 85, 255);
-            case 'e' -> Color.fromRGB(255, 255, 85);
-            default -> Color.fromRGB(255, 255, 255);
+            case '0' -> Color.fromRGB((int)0, (int)0, (int)0);
+            case '1' -> Color.fromRGB((int)0, (int)0, (int)170);
+            case '2' -> Color.fromRGB((int)0, (int)170, (int)0);
+            case '3' -> Color.fromRGB((int)0, (int)170, (int)170);
+            case '4' -> Color.fromRGB((int)170, (int)0, (int)0);
+            case '5' -> Color.fromRGB((int)170, (int)0, (int)170);
+            case '6' -> Color.fromRGB((int)255, (int)170, (int)0);
+            case '7' -> Color.fromRGB((int)170, (int)170, (int)170);
+            case '8' -> Color.fromRGB((int)85, (int)85, (int)85);
+            case '9' -> Color.fromRGB((int)85, (int)85, (int)255);
+            case 'a' -> Color.fromRGB((int)85, (int)255, (int)85);
+            case 'b' -> Color.fromRGB((int)85, (int)255, (int)255);
+            case 'c' -> Color.fromRGB((int)255, (int)85, (int)85);
+            case 'd' -> Color.fromRGB((int)255, (int)85, (int)255);
+            case 'e' -> Color.fromRGB((int)255, (int)255, (int)85);
+            default -> Color.fromRGB((int)255, (int)255, (int)255);
         };
     }
 }
+

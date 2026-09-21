@@ -1,3 +1,15 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.inventory.InventoryMoveItemEvent
+ *  org.bukkit.event.player.PlayerDropItemEvent
+ *  org.bukkit.inventory.ItemStack
+ */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
@@ -10,52 +22,47 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * Prevents dropping of gems using PDC-based checking
- * EXACT implementation from DropItemControl's ItemDropListener
- * integrated directly into BlissGems
- */
-public class GemDropListener implements Listener {
+public class GemDropListener
+implements Listener {
     private final BlissGems plugin;
 
     public GemDropListener(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority=EventPriority.HIGH)
     public void onItemDrop(PlayerDropItemEvent event) {
-        // Check if drop prevention is enabled in config
-        if (!plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
-            return; // Drop prevention is disabled, allow dropping
-        }
-
         Player player = event.getPlayer();
         ItemStack droppedItem = event.getItemDrop().getItemStack();
-
-        // Check if item is locked using DropItemControl's exact PDC method
+        String itemId = CustomItemManager.getIdByItem(droppedItem);
+        if ("flux_gem_t1".equals(itemId) || "flux_gem_t2".equals(itemId)) {
+            event.setCancelled(true);
+            if (this.plugin.getFluxEnergyManager() != null) {
+                this.plugin.getFluxEnergyManager().openChargingStation(player);
+            }
+            return;
+        }
+        if (!this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
+            return;
+        }
         boolean isLocked = CustomItemManager.isUndroppable(droppedItem);
-
         if (isLocked) {
             event.setCancelled(true);
-
-            // Send message to player
-            String message = plugin.getConfigManager().getFormattedMessage("cannot-drop-gem");
+            String message = this.plugin.getConfigManager().getFormattedMessage("cannot-drop-gem", new Object[0]);
             if (message != null && !message.isEmpty()) {
                 player.sendMessage(message);
             } else {
-                // Fallback message if config not set
-                player.sendMessage("§c§lYou cannot drop your gem!");
+                player.sendMessage("\u00a7c\u00a7lYou cannot drop your gem!");
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority=EventPriority.HIGH)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        // Prevent hoppers and other automated systems from moving gems
         ItemStack item = event.getItem();
-
         if (CustomItemManager.isUndroppable(item)) {
             event.setCancelled(true);
         }
     }
 }
+

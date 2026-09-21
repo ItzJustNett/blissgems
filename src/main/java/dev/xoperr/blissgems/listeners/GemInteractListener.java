@@ -1,21 +1,33 @@
 /*
  * Decompiled with CFR 0.152.
- *
+ * 
  * Could not load the following classes:
  *  org.bukkit.Bukkit
  *  org.bukkit.ChatColor
+ *  org.bukkit.Material
  *  org.bukkit.Particle
  *  org.bukkit.Sound
+ *  org.bukkit.entity.Allay
  *  org.bukkit.entity.HumanEntity
  *  org.bukkit.entity.Item
+ *  org.bukkit.entity.ItemFrame
  *  org.bukkit.entity.Player
  *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
  *  org.bukkit.event.Listener
  *  org.bukkit.event.block.Action
  *  org.bukkit.event.entity.EntityPickupItemEvent
  *  org.bukkit.event.inventory.InventoryClickEvent
+ *  org.bukkit.event.inventory.InventoryCloseEvent
+ *  org.bukkit.event.inventory.InventoryDragEvent
+ *  org.bukkit.event.inventory.InventoryType
+ *  org.bukkit.event.player.PlayerInteractEntityEvent
  *  org.bukkit.event.player.PlayerInteractEvent
+ *  org.bukkit.inventory.EquipmentSlot
  *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.inventory.PlayerInventory
+ *  org.bukkit.inventory.meta.BundleMeta
+ *  org.bukkit.inventory.meta.ItemMeta
  *  org.bukkit.plugin.Plugin
  */
 package dev.xoperr.blissgems.listeners;
@@ -23,13 +35,18 @@ package dev.xoperr.blissgems.listeners;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemDefinition;
-import dev.xoperr.blissgems.api.GemRegistry;
+import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
+import dev.xoperr.blissgems.managers.GemLockManager;
+import dev.xoperr.blissgems.managers.GemRegistryImpl;
+import dev.xoperr.blissgems.utils.AbilityBinding;
+import dev.xoperr.blissgems.utils.AbilitySlot;
 import dev.xoperr.blissgems.utils.Achievement;
-import dev.xoperr.blissgems.utils.GemType;
-import dev.xoperr.blissgems.managers.GoldGemManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.GemType;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -37,8 +54,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.entity.Allay;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -46,24 +65,24 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.entity.ItemFrame;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.BundleMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 public class GemInteractListener
 implements Listener {
     private final BlissGems plugin;
     private final Map<UUID, Long> traderCooldowns;
-    private final Map<UUID, Long> clickDisabledMessageCooldowns = new HashMap<>();
-    private static final long CLICK_DISABLED_MSG_INTERVAL = 30_000L; // 30 seconds
-    // A right-click fires PlayerInteractEvent for both hands. When the main-hand event
-    // trades the gem, the paired off-hand event then sees the freshly-placed gem and would
-    // auto-fire its ability. Suppress gem abilities for a brief window right after a trade.
+    private final Map<UUID, Long> clickDisabledMessageCooldowns = new HashMap<UUID, Long>();
+    private static final long CLICK_DISABLED_MSG_INTERVAL = 30000L;
     private static final long TRADE_ABILITY_GRACE_MS = 500L;
 
     public GemInteractListener(BlissGems plugin) {
@@ -73,16 +92,16 @@ implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
+        boolean hasBundleInOffHand;
+        boolean isLeft;
         Action a = event.getAction();
         boolean isRight = a == Action.RIGHT_CLICK_AIR || a == Action.RIGHT_CLICK_BLOCK;
-        boolean isLeft = a == Action.LEFT_CLICK_AIR || a == Action.LEFT_CLICK_BLOCK;
+        boolean bl = isLeft = a == Action.LEFT_CLICK_AIR || a == Action.LEFT_CLICK_BLOCK;
         if (!isRight && !isLeft) {
             return;
         }
-        // Left-click path goes straight to the binding-based ability dispatch —
-        // bundle/trader/energy-bottle handling below is right-click-only.
         if (isLeft) {
-            handleLeftClickAbility(event);
+            this.handleLeftClickAbility(event);
             return;
         }
         Player player = event.getPlayer();
@@ -90,46 +109,36 @@ implements Listener {
         if (item == null) {
             return;
         }
-
-        // BUNDLE PROTECTION: Prevent gems from being placed in bundles (COMPREHENSIVE)
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
-
         String mainHandId = CustomItemManager.getIdByItem(mainHand);
         String offHandId = CustomItemManager.getIdByItem(offHand);
-
         boolean hasGemInMainHand = mainHandId != null && GemType.isGem(mainHandId);
         boolean hasGemInOffHand = offHandId != null && GemType.isGem(offHandId);
         boolean hasBundleInMainHand = mainHand != null && mainHand.getType() == Material.BUNDLE;
-        boolean hasBundleInOffHand = offHand != null && offHand.getType() == Material.BUNDLE;
-
-        // Block ANY right-click interaction if gem and bundle are in either hand
-        if ((hasGemInMainHand && hasBundleInOffHand) ||
-            (hasGemInOffHand && hasBundleInMainHand) ||
-            (hasGemInMainHand && item != null && item.getType() == Material.BUNDLE) ||
-            (hasGemInOffHand && item != null && item.getType() == Material.BUNDLE)) {
+        boolean bl2 = hasBundleInOffHand = offHand != null && offHand.getType() == Material.BUNDLE;
+        if (hasGemInMainHand && hasBundleInOffHand || hasGemInOffHand && hasBundleInMainHand || hasGemInMainHand && item != null && item.getType() == Material.BUNDLE || hasGemInOffHand && item != null && item.getType() == Material.BUNDLE) {
             event.setCancelled(true);
-            String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return;
         }
-
-        // Also block if clicking WITH a bundle while a gem is in either hand
         if (item != null && item.getType() == Material.BUNDLE && (hasGemInMainHand || hasGemInOffHand)) {
             event.setCancelled(true);
-            String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return;
         }
-
-        // Block opening bundles that contain gems
-        if (item != null && item.getType() == Material.BUNDLE && bundleContainsGem(item)) {
+        if (item != null && item.getType() == Material.BUNDLE && this.bundleContainsGem(item)) {
             event.setCancelled(true);
-            player.sendMessage("§c§lThis bundle contains a gem! Remove the gem first before using it.");
+            player.sendMessage("\u00a7c\u00a7lThis bundle contains a gem! Remove the gem first before using it.");
             return;
         }
-
-        String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
+        String oraxenId = CustomItemManager.getIdByItem(item);
         if (oraxenId == null) {
             return;
         }
@@ -149,166 +158,156 @@ implements Listener {
 
     private void handleGemAbility(Player player, String oraxenId, PlayerInteractEvent event) {
         event.setCancelled(true);
-
-        // Ignore the off-hand interact that pairs with a just-completed trade right-click,
-        // so trading into a new gem doesn't auto-fire its primary ability.
         Long lastTrade = this.traderCooldowns.get(player.getUniqueId());
-        if (lastTrade != null && System.currentTimeMillis() - lastTrade < TRADE_ABILITY_GRACE_MS) {
+        if (lastTrade != null && System.currentTimeMillis() - lastTrade < 500L) {
             return;
         }
-
-        dev.xoperr.blissgems.utils.AbilityBinding input =
-            dev.xoperr.blissgems.utils.AbilityBinding.rightClick(player.isSneaking());
-        dispatchBoundAbility(player, input);
+        AbilityBinding input = AbilityBinding.rightClick(player.isSneaking());
+        this.dispatchBoundAbility(player, input);
     }
 
-    /**
-     * Handles LEFT_CLICK_AIR / LEFT_CLICK_BLOCK when the held item is a gem.
-     * Routes through the player's binding map; if left-click is unbound, nothing
-     * happens (vanilla behavior preserved for everyone who hasn't customized).
-     */
     private void handleLeftClickAbility(PlayerInteractEvent event) {
+        boolean extraSlot;
+        AbilitySlot slot;
+        boolean offhandGold;
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
         String id = item != null ? CustomItemManager.getIdByItem(item) : null;
         boolean heldGem = id != null && (id.endsWith("_gem_t1") || id.endsWith("_gem_t2"));
-        // The Gold Gem's two extra slots hang off left-click, and the gem lives in the
-        // offhand — which a left-click event never reports. Reach it from there, but only
-        // for swings at air: cancelling a LEFT_CLICK_BLOCK would stop the player breaking
-        // blocks with whatever is in their main hand.
-        boolean offhandGold = this.plugin.getGoldGemManager() != null
-            && this.plugin.getGoldGemManager().isGoldGem(player.getInventory().getItemInOffHand());
-        if (!heldGem && !(offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
+        boolean bl = offhandGold = this.plugin.getGoldGemManager() != null && this.plugin.getGoldGemManager().isGoldGem(player.getInventory().getItemInOffHand());
+        if (!(heldGem || offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
             return;
         }
-
-        dev.xoperr.blissgems.utils.AbilityBinding input =
-            dev.xoperr.blissgems.utils.AbilityBinding.leftClick(player.isSneaking());
-
-        dev.xoperr.blissgems.utils.AbilitySlot slot =
-            this.plugin.getAbilityBindingManager() != null
-                ? this.plugin.getAbilityBindingManager().getSlot(player, input)
-                : null;
+        AbilityBinding input = AbilityBinding.leftClick(player.isSneaking());
+        AbilitySlot abilitySlot = slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
         if (slot == null) {
-            return; // input unbound — let vanilla handle the click
+            return;
         }
-        // Only the Gold Gem defines the two extra slots. Every other gem would swallow the
-        // click for a no-op — and with it the block the player was trying to break.
-        boolean extraSlot = slot == dev.xoperr.blissgems.utils.AbilitySlot.QUINARY
-            || slot == dev.xoperr.blissgems.utils.AbilitySlot.SENARY;
-        if (extraSlot && !offhandGold && !GoldGemManager.GOLD_ITEM_ID.equals(id)) {
+        boolean bl2 = extraSlot = slot == AbilitySlot.QUINARY || slot == AbilitySlot.SENARY;
+        if (extraSlot && !offhandGold && !"gold_gem_t1".equals(id)) {
             return;
         }
         event.setCancelled(true);
-        if (!gateAbility(player)) return;
+        if (!this.gateAbility(player)) {
+            return;
+        }
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 
-    /**
-     * Right-click ability dispatcher. Resolves the player's binding for the right-click
-     * variant (sneaking or not) and fires the corresponding slot. Falls back to the gem's
-     * built-in onRightClick if right-click is unbound (so wiping all bindings doesn't
-     * break the basic right-click → primary/secondary expectation).
-     */
-    private void dispatchBoundAbility(Player player, dev.xoperr.blissgems.utils.AbilityBinding input) {
-        if (!gateAbility(player)) return;
-
-        dev.xoperr.blissgems.utils.AbilitySlot slot =
-            this.plugin.getAbilityBindingManager() != null
-                ? this.plugin.getAbilityBindingManager().getSlot(player, input)
-                : null;
+    private void dispatchBoundAbility(Player player, AbilityBinding input) {
+        AbilitySlot slot;
+        if (!this.gateAbility(player)) {
+            return;
+        }
+        AbilitySlot abilitySlot = slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
         if (slot != null) {
             this.plugin.getBlissCommand().triggerSlot(player, slot);
             return;
         }
-        // Unbound: use the gem's legacy onRightClick which handles its own sneak routing.
-        // This only matters if the player explicitly removed the right-click binding;
-        // default players never hit this path.
         String oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
-        if (oraxenId == null || (!oraxenId.endsWith("_gem_t1") && !oraxenId.endsWith("_gem_t2"))) {
+        if (oraxenId == null || !oraxenId.endsWith("_gem_t1") && !oraxenId.endsWith("_gem_t2")) {
             oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInOffHand());
         }
-        if (oraxenId == null) return;
+        if (oraxenId == null) {
+            return;
+        }
         int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
         GemType gemType = GemType.fromOraxenId(oraxenId);
         if (gemType != null) {
             switch (gemType) {
-                case ASTRA: this.plugin.getAstraAbilities().onRightClick(player, tier); return;
-                case FIRE: this.plugin.getFireAbilities().onRightClick(player, tier); return;
-                case FLUX: this.plugin.getFluxAbilities().onRightClick(player, tier); return;
-                case LIFE: this.plugin.getLifeAbilities().onRightClick(player, tier); return;
-                case PUFF: this.plugin.getPuffAbilities().onRightClick(player, tier); return;
-                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); return;
-                case STRENGTH: this.plugin.getStrengthAbilities().onRightClick(player, tier); return;
-                case WEALTH: this.plugin.getWealthAbilities().onRightClick(player, tier); return;
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case FIRE: {
+                    this.plugin.getFireAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().onRightClick(player, tier);
+                    return;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().onRightClick(player, tier);
+                    return;
+                }
             }
         }
     }
 
-    /**
-     * Common pre-checks: click activation toggle + energy. Returns true if the ability
-     * may proceed. Emits the appropriate denial message on failure.
-     */
     private boolean gateAbility(Player player) {
-        // Gem locked by Auratus's Gem Lock — no abilities of any kind.
-        dev.xoperr.blissgems.managers.GemLockManager lockMgr = this.plugin.getGemLockManager();
+        GemLockManager lockMgr = this.plugin.getGemLockManager();
         if (lockMgr != null && lockMgr.isLocked(player)) {
             int left = lockMgr.getRemainingSeconds(player.getUniqueId());
-            player.sendMessage("§6" + dev.xoperr.blissgems.managers.GemLockManager.LOCK_GLYPH
-                + " §c§oYour gem is locked! §7(" + left + "s)");
+            player.sendMessage("\u00a76\ua42c \u00a7c\u00a7oYour gem is locked! \u00a77(" + left + "s)");
             return false;
         }
         if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
             long now = System.currentTimeMillis();
-            Long lastSent = clickDisabledMessageCooldowns.get(player.getUniqueId());
-            if (lastSent == null || now - lastSent >= CLICK_DISABLED_MSG_INTERVAL) {
-                clickDisabledMessageCooldowns.put(player.getUniqueId(), now);
+            Long lastSent = this.clickDisabledMessageCooldowns.get(player.getUniqueId());
+            if (lastSent == null || now - lastSent >= 30000L) {
+                this.clickDisabledMessageCooldowns.put(player.getUniqueId(), now);
                 String msg = this.plugin.getConfigManager().getFormattedMessage("click-activation-disabled", new Object[0]);
-                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                if (msg != null && !msg.isEmpty()) {
+                    player.sendMessage(msg);
+                }
             }
             return false;
         }
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         if (energy <= 0) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return false;
         }
         return true;
     }
 
     private void handleEnergyBottle(Player player, ItemStack item, PlayerInteractEvent event) {
+        String msg;
         event.setCancelled(true);
-
-        // Check if player is already at max energy
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
         int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
         if (currentEnergy >= maxEnergy) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("energy-already-max");
-            if (msg == null || msg.isEmpty()) {
+            String msg2 = this.plugin.getConfigManager().getFormattedMessage("energy-already-max", new Object[0]);
+            if (msg2 == null || msg2.isEmpty()) {
                 player.sendMessage("\u00a7c\u00a7oYou already have maximum energy!");
             } else {
-                player.sendMessage(msg);
+                player.sendMessage(msg2);
             }
             return;
         }
-
         this.plugin.getEnergyManager().addEnergy(player, 1);
         if (item.getAmount() > 1) {
             item.setAmount(item.getAmount() - 1);
+        } else if (event.getHand() == EquipmentSlot.OFF_HAND) {
+            player.getInventory().setItemInOffHand(null);
         } else {
-            if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) {
-                player.getInventory().setItemInOffHand(null);
-            } else {
-                player.getInventory().setItemInMainHand(null);
-            }
+            player.getInventory().setItemInMainHand(null);
         }
         if (this.plugin.getConfigManager().isEnergyBottleDropEnabled()) {
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
             player.spawnParticle(Particle.HEART, player.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         }
-        String msg = this.plugin.getConfigManager().getFormattedMessage("energy-bottle-consumed", new Object[0]);
-        if (msg != null && !msg.isEmpty()) {
+        if ((msg = this.plugin.getConfigManager().getFormattedMessage("energy-bottle-consumed", new Object[0])) != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
     }
@@ -334,26 +333,22 @@ implements Listener {
             }
             return;
         }
-        // Gem-id based so addon/expansion gems trade correctly (built-in GemType is null for
-        // them). The pool is getAvailableGemIds() — enabled built-ins + registered addon gems
-        // MINUS gems.exclude-from-random — so the mythics (auratus/heretic) stay out while the
-        // expansion gems (frost, terra, aqua, toxic, illusion, mecha) can be traded into.
         String currentGemId = this.plugin.getGemManager().getGemId(player);
-        java.util.List<String> availableGems = new ArrayList<String>(this.plugin.getGemManager().getAvailableGemIds());
+        ArrayList<String> availableGems = new ArrayList<String>(this.plugin.getGemManager().getAvailableGemIds());
         availableGems.remove(currentGemId);
         if (availableGems.isEmpty()) {
             player.sendMessage(String.valueOf(ChatColor.RED) + "No other gem types available!");
             return;
         }
-        String newGemId = availableGems.get((int)(Math.random() * (double)availableGems.size()));
+        String newGemId = (String)availableGems.get((int)(Math.random() * (double)availableGems.size()));
         if (this.plugin.getGemManager().replaceGem(player, newGemId)) {
+            String msg;
             if (traderItem.getAmount() > 1) {
                 traderItem.setAmount(traderItem.getAmount() - 1);
             } else {
                 player.getInventory().setItemInMainHand(null);
             }
             this.traderCooldowns.put(player.getUniqueId(), now);
-            // Achievement: Time For A Change
             if (this.plugin.getAchievementManager() != null) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.TIME_FOR_A_CHANGE);
             }
@@ -361,8 +356,7 @@ implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 player.spawnParticle(Particle.PORTAL, player.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
             }
-            String msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId));
-            if (msg != null && !msg.isEmpty()) {
+            if ((msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId))) != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
             }
         } else {
@@ -372,288 +366,212 @@ implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+            if (this.plugin.getFluxEnergyManager() != null) {
+                this.plugin.getFluxEnergyManager().onInventoryClick(event);
+            }
+            return;
+        }
         HumanEntity humanEntity = event.getWhoClicked();
         if (humanEntity instanceof Player) {
+            int currentGemCount;
+            String cursorOraxenId;
+            String cursorId;
+            boolean hasContainerOpen;
+            PlayerInventory inv;
+            boolean inventoryFull;
+            int hotbarSlot;
             Player player = (Player)humanEntity;
-
-            // Check if clicking on a gem item
             ItemStack clickedItem = event.getCurrentItem();
             ItemStack cursorItem = event.getCursor();
             ItemStack hotbarItem = null;
-
-            // For number key clicks, get the hotbar item
-            if (event.getClick().toString().contains("NUMBER_KEY")) {
-                int hotbarSlot = event.getHotbarButton();
-                if (hotbarSlot >= 0 && hotbarSlot < 9) {
-                    hotbarItem = player.getInventory().getItem(hotbarSlot);
-                }
+            if (event.getClick().toString().contains("NUMBER_KEY") && (hotbarSlot = event.getHotbarButton()) >= 0 && hotbarSlot < 9) {
+                hotbarItem = player.getInventory().getItem(hotbarSlot);
             }
-
-            // CRITICAL PROTECTION: Prevent clicking on gems when inventory is full
-            // This prevents the gem from ending up on cursor with nowhere to go
-            PlayerInventory inv = player.getInventory();
-            boolean inventoryFull = inv.firstEmpty() == -1;
-
+            boolean bl = inventoryFull = (inv = player.getInventory()).firstEmpty() == -1;
             if (inventoryFull && event.getClickedInventory() == inv) {
-                // Check if clicking on a gem
-                String clickedId = clickedItem != null ? CustomItemManager.getIdByItem(clickedItem) : null;
+                String slotId;
+                String clickedId;
+                String string = clickedId = clickedItem != null ? CustomItemManager.getIdByItem(clickedItem) : null;
                 if (clickedId != null && GemType.isGem(clickedId)) {
-                    // Trying to click on a gem with full inventory
                     event.setCancelled(true);
-                    String msg = plugin.getConfigManager().getFormattedMessage("cannot-move-gem-full-inventory");
+                    String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-move-gem-full-inventory", new Object[0]);
                     if (msg != null && !msg.isEmpty()) {
                         player.sendMessage(msg);
                     }
                     return;
                 }
-
-                // Check if trying to place something where a gem is
-                if (cursorItem != null && cursorItem.getType() != Material.AIR) {
-                    if (clickedItem != null) {
-                        String slotId = CustomItemManager.getIdByItem(clickedItem);
-                        if (slotId != null && GemType.isGem(slotId)) {
-                            // Trying to swap with a gem slot when inventory is full
-                            event.setCancelled(true);
-                            player.sendMessage("§c§lYou cannot swap items with your gem when inventory is full!");
-                            return;
-                        }
-                    }
+                if (cursorItem != null && cursorItem.getType() != Material.AIR && clickedItem != null && (slotId = CustomItemManager.getIdByItem(clickedItem)) != null && GemType.isGem(slotId)) {
+                    event.setCancelled(true);
+                    player.sendMessage("\u00a7c\u00a7lYou cannot swap items with your gem when inventory is full!");
+                    return;
                 }
             }
-
-            // Prevent gems from being placed into the 2x2 crafting grid (slots 1-4)
             if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
-                if (event.getClickedInventory() == event.getView().getTopInventory()) {
-                    int slot = event.getRawSlot();
-                    if (slot >= 1 && slot <= 4) {
-                        // Block cursor gem placement into crafting grid
-                        if (cursorItem != null && cursorItem.getType() != Material.AIR) {
-                            String cursorId = CustomItemManager.getIdByItem(cursorItem);
-                            if (cursorId != null && GemType.isGem(cursorId)) {
-                                event.setCancelled(true);
-                                return;
-                            }
-                        }
-                        // Block hotbar swap with gem into crafting grid
-                        if (hotbarItem != null) {
-                            String hotbarId = CustomItemManager.getIdByItem(hotbarItem);
-                            if (hotbarId != null && GemType.isGem(hotbarId)) {
-                                event.setCancelled(true);
-                                return;
-                            }
-                        }
+                String clickedOraxenId;
+                int slot;
+                if (event.getClickedInventory() == event.getView().getTopInventory() && (slot = event.getRawSlot()) >= 1 && slot <= 4) {
+                    String hotbarId;
+                    String cursorId2;
+                    if (cursorItem != null && cursorItem.getType() != Material.AIR && (cursorId2 = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorId2)) {
+                        event.setCancelled(true);
+                        return;
                     }
-                }
-                // Block shift-click gem into crafting grid
-                if (event.isShiftClick() && event.getClickedInventory() == player.getInventory() && clickedItem != null) {
-                    String clickedOraxenId = CustomItemManager.getIdByItem(clickedItem);
-                    if (clickedOraxenId != null && GemType.isGem(clickedOraxenId)) {
+                    if (hotbarItem != null && (hotbarId = CustomItemManager.getIdByItem(hotbarItem)) != null && GemType.isGem(hotbarId)) {
                         event.setCancelled(true);
                         return;
                     }
                 }
+                if (event.isShiftClick() && event.getClickedInventory() == player.getInventory() && clickedItem != null && (clickedOraxenId = CustomItemManager.getIdByItem(clickedItem)) != null && GemType.isGem(clickedOraxenId)) {
+                    event.setCancelled(true);
+                    return;
+                }
             }
-
-            // Check if player has an open inventory that is NOT their own
-            boolean hasContainerOpen = event.getView().getTopInventory() != null
-                && event.getView().getTopInventory().getHolder() != player;
-
-            // If a container is open, block ALL gem movements into it
+            boolean bl2 = hasContainerOpen = event.getView().getTopInventory() != null && event.getView().getTopInventory().getHolder() != player;
             if (hasContainerOpen) {
-                // Block SWAP_OFFHAND (F key) when hovering over container
-                if (event.getClick().toString().equals("SWAP_OFFHAND")) {
-                    ItemStack offhandItem = player.getInventory().getItemInOffHand();
-                    if (offhandItem != null) {
-                        String offhandOraxenId = CustomItemManager.getIdByItem(offhandItem);
-                        if (offhandOraxenId != null && GemType.isGem(offhandOraxenId)) {
-                            event.setCancelled(true);
-                            ComprehensiveGemProtectionListener.resyncOffhand(plugin, player);
-                            String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                            return;
-                        }
+                String hotbarOraxenId;
+                String clickedOraxenId;
+                String msg;
+                String cursorOraxenId2;
+                String offhandOraxenId;
+                ItemStack offhandItem;
+                if (event.getClick().toString().equals("SWAP_OFFHAND") && (offhandItem = player.getInventory().getItemInOffHand()) != null && (offhandOraxenId = CustomItemManager.getIdByItem(offhandItem)) != null && GemType.isGem(offhandOraxenId)) {
+                    event.setCancelled(true);
+                    ComprehensiveGemProtectionListener.resyncOffhand(this.plugin, player);
+                    String msg2 = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container", new Object[0]);
+                    if (msg2 != null && !msg2.isEmpty()) {
+                        player.sendMessage(msg2);
                     }
+                    return;
                 }
-                // Block cursor placement into container
-                if (event.getClickedInventory() != player.getInventory() && cursorItem != null) {
-                    String cursorOraxenId = CustomItemManager.getIdByItem(cursorItem);
-                    if (cursorOraxenId != null && GemType.isGem(cursorOraxenId)) {
-                        event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                        return;
+                if (event.getClickedInventory() != player.getInventory() && cursorItem != null && (cursorOraxenId2 = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorOraxenId2)) {
+                    event.setCancelled(true);
+                    msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
                     }
+                    return;
                 }
-
-                // Block shift-click from player inventory to container
-                if (event.getClick().isShiftClick() && event.getClickedInventory() == player.getInventory() && clickedItem != null) {
-                    String clickedOraxenId = CustomItemManager.getIdByItem(clickedItem);
-                    if (clickedOraxenId != null && GemType.isGem(clickedOraxenId)) {
-                        event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                        return;
+                if (event.getClick().isShiftClick() && event.getClickedInventory() == player.getInventory() && clickedItem != null && (clickedOraxenId = CustomItemManager.getIdByItem(clickedItem)) != null && GemType.isGem(clickedOraxenId)) {
+                    event.setCancelled(true);
+                    msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
                     }
+                    return;
                 }
-
-                // Block hotbar swap from player inventory to container
-                if (event.getClickedInventory() != player.getInventory() && hotbarItem != null) {
-                    String hotbarOraxenId = CustomItemManager.getIdByItem(hotbarItem);
-                    if (hotbarOraxenId != null && GemType.isGem(hotbarOraxenId)) {
-                        event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                        return;
+                if (event.getClickedInventory() != player.getInventory() && hotbarItem != null && (hotbarOraxenId = CustomItemManager.getIdByItem(hotbarItem)) != null && GemType.isGem(hotbarOraxenId)) {
+                    event.setCancelled(true);
+                    msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
                     }
+                    return;
                 }
-
-                // Block double-click collect into container
-                if (event.getClick().toString().equals("DOUBLE_CLICK") && cursorItem != null) {
-                    String cursorOraxenId = CustomItemManager.getIdByItem(cursorItem);
-                    if (cursorOraxenId != null && GemType.isGem(cursorOraxenId)) {
-                        event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container");
-                        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                        return;
+                if (event.getClick().toString().equals("DOUBLE_CLICK") && cursorItem != null && (cursorOraxenId2 = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorOraxenId2)) {
+                    event.setCancelled(true);
+                    msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-container", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
                     }
+                    return;
                 }
             }
-
-            // Block bundle interactions - bundles don't create separate inventory
-            // We need to check multiple scenarios:
-            // 1. Clicking a bundle while holding a gem
-            // 2. Clicking a gem while holding a bundle
-            // 3. Shift-clicking when a bundle is involved
-            // 4. Hotbar swap involving bundles and gems
-
             boolean hasBundleInInventory = false;
             boolean hasGemInInventory = false;
-
-            // Check if clicked item is a bundle or gem
             if (clickedItem != null) {
+                String clickedId;
                 if (clickedItem.getType() == Material.BUNDLE) {
                     hasBundleInInventory = true;
-                    // If clicking bundle with gem on cursor, block it
-                    String cursorId = cursorItem != null ? CustomItemManager.getIdByItem(cursorItem) : null;
+                    String string = cursorId = cursorItem != null ? CustomItemManager.getIdByItem(cursorItem) : null;
                     if (cursorId != null && GemType.isGem(cursorId)) {
                         event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                        String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+                        if (msg != null && !msg.isEmpty()) {
+                            player.sendMessage(msg);
+                        }
                         return;
                     }
                 }
-                String clickedId = CustomItemManager.getIdByItem(clickedItem);
-                if (clickedId != null && GemType.isGem(clickedId)) {
+                if ((clickedId = CustomItemManager.getIdByItem(clickedItem)) != null && GemType.isGem(clickedId)) {
                     hasGemInInventory = true;
-                    // If clicking gem with bundle on cursor, block it
                     if (cursorItem != null && cursorItem.getType() == Material.BUNDLE) {
                         event.setCancelled(true);
-                        String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                        String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+                        if (msg != null && !msg.isEmpty()) {
+                            player.sendMessage(msg);
+                        }
                         return;
                     }
                 }
             }
-
-            // Check if cursor item is a bundle or gem
             if (cursorItem != null) {
                 if (cursorItem.getType() == Material.BUNDLE) {
                     hasBundleInInventory = true;
                 }
-                String cursorId = CustomItemManager.getIdByItem(cursorItem);
-                if (cursorId != null && GemType.isGem(cursorId)) {
+                if ((cursorId = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorId)) {
                     hasGemInInventory = true;
                 }
             }
-
-            // Check hotbar item for bundle/gem
             if (hotbarItem != null) {
                 if (hotbarItem.getType() == Material.BUNDLE && hasGemInInventory) {
                     event.setCancelled(true);
-                    String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                    String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
+                    }
                     return;
                 }
                 String hotbarId = CustomItemManager.getIdByItem(hotbarItem);
                 if (hotbarId != null && GemType.isGem(hotbarId) && hasBundleInInventory) {
                     event.setCancelled(true);
-                    String msg = plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+                    String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-store-gem-bundle", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
+                    }
                     return;
                 }
             }
-
-            // Check if trying to add a gem when already have one (in player inventory)
-            if (this.plugin.getConfigManager().isSingleGemOnly()
-                && cursorItem != null && event.getClickedInventory() == player.getInventory()) {
-                String cursorOraxenId = CustomItemManager.getIdByItem((ItemStack)cursorItem);
-                if (cursorOraxenId != null && GemType.isGem(cursorOraxenId)) {
-                    // Player is trying to place a gem
-                    int currentGemCount = countGemsInInventory(player);
-                    // If they already have a gem and this isn't just moving their existing gem
-                    if (currentGemCount > 0) {
-                        // Check if they're moving their own gem (not adding a new one)
-                        boolean isMovingOwnGem = false;
-                        if (clickedItem != null) {
-                            String clickedOraxenId = CustomItemManager.getIdByItem((ItemStack)clickedItem);
-                            if (clickedOraxenId != null && GemType.isGem(clickedOraxenId)) {
-                                isMovingOwnGem = true;
-                            }
-                        }
-
-                        if (!isMovingOwnGem) {
-                            event.setCancelled(true);
-                            String msg = this.plugin.getConfigManager().getFormattedMessage("already-have-gem", new Object[0]);
-                            if (msg != null && !msg.isEmpty()) {
-                                player.sendMessage(msg);
-                            }
-                            return;
-                        }
+            if (this.plugin.getConfigManager().isSingleGemOnly() && cursorItem != null && event.getClickedInventory() == player.getInventory() && (cursorOraxenId = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorOraxenId) && (currentGemCount = this.countGemsInInventory(player)) > 0) {
+                String clickedOraxenId;
+                boolean isMovingOwnGem = false;
+                if (clickedItem != null && (clickedOraxenId = CustomItemManager.getIdByItem(clickedItem)) != null && GemType.isGem(clickedOraxenId)) {
+                    isMovingOwnGem = true;
+                }
+                if (!isMovingOwnGem) {
+                    event.setCancelled(true);
+                    String msg = this.plugin.getConfigManager().getFormattedMessage("already-have-gem", new Object[0]);
+                    if (msg != null && !msg.isEmpty()) {
+                        player.sendMessage(msg);
                     }
+                    return;
                 }
             }
-
             Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> this.plugin.getGemManager().updateActiveGem(player), 1L);
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onEntityPickupItem(EntityPickupItemEvent event) {
+        PlayerInventory inv;
         if (!(event.getEntity() instanceof Player)) {
             return;
         }
-
         Player player = (Player)event.getEntity();
         Item itemEntity = event.getItem();
         ItemStack item = itemEntity.getItemStack();
-
-        String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
-
-        // With single-gem-only disabled the player is allowed to carry as many gems as they
-        // like, so neither the full-inventory guard nor the pickup block below may run.
+        String oraxenId = CustomItemManager.getIdByItem(item);
         if (!this.plugin.getConfigManager().isSingleGemOnly()) {
             return;
         }
-
-        // If player has a gem, only prevent picking up OTHER GEMS if inventory is full
-        // This prevents having multiple gems when single-gem-only is enabled
-        // Normal items can still be picked up if there's space
-        if (oraxenId != null && GemType.isGem(oraxenId) && countGemsInInventory(player) > 0) {
-            PlayerInventory inv = player.getInventory();
-            // Check if inventory has no empty slots
-            if (inv.firstEmpty() == -1) {
-                // Inventory is full, prevent picking up additional gems
-                event.setCancelled(true);
-                return;
-            }
+        if (oraxenId != null && GemType.isGem(oraxenId) && this.countGemsInInventory(player) > 0 && (inv = player.getInventory()).firstEmpty() == -1) {
+            event.setCancelled(true);
+            return;
         }
-
         if (oraxenId == null || !GemType.isGem(oraxenId)) {
             return;
         }
-
-        // Check if player already has a gem
-        int currentGemCount = countGemsInInventory(player);
+        int currentGemCount = this.countGemsInInventory(player);
         if (currentGemCount > 0) {
             event.setCancelled(true);
             String msg = this.plugin.getConfigManager().getFormattedMessage("already-have-gem", new Object[0]);
@@ -663,46 +581,35 @@ implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onInventoryDrag(InventoryDragEvent event) {
+        PlayerInventory inv;
+        int slot;
+        Iterator iterator;
+        String draggedId;
         if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
-
-        Player player = (Player) event.getWhoClicked();
-
-        // Prevent dragging gems to create duplicates or issues
+        Player player = (Player)event.getWhoClicked();
         ItemStack draggedItem = event.getOldCursor();
-        if (draggedItem != null) {
-            String draggedId = CustomItemManager.getIdByItem(draggedItem);
-            if (draggedId != null && GemType.isGem(draggedId)) {
-                // Allow dragging within player's own inventory but prevent issues
-                if (event.getInventory().getType() != InventoryType.PLAYER) {
-                    // Check if dragging to another inventory (chest, etc.)
-                    for (int slot : event.getRawSlots()) {
-                        if (slot < event.getView().getTopInventory().getSize()) {
-                            event.setCancelled(true);
-                            player.sendMessage("§c§lYou cannot move gems to other containers!");
-                            return;
-                        }
-                    }
-                }
+        if (draggedItem != null && (draggedId = CustomItemManager.getIdByItem(draggedItem)) != null && GemType.isGem(draggedId) && event.getInventory().getType() != InventoryType.PLAYER) {
+            iterator = event.getRawSlots().iterator();
+            while (iterator.hasNext()) {
+                slot = (Integer)iterator.next();
+                if (slot >= event.getView().getTopInventory().getSize()) continue;
+                event.setCancelled(true);
+                player.sendMessage("\u00a7c\u00a7lYou cannot move gems to other containers!");
+                return;
             }
         }
-
-        // Prevent any inventory operations when inventory is full and player has gem
-        if (countGemsInInventory(player) > 0) {
-            PlayerInventory inv = player.getInventory();
-            if (inv.firstEmpty() == -1) {
-                // Check if this drag operation involves player inventory
-                for (int slot : event.getRawSlots()) {
-                    if (slot >= event.getView().getTopInventory().getSize()) {
-                        // This involves player inventory and it's full
-                        event.setCancelled(true);
-                        player.sendMessage("§c§lYour inventory is full! Cannot move items while carrying a gem.");
-                        return;
-                    }
-                }
+        if (this.countGemsInInventory(player) > 0 && (inv = player.getInventory()).firstEmpty() == -1) {
+            iterator = event.getRawSlots().iterator();
+            while (iterator.hasNext()) {
+                slot = (Integer)iterator.next();
+                if (slot < event.getView().getTopInventory().getSize()) continue;
+                event.setCancelled(true);
+                player.sendMessage("\u00a7c\u00a7lYour inventory is full! Cannot move items while carrying a gem.");
+                return;
             }
         }
     }
@@ -711,322 +618,223 @@ implements Listener {
         int count = 0;
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
-
-            // Check if item itself is a gem
-            String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
+            String oraxenId = CustomItemManager.getIdByItem(item);
             if (oraxenId != null && GemType.isGem(oraxenId)) {
-                count++;
+                ++count;
                 continue;
             }
-
-            // Check if item is a bundle containing gems
-            if (item.getType() == Material.BUNDLE) {
-                if (bundleContainsGem(item)) {
-                    count++;
-                }
-            }
+            if (item.getType() != Material.BUNDLE || !this.bundleContainsGem(item)) continue;
+            ++count;
         }
         return count;
     }
 
-    /**
-     * Check if a bundle contains any gems
-     */
     private boolean bundleContainsGem(ItemStack bundle) {
+        BundleMeta bundleMeta;
         if (bundle == null || bundle.getType() != Material.BUNDLE) {
             return false;
         }
-
-        // Get bundle meta to check contents
-        if (bundle.getItemMeta() instanceof org.bukkit.inventory.meta.BundleMeta) {
-            org.bukkit.inventory.meta.BundleMeta bundleMeta = (org.bukkit.inventory.meta.BundleMeta) bundle.getItemMeta();
-            if (bundleMeta.hasItems()) {
-                for (ItemStack bundledItem : bundleMeta.getItems()) {
-                    if (bundledItem != null) {
-                        String itemId = CustomItemManager.getIdByItem(bundledItem);
-                        if (itemId != null && GemType.isGem(itemId)) {
-                            return true;
-                        }
-                    }
-                }
+        if (bundle.getItemMeta() instanceof BundleMeta && (bundleMeta = (BundleMeta)bundle.getItemMeta()).hasItems()) {
+            for (ItemStack bundledItem : bundleMeta.getItems()) {
+                String itemId;
+                if (bundledItem == null || (itemId = CustomItemManager.getIdByItem(bundledItem)) == null || !GemType.isGem(itemId)) continue;
+                return true;
             }
         }
         return false;
     }
-
-    // Drop prevention moved to GemDropListener (uses DropItemControl's PDC-based approach)
 
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        // Check if placing gem in item frame or giving to Allay
-        if (event.getRightClicked() instanceof ItemFrame ||
-            event.getRightClicked() instanceof org.bukkit.entity.Allay) {
-            // Check both mainhand and offhand for gems
+        if (event.getRightClicked() instanceof ItemFrame || event.getRightClicked() instanceof Allay) {
             String mainHandId = CustomItemManager.getIdByItem(mainHand);
             String offHandId = CustomItemManager.getIdByItem(offHand);
-
-            if ((mainHandId != null && GemType.isGem(mainHandId)) ||
-                (offHandId != null && GemType.isGem(offHandId))) {
+            if (mainHandId != null && GemType.isGem(mainHandId) || offHandId != null && GemType.isGem(offHandId)) {
                 event.setCancelled(true);
-                String msg = plugin.getConfigManager().getFormattedMessage("cannot-place-gem-itemframe");
-                if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player)) {
-            return;
-        }
-
-        Player player = (Player) event.getPlayer();
-
-        // Save Pockets inventory if closing a Pockets inventory
-        if (event.getView().getTitle().equals("\u00a76\u00a7lPockets")) {
-            this.plugin.getWealthAbilities().savePocketsInventory(player.getUniqueId());
-        }
-
-        // Safety net: recover gems from crafting grid slots on close
-        if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
-            for (int i = 1; i <= 4; i++) {
-                ItemStack craftSlot = event.getView().getTopInventory().getItem(i);
-                if (craftSlot != null && !craftSlot.getType().isAir()) {
-                    String craftId = CustomItemManager.getIdByItem(craftSlot);
-                    if (craftId != null && GemType.isGem(craftId)) {
-                        event.getView().getTopInventory().setItem(i, null);
-                        forceGemIntoInventory(player, craftSlot);
-                    }
+                String msg = this.plugin.getConfigManager().getFormattedMessage("cannot-place-gem-itemframe", new Object[0]);
+                if (msg != null && !msg.isEmpty()) {
+                    player.sendMessage(msg);
                 }
             }
         }
-
-        ItemStack cursorItem = player.getItemOnCursor();
-
-        // Check if player has a gem on their cursor when closing inventory
-        if (cursorItem != null && cursorItem.getType() != Material.AIR) {
-            String cursorId = CustomItemManager.getIdByItem(cursorItem);
-            if (cursorId != null && GemType.isGem(cursorId)) {
-                // Player is closing inventory with a gem on cursor
-                // GEMS ARE UNDROPPABLE - must force it back into inventory
-                player.setItemOnCursor(null);
-                forceGemIntoInventory(player, cursorItem);
-            }
-        }
-
-        // STRICT SINGLE-GEM ENFORCEMENT
-        // Check if player somehow has multiple gems and drop extras
-        enforceOneGemOnly(player);
     }
 
-    /**
-     * Enforces that player can only have one gem in their inventory.
-     * If multiple gems are found, keeps the first one and drops the rest.
-     * Also extracts gems from bundles and drops them.
-     */
+    @EventHandler(priority=EventPriority.HIGHEST)
+    public void onInventoryClose(InventoryCloseEvent event) {
+        String cursorId;
+        ItemStack cursorItem;
+        if (!(event.getPlayer() instanceof Player)) {
+            return;
+        }
+        Player player = (Player)event.getPlayer();
+        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+            if (this.plugin.getFluxEnergyManager() != null) {
+                this.plugin.getFluxEnergyManager().onInventoryClose(event);
+            }
+            return;
+        }
+        if (event.getView().getTitle().equals("\u00a76\u00a7lPockets")) {
+            this.plugin.getWealthAbilities().savePocketsInventory(player.getUniqueId());
+        }
+        if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
+            for (int i = 1; i <= 4; ++i) {
+                String craftId;
+                ItemStack craftSlot = event.getView().getTopInventory().getItem(i);
+                if (craftSlot == null || craftSlot.getType().isAir() || (craftId = CustomItemManager.getIdByItem(craftSlot)) == null || !GemType.isGem(craftId)) continue;
+                event.getView().getTopInventory().setItem(i, null);
+                this.forceGemIntoInventory(player, craftSlot);
+            }
+        }
+        if ((cursorItem = player.getItemOnCursor()) != null && cursorItem.getType() != Material.AIR && (cursorId = CustomItemManager.getIdByItem(cursorItem)) != null && GemType.isGem(cursorId)) {
+            player.setItemOnCursor(null);
+            this.forceGemIntoInventory(player, cursorItem);
+        }
+        this.enforceOneGemOnly(player);
+    }
+
     private void enforceOneGemOnly(Player player) {
         if (!this.plugin.getConfigManager().isSingleGemOnly()) {
             return;
         }
-
         PlayerInventory inv = player.getInventory();
         boolean foundFirstGem = false;
-        java.util.List<ItemStack> gemsToDrop = new java.util.ArrayList<>();
-
-        // First pass: find all gems and mark extras for dropping
-        for (int i = 0; i < inv.getSize(); i++) {
+        ArrayList<ItemStack> gemsToDrop = new ArrayList<ItemStack>();
+        for (int i = 0; i < inv.getSize(); ++i) {
+            List<ItemStack> extractedGems;
             ItemStack item = inv.getItem(i);
             if (item == null || item.getType() == Material.AIR) continue;
-
             String itemId = CustomItemManager.getIdByItem(item);
-
-            // Check if item is a gem
             if (itemId != null && GemType.isGem(itemId)) {
                 if (!foundFirstGem) {
-                    // This is the first gem - keep it
                     foundFirstGem = true;
-                } else {
-                    // This is an extra gem - remove it and drop it
-                    gemsToDrop.add(item.clone());
-                    inv.setItem(i, null);
+                    continue;
                 }
+                gemsToDrop.add(item.clone());
+                inv.setItem(i, null);
                 continue;
             }
-
-            // Check if item is a bundle containing gems
-            if (item.getType() == Material.BUNDLE) {
-                java.util.List<ItemStack> extractedGems = extractGemsFromBundle(item, i, inv);
-                if (!extractedGems.isEmpty()) {
-                    // Add extracted gems to drop list (unless it's the first gem)
-                    for (ItemStack extractedGem : extractedGems) {
-                        if (!foundFirstGem) {
-                            // Keep this gem as the first gem - add it to inventory
-                            foundFirstGem = true;
-                            forceGemIntoInventory(player, extractedGem);
-                        } else {
-                            // Extra gem - mark for dropping
-                            gemsToDrop.add(extractedGem);
-                        }
-                    }
+            if (item.getType() != Material.BUNDLE || (extractedGems = this.extractGemsFromBundle(item, i, inv)).isEmpty()) continue;
+            for (ItemStack extractedGem : extractedGems) {
+                if (!foundFirstGem) {
+                    foundFirstGem = true;
+                    this.forceGemIntoInventory(player, extractedGem);
+                    continue;
                 }
+                gemsToDrop.add(extractedGem);
             }
         }
-
-        // Drop all extra gems
         if (!gemsToDrop.isEmpty()) {
             for (ItemStack gemToDrop : gemsToDrop) {
                 player.getWorld().dropItemNaturally(player.getLocation(), gemToDrop);
             }
-            player.sendMessage("§c§lYou can only have one gem! Extra gems have been dropped.");
+            player.sendMessage("\u00a7c\u00a7lYou can only have one gem! Extra gems have been dropped.");
         }
     }
 
-    /**
-     * Extracts all gems from a bundle and returns them.
-     * Also updates the bundle in the inventory to remove the extracted gems.
-     */
-    private java.util.List<ItemStack> extractGemsFromBundle(ItemStack bundle, int slotIndex, PlayerInventory inv) {
-        java.util.List<ItemStack> extractedGems = new java.util.ArrayList<>();
-
+    private List<ItemStack> extractGemsFromBundle(ItemStack bundle, int slotIndex, PlayerInventory inv) {
+        BundleMeta bundleMeta;
+        ArrayList<ItemStack> extractedGems = new ArrayList<ItemStack>();
         if (bundle == null || bundle.getType() != Material.BUNDLE) {
             return extractedGems;
         }
-
-        if (bundle.getItemMeta() instanceof org.bukkit.inventory.meta.BundleMeta) {
-            org.bukkit.inventory.meta.BundleMeta bundleMeta = (org.bukkit.inventory.meta.BundleMeta) bundle.getItemMeta();
-
-            if (bundleMeta.hasItems()) {
-                java.util.List<ItemStack> remainingItems = new java.util.ArrayList<>();
-
-                // Separate gems from non-gems
-                for (ItemStack bundledItem : bundleMeta.getItems()) {
-                    if (bundledItem != null) {
-                        String itemId = CustomItemManager.getIdByItem(bundledItem);
-                        if (itemId != null && GemType.isGem(itemId)) {
-                            // This is a gem - extract it
-                            extractedGems.add(bundledItem.clone());
-                        } else {
-                            // Not a gem - keep it in the bundle
-                            remainingItems.add(bundledItem);
-                        }
-                    }
+        if (bundle.getItemMeta() instanceof BundleMeta && (bundleMeta = (BundleMeta)bundle.getItemMeta()).hasItems()) {
+            ArrayList<ItemStack> remainingItems = new ArrayList<ItemStack>();
+            for (ItemStack bundledItem : bundleMeta.getItems()) {
+                if (bundledItem == null) continue;
+                String itemId = CustomItemManager.getIdByItem(bundledItem);
+                if (itemId != null && GemType.isGem(itemId)) {
+                    extractedGems.add(bundledItem.clone());
+                    continue;
                 }
-
-                // Update the bundle to remove extracted gems
-                if (!extractedGems.isEmpty()) {
-                    bundleMeta.setItems(remainingItems);
-                    bundle.setItemMeta(bundleMeta);
-                    inv.setItem(slotIndex, bundle);
-                }
+                remainingItems.add(bundledItem);
+            }
+            if (!extractedGems.isEmpty()) {
+                bundleMeta.setItems(remainingItems);
+                bundle.setItemMeta((ItemMeta)bundleMeta);
+                inv.setItem(slotIndex, bundle);
             }
         }
-
         return extractedGems;
     }
 
-    /**
-     * Forces a gem item back into a player's inventory, displacing a non-gem item if necessary.
-     */
     private void forceGemIntoInventory(Player player, ItemStack gem) {
+        String slotId;
+        ItemStack slotItem;
+        int i;
         PlayerInventory inv = player.getInventory();
         int emptySlot = inv.firstEmpty();
-
         if (emptySlot != -1) {
             inv.setItem(emptySlot, gem);
             return;
         }
-
-        // No empty slots - find any non-gem item and replace it with the gem
-        // Try main inventory first (skip hotbar to avoid disrupting quick access)
-        for (int i = 9; i < 36; i++) {
-            ItemStack slotItem = inv.getItem(i);
-            if (slotItem != null && slotItem.getType() != Material.AIR) {
-                String slotId = CustomItemManager.getIdByItem(slotItem);
-                if (slotId == null || !GemType.isGem(slotId)) {
-                    ItemStack replacedItem = slotItem.clone();
-                    inv.setItem(i, gem);
-                    player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
-                    String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
-                    if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                    return;
-                }
+        for (i = 9; i < 36; ++i) {
+            slotItem = inv.getItem(i);
+            if (slotItem == null || slotItem.getType() == Material.AIR || (slotId = CustomItemManager.getIdByItem(slotItem)) != null && GemType.isGem(slotId)) continue;
+            ItemStack replacedItem = slotItem.clone();
+            inv.setItem(i, gem);
+            player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
+            String msg = this.plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
             }
+            return;
         }
-
-        // Try hotbar
-        for (int i = 0; i < 9; i++) {
-            ItemStack slotItem = inv.getItem(i);
-            if (slotItem != null && slotItem.getType() != Material.AIR) {
-                String slotId = CustomItemManager.getIdByItem(slotItem);
-                if (slotId == null || !GemType.isGem(slotId)) {
-                    ItemStack replacedItem = slotItem.clone();
-                    inv.setItem(i, gem);
-                    player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
-                    String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory");
-                    if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-                    return;
-                }
+        for (i = 0; i < 9; ++i) {
+            slotItem = inv.getItem(i);
+            if (slotItem == null || slotItem.getType() == Material.AIR || (slotId = CustomItemManager.getIdByItem(slotItem)) != null && GemType.isGem(slotId)) continue;
+            ItemStack replacedItem = slotItem.clone();
+            inv.setItem(i, gem);
+            player.getWorld().dropItemNaturally(player.getLocation(), replacedItem);
+            String msg = this.plugin.getConfigManager().getFormattedMessage("gem-forced-into-inventory", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
             }
+            return;
         }
-
-        // Last resort: force into slot 0
         inv.setItem(0, gem);
-        String msg = plugin.getConfigManager().getFormattedMessage("gem-forced-into-hotbar");
-        if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+        String msg = this.plugin.getConfigManager().getFormattedMessage("gem-forced-into-hotbar", new Object[0]);
+        if (msg != null && !msg.isEmpty()) {
+            player.sendMessage(msg);
+        }
     }
 
-    /**
-     * Trigger a gem ability via command (bypasses click activation check)
-     * @param player The player
-     * @param secondary true for secondary ability (shift), false for primary
-     */
     public void triggerAbilityViaCommand(Player player, boolean secondary) {
-        // Check if player is holding a gem in main or offhand
+        GemAbilityHandler handler;
+        boolean unlocksAllAtTier1;
+        String gemId;
+        int energy;
+        boolean isGemItem;
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
-
         String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        boolean isGemItem = oraxenId != null && (GemType.isGem(oraxenId) ||
-            (plugin.getGemRegistry() != null && plugin.getGemRegistry().isRegisteredGem(oraxenId)));
+        boolean bl = isGemItem = oraxenId != null && (GemType.isGem(oraxenId) || this.plugin.getGemRegistry() != null && this.plugin.getGemRegistry().isRegisteredGem(oraxenId));
         if (!isGemItem) {
-            // Try offhand
             oraxenId = CustomItemManager.getIdByItem(offHand);
-            isGemItem = oraxenId != null && (GemType.isGem(oraxenId) ||
-                (plugin.getGemRegistry() != null && plugin.getGemRegistry().isRegisteredGem(oraxenId)));
+            boolean bl2 = isGemItem = oraxenId != null && (GemType.isGem(oraxenId) || this.plugin.getGemRegistry() != null && this.plugin.getGemRegistry().isRegisteredGem(oraxenId));
             if (!isGemItem) {
                 player.sendMessage("\u00a7c\u00a7lYou must be holding a gem to use this command!");
                 return;
             }
         }
-
-        // Check energy
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        if (energy <= 0) {
+        if ((energy = this.plugin.getEnergyManager().getEnergy(player)) <= 0) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
             if (msg != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
             }
             return;
         }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
-        String gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        String string = gemId = registry != null ? registry.gemIdFromItemId(oraxenId) : null;
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-
-        // For secondary abilities, check if tier is 2. Gems with no Tier 2 (maxTier 1, e.g. Gold)
-        // unlock everything at Tier 1, so the gate must not apply to them.
         GemDefinition def = gemId != null && registry != null ? registry.getGem(gemId) : null;
-        boolean unlocksAllAtTier1 = def != null && def.getMaxTier() < 2;
+        boolean bl3 = unlocksAllAtTier1 = def != null && def.getMaxTier() < 2;
         if (secondary && tier < 2 && !unlocksAllAtTier1) {
             player.sendMessage("\u00a7c\u00a7lSecondary abilities require Tier 2 gem!");
             return;
         }
-
-        // For built-in gems, use existing onRightClick (preserves sneak routing)
         GemType gemType = GemType.fromOraxenId(oraxenId);
         if (gemType != null) {
             boolean wasSneaking = player.isSneaking();
@@ -1035,27 +843,45 @@ implements Listener {
                 return;
             }
             switch (gemType) {
-                case ASTRA: this.plugin.getAstraAbilities().onRightClick(player, tier); break;
-                case FIRE: this.plugin.getFireAbilities().onRightClick(player, tier); break;
-                case FLUX: this.plugin.getFluxAbilities().onRightClick(player, tier); break;
-                case LIFE: this.plugin.getLifeAbilities().onRightClick(player, tier); break;
-                case PUFF: this.plugin.getPuffAbilities().onRightClick(player, tier); break;
-                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().onRightClick(player, tier); break;
-                case WEALTH: this.plugin.getWealthAbilities().onRightClick(player, tier); break;
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case FIRE: {
+                    this.plugin.getFireAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().onRightClick(player, tier);
+                }
             }
             return;
         }
-
-        // For addon gems, route through registry
-        if (gemId != null && registry != null) {
-            GemAbilityHandler handler = registry.getAbilityHandler(gemId);
-            if (handler != null) {
-                if (secondary) {
-                    handler.onSecondary(player, tier);
-                } else {
-                    handler.onPrimary(player, tier);
-                }
+        if (gemId != null && registry != null && (handler = registry.getAbilityHandler(gemId)) != null) {
+            if (secondary) {
+                handler.onSecondary(player, tier);
+            } else {
+                handler.onPrimary(player, tier);
             }
         }
     }

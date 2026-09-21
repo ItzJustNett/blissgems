@@ -1,252 +1,178 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Location
+ *  org.bukkit.Material
+ *  org.bukkit.Particle
+ *  org.bukkit.Sound
+ *  org.bukkit.block.Block
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.Player
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.scheduler.BukkitRunnable
+ *  org.bukkit.scheduler.BukkitTask
+ */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
-
-/**
- * Manages Repair Kit pedestals that restore gem energy for nearby players
- */
 public class RepairKitManager {
     private final BlissGems plugin;
-    private final Map<Location, PedestalData> activePedestals = new HashMap<>();
+    private final Map<Location, PedestalData> activePedestals = new HashMap<Location, PedestalData>();
 
     public RepairKitManager(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Creates a pedestal at the given location and starts the repair process
-     */
-    public boolean createPedestal(Location location) {
-        // Check if beacon exists at this location
-        Block block = location.getBlock();
+    public boolean createPedestal(final Location location) {
+        final Block block = location.getBlock();
         if (block.getType() != Material.BEACON) {
             return false;
         }
-
-        // Check if pedestal already exists here
-        if (activePedestals.containsKey(location)) {
+        if (this.activePedestals.containsKey(location)) {
             return false;
         }
-
-        // Get config values
-        int energyPerSecond = plugin.getConfig().getInt("repair-kit.energy-per-second", 1);
-        int maxTotalEnergy = plugin.getConfig().getInt("repair-kit.max-total-energy", 10);
-        double healRadius = plugin.getConfig().getDouble("repair-kit.heal-radius", 10.0);
-        int updateInterval = plugin.getConfig().getInt("repair-kit.update-interval", 20);
-        boolean prioritizeLowest = plugin.getConfig().getBoolean("repair-kit.prioritize-lowest", true);
-
-        // Create pedestal data
-        PedestalData pedestal = new PedestalData(location, maxTotalEnergy);
-        activePedestals.put(location, pedestal);
-
-        // Play creation effects
+        final int energyPerSecond = this.plugin.getConfig().getInt("repair-kit.energy-per-second", 1);
+        int maxTotalEnergy = this.plugin.getConfig().getInt("repair-kit.max-total-energy", 10);
+        final double healRadius = this.plugin.getConfig().getDouble("repair-kit.heal-radius", 10.0);
+        final int updateInterval = this.plugin.getConfig().getInt("repair-kit.update-interval", 20);
+        final boolean prioritizeLowest = this.plugin.getConfig().getBoolean("repair-kit.prioritize-lowest", true);
+        final PedestalData pedestal = new PedestalData(location, maxTotalEnergy);
+        this.activePedestals.put(location, pedestal);
         location.getWorld().playSound(location, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
-        location.getWorld().spawnParticle(Particle.END_ROD,
-            location.clone().add(0.5, 1.0, 0.5),
-            50, 0.5, 1.0, 0.5, 0.1);
-
-        // Start repair task
-        BukkitTask task = new BukkitRunnable() {
+        location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0.5, 1.0, 0.5), 50, 0.5, 1.0, 0.5, 0.1);
+        BukkitTask task = new BukkitRunnable(){
             int ticksElapsed = 0;
 
-            @Override
             public void run() {
-                // Check if pedestal still exists
                 if (block.getType() != Material.BEACON || pedestal.isExpired()) {
-                    removePedestal(location);
+                    RepairKitManager.this.removePedestal(location);
                     this.cancel();
                     return;
                 }
-
-                ticksElapsed++;
-
-                // Every update interval (default 1 second)
-                if (ticksElapsed % updateInterval == 0) {
-                    // Find nearby players who need energy restoration
-                    List<Player> nearbyPlayers = getNearbyPlayersNeedingEnergy(location, healRadius);
-
+                ++this.ticksElapsed;
+                if (this.ticksElapsed % updateInterval == 0) {
+                    List<Player> nearbyPlayers = RepairKitManager.this.getNearbyPlayersNeedingEnergy(location, healRadius);
                     if (nearbyPlayers.isEmpty()) {
-                        // No players need energy - check if we should stop
-                        if (ticksElapsed >= 60 * 20) { // After 1 minute of no activity
-                            removePedestal(location);
+                        if (this.ticksElapsed >= 1200) {
+                            RepairKitManager.this.removePedestal(location);
                             this.cancel();
                             return;
                         }
                     } else {
-                        // Sort by energy if prioritizing lowest
                         if (prioritizeLowest) {
-                            nearbyPlayers.sort(Comparator.comparingInt(p ->
-                                plugin.getEnergyManager().getEnergy(p)));
+                            nearbyPlayers.sort(Comparator.comparingInt(p -> RepairKitManager.this.plugin.getEnergyManager().getEnergy((Player)p)));
                         }
-
-                        // Restore energy to players
                         int energyRestored = 0;
                         for (Player player : nearbyPlayers) {
-                            int currentEnergy = plugin.getEnergyManager().getEnergy(player);
-                            int maxEnergy = plugin.getConfigManager().getMaxEnergy();
-
-                            if (currentEnergy < maxEnergy) {
-                                int toRestore = Math.min(energyPerSecond, maxEnergy - currentEnergy);
-                                toRestore = Math.min(toRestore, pedestal.getRemainingEnergy());
-
-                                if (toRestore > 0) {
-                                    plugin.getEnergyManager().addEnergy(player, toRestore);
-                                    pedestal.consumeEnergy(toRestore);
-                                    energyRestored += toRestore;
-
-                                    // Achievement: Good As New! (cumulative energy from repair kits)
-                                    if (plugin.getAchievementManager() != null) {
-                                        plugin.getAchievementManager().addProgress(player, Achievement.GOOD_AS_NEW, toRestore);
-                                    }
-
-                                    // Visual feedback for player
-                                    Particle feedbackParticle = Particle.valueOf(
-                                        plugin.getConfig().getString("repair-kit.particle", "HAPPY_VILLAGER"));
-                                    player.spawnParticle(feedbackParticle,
-                                        player.getLocation().add(0, 1, 0),
-                                        10, 0.3, 0.5, 0.3, 0);
-                                    player.playSound(player.getLocation(),
-                                        Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
-                                        0.5f, 1.5f);
-
-                                    String msg = plugin.getConfigManager()
-                                        .getFormattedMessage("gem-energy-restored",
-                                            "amount", String.valueOf(toRestore));
-                                    if (msg != null && !msg.isEmpty()) {
-                                        player.sendMessage(msg);
-                                    }
+                            int maxEnergy;
+                            int currentEnergy = RepairKitManager.this.plugin.getEnergyManager().getEnergy(player);
+                            if (currentEnergy >= (maxEnergy = RepairKitManager.this.plugin.getConfigManager().getMaxEnergy())) continue;
+                            int toRestore = Math.min(energyPerSecond, maxEnergy - currentEnergy);
+                            if ((toRestore = Math.min(toRestore, pedestal.getRemainingEnergy())) > 0) {
+                                RepairKitManager.this.plugin.getEnergyManager().addEnergy(player, toRestore);
+                                pedestal.consumeEnergy(toRestore);
+                                energyRestored += toRestore;
+                                if (RepairKitManager.this.plugin.getAchievementManager() != null) {
+                                    RepairKitManager.this.plugin.getAchievementManager().addProgress(player, Achievement.GOOD_AS_NEW, toRestore);
                                 }
-
-                                // Check if pedestal is exhausted
-                                if (pedestal.getRemainingEnergy() <= 0) {
-                                    break;
+                                Particle feedbackParticle = Particle.valueOf((String)RepairKitManager.this.plugin.getConfig().getString("repair-kit.particle", "HAPPY_VILLAGER"));
+                                player.spawnParticle(feedbackParticle, player.getLocation().add(0.0, 1.0, 0.0), 10, 0.3, 0.5, 0.3, 0.0);
+                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.5f);
+                                String msg = RepairKitManager.this.plugin.getConfigManager().getFormattedMessage("gem-energy-restored", "amount", String.valueOf(toRestore));
+                                if (msg != null && !msg.isEmpty()) {
+                                    player.sendMessage(msg);
                                 }
                             }
+                            if (pedestal.getRemainingEnergy() > 0) continue;
+                            break;
                         }
-
-                        // Check if pedestal should be removed (exhausted)
                         if (pedestal.getRemainingEnergy() <= 0) {
-                            removePedestal(location);
-
-                            // Notify nearby players
-                            for (Player player : getNearbyPlayers(location, healRadius)) {
-                                player.sendMessage("§d§oThe Repair Kit has been exhausted!");
+                            RepairKitManager.this.removePedestal(location);
+                            for (Player player : RepairKitManager.this.getNearbyPlayers(location, healRadius)) {
+                                player.sendMessage("\u00a7d\u00a7oThe Repair Kit has been exhausted!");
                             }
-
                             this.cancel();
                             return;
                         }
                     }
-
-                    // Visual effects every second
-                    if (plugin.getConfig().getBoolean("repair-kit.play-effects", true)) {
-                        Particle particle = Particle.valueOf(
-                            plugin.getConfig().getString("repair-kit.particle", "HAPPY_VILLAGER"));
-                        int particleCount = plugin.getConfig().getInt("repair-kit.particle-count", 5);
-
-                        // Particle beam upward from beacon
-                        location.getWorld().spawnParticle(particle,
-                            location.clone().add(0.5, 1.0, 0.5),
-                            particleCount, 0.3, 0.5, 0.3, 0);
-
-                        // Particle ring showing radius
-                        if (ticksElapsed % (updateInterval * 3) == 0) {
-                            for (int i = 0; i < 16; i++) {
-                                double angle = (i / 16.0) * 2 * Math.PI;
+                    if (RepairKitManager.this.plugin.getConfig().getBoolean("repair-kit.play-effects", true)) {
+                        Particle particle = Particle.valueOf((String)RepairKitManager.this.plugin.getConfig().getString("repair-kit.particle", "HAPPY_VILLAGER"));
+                        int particleCount = RepairKitManager.this.plugin.getConfig().getInt("repair-kit.particle-count", 5);
+                        location.getWorld().spawnParticle(particle, location.clone().add(0.5, 1.0, 0.5), particleCount, 0.3, 0.5, 0.3, 0.0);
+                        if (this.ticksElapsed % (updateInterval * 3) == 0) {
+                            for (int i = 0; i < 16; ++i) {
+                                double angle = (double)i / 16.0 * 2.0 * Math.PI;
                                 double x = Math.cos(angle) * healRadius;
                                 double z = Math.sin(angle) * healRadius;
-                                location.getWorld().spawnParticle(Particle.END_ROD,
-                                    location.clone().add(x, 0.5, z),
-                                    1, 0, 0, 0, 0);
+                                location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(x, 0.5, z), 1, 0.0, 0.0, 0.0, 0.0);
                             }
                         }
                     }
                 }
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
         pedestal.setTask(task);
         return true;
     }
 
-    /**
-     * Removes a pedestal and stops its task
-     */
     public void removePedestal(Location location) {
-        PedestalData pedestal = activePedestals.remove(location);
+        PedestalData pedestal = this.activePedestals.remove(location);
         if (pedestal != null) {
             if (pedestal.getTask() != null) {
                 pedestal.getTask().cancel();
             }
-
-            // Play removal effects
             location.getWorld().playSound(location, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.0f);
-            location.getWorld().spawnParticle(Particle.SMOKE,
-                location.clone().add(0.5, 1.0, 0.5),
-                30, 0.5, 1.0, 0.5, 0.05);
+            location.getWorld().spawnParticle(Particle.SMOKE, location.clone().add(0.5, 1.0, 0.5), 30, 0.5, 1.0, 0.5, 0.05);
         }
     }
 
-    /**
-     * Gets nearby players who need energy restoration
-     */
     private List<Player> getNearbyPlayersNeedingEnergy(Location location, double radius) {
-        List<Player> players = new ArrayList<>();
-        int maxEnergy = plugin.getConfigManager().getMaxEnergy();
-
-        for (Player player : getNearbyPlayers(location, radius)) {
-            if (plugin.getEnergyManager().getEnergy(player) < maxEnergy) {
-                players.add(player);
-            }
+        ArrayList<Player> players = new ArrayList<Player>();
+        int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
+        for (Player player : this.getNearbyPlayers(location, radius)) {
+            if (this.plugin.getEnergyManager().getEnergy(player) >= maxEnergy) continue;
+            players.add(player);
         }
-
         return players;
     }
 
-    /**
-     * Gets all nearby players
-     */
     private List<Player> getNearbyPlayers(Location location, double radius) {
-        List<Player> players = new ArrayList<>();
-        for (org.bukkit.entity.Entity entity : location.getWorld().getNearbyEntities(location, radius, radius, radius)) {
-            if (entity instanceof Player) {
-                players.add((Player) entity);
-            }
+        ArrayList<Player> players = new ArrayList<Player>();
+        for (Entity entity : location.getWorld().getNearbyEntities(location, radius, radius, radius)) {
+            if (!(entity instanceof Player)) continue;
+            players.add((Player)entity);
         }
         return players;
     }
 
-    /**
-     * Checks if a pedestal exists at the given location
-     */
     public boolean isPedestal(Location location) {
-        return activePedestals.containsKey(location);
+        return this.activePedestals.containsKey(location);
     }
 
-    /**
-     * Cleans up all pedestals (called on plugin disable)
-     */
     public void cleanup() {
-        for (Location location : new ArrayList<>(activePedestals.keySet())) {
-            removePedestal(location);
+        for (Location location : new ArrayList<Location>(this.activePedestals.keySet())) {
+            this.removePedestal(location);
         }
     }
 
-    /**
-     * Data class for pedestal information
-     */
     private static class PedestalData {
         private final Location location;
         private int remainingEnergy;
@@ -258,15 +184,15 @@ public class RepairKitManager {
         }
 
         public int getRemainingEnergy() {
-            return remainingEnergy;
+            return this.remainingEnergy;
         }
 
         public void consumeEnergy(int amount) {
-            remainingEnergy -= amount;
+            this.remainingEnergy -= amount;
         }
 
         public boolean isExpired() {
-            return remainingEnergy <= 0;
+            return this.remainingEnergy <= 0;
         }
 
         public void setTask(BukkitTask task) {
@@ -274,7 +200,8 @@ public class RepairKitManager {
         }
 
         public BukkitTask getTask() {
-            return task;
+            return this.task;
         }
     }
 }
+

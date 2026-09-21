@@ -1,46 +1,89 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Bukkit
+ *  org.bukkit.Material
+ *  org.bukkit.OfflinePlayer
+ *  org.bukkit.Sound
+ *  org.bukkit.attribute.AttributeInstance
+ *  org.bukkit.command.Command
+ *  org.bukkit.command.CommandExecutor
+ *  org.bukkit.command.CommandSender
+ *  org.bukkit.command.TabCompleter
+ *  org.bukkit.configuration.file.YamlConfiguration
+ *  org.bukkit.entity.Player
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.inventory.PlayerInventory
+ *  org.bukkit.inventory.meta.ItemMeta
+ *  org.bukkit.plugin.Plugin
+ */
 package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
+import dev.xoperr.blissgems.commands.StatsCommand;
+import dev.xoperr.blissgems.managers.AbilityBindingManager;
+import dev.xoperr.blissgems.managers.GemLockManager;
+import dev.xoperr.blissgems.managers.GemRegistryImpl;
+import dev.xoperr.blissgems.managers.GoldGemManager;
+import dev.xoperr.blissgems.managers.SoulManager;
+import dev.xoperr.blissgems.utils.AbilityBinding;
+import dev.xoperr.blissgems.utils.AbilitySlot;
 import dev.xoperr.blissgems.utils.Achievement;
+import dev.xoperr.blissgems.utils.Attributes;
+import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.GemType;
-import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.OraxenGemFixer;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Sound;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 
 public class BlissCommand
 implements CommandExecutor,
 TabCompleter {
     private final BlissGems plugin;
+    private static final Set<String> TRANSFERABLE_ITEMS = Set.of("gem_trader", "gem_upgrader", "energy_bottle", "repair_kit");
 
     public BlissCommand(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /** Rejects console/command-block senders with the shared message. True when the sender is a player. */
     private boolean requirePlayer(CommandSender sender) {
         if (sender instanceof Player) {
             return true;
         }
-        sender.sendMessage("§cOnly players can use this command!");
+        sender.sendMessage("\u00a7cOnly players can use this command!");
         return false;
     }
 
-    /** Rejects senders without blissgems.admin using the configured message. True when allowed. */
     private boolean requireAdmin(CommandSender sender) {
         if (sender.hasPermission("blissgems.admin")) {
             return true;
@@ -49,45 +92,41 @@ TabCompleter {
         return false;
     }
 
-    /** Sends a configured message only when it resolves to something non-empty. */
     private void sendConfigMessageIfPresent(Player player, String key) {
-        String msg = this.plugin.getConfigManager().getFormattedMessage(key);
+        String msg = this.plugin.getConfigManager().getFormattedMessage(key, new Object[0]);
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
         }
     }
 
-    /** Tier of a gem item id: from the registry when available, else the legacy "_gem_t2" suffix. */
     private int gemTierOf(GemRegistry registry, String oraxenId) {
         return registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
     }
 
-    /** Parses a true/false toggle argument; null when the value is not recognised. */
     private static Boolean parseToggle(String value) {
         switch (value.toLowerCase()) {
-            case "true":
-            case "on":
-            case "yes":
-            case "1":
+            case "true": 
+            case "on": 
+            case "yes": 
+            case "1": {
                 return Boolean.TRUE;
-            case "false":
-            case "off":
-            case "no":
-            case "0":
+            }
+            case "false": 
+            case "off": 
+            case "no": 
+            case "0": {
                 return Boolean.FALSE;
-            default:
-                return null;
+            }
         }
+        return null;
     }
 
-    /** Strips every gem (built-in and addon) out of the player's main inventory slots. */
     private void clearGemsFromInventory(Player target) {
-        org.bukkit.inventory.PlayerInventory inv = target.getInventory();
-        for (int i = 0; i < inv.getSize(); i++) {
+        PlayerInventory inv = target.getInventory();
+        for (int i = 0; i < inv.getSize(); ++i) {
             ItemStack item = inv.getItem(i);
-            if (item != null && this.plugin.getGemManager().isAnyGem(CustomItemManager.getIdByItem(item))) {
-                inv.setItem(i, null);
-            }
+            if (item == null || !this.plugin.getGemManager().isAnyGem(CustomItemManager.getIdByItem(item))) continue;
+            inv.setItem(i, null);
         }
     }
 
@@ -98,7 +137,7 @@ TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             if (sender instanceof Player) {
-                this.plugin.getEnhancedGuiManager().openMainMenu((Player) sender);
+                this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
             } else {
                 this.sendHelp(sender);
             }
@@ -170,11 +209,11 @@ TabCompleter {
                 break;
             }
             case "ability:quinary": {
-                this.handleExtraSlot(sender, dev.xoperr.blissgems.utils.AbilitySlot.QUINARY);
+                this.handleExtraSlot(sender, AbilitySlot.QUINARY);
                 break;
             }
             case "ability:senary": {
-                this.handleExtraSlot(sender, dev.xoperr.blissgems.utils.AbilitySlot.SENARY);
+                this.handleExtraSlot(sender, AbilitySlot.SENARY);
                 break;
             }
             case "trust": {
@@ -205,6 +244,18 @@ TabCompleter {
                 this.handleConduction(sender, args);
                 break;
             }
+            case "charge": {
+                this.handleCharge(sender, args);
+                break;
+            }
+            case "setwatts": {
+                this.handleSetWatts(sender, args);
+                break;
+            }
+            case "getwatts": {
+                this.handleGetWatts(sender, args);
+                break;
+            }
             case "stats": {
                 this.handleStats(sender, args);
                 break;
@@ -221,7 +272,7 @@ TabCompleter {
                 this.handleAchievements(sender, args);
                 break;
             }
-            case "normalise":
+            case "normalise": 
             case "normalize": {
                 this.handleNormalise(sender, args);
                 break;
@@ -250,6 +301,15 @@ TabCompleter {
                 this.handleGoldGem(sender, args);
                 break;
             }
+            case "goldcycle": {
+                this.handleGoldCycle(sender);
+                break;
+            }
+            case "goldarmor": 
+            case "goldarmour": {
+                this.handleGoldArmorToggle(sender);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
@@ -258,7 +318,11 @@ TabCompleter {
     }
 
     private void handleGive(CommandSender sender, String[] args) {
-        if (!requireAdmin(sender)) {
+        GemRegistryImpl tierRegistry;
+        GemDefinition tierDef;
+        GemDefinition def;
+        GemRegistryImpl registry;
+        if (!this.requireAdmin(sender)) {
             return;
         }
         if (args.length < 3) {
@@ -270,36 +334,23 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-
-        // Resolve gem: try built-in GemType first, then addon gems via registry
         String gemIdArg = args[2].toLowerCase();
         String resolvedGemId = null;
         String resolvedDisplayName = null;
-
         for (GemType type : GemType.values()) {
-            if (type.getId().equalsIgnoreCase(gemIdArg) || type.getDisplayName().equalsIgnoreCase(gemIdArg)) {
-                resolvedGemId = type.getId();
-                resolvedDisplayName = type.getDisplayName();
-                break;
-            }
+            if (!type.getId().equalsIgnoreCase(gemIdArg) && !type.getDisplayName().equalsIgnoreCase(gemIdArg)) continue;
+            resolvedGemId = type.getId();
+            resolvedDisplayName = type.getDisplayName();
+            break;
         }
-
-        if (resolvedGemId == null) {
-            GemRegistry registry = this.plugin.getGemRegistry();
-            if (registry != null) {
-                GemDefinition def = registry.getGem(gemIdArg);
-                if (def != null) {
-                    resolvedGemId = def.getId();
-                    resolvedDisplayName = def.getDisplayName();
-                }
-            }
+        if (resolvedGemId == null && (registry = this.plugin.getGemRegistry()) != null && (def = registry.getGem(gemIdArg)) != null) {
+            resolvedGemId = def.getId();
+            resolvedDisplayName = def.getDisplayName();
         }
-
         if (resolvedGemId == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-gem-type", new Object[0]));
             return;
         }
-
         int tier = 1;
         if (args.length >= 4) {
             try {
@@ -314,24 +365,15 @@ TabCompleter {
                 return;
             }
         }
-
-        // A gem with no Tier 2 (the Gold Gem) has no "<id>_gem_t2" item registered, so asking
-        // for one used to fail with a bare "Failed to give gem!". Clamp to what the gem
-        // actually has and say why, rather than looking like the command is broken.
-        GemRegistry tierRegistry = this.plugin.getGemRegistry();
-        GemDefinition tierDef = tierRegistry != null ? tierRegistry.getGem(resolvedGemId) : null;
+        GemDefinition gemDefinition = tierDef = (tierRegistry = this.plugin.getGemRegistry()) != null ? tierRegistry.getGem(resolvedGemId) : null;
         if (tierDef != null && tier > tierDef.getMaxTier()) {
             tier = tierDef.getMaxTier();
-            sender.sendMessage("§e" + resolvedDisplayName + " has no Tier 2 - giving Tier "
-                + tier + " instead.");
+            sender.sendMessage("\u00a7e" + resolvedDisplayName + " has no Tier 2 - giving Tier " + tier + " instead.");
             if ("gold".equals(resolvedGemId)) {
-                sender.sendMessage("§7The Gold Gem's secondary abilities come from the tier of the"
-                    + " soul it channels: §f/bliss goldgem fill <player> <soul> 2§7.");
+                sender.sendMessage("\u00a77The Gold Gem's secondary abilities come from the tier of the soul it channels: \u00a7f/bliss goldgem fill <player> <soul> 2\u00a77.");
             }
         }
-
-        clearGemsFromInventory(target);
-
+        this.clearGemsFromInventory(target);
         if (this.plugin.getGemManager().giveGem(target, resolvedGemId, tier)) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("gem-given", "player", target.getName(), "gem", resolvedDisplayName, "tier", tier));
         } else {
@@ -339,19 +381,15 @@ TabCompleter {
         }
     }
 
-    /**
-     * /bliss goldgem &lt;fill|remove|clear|list&gt; - admin control over what a player's Gold Gem
-     * has absorbed, without having to actually hunt the gems down.
-     */
     private void handleGoldGem(CommandSender sender, String[] args) {
-        if (!requireAdmin(sender)) {
+        if (!this.requireAdmin(sender)) {
             return;
         }
         if (args.length < 3) {
             this.sendGoldGemUsage(sender);
             return;
         }
-        Player target = Bukkit.getPlayer(args[2]);
+        Player target = Bukkit.getPlayer((String)args[2]);
         if (target == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
@@ -367,9 +405,7 @@ TabCompleter {
             }
             case "clear": {
                 int removed = this.plugin.getGoldGemManager().clearSouls(target);
-                sender.sendMessage(removed > 0
-                    ? "§aEmptied " + target.getName() + "'s Gold Gem (" + removed + " soul(s) removed)."
-                    : "§e" + target.getName() + "'s Gold Gem is already dormant.");
+                sender.sendMessage(removed > 0 ? "\u00a7aEmptied " + target.getName() + "'s Gold Gem (" + removed + " soul(s) removed)." : "\u00a7e" + target.getName() + "'s Gold Gem is already dormant.");
                 break;
             }
             case "list": {
@@ -383,50 +419,75 @@ TabCompleter {
     }
 
     private void sendGoldGemUsage(CommandSender sender) {
-        sender.sendMessage("§cUsage:");
-        sender.sendMessage("§7/bliss goldgem fill <player> <soulType> <tier>");
-        sender.sendMessage("§7/bliss goldgem remove <player> <soulType>");
-        sender.sendMessage("§7/bliss goldgem clear <player>");
-        sender.sendMessage("§7/bliss goldgem list <player>");
+        sender.sendMessage("\u00a7cUsage:");
+        sender.sendMessage("\u00a77/bliss goldgem fill <player> <soulType> <tier>");
+        sender.sendMessage("\u00a77/bliss goldgem remove <player> <soulType>");
+        sender.sendMessage("\u00a77/bliss goldgem clear <player>");
+        sender.sendMessage("\u00a77/bliss goldgem list <player>");
     }
 
-    /**
-     * Resolve a soul argument to a gem id: built-in GemType first, then addon gems via the
-     * registry - the same resolution {@code /bliss give} uses. Null (with the sender told
-     * why) when the name matches no gem.
-     */
+    private void handleGoldCycle(CommandSender sender) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null || !gold.holdsGoldGem(player)) {
+            player.sendMessage("\u00a7cYou are not carrying the Gold Gem.");
+            return;
+        }
+        String next = gold.cycleActive(player);
+        if (next == null) {
+            player.sendMessage(this.plugin.getConfigManager().getMessage("gold-no-soul"));
+            return;
+        }
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.4f);
+        player.sendMessage(this.plugin.getConfigManager().getMessage("gold-soul-selected").replace("{gem}", this.plugin.getGemManager().getGemDisplayName(next)));
+    }
+
+    private void handleGoldArmorToggle(CommandSender sender) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null || !gold.holdsGoldGem(player)) {
+            player.sendMessage("\u00a7cYou are not carrying the Gold Gem.");
+            return;
+        }
+        boolean enabled = gold.toggleTrims(player);
+        player.sendMessage(enabled ? "\u00a76Gold armour trims \u00a7aenabled\u00a76." : "\u00a77Gold armour trims \u00a7cdisabled\u00a77. Your original trims are restored.");
+    }
+
     private String resolveGemIdArg(CommandSender sender, String arg) {
+        GemDefinition def;
         String gemIdArg = arg.toLowerCase();
         for (GemType type : GemType.values()) {
-            if (type.getId().equalsIgnoreCase(gemIdArg) || type.getDisplayName().equalsIgnoreCase(gemIdArg)) {
-                return type.getId();
-            }
+            if (!type.getId().equalsIgnoreCase(gemIdArg) && !type.getDisplayName().equalsIgnoreCase(gemIdArg)) continue;
+            return type.getId();
         }
-        GemRegistry registry = this.plugin.getGemRegistry();
-        if (registry != null) {
-            GemDefinition def = registry.getGem(gemIdArg);
-            if (def != null) {
-                return def.getId();
-            }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry != null && (def = registry.getGem(gemIdArg)) != null) {
+            return def.getId();
         }
         sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-gem-type", new Object[0]));
         return null;
     }
 
     private void handleGoldGemFill(CommandSender sender, Player target, String[] args) {
+        int tier;
         if (args.length < 5) {
-            sender.sendMessage("§cUsage: /bliss goldgem fill <player> <soulType> <tier>");
+            sender.sendMessage("\u00a7cUsage: /bliss goldgem fill <player> <soulType> <tier>");
             return;
         }
         String resolvedGemId = this.resolveGemIdArg(sender, args[3]);
         if (resolvedGemId == null) {
             return;
         }
-
-        int tier;
         try {
             tier = Integer.parseInt(args[4]);
-        } catch (NumberFormatException e) {
+        }
+        catch (NumberFormatException e) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
             return;
         }
@@ -434,15 +495,13 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
             return;
         }
-
         this.plugin.getGoldGemManager().fillSoul(target, resolvedGemId, tier);
-        sender.sendMessage("§aFilled " + target.getName() + "'s Gold Gem with a Tier " + tier + " "
-            + this.plugin.getGemManager().getGemDisplayName(resolvedGemId) + " §asoul.");
+        sender.sendMessage("\u00a7aFilled " + target.getName() + "'s Gold Gem with a Tier " + tier + " " + this.plugin.getGemManager().getGemDisplayName(resolvedGemId) + " \u00a7asoul.");
     }
 
     private void handleGoldGemRemove(CommandSender sender, Player target, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage("§cUsage: /bliss goldgem remove <player> <soulType>");
+            sender.sendMessage("\u00a7cUsage: /bliss goldgem remove <player> <soulType>");
             return;
         }
         String resolvedGemId = this.resolveGemIdArg(sender, args[3]);
@@ -451,31 +510,27 @@ TabCompleter {
         }
         String display = this.plugin.getGemManager().getGemDisplayName(resolvedGemId);
         if (this.plugin.getGoldGemManager().removeSoul(target, resolvedGemId)) {
-            sender.sendMessage("§aRemoved the " + display + " §asoul from " + target.getName() + "'s Gold Gem.");
+            sender.sendMessage("\u00a7aRemoved the " + display + " \u00a7asoul from " + target.getName() + "'s Gold Gem.");
         } else {
-            sender.sendMessage("§c" + target.getName() + "'s Gold Gem has no " + display + " §csoul.");
+            sender.sendMessage("\u00a7c" + target.getName() + "'s Gold Gem has no " + display + " \u00a7csoul.");
         }
     }
 
     private void handleGoldGemList(CommandSender sender, Player target) {
-        java.util.Map<String, dev.xoperr.blissgems.managers.GoldGemManager.Harvest> souls =
-            this.plugin.getGoldGemManager().getHarvested(target.getUniqueId());
+        Map<String, GoldGemManager.Harvest> souls = this.plugin.getGoldGemManager().getHarvested(target.getUniqueId());
         if (souls.isEmpty()) {
-            sender.sendMessage("§e" + target.getName() + "'s Gold Gem is dormant.");
+            sender.sendMessage("\u00a7e" + target.getName() + "'s Gold Gem is dormant.");
             return;
         }
         String active = this.plugin.getGoldGemManager().getActive(target.getUniqueId());
-        sender.sendMessage("§6§l" + target.getName() + "'s harvested souls §8(" + souls.size() + "/"
-            + dev.xoperr.blissgems.managers.GoldGemManager.SOULS_TO_AWAKEN + ")");
-        for (java.util.Map.Entry<String, dev.xoperr.blissgems.managers.GoldGemManager.Harvest> soul : souls.entrySet()) {
-            sender.sendMessage("§7- " + this.plugin.getGemManager().getGemDisplayName(soul.getKey())
-                + " §8(T" + soul.getValue().tier() + ")"
-                + (soul.getKey().equals(active) ? " §6§l[active]" : ""));
+        sender.sendMessage("\u00a76\u00a7l" + target.getName() + "'s harvested souls \u00a78(" + souls.size() + "/8)");
+        for (Map.Entry<String, GoldGemManager.Harvest> soul : souls.entrySet()) {
+            sender.sendMessage("\u00a77- " + this.plugin.getGemManager().getGemDisplayName(soul.getKey()) + " \u00a78(T" + soul.getValue().tier() + ")" + (soul.getKey().equals(active) ? " \u00a76\u00a7l[active]" : ""));
         }
     }
 
     private void handleReroll(CommandSender sender, String[] args) {
-        if (!requireAdmin(sender)) {
+        if (!this.requireAdmin(sender)) {
             return;
         }
         if (args.length < 2) {
@@ -487,15 +542,11 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-
-        // Select a random gem from the grantable pool (enabled built-ins + addon gems,
-        // minus the random-exclude list, so reroll matches first-join and skips mythics).
-        String randomGem = getRandomEnabledGem();
+        String randomGem = this.getRandomEnabledGem();
         if (randomGem == null) {
             sender.sendMessage("\u00a7cNo gems are enabled in the config!");
             return;
         }
-
         int tier = 1;
         if (args.length >= 3) {
             try {
@@ -510,27 +561,17 @@ TabCompleter {
                 return;
             }
         }
-
-        clearGemsFromInventory(target);
-        // Explicitly clear an offhand gem too — the loop's slot range doesn't reliably
-        // cover the offhand, and gems normally live there, so a stale gem left in the
-        // offhand would keep driving abilities (e.g. F) after the reroll.
+        this.clearGemsFromInventory(target);
         ItemStack offGem = target.getInventory().getItemInOffHand();
         if (offGem != null && this.plugin.getGemManager().isAnyGem(CustomItemManager.getIdByItem(offGem))) {
             target.getInventory().setItemInOffHand(null);
         }
-
         sender.sendMessage("\u00a7d\u00a7lInitiating gem ritual for " + target.getName() + "...");
         target.sendMessage("\u00a7d\u00a7l\u00a7nGEM REROLL RITUAL");
         target.sendMessage("\u00a77\u00a7oThe ancient powers are choosing your fate...");
-
-        final int finalTier = tier;
+        int finalTier = tier;
         this.plugin.getGemRitualManager().performGemRitual(target, randomGem, false, finalTier);
-
-        // Give the gem after a short delay (let ritual build up).
-        // Place it directly in the offhand so gem resolution (F, passives) picks up the
-        // new gem, not a stale one left elsewhere.
-        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             if (this.plugin.getGemManager().giveGemToOffhand(target, randomGem, finalTier)) {
                 String gemName = this.plugin.getGemManager().getGemDisplayName(randomGem);
                 String gemColor = this.plugin.getGemManager().getGemColorCode(randomGem);
@@ -540,8 +581,6 @@ TabCompleter {
                 } else {
                     sender.sendMessage("\u00a7aRerolled " + target.getName() + "'s gem to " + gemColor + gemName + " \u00a7a(Tier " + finalTier + ")!");
                 }
-
-                // Notify the target player
                 String targetMsg = this.plugin.getConfigManager().getFormattedMessage("gem-rerolled-received", "gem", gemName, "tier", finalTier);
                 if (targetMsg != null && !targetMsg.isEmpty()) {
                     target.sendMessage(targetMsg);
@@ -551,11 +590,12 @@ TabCompleter {
             } else {
                 sender.sendMessage("\u00a7cFailed to reroll gem!");
             }
-        }, 20L); // 1 second delay
+        }, 20L);
     }
 
     private void handleGiveItem(CommandSender sender, String[] args) {
-        if (!requireAdmin(sender)) {
+        ItemStack item;
+        if (!this.requireAdmin(sender)) {
             return;
         }
         if (args.length < 3) {
@@ -576,7 +616,6 @@ TabCompleter {
             return;
         }
         String itemId = args[2].toLowerCase();
-
         int amount = 1;
         if (args.length >= 4) {
             try {
@@ -591,44 +630,33 @@ TabCompleter {
                 return;
             }
         }
-
-        ItemStack item = CustomItemManager.getItemById(itemId);
-        if (item == null) {
+        if ((item = CustomItemManager.getItemById(itemId)) == null) {
             sender.sendMessage("\u00a7cInvalid item ID: " + itemId);
             sender.sendMessage("\u00a77Available items: energy_bottle, repair_kit, gem_trader, gem_fragment, gem_upgrader, restoration_book, prismatic_edge");
             return;
         }
-
         item.setAmount(amount);
         target.getInventory().addItem(new ItemStack[]{item});
-
-        org.bukkit.inventory.meta.ItemMeta itemMeta = item.getItemMeta();
+        ItemMeta itemMeta = item.getItemMeta();
         String itemName = itemMeta != null ? itemMeta.getDisplayName() : itemId;
         sender.sendMessage("\u00a7aGave " + amount + "x " + itemName + " \u00a7ato " + target.getName() + "!");
         target.sendMessage("\u00a7aYou received " + amount + "x " + itemName + "\u00a7a!");
     }
 
-    /** Consumables that are non-droppable (anti-dupe) and so can only change hands via /bliss transfer. */
-    private static final java.util.Set<String> TRANSFERABLE_ITEMS =
-        java.util.Set.of("gem_trader", "gem_upgrader", "energy_bottle", "repair_kit");
-
-    /**
-     * /bliss transfer <player> <item> [amount]
-     * Player-to-player handoff for the non-droppable BlissGems consumables \u2014 replaces the
-     * drop-to-trade path we removed to close the drop-and-swap dupe.
-     */
     private void handleTransfer(CommandSender sender, String[] args) {
+        int delivered;
+        int have;
         if (!(sender instanceof Player)) {
             sender.sendMessage("\u00a7cOnly players can transfer items!");
             return;
         }
-        Player player = (Player) sender;
+        Player player = (Player)sender;
         if (args.length < 3) {
             player.sendMessage("\u00a7cUsage: /bliss transfer <player> <item> [amount]");
             player.sendMessage("\u00a77Transferable: gem_trader, gem_upgrader, energy_bottle, repair_kit");
             return;
         }
-        Player target = Bukkit.getPlayer(args[1]);
+        Player target = Bukkit.getPlayer((String)args[1]);
         if (target == null) {
             player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
@@ -646,7 +674,8 @@ TabCompleter {
         if (args.length >= 4) {
             try {
                 amount = Integer.parseInt(args[3]);
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 player.sendMessage("\u00a7cInvalid amount!");
                 return;
             }
@@ -655,39 +684,32 @@ TabCompleter {
                 return;
             }
         }
-
-        // Confirm the sender actually has enough
-        int have = countCustomItem(player, itemId);
-        if (have < amount) {
+        if ((have = this.countCustomItem(player, itemId)) < amount) {
             player.sendMessage("\u00a7cYou only have \u00a7f" + have + "\u00a7c of that item.");
             return;
         }
-
-        // Remove from sender, then deliver to target; refund any that didn't fit.
-        removeCustomItem(player, itemId, amount);
+        this.removeCustomItem(player, itemId, amount);
         ItemStack give = CustomItemManager.getItemById(itemId);
         if (give == null) {
             player.sendMessage("\u00a7cInvalid item.");
             return;
         }
         give.setAmount(amount);
-        java.util.Map<Integer, ItemStack> leftover = target.getInventory().addItem(give);
+        HashMap<Integer, ItemStack> leftover = target.getInventory().addItem(new ItemStack[]{give});
         int notDelivered = 0;
         for (ItemStack left : leftover.values()) {
-            if (left != null) notDelivered += left.getAmount();
+            if (left == null) continue;
+            notDelivered += left.getAmount();
         }
         if (notDelivered > 0) {
-            // Refund the undelivered portion to the sender (a slot just freed up).
             ItemStack refund = CustomItemManager.getItemById(itemId);
             refund.setAmount(notDelivered);
-            player.getInventory().addItem(refund);
+            player.getInventory().addItem(new ItemStack[]{refund});
         }
-        int delivered = amount - notDelivered;
-        if (delivered <= 0) {
+        if ((delivered = amount - notDelivered) <= 0) {
             player.sendMessage("\u00a7c" + target.getName() + "'s inventory is full, nothing was transferred.");
             return;
         }
-
         String itemName = give.getItemMeta() != null ? give.getItemMeta().getDisplayName() : itemId;
         player.sendMessage("\u00a7aTransferred \u00a7f" + delivered + "x " + itemName + " \u00a7ato " + target.getName() + "!");
         target.sendMessage("\u00a7a" + player.getName() + " \u00a7atransferred you \u00a7f" + delivered + "x " + itemName + "\u00a7a!");
@@ -696,26 +718,21 @@ TabCompleter {
         }
     }
 
-    /** Count how many of a custom item (by id) the player holds across their whole inventory. */
     private int countCustomItem(Player player, String itemId) {
         int total = 0;
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item == null) continue;
-            if (itemId.equals(CustomItemManager.getIdByItem(item))) {
-                total += item.getAmount();
-            }
+            if (item == null || !itemId.equals(CustomItemManager.getIdByItem(item))) continue;
+            total += item.getAmount();
         }
         return total;
     }
 
-    /** Remove exactly {@code amount} of a custom item (by id) from the player's inventory. */
     private void removeCustomItem(Player player, String itemId, int amount) {
         int remaining = amount;
         ItemStack[] contents = player.getInventory().getContents();
-        for (int i = 0; i < contents.length && remaining > 0; i++) {
+        for (int i = 0; i < contents.length && remaining > 0; ++i) {
             ItemStack item = contents[i];
-            if (item == null) continue;
-            if (!itemId.equals(CustomItemManager.getIdByItem(item))) continue;
+            if (item == null || !itemId.equals(CustomItemManager.getIdByItem(item))) continue;
             int take = Math.min(remaining, item.getAmount());
             int left = item.getAmount() - take;
             if (left <= 0) {
@@ -728,27 +745,22 @@ TabCompleter {
     }
 
     private void handleEnergy(CommandSender sender, String[] args) {
-        // If no arguments, show own energy (any player can use)
+        int amount;
         if (args.length == 1) {
             if (!(sender instanceof Player)) {
                 sender.sendMessage("\u00a7cOnly players can check their energy!");
                 return;
             }
-            Player player = (Player) sender;
+            Player player = (Player)sender;
             int energy = this.plugin.getEnergyManager().getEnergy(player);
             EnergyState state = EnergyState.fromEnergy(energy);
             String energyBar = this.getEnergyBar(energy);
-
-            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-header");
-            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-line1",
-                "energyBar", energyBar, "energy", energy);
-            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-info-line2",
-                "state", state.getDisplayName());
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "energy-info-header", new Object[0]);
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "energy-info-line1", "energyBar", energyBar, "energy", energy);
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "energy-info-line2", "state", state.getDisplayName());
             return;
         }
-
-        // Admin-only functionality for modifying other players' energy
-        if (!requireAdmin(sender)) {
+        if (!this.requireAdmin(sender)) {
             return;
         }
         if (args.length < 4) {
@@ -761,7 +773,6 @@ TabCompleter {
             return;
         }
         String action = args[2].toLowerCase();
-        int amount;
         try {
             amount = Integer.parseInt(args[3]);
         }
@@ -798,234 +809,231 @@ TabCompleter {
 
     private String getEnergyBar(int energy) {
         StringBuilder bar = new StringBuilder();
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= 10; ++i) {
             if (i <= energy) {
-                bar.append("\u00a7a\u2588"); // Green filled block
-            } else {
-                bar.append("\u00a77\u2588"); // Gray filled block
+                bar.append("\u00a7a\u2588");
+                continue;
             }
+            bar.append("\u00a77\u2588");
         }
         return bar.toString();
     }
 
     private void handleWithdraw(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
         if (currentEnergy <= 1) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "not-enough-energy");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "not-enough-energy", new Object[0]);
             return;
         }
         this.plugin.getEnergyManager().removeEnergy(player, 1);
-        ItemStack bottle = CustomItemManager.getItemById((String)"energy_bottle");
+        ItemStack bottle = CustomItemManager.getItemById("energy_bottle");
         if (bottle != null) {
             player.getInventory().addItem(new ItemStack[]{bottle});
-            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-withdrawn");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "energy-withdrawn", new Object[0]);
         } else {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "energy-bottle-failed");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "energy-bottle-failed", new Object[0]);
         }
     }
 
     private void handleWhoOwns(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("\u00a7cOnly players can use this command!");
             return;
         }
+        Player player = (Player)sender;
         if (!sender.hasPermission("blissgems.admin")) {
-            sender.sendMessage("§cYou don't have permission to use this command!");
+            sender.sendMessage("\u00a7cYou don't have permission to use this command!");
             return;
         }
-        org.bukkit.inventory.ItemStack held = player.getInventory().getItemInMainHand();
-        if (held == null || held.getType() == org.bukkit.Material.AIR) {
-            player.sendMessage("§cHold an item in your main hand.");
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held == null || held.getType() == Material.AIR) {
+            player.sendMessage("\u00a7cHold an item in your main hand.");
             return;
         }
-        java.util.UUID owner = CustomItemManager.getOwner(held);
+        UUID owner = CustomItemManager.getOwner(held);
         if (owner == null) {
-            player.sendMessage("§eThat item has no ownership stamp.");
+            player.sendMessage("\u00a7eThat item has no ownership stamp.");
             return;
         }
-        org.bukkit.OfflinePlayer op = this.plugin.getServer().getOfflinePlayer(owner);
+        OfflinePlayer op = this.plugin.getServer().getOfflinePlayer(owner);
         String name = op.getName() != null ? op.getName() : "unknown";
-        player.sendMessage("§d§lOwner: §f" + name + " §7(" + owner + ")");
+        player.sendMessage("\u00a7d\u00a7lOwner: \u00a7f" + name + " \u00a77(" + String.valueOf(owner) + ")");
     }
 
     private void handleInfo(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasActiveGem(player)) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "no-active-gem");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "no-active-gem", new Object[0]);
             return;
         }
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         int tier = this.plugin.getGemManager().getGemTier(player);
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         EnergyState state = this.plugin.getEnergyManager().getEnergyState(player);
-        this.plugin.getConfigManager().sendFormattedMessage(player, "gem-info", "gem", gemType.getDisplayName(), "tier", tier, "energy", energy, "state", state.getDisplayName());
+        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "gem-info", "gem", gemType.getDisplayName(), "tier", tier, "energy", energy, "state", state.getDisplayName());
     }
 
     private void handleReload(CommandSender sender, String[] args) {
         if (!sender.hasPermission("blissgems.admin")) {
-            this.plugin.getConfigManager().sendFormattedMessage(sender, "no-permission");
+            this.plugin.getConfigManager().sendFormattedMessage(sender, "no-permission", new Object[0]);
             return;
         }
         this.plugin.getConfigManager().reload();
-        this.plugin.getConfigManager().sendFormattedMessage(sender, "config-reloaded");
+        this.plugin.getConfigManager().sendFormattedMessage(sender, "config-reloaded", new Object[0]);
     }
 
     private void handlePockets(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
-
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         if (gemType != GemType.WEALTH) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-gem-pockets");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "requires-wealth-gem-pockets", new Object[0]);
             return;
         }
-
         int tier = this.plugin.getGemManager().getGemTier(player);
         if (tier < 2) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "requires-wealth-t2-pockets");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "requires-wealth-t2-pockets", new Object[0]);
             return;
         }
-
         this.plugin.getWealthAbilities().pockets(player);
     }
 
     private void handleAmplify(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
-
         GemType gemType = this.plugin.getGemManager().getGemType(player);
         if (gemType != GemType.WEALTH) {
             player.sendMessage("\u00a7cYou need a Wealth gem to use Amplification!");
             return;
         }
-
         int tier = this.plugin.getGemManager().getGemTier(player);
         if (tier < 2) {
             player.sendMessage("\u00a7cAmplification requires Tier 2 Wealth gem!");
             return;
         }
-
         this.plugin.getWealthAbilities().amplification(player);
     }
 
     private void handleToggleClick(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
-
         boolean newState = this.plugin.getClickActivationManager().toggleClickActivation(player);
-
         if (newState) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "click-activation-enabled");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "click-activation-enabled", new Object[0]);
         } else {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "click-activation-disabled");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "click-activation-disabled", new Object[0]);
         }
     }
 
-    /**
-     * Find the gem item ID from the player's main or offhand.
-     * Returns null if no gem is found in either hand.
-     */
     private String findGemInHand(Player player) {
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         ItemStack offHand = player.getInventory().getItemInOffHand();
-        GemRegistry registry = this.plugin.getGemRegistry();
-
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         String oraxenId = CustomItemManager.getIdByItem(mainHand);
-        if (oraxenId != null && (GemType.isGem(oraxenId) ||
-                (registry != null && registry.isRegisteredGem(oraxenId)))) {
+        if (oraxenId != null && (GemType.isGem(oraxenId) || registry != null && registry.isRegisteredGem(oraxenId))) {
             return oraxenId;
         }
         oraxenId = CustomItemManager.getIdByItem(offHand);
-        if (oraxenId != null && (GemType.isGem(oraxenId) ||
-                (registry != null && registry.isRegisteredGem(oraxenId)))) {
+        if (oraxenId != null && (GemType.isGem(oraxenId) || registry != null && registry.isRegisteredGem(oraxenId))) {
             return oraxenId;
         }
         return null;
     }
 
-    /**
-     * True if the gem has no Tier 2 to upgrade into (e.g. Gold). Such gems unlock every
-     * ability at Tier 1, so the usual "requires Tier 2" gate must not apply to them.
-     */
     private boolean unlocksAllAtTier1(String oraxenId) {
-        GemRegistry registry = this.plugin.getGemRegistry();
-        if (registry == null) return false;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry == null) {
+            return false;
+        }
         String gemId = registry.gemIdFromItemId(oraxenId);
         GemDefinition def = gemId != null ? registry.getGem(gemId) : null;
         return def != null && def.getMaxTier() < 2;
     }
 
-    /**
-     * True (and messages the player) if their gem is currently locked by Auratus's Gem Lock.
-     * Used to block every ability activation path while locked.
-     */
     private boolean blockedByGemLock(Player player) {
-        dev.xoperr.blissgems.managers.GemLockManager mgr = this.plugin.getGemLockManager();
+        GemLockManager mgr = this.plugin.getGemLockManager();
         if (mgr != null && mgr.isLocked(player)) {
             int left = mgr.getRemainingSeconds(player.getUniqueId());
-            player.sendMessage("\u00a76" + dev.xoperr.blissgems.managers.GemLockManager.LOCK_GLYPH
-                + " \u00a7c\u00a7oYour gem is locked! \u00a77(" + left + "s)");
+            player.sendMessage("\u00a76\ua42c \u00a7c\u00a7oYour gem is locked! \u00a77(" + left + "s)");
             return true;
         }
         return false;
     }
 
     private void handleAbilityMain(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
-        if (blockedByGemLock(player)) return;
-
-        String oraxenId = findGemInHand(player);
-        if (oraxenId == null) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
+        if (this.blockedByGemLock(player)) {
             return;
         }
-
-        // Check energy
+        String oraxenId = this.findGemInHand(player);
+        if (oraxenId == null) {
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "must-hold-gem", new Object[0]);
+            return;
+        }
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         if (energy <= 0) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "no-energy");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "no-energy", new Object[0]);
             return;
         }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-
-        // Try built-in gem first
         GemType gemType = GemType.fromOraxenId(oraxenId);
         if (gemType != null) {
             switch (gemType) {
-                case ASTRA: this.plugin.getAstraAbilities().astralDaggers(player); break;
-                case FIRE: this.plugin.getFireAbilities().chargedFireball(player); break;
-                case FLUX: this.plugin.getFluxAbilities().fluxBeam(player); break;
-                case LIFE: this.plugin.getLifeAbilities().heartDrainer(player); break;
-                case PUFF: this.plugin.getPuffAbilities().dash(player); break;
-                case SPEED: this.plugin.getSpeedAbilities().onRightClick(player, tier); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().chadStrength(player); break;
-                case WEALTH: this.plugin.getWealthAbilities().unfortunate(player); break;
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().astralDaggers(player);
+                    break;
+                }
+                case FIRE: {
+                    this.plugin.getFireAbilities().chargedFireball(player);
+                    break;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().fluxBeam(player);
+                    break;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().heartDrainer(player);
+                    break;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().dash(player);
+                    break;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().onRightClick(player, tier);
+                    break;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().chadStrength(player);
+                    break;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().unfortunate(player);
+                }
             }
             return;
         }
-
-        // Addon gem - route through registry
         if (registry != null) {
+            GemAbilityHandler handler;
             String gemId = registry.gemIdFromItemId(oraxenId);
-            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            GemAbilityHandler gemAbilityHandler = handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
             if (handler != null) {
                 handler.onPrimary(player, tier);
             }
@@ -1033,395 +1041,480 @@ TabCompleter {
     }
 
     private void handleAbilitySecondary(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
         Player player = (Player)sender;
-        if (blockedByGemLock(player)) return;
-
-        String oraxenId = findGemInHand(player);
+        if (this.blockedByGemLock(player)) {
+            return;
+        }
+        String oraxenId = this.findGemInHand(player);
         if (oraxenId == null) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "must-hold-gem");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "must-hold-gem", new Object[0]);
             return;
         }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-
-        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        if (energy <= 0) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType != null) {
-            switch (gemType) {
-                case ASTRA: this.plugin.getAstraAbilities().astralProjection(player); break;
-                case FIRE: this.plugin.getFireAbilities().cozyCampfire(player); break;
-                case FLUX: this.plugin.getFluxAbilities().ground(player); break;
-                case LIFE: this.plugin.getLifeAbilities().circleOfLife(player); break;
-                case PUFF: this.plugin.getPuffAbilities().breezyBash(player); break;
-                case SPEED: this.plugin.getSpeedAbilities().speedStorm(player); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().frailer(player); break;
-                case WEALTH: this.plugin.getWealthAbilities().richRush(player); break;
+        if (tier < 2 && !this.unlocksAllAtTier1(oraxenId)) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
             }
             return;
         }
-
-        // Addon gem
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType != null) {
+            switch (gemType) {
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().astralProjection(player);
+                    break;
+                }
+                case FIRE: {
+                    this.plugin.getFireAbilities().cozyCampfire(player);
+                    break;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().ground(player);
+                    break;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().circleOfLife(player);
+                    break;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().breezyBash(player);
+                    break;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().speedStorm(player);
+                    break;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().frailer(player);
+                    break;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().richRush(player);
+                }
+            }
+            return;
+        }
         if (registry != null) {
+            GemAbilityHandler handler;
             String gemId = registry.gemIdFromItemId(oraxenId);
-            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
-            if (handler != null) handler.onSecondary(player, tier);
+            GemAbilityHandler gemAbilityHandler = handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) {
+                handler.onSecondary(player, tier);
+            }
         }
     }
 
     public void triggerPrimary(Player player) {
-        handleAbilityMain(player, new String[0]);
+        this.handleAbilityMain((CommandSender)player, new String[0]);
     }
 
     public void triggerSecondary(Player player) {
-        handleAbilitySecondary(player, new String[0]);
+        this.handleAbilitySecondary((CommandSender)player, new String[0]);
     }
 
     public void triggerTertiary(Player player) {
-        handleAbilityTertiary(player, new String[0]);
+        this.handleAbilityTertiary((CommandSender)player, new String[0]);
     }
 
     public void triggerQuaternary(Player player) {
-        handleAbilityQuaternary(player, new String[0]);
+        this.handleAbilityQuaternary((CommandSender)player, new String[0]);
     }
 
     public void triggerQuinary(Player player) {
-        handleExtraSlot(player, dev.xoperr.blissgems.utils.AbilitySlot.QUINARY);
+        this.handleExtraSlot((CommandSender)player, AbilitySlot.QUINARY);
     }
 
     public void triggerSenary(Player player) {
-        handleExtraSlot(player, dev.xoperr.blissgems.utils.AbilitySlot.SENARY);
+        this.handleExtraSlot((CommandSender)player, AbilitySlot.SENARY);
     }
 
-    /**
-     * Dispatch the two extra slots. Unlike the first four there is no GemType switch here:
-     * only registry-backed gems define these slots, and today only the Gold Gem does — a
-     * built-in gem lands on the handler's no-op default and the input stays silent.
-     */
-    private void handleExtraSlot(CommandSender sender, dev.xoperr.blissgems.utils.AbilitySlot slot) {
+    private void handleExtraSlot(CommandSender sender, AbilitySlot slot) {
+        GemAbilityHandler handler;
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
+            sender.sendMessage("\u00a7cOnly players can use this command!");
             return;
         }
-        Player player = (Player) sender;
-        if (blockedByGemLock(player)) return;
-
-        String oraxenId = findGemInHand(player);
+        Player player = (Player)sender;
+        if (this.blockedByGemLock(player)) {
+            return;
+        }
+        String oraxenId = this.findGemInHand(player);
         if (oraxenId == null) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return;
         }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
-        if (registry == null) return;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry == null) {
+            return;
+        }
         int tier = registry.tierFromItemId(oraxenId);
-        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+        if (tier < 2 && !this.unlocksAllAtTier1(oraxenId)) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return;
         }
-
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         if (energy <= 0) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
             return;
         }
-
         String gemId = registry.gemIdFromItemId(oraxenId);
-        GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
-        if (handler == null) return;
-        if (slot == dev.xoperr.blissgems.utils.AbilitySlot.QUINARY) {
+        GemAbilityHandler gemAbilityHandler = handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+        if (handler == null) {
+            return;
+        }
+        if (slot == AbilitySlot.QUINARY) {
             handler.onQuinary(player, tier);
         } else {
             handler.onSenary(player, tier);
         }
     }
 
-    /**
-     * Dispatch an ability based on the configured slot. Returns false if slot is null
-     * (caller should treat that as "input is unbound").
-     */
-    public boolean triggerSlot(Player player, dev.xoperr.blissgems.utils.AbilitySlot slot) {
-        if (slot == null) return false;
+    public boolean triggerSlot(Player player, AbilitySlot slot) {
+        if (slot == null) {
+            return false;
+        }
         switch (slot) {
-            case PRIMARY: triggerPrimary(player); return true;
-            case SECONDARY: triggerSecondary(player); return true;
-            case TERTIARY: triggerTertiary(player); return true;
-            case QUATERNARY: triggerQuaternary(player); return true;
-            case QUINARY: triggerQuinary(player); return true;
-            case SENARY: triggerSenary(player); return true;
+            case PRIMARY: {
+                this.triggerPrimary(player);
+                return true;
+            }
+            case SECONDARY: {
+                this.triggerSecondary(player);
+                return true;
+            }
+            case TERTIARY: {
+                this.triggerTertiary(player);
+                return true;
+            }
+            case QUATERNARY: {
+                this.triggerQuaternary(player);
+                return true;
+            }
+            case QUINARY: {
+                this.triggerQuinary(player);
+                return true;
+            }
+            case SENARY: {
+                this.triggerSenary(player);
+                return true;
+            }
         }
         return false;
     }
 
     private void handleAbilityTertiary(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-        if (blockedByGemLock(player)) return;
-
-        String oraxenId = findGemInHand(player);
+        Player player = (Player)sender;
+        if (this.blockedByGemLock(player)) {
+            return;
+        }
+        String oraxenId = this.findGemInHand(player);
         if (oraxenId == null) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
-        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        if (energy <= 0) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType != null) {
-            switch (gemType) {
-                case FIRE: this.plugin.getFireAbilities().crisp(player); break;
-                case ASTRA: this.plugin.getAstraAbilities().activateDimensionalDrift(player); break;
-                case FLUX: this.plugin.getFluxAbilities().flashbang(player); break;
-                case LIFE: this.plugin.getLifeAbilities().vitalityVortex(player); break;
-                case PUFF: this.plugin.getPuffAbilities().groupBreezyBash(player); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().shadowStalker(player); break;
-                case SPEED: this.plugin.getSpeedAbilities().activateTerminalVelocity(player); break;
-                case WEALTH: this.plugin.getWealthAbilities().itemLock(player); break;
-                default: player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!"); break;
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
             }
             return;
         }
-
-        // Addon gem
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
+        if (tier < 2 && !this.unlocksAllAtTier1(oraxenId)) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType != null) {
+            switch (gemType) {
+                case FIRE: {
+                    this.plugin.getFireAbilities().crisp(player);
+                    break;
+                }
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().activateDimensionalDrift(player);
+                    break;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().flashbang(player);
+                    break;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().vitalityVortex(player);
+                    break;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().groupBreezyBash(player);
+                    break;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().shadowStalker(player);
+                    break;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().activateTerminalVelocity(player);
+                    break;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().itemLock(player);
+                    break;
+                }
+                default: {
+                    player.sendMessage("\u00a7c\u00a7oNo tertiary ability for your gem type!");
+                }
+            }
+            return;
+        }
         if (registry != null) {
+            GemAbilityHandler handler;
             String gemId = registry.gemIdFromItemId(oraxenId);
-            // Auratus's tertiary (F) is otherwise unused — hang the Gem Lock ability on it.
             if ("auratus".equals(gemId)) {
                 this.plugin.getGemLockManager().castGemLock(player);
                 return;
             }
-            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
-            if (handler != null) handler.onTertiary(player, tier);
+            GemAbilityHandler gemAbilityHandler = handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) {
+                handler.onTertiary(player, tier);
+            }
         }
     }
 
     private void handleAbilityQuaternary(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-        if (blockedByGemLock(player)) return;
-
-        String oraxenId = findGemInHand(player);
+        Player player = (Player)sender;
+        if (this.blockedByGemLock(player)) {
+            return;
+        }
+        String oraxenId = this.findGemInHand(player);
         if (oraxenId == null) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        GemRegistry registry = this.plugin.getGemRegistry();
-        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
-        if (tier < 2 && !unlocksAllAtTier1(oraxenId)) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2");
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        if (energy <= 0) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
-            if (msg != null && !msg.isEmpty()) player.sendMessage(msg);
-            return;
-        }
-
-        GemType gemType = GemType.fromOraxenId(oraxenId);
-        if (gemType != null) {
-            switch (gemType) {
-                case FIRE: this.plugin.getFireAbilities().meteorShower(player); break;
-                case ASTRA: this.plugin.getAstraAbilities().activateDimensionalVoid(player); break;
-                case FLUX: this.plugin.getFluxAbilities().kineticBurst(player); break;
-                case LIFE: this.plugin.getLifeAbilities().heartLock(player); break;
-                case PUFF: this.plugin.getPuffAbilities().updraft(player); break;
-                case SPEED: this.plugin.getSpeedAbilities().galeClouds(player); break;
-                case STRENGTH: this.plugin.getStrengthAbilities().nullify(player); break;
-                case WEALTH: this.plugin.getWealthAbilities().amplification(player); break;
-                default: player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!"); break;
+            String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
             }
             return;
         }
-
-        // Addon gem
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        int tier = registry != null ? registry.tierFromItemId(oraxenId) : (oraxenId.endsWith("_gem_t2") ? 2 : 1);
+        if (tier < 2 && !this.unlocksAllAtTier1(oraxenId)) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("requires-tier2", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (energy <= 0) {
+            String msg = this.plugin.getConfigManager().getFormattedMessage("no-energy", new Object[0]);
+            if (msg != null && !msg.isEmpty()) {
+                player.sendMessage(msg);
+            }
+            return;
+        }
+        GemType gemType = GemType.fromOraxenId(oraxenId);
+        if (gemType != null) {
+            switch (gemType) {
+                case FIRE: {
+                    this.plugin.getFireAbilities().meteorShower(player);
+                    break;
+                }
+                case ASTRA: {
+                    this.plugin.getAstraAbilities().activateDimensionalVoid(player);
+                    break;
+                }
+                case FLUX: {
+                    this.plugin.getFluxAbilities().kineticBurst(player);
+                    break;
+                }
+                case LIFE: {
+                    this.plugin.getLifeAbilities().heartLock(player);
+                    break;
+                }
+                case PUFF: {
+                    this.plugin.getPuffAbilities().updraft(player);
+                    break;
+                }
+                case SPEED: {
+                    this.plugin.getSpeedAbilities().galeClouds(player);
+                    break;
+                }
+                case STRENGTH: {
+                    this.plugin.getStrengthAbilities().nullify(player);
+                    break;
+                }
+                case WEALTH: {
+                    this.plugin.getWealthAbilities().amplification(player);
+                    break;
+                }
+                default: {
+                    player.sendMessage("\u00a7c\u00a7oNo quaternary ability for your gem type!");
+                }
+            }
+            return;
+        }
         if (registry != null) {
+            GemAbilityHandler handler;
             String gemId = registry.gemIdFromItemId(oraxenId);
-            GemAbilityHandler handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
-            if (handler != null) handler.onQuaternary(player, tier);
+            GemAbilityHandler gemAbilityHandler = handler = gemId != null ? registry.getAbilityHandler(gemId) : null;
+            if (handler != null) {
+                handler.onQuaternary(player, tier);
+            }
         }
     }
 
     private void handleAbilityBindingsList(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-        dev.xoperr.blissgems.managers.AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
+        Player player = (Player)sender;
+        AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
         if (mgr == null) {
-            player.sendMessage("§cBinding system unavailable.");
+            player.sendMessage("\u00a7cBinding system unavailable.");
             return;
         }
-
-        java.util.EnumMap<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> map = mgr.getAll(player);
-
-        player.sendMessage("§d§l⚡ Your Ability Bindings");
-        for (dev.xoperr.blissgems.utils.AbilitySlot slot : dev.xoperr.blissgems.utils.AbilitySlot.values()) {
-            dev.xoperr.blissgems.utils.AbilityBinding boundInput = null;
-            for (java.util.Map.Entry<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> e : map.entrySet()) {
-                if (e.getValue() == slot) { boundInput = e.getKey(); break; }
+        EnumMap<AbilityBinding, AbilitySlot> map = mgr.getAll(player);
+        player.sendMessage("\u00a7d\u00a7l\u26a1 Your Ability Bindings");
+        for (AbilitySlot abilitySlot : AbilitySlot.values()) {
+            AbilityBinding boundInput = null;
+            for (Map.Entry<AbilityBinding, AbilitySlot> e : map.entrySet()) {
+                if (e.getValue() != abilitySlot) continue;
+                boundInput = e.getKey();
+                break;
             }
-            String inputLabel = boundInput != null ? "§f" + boundInput.getDisplayName() : "§8unbound";
-            player.sendMessage("§7" + slot.getDisplayName() + " §8→ " + inputLabel);
-        }
-
-        player.sendMessage("");
-        player.sendMessage("§d§l⚡ Available Inputs");
-        for (dev.xoperr.blissgems.utils.AbilityBinding b : dev.xoperr.blissgems.utils.AbilityBinding.values()) {
-            dev.xoperr.blissgems.utils.AbilitySlot s = map.get(b);
-            String suffix = s != null ? " §8(§7" + s.getDisplayName() + "§8)" : "";
-            player.sendMessage("§f• §7" + b.getId() + " §8- §f" + b.getDisplayName() + suffix);
+            String inputLabel = boundInput != null ? "\u00a7f" + boundInput.getDisplayName() : "\u00a78unbound";
+            player.sendMessage("\u00a77" + abilitySlot.getDisplayName() + " \u00a78\u2192 " + inputLabel);
         }
         player.sendMessage("");
-        player.sendMessage("§7Change with §f/bliss set_ability <slot> <input>");
-        player.sendMessage("§7Unbind a slot with §f/bliss set_ability <slot> none");
-        player.sendMessage("§7Reset defaults with §f/bliss set_ability reset");
+        player.sendMessage("\u00a7d\u00a7l\u26a1 Available Inputs");
+        for (Enum enum_ : AbilityBinding.values()) {
+            AbilitySlot s = map.get(enum_);
+            String suffix = s != null ? " \u00a78(\u00a77" + s.getDisplayName() + "\u00a78)" : "";
+            player.sendMessage("\u00a7f\u2022 \u00a77" + ((AbilityBinding)enum_).getId() + " \u00a78- \u00a7f" + ((AbilityBinding)enum_).getDisplayName() + suffix);
+        }
+        player.sendMessage("");
+        player.sendMessage("\u00a77Change with \u00a7f/bliss set_ability <slot> <input>");
+        player.sendMessage("\u00a77Unbind a slot with \u00a7f/bliss set_ability <slot> none");
+        player.sendMessage("\u00a77Reset defaults with \u00a7f/bliss set_ability reset");
     }
 
     private void handleSetAbility(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-        dev.xoperr.blissgems.managers.AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
+        Player player = (Player)sender;
+        AbilityBindingManager mgr = this.plugin.getAbilityBindingManager();
         if (mgr == null) {
-            player.sendMessage("§cBinding system unavailable.");
+            player.sendMessage("\u00a7cBinding system unavailable.");
             return;
         }
-
         if (args.length >= 2 && args[1].equalsIgnoreCase("reset")) {
             mgr.resetToDefaults(player);
-            player.sendMessage("§aAbility bindings reset to defaults.");
+            player.sendMessage("\u00a7aAbility bindings reset to defaults.");
             return;
         }
-
         if (args.length < 3) {
-            player.sendMessage("§cUsage: §f/bliss set_ability <slot> <input>");
-            player.sendMessage("§7Slots: §fprimary, secondary, tertiary, quaternary");
-            player.sendMessage("§7Inputs: §fright_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand, none");
-            player.sendMessage("§7See current bindings with §f/bliss ability");
+            player.sendMessage("\u00a7cUsage: \u00a7f/bliss set_ability <slot> <input>");
+            player.sendMessage("\u00a77Slots: \u00a7fprimary, secondary, tertiary, quaternary");
+            player.sendMessage("\u00a77Inputs: \u00a7fright_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand, none");
+            player.sendMessage("\u00a77See current bindings with \u00a7f/bliss ability");
             return;
         }
-
-        dev.xoperr.blissgems.utils.AbilitySlot slot = dev.xoperr.blissgems.utils.AbilitySlot.fromId(args[1]);
+        AbilitySlot slot = AbilitySlot.fromId(args[1]);
         if (slot == null) {
-            player.sendMessage("§cUnknown slot: §f" + args[1]
-                + "§c. Valid: primary, secondary, tertiary, quaternary.");
+            player.sendMessage("\u00a7cUnknown slot: \u00a7f" + args[1] + "\u00a7c. Valid: primary, secondary, tertiary, quaternary.");
             return;
         }
-
         String inputId = args[2];
         if (inputId.equalsIgnoreCase("none") || inputId.equalsIgnoreCase("unbind")) {
-            java.util.EnumMap<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> map = mgr.getAll(player);
-            for (java.util.Map.Entry<dev.xoperr.blissgems.utils.AbilityBinding, dev.xoperr.blissgems.utils.AbilitySlot> e : map.entrySet()) {
-                if (e.getValue() == slot) {
-                    mgr.unbind(player, e.getKey());
-                }
+            EnumMap<AbilityBinding, AbilitySlot> map = mgr.getAll(player);
+            for (Map.Entry<AbilityBinding, AbilitySlot> e : map.entrySet()) {
+                if (e.getValue() != slot) continue;
+                mgr.unbind(player, e.getKey());
             }
-            player.sendMessage("§aUnbound §l" + slot.getDisplayName() + "§a.");
+            player.sendMessage("\u00a7aUnbound \u00a7l" + slot.getDisplayName() + "\u00a7a.");
             return;
         }
-
-        dev.xoperr.blissgems.utils.AbilityBinding input = dev.xoperr.blissgems.utils.AbilityBinding.fromId(inputId);
+        AbilityBinding input = AbilityBinding.fromId(inputId);
         if (input == null) {
-            player.sendMessage("§cUnknown input: §f" + inputId
-                + "§c. See §f/bliss ability§c for the list.");
+            player.sendMessage("\u00a7cUnknown input: \u00a7f" + inputId + "\u00a7c. See \u00a7f/bliss ability\u00a7c for the list.");
             return;
         }
-
         mgr.setBinding(player, input, slot);
-        player.sendMessage("§aBound §f" + input.getDisplayName()
-            + "§a → §l" + slot.getDisplayName() + "§a.");
+        player.sendMessage("\u00a7aBound \u00a7f" + input.getDisplayName() + "\u00a7a \u2192 \u00a7l" + slot.getDisplayName() + "\u00a7a.");
     }
 
     private void handleTrust(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-
         if (args.length < 2) {
             sender.sendMessage("\u00a7cUsage: /bliss trust <player>");
             return;
         }
-
         Player player = (Player)sender;
-        Player target = Bukkit.getPlayer(args[1]);
-
+        Player target = Bukkit.getPlayer((String)args[1]);
         if (target == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-
         if (player.getUniqueId().equals(target.getUniqueId())) {
             player.sendMessage("\u00a7cYou already trust yourself!");
             return;
         }
-
         this.plugin.getTrustedPlayersManager().addTrustedPlayer(player, target);
         player.sendMessage("\u00a7aYou now trust \u00a7l" + target.getName() + "\u00a7r\u00a7a! Your gem abilities will not harm them.");
         target.sendMessage("\u00a7a" + player.getName() + " \u00a7anow trusts you! Their gem abilities will not harm you.");
     }
 
     private void handleUntrust(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-
         if (args.length < 2) {
             sender.sendMessage("\u00a7cUsage: /bliss untrust <player>");
             return;
         }
-
         Player player = (Player)sender;
-        Player target = Bukkit.getPlayer(args[1]);
-
+        Player target = Bukkit.getPlayer((String)args[1]);
         if (target == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-
         boolean removed = this.plugin.getTrustedPlayersManager().removeTrustedPlayer(player, target);
-
         if (removed) {
             player.sendMessage("\u00a7cYou no longer trust \u00a7l" + target.getName() + "\u00a7r\u00a7c! Your gem abilities can now harm them.");
             target.sendMessage("\u00a7c" + player.getName() + " \u00a7cno longer trusts you! Their gem abilities can now harm you.");
@@ -1431,21 +1524,18 @@ TabCompleter {
     }
 
     private void handleTrustedList(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-
         Player player = (Player)sender;
-        java.util.Set<UUID> trusted = this.plugin.getTrustedPlayersManager().getTrustedPlayers(player);
-
+        Set<UUID> trusted = this.plugin.getTrustedPlayersManager().getTrustedPlayers(player);
         if (trusted.isEmpty()) {
             player.sendMessage("\u00a77You have no trusted players. Use \u00a7b/bliss trust <player>\u00a77 to add someone.");
             return;
         }
-
         player.sendMessage("\u00a75\u00a7lTrusted Players (" + trusted.size() + "):");
         for (UUID uuid : trusted) {
-            org.bukkit.OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer((UUID)uuid);
             String name = offlinePlayer.getName() != null ? offlinePlayer.getName() : uuid.toString();
             String status = offlinePlayer.isOnline() ? "\u00a7a[Online]" : "\u00a77[Offline]";
             player.sendMessage("\u00a78 - \u00a7b" + name + " " + status);
@@ -1453,20 +1543,17 @@ TabCompleter {
     }
 
     private void handleBannable(CommandSender sender, String[] args) {
+        boolean enable;
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
         if (args.length < 2) {
             sender.sendMessage("\u00a7cUsage: /bliss bannable <true/false>");
             sender.sendMessage("\u00a77Current status: " + (this.plugin.getConfigManager().isBanOnZeroEnergyEnabled() ? "\u00a7aEnabled" : "\u00a7cDisabled"));
             return;
         }
-
         String value = args[1].toLowerCase();
-        boolean enable;
-
         if (value.equals("true") || value.equals("on") || value.equals("yes") || value.equals("1")) {
             enable = true;
         } else if (value.equals("false") || value.equals("off") || value.equals("no") || value.equals("0")) {
@@ -1475,18 +1562,16 @@ TabCompleter {
             sender.sendMessage("\u00a7cInvalid value! Use true or false.");
             return;
         }
-
         this.plugin.getConfigManager().setBanOnZeroEnergy(enable);
-
         if (enable) {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("ban-enabled");
+            String msg = this.plugin.getConfigManager().getFormattedMessage("ban-enabled", new Object[0]);
             if (msg != null && !msg.isEmpty()) {
                 sender.sendMessage(msg);
             } else {
                 sender.sendMessage("\u00a7aBan-on-zero-energy has been enabled!");
             }
         } else {
-            String msg = this.plugin.getConfigManager().getFormattedMessage("ban-disabled");
+            String msg = this.plugin.getConfigManager().getFormattedMessage("ban-disabled", new Object[0]);
             if (msg != null && !msg.isEmpty()) {
                 sender.sendMessage(msg);
             } else {
@@ -1496,136 +1581,184 @@ TabCompleter {
     }
 
     private void handleOraxen(CommandSender sender, String[] args) {
+        boolean enable;
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
         if (args.length < 2) {
-            sender.sendMessage("§cUsage: /bliss oraxen <true/false>");
-            sender.sendMessage("§7Auto-replace legacy gems with Oraxen items on join: "
-                + (dev.xoperr.blissgems.utils.OraxenGemFixer.isFixOnJoinEnabled(this.plugin) ? "§aEnabled" : "§cDisabled"));
+            sender.sendMessage("\u00a7cUsage: /bliss oraxen <true/false>");
+            sender.sendMessage("\u00a77Auto-replace legacy gems with Oraxen items on join: " + (OraxenGemFixer.isFixOnJoinEnabled(this.plugin) ? "\u00a7aEnabled" : "\u00a7cDisabled"));
             return;
         }
-
         String value = args[1].toLowerCase();
-        boolean enable;
-
         if (value.equals("true") || value.equals("on") || value.equals("yes") || value.equals("1")) {
             enable = true;
         } else if (value.equals("false") || value.equals("off") || value.equals("no") || value.equals("0")) {
             enable = false;
         } else {
-            sender.sendMessage("§cInvalid value! Use true or false.");
+            sender.sendMessage("\u00a7cInvalid value! Use true or false.");
             return;
         }
-
-        dev.xoperr.blissgems.utils.OraxenGemFixer.setFixOnJoinEnabled(this.plugin, enable);
+        OraxenGemFixer.setFixOnJoinEnabled(this.plugin, enable);
         if (enable) {
-            sender.sendMessage("§aLegacy gems will now be replaced with Oraxen items when players join!");
+            sender.sendMessage("\u00a7aLegacy gems will now be replaced with Oraxen items when players join!");
         } else {
-            sender.sendMessage("§cAutomatic gem replacement on join has been disabled!");
+            sender.sendMessage("\u00a7cAutomatic gem replacement on join has been disabled!");
         }
     }
 
     private void handleAutoSmelt(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-
-        Player player = (Player) sender;
-
+        Player player = (Player)sender;
         if (!player.hasPermission("blissgems.autosmelt")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
-        // Check if player has Wealth gem Tier 2
         GemType playerGem = this.plugin.getGemManager().getGemType(player);
         int tier = this.plugin.getGemManager().getGemTier(player);
-
         if (playerGem != GemType.WEALTH || tier < 2) {
-            player.sendMessage("§c§lYou need Wealth Gem Tier 2 to use auto-smelt!");
+            player.sendMessage("\u00a7c\u00a7lYou need Wealth Gem Tier 2 to use auto-smelt!");
             return;
         }
-
-        // Toggle auto-smelt for this player
         boolean currentState = this.plugin.getWealthAbilities().isAutoSmeltEnabled(player);
         this.plugin.getWealthAbilities().setAutoSmelt(player, !currentState);
-
         if (!currentState) {
-            player.sendMessage("§a§lAuto-Smelt enabled! Ores will now be automatically smelted when mined.");
+            player.sendMessage("\u00a7a\u00a7lAuto-Smelt enabled! Ores will now be automatically smelted when mined.");
         } else {
-            player.sendMessage("§c§lAuto-Smelt disabled!");
+            player.sendMessage("\u00a7c\u00a7lAuto-Smelt disabled!");
         }
     }
 
     private void handleConduction(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-
-        Player player = (Player) sender;
-
+        Player player = (Player)sender;
         if (this.plugin.getGemManager().getGemType(player) != GemType.FLUX) {
-            player.sendMessage("§c§lYou need the Flux Gem to use Conduction!");
+            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use Conduction!");
             return;
         }
-
         this.plugin.getFluxAbilities().conduction(player);
     }
 
-    private void handleStats(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+    private void handleCharge(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
+        Player player = (Player)sender;
+        if (this.plugin.getGemManager().getGemType(player) != GemType.FLUX) {
+            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Charging Station!");
+            return;
+        }
+        if (this.plugin.getFluxEnergyManager() != null) {
+            this.plugin.getFluxEnergyManager().openChargingStation(player);
+        }
+    }
 
-        Player player = (Player) sender;
+    private void handleSetWatts(CommandSender sender, String[] args) {
+        double amount;
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage("\u00a7cYou don't have permission to use this command!");
+            return;
+        }
+        if (args.length < 3) {
+            sender.sendMessage("\u00a7cUsage: /bliss setwatts <player> <amount>");
+            return;
+        }
+        Player target = Bukkit.getPlayer((String)args[1]);
+        if (target == null) {
+            sender.sendMessage("\u00a7cPlayer not found!");
+            return;
+        }
+        try {
+            amount = Double.parseDouble(args[2]);
+        }
+        catch (NumberFormatException e) {
+            sender.sendMessage("\u00a7cInvalid number: " + args[2]);
+            return;
+        }
+        if (this.plugin.getFluxEnergyManager() != null) {
+            this.plugin.getFluxEnergyManager().setWatts(target.getUniqueId(), amount);
+            sender.sendMessage("\u00a7aSet \u00a7e" + target.getName() + "\u00a7a's Flux Gem energy to \u00a7b" + String.format("%,.0f", amount) + " Watts\u00a7a.");
+            target.sendMessage("\u00a7b\ud83d\udd2e \u00a7aAn administrator updated your Flux Gem energy to \u00a7b" + String.format("%,.0f", amount) + " Watts\u00a7a.");
+        }
+    }
+
+    private void handleGetWatts(CommandSender sender, String[] args) {
+        Player target;
+        if (args.length > 1) {
+            if (!sender.hasPermission("blissgems.admin") && !sender.getName().equalsIgnoreCase(args[1])) {
+                sender.sendMessage("\u00a7cYou don't have permission to view other players' energy!");
+                return;
+            }
+            target = Bukkit.getPlayer((String)args[1]);
+            if (target == null) {
+                sender.sendMessage("\u00a7cPlayer not found!");
+                return;
+            }
+        } else {
+            if (!this.requirePlayer(sender)) {
+                return;
+            }
+            target = (Player)sender;
+        }
+        if (this.plugin.getFluxEnergyManager() != null) {
+            double watts = this.plugin.getFluxEnergyManager().getWatts(target.getUniqueId());
+            int maxWatts = this.plugin.getFluxEnergyManager().getMaxWatts();
+            double beam = this.plugin.getFluxEnergyManager().getBeamCharge(target.getUniqueId());
+            double percent = watts / (double)maxWatts * 100.0;
+            sender.sendMessage("\u00a7b\ud83d\udd2e \u00a76\u00a7lFlux Energy Status for \u00a7e" + target.getName() + "\u00a76:");
+            sender.sendMessage("\u00a7f  Battery: \u00a7b" + String.format("%,.0f", watts) + " \u00a77/ \u00a7b" + String.format("%,d", maxWatts) + " W \u00a7a(" + String.format("%.2f%%", percent) + ")");
+            sender.sendMessage("\u00a7f  Beam Charge: \u00a7e" + String.format("%.1f%%", beam));
+            sender.sendMessage("\u00a7f  Charging State: " + (this.plugin.getFluxEnergyManager().isCharging(target) ? "\u00a7aCharging" : "\u00a7cIdle"));
+        }
+    }
+
+    private void handleStats(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
         StatsCommand statsCommand = new StatsCommand(this.plugin);
-        statsCommand.execute(player, args.length > 1 ? java.util.Arrays.copyOfRange(args, 1, args.length) : new String[]{});
+        statsCommand.execute(player, args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[]{});
     }
 
     private void handleReleaseSouls(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-
-        // Check if player has Astra gem
+        Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
             player.sendMessage("\u00a7c\u00a7oOnly Astra gem holders can release captured souls!");
             return;
         }
-
         if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
             player.sendMessage("\u00a7c\u00a7oYour gem energy is too low to release souls!");
             return;
         }
-
         this.plugin.getSoulManager().releaseAllSouls(player);
     }
 
     private void handleSoulsInfo(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-
-        // Check if player has Astra gem
+        Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
             player.sendMessage("\u00a7c\u00a7oOnly Astra gem holders can view captured souls!");
             return;
         }
-
-        var souls = this.plugin.getSoulManager().getCapturedSouls(player);
+        List<SoulManager.CapturedMob> souls = this.plugin.getSoulManager().getCapturedSouls(player);
         int count = souls.size();
         int max = 2;
-
         player.sendMessage("\u00a7d\u00a7lCaptured Souls (" + count + "/" + max + "):");
         if (count == 0) {
             player.sendMessage("\u00a77  No souls captured. Sneak + hit a mob to capture it.");
         } else {
-            for (int i = 0; i < souls.size(); i++) {
+            for (int i = 0; i < souls.size(); ++i) {
                 player.sendMessage("\u00a7d  " + (i + 1) + ". \u00a7f" + souls.get(i).getDisplayName());
             }
             player.sendMessage("\u00a77  Use \u00a7d/bliss release\u00a77 to release all captured souls.");
@@ -1637,24 +1770,19 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
         int count = 0;
         for (Player online : Bukkit.getOnlinePlayers()) {
-            // Reset attack cooldown by briefly maximising attack speed
-            AttributeInstance attackSpeed = online.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_SPEED);
+            AttributeInstance attackSpeed = online.getAttribute(Attributes.attackSpeed());
             if (attackSpeed != null) {
                 double original = attackSpeed.getBaseValue();
-                attackSpeed.setBaseValue(1024);
+                attackSpeed.setBaseValue(1024.0);
                 attackSpeed.setBaseValue(original);
             }
-            count++;
+            ++count;
         }
-
-        sender.sendMessage("§a§lAttack cooldown reset for " + count + " online player(s)!");
-
-        // Broadcast to all players
+        sender.sendMessage("\u00a7a\u00a7lAttack cooldown reset for " + count + " online player(s)!");
         for (Player online : Bukkit.getOnlinePlayers()) {
-            online.sendMessage("§e§oAttack cooldowns have been normalized by an admin.");
+            online.sendMessage("\u00a7e\u00a7oAttack cooldowns have been normalized by an admin.");
         }
     }
 
@@ -1663,108 +1791,83 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
         if (args.length < 2 || !args[1].equalsIgnoreCase("start")) {
             sender.sendMessage("\u00a7cUsage: /bliss smp start");
             return;
         }
-
         if (this.plugin.getConfigManager().isSmpStarted()) {
-            this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-already-started");
+            this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-already-started", new Object[0]);
             return;
         }
-
-        // Set SMP as started
         this.plugin.getConfigManager().setSmpStarted(true);
-
-        // Notify sender
-        this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-started");
-
-        // Give gems to all online players who haven't received one yet
+        this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-started", new Object[0]);
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!hasReceivedFirstGem(online)) {
-                String randomGem = getRandomEnabledGem();
-                if (randomGem != null) {
-                    final String finalGem = randomGem;
-                    final Player target = online;
-
-                    // Welcome messages
-                    target.sendMessage("");
-                    target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
-                    target.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
-                    target.sendMessage("");
-                    target.sendMessage("\u00a77\u00a7oThe ancient gem ritual begins...");
-                    target.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
-                    target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
-                    target.sendMessage("");
-
-                    // Start the ritual animation
-                    this.plugin.getGemRitualManager().performGemRitual(target, finalGem, true, 1);
-
-                    // Give the gem after a short delay (let ritual build up)
-                    this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                        if (target.isOnline() && this.plugin.getGemManager().giveGem(target, finalGem, 1)) {
-                            markFirstGemReceived(target);
-
-                            String gemName = this.plugin.getGemManager().getGemDisplayName(finalGem);
-                            String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
-                                "gem", gemName);
-                            if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
-                                target.sendMessage(welcomeMsg);
-                            } else {
-                                target.sendMessage("");
-                                target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + this.plugin.getGemManager().getGemColorCode(finalGem) + "\u00a7l" + gemName + "\u00a7d\u00a7l \u00ab");
-                                target.sendMessage("");
-                            }
-
-                            this.plugin.getLogger().info("SMP Start: Gave " + target.getName() + " their first gem: " + gemName);
-                        }
-                    }, 20L);
+            String randomGem;
+            if (this.hasReceivedFirstGem(online) || (randomGem = this.getRandomEnabledGem()) == null) continue;
+            String finalGem = randomGem;
+            Player target = online;
+            target.sendMessage("");
+            target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+            target.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
+            target.sendMessage("");
+            target.sendMessage("\u00a77\u00a7oThe ancient gem ritual begins...");
+            target.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
+            target.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
+            target.sendMessage("");
+            this.plugin.getGemRitualManager().performGemRitual(target, finalGem, true, 1);
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                if (target.isOnline() && this.plugin.getGemManager().giveGem(target, finalGem, 1)) {
+                    this.markFirstGemReceived(target);
+                    String gemName = this.plugin.getGemManager().getGemDisplayName(finalGem);
+                    String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received", "gem", gemName);
+                    if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
+                        target.sendMessage(welcomeMsg);
+                    } else {
+                        target.sendMessage("");
+                        target.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + this.plugin.getGemManager().getGemColorCode(finalGem) + "\u00a7l" + gemName + "\u00a7d\u00a7l \u00ab");
+                        target.sendMessage("");
+                    }
+                    this.plugin.getLogger().info("SMP Start: Gave " + target.getName() + " their first gem: " + gemName);
                 }
-            }
+            }, 20L);
         }
     }
 
     private boolean hasReceivedFirstGem(Player player) {
-        java.io.File dataFolder = new java.io.File(this.plugin.getDataFolder(), "playerdata");
-        java.io.File file = new java.io.File(dataFolder, player.getUniqueId() + ".yml");
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
+        File file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
         if (!file.exists()) {
             return false;
         }
-        org.bukkit.configuration.file.FileConfiguration data = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         return data.getBoolean("received-first-gem", false);
     }
 
     private void markFirstGemReceived(Player player) {
-        java.io.File dataFolder = new java.io.File(this.plugin.getDataFolder(), "playerdata");
+        File file;
+        File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-        java.io.File file = new java.io.File(dataFolder, player.getUniqueId() + ".yml");
-        org.bukkit.configuration.file.FileConfiguration data;
-        if (file.exists()) {
-            data = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
-        } else {
-            data = new org.bukkit.configuration.file.YamlConfiguration();
-        }
-        data.set("received-first-gem", true);
+        YamlConfiguration data = (file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml")).exists() ? YamlConfiguration.loadConfiguration((File)file) : new YamlConfiguration();
+        data.set("received-first-gem", (Object)true);
         if (!data.contains("energy")) {
-            data.set("energy", this.plugin.getConfigManager().getStartingEnergy());
+            data.set("energy", (Object)this.plugin.getConfigManager().getStartingEnergy());
         }
         try {
             data.save(file);
-        } catch (java.io.IOException e) {
+        }
+        catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save first gem status for " + player.getName() + ": " + e.getMessage());
         }
     }
 
-    /** Random gem ID from the grantable pool (built-ins + addon gems minus the random-exclude list). */
     private String getRandomEnabledGem() {
-        java.util.List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
+        List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
         if (enabledGems.isEmpty()) {
             return null;
         }
-        return enabledGems.get(new java.util.Random().nextInt(enabledGems.size()));
+        return enabledGems.get(new Random().nextInt(enabledGems.size()));
     }
 
     private void handleClearCooldowns(CommandSender sender, String[] args) {
@@ -1772,96 +1875,84 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
         if (args.length < 2) {
             sender.sendMessage("\u00a7cUsage: /bliss clearcds <player|all>");
             return;
         }
-
         if (args[1].equalsIgnoreCase("all")) {
             int count = 0;
             for (Player online : Bukkit.getOnlinePlayers()) {
                 this.plugin.getAbilityManager().clearCooldowns(online);
-                count++;
+                ++count;
             }
             sender.sendMessage("\u00a7a\u00a7lCleared all ability cooldowns for " + count + " online player(s)!");
             return;
         }
-
-        Player target = Bukkit.getPlayer(args[1]);
+        Player target = Bukkit.getPlayer((String)args[1]);
         if (target == null) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-
         this.plugin.getAbilityManager().clearCooldowns(target);
         sender.sendMessage("\u00a7aCleared all ability cooldowns for \u00a7l" + target.getName() + "\u00a7a!");
     }
 
-    /**
-     * /bliss nocdtoggle [player] - flip a player's ability cooldown exemption on or off.
-     * Not persisted: the exemption is dropped when the server restarts.
-     */
     private void handleNoCooldownToggle(CommandSender sender, String[] args) {
+        Player target;
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-
-        Player target;
         if (args.length < 2) {
             if (!(sender instanceof Player)) {
-                sender.sendMessage("§cUsage: /bliss nocdtoggle <player>");
+                sender.sendMessage("\u00a7cUsage: /bliss nocdtoggle <player>");
                 return;
             }
-            target = (Player) sender;
+            target = (Player)sender;
         } else {
-            target = Bukkit.getPlayer(args[1]);
+            target = Bukkit.getPlayer((String)args[1]);
             if (target == null) {
                 sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
                 return;
             }
         }
-
         boolean enabled = this.plugin.getAbilityManager().toggleNoCooldown(target);
         if (enabled) {
-            sender.sendMessage("§a§lNo-cooldown §aENABLED for §l" + target.getName() + "§a!");
+            sender.sendMessage("\u00a7a\u00a7lNo-cooldown \u00a7aENABLED for \u00a7l" + target.getName() + "\u00a7a!");
             if (target != sender) {
-                target.sendMessage("§a§oYour ability cooldowns have been disabled.");
+                target.sendMessage("\u00a7a\u00a7oYour ability cooldowns have been disabled.");
             }
         } else {
-            sender.sendMessage("§c§lNo-cooldown §cDISABLED for §l" + target.getName() + "§c!");
+            sender.sendMessage("\u00a7c\u00a7lNo-cooldown \u00a7cDISABLED for \u00a7l" + target.getName() + "\u00a7c!");
             if (target != sender) {
-                target.sendMessage("§c§oYour ability cooldowns are back to normal.");
+                target.sendMessage("\u00a7c\u00a7oYour ability cooldowns are back to normal.");
             }
         }
     }
 
     private void handleAchievements(CommandSender sender, String[] args) {
-        if (!requirePlayer(sender)) {
+        if (!this.requirePlayer(sender)) {
             return;
         }
-        Player player = (Player) sender;
-
-        java.util.Set<Achievement> unlocked = this.plugin.getAchievementManager().getUnlocked(player);
+        Player player = (Player)sender;
+        Set<Achievement> unlocked = this.plugin.getAchievementManager().getUnlocked(player);
         int total = Achievement.values().length;
         int unlockedCount = unlocked.size();
-
         player.sendMessage("\u00a76\u00a7l\u2b50 Achievements (" + unlockedCount + "/" + total + ")");
         player.sendMessage("");
-
         for (Achievement achievement : Achievement.values()) {
-            boolean isUnlocked = unlocked.contains(achievement);
+            boolean isUnlocked = unlocked.contains((Object)achievement);
             int progress = this.plugin.getAchievementManager().getProgress(player, achievement);
             int target = achievement.getTargetProgress();
-
             if (isUnlocked) {
                 player.sendMessage("\u00a7a\u2714 \u00a7e" + achievement.getDisplayName() + " \u00a77- " + achievement.getDescription());
-            } else if (target > 1 && progress > 0) {
-                player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription() + " \u00a7e(" + progress + "/" + target + ")");
-            } else {
-                player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription());
+                continue;
             }
+            if (target > 1 && progress > 0) {
+                player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription() + " \u00a7e(" + progress + "/" + target + ")");
+                continue;
+            }
+            player.sendMessage("\u00a78\u2718 \u00a77" + achievement.getDisplayName() + " \u00a78- " + achievement.getDescription());
         }
     }
 
@@ -1904,9 +1995,9 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "ability", "set_ability"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability"));
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("nocdtoggle")) {
+            if (args[0].equalsIgnoreCase("nocdtoggle") || args[0].equalsIgnoreCase("setwatts") || args[0].equalsIgnoreCase("getwatts")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
             if (args[0].equalsIgnoreCase("clearcds")) {
@@ -1930,48 +2021,47 @@ TabCompleter {
                 return Arrays.asList("fill", "remove", "clear", "list");
             }
             if (args[0].equalsIgnoreCase("set_ability")) {
-                List<String> slots = Arrays.stream(dev.xoperr.blissgems.utils.AbilitySlot.values())
-                    .map(dev.xoperr.blissgems.utils.AbilitySlot::getId).collect(Collectors.toList());
+                List<String> slots = Arrays.stream(AbilitySlot.values()).map(AbilitySlot::getId).collect(Collectors.toList());
                 slots.add("reset");
                 return slots;
             }
         } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("setwatts")) {
+                return Arrays.asList("100000", "500000", "1000000", "2000000");
+            }
             if (args[0].equalsIgnoreCase("goldgem")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
             if (args[0].equalsIgnoreCase("give")) {
                 List<String> gemIds = Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
-                GemRegistry registry = this.plugin.getGemRegistry();
+                GemRegistryImpl registry = this.plugin.getGemRegistry();
                 if (registry != null) {
-                    for (dev.xoperr.blissgems.api.GemDefinition def : registry.getAllGems()) {
-                        if (!gemIds.contains(def.getId())) {
-                            gemIds.add(def.getId());
-                        }
+                    for (GemDefinition def : registry.getAllGems()) {
+                        if (gemIds.contains(def.getId())) continue;
+                        gemIds.add(def.getId());
                     }
                 }
                 return gemIds;
             }
             if (args[0].equalsIgnoreCase("giveitem")) {
-                // Provide tab completion for special items
-                List<String> items = new ArrayList<>();
+                ArrayList<String> items = new ArrayList<String>();
                 items.add("energy_bottle");
                 items.add("repair_kit");
                 items.add("gem_trader");
                 items.add("gem_fragment");
-                items.add("gem_upgrader"); // Universal upgrader
+                items.add("gem_upgrader");
                 items.add("restoration_book");
                 items.add("prismatic_edge");
                 return items;
             }
             if (args[0].equalsIgnoreCase("transfer")) {
-                return new ArrayList<>(TRANSFERABLE_ITEMS);
+                return new ArrayList<String>(TRANSFERABLE_ITEMS);
             }
             if (args[0].equalsIgnoreCase("energy")) {
                 return Arrays.asList("set", "add", "remove");
             }
             if (args[0].equalsIgnoreCase("set_ability")) {
-                List<String> inputs = Arrays.stream(dev.xoperr.blissgems.utils.AbilityBinding.values())
-                    .map(dev.xoperr.blissgems.utils.AbilityBinding::getId).collect(Collectors.toList());
+                List<String> inputs = Arrays.stream(AbilityBinding.values()).map(AbilityBinding::getId).collect(Collectors.toList());
                 inputs.add("none");
                 return inputs;
             }
@@ -1986,14 +2076,11 @@ TabCompleter {
             if (args[0].equalsIgnoreCase("giveitem") || args[0].equalsIgnoreCase("transfer")) {
                 return Arrays.asList("1", "8", "16", "32", "64");
             }
-            if (args[0].equalsIgnoreCase("goldgem")
-                    && (args[1].equalsIgnoreCase("fill") || args[1].equalsIgnoreCase("remove"))) {
+            if (args[0].equalsIgnoreCase("goldgem") && (args[1].equalsIgnoreCase("fill") || args[1].equalsIgnoreCase("remove"))) {
                 return Arrays.stream(GemType.values()).map(GemType::getId).collect(Collectors.toList());
             }
-        } else if (args.length == 5) {
-            if (args[0].equalsIgnoreCase("goldgem") && args[1].equalsIgnoreCase("fill")) {
-                return Arrays.asList("1", "2");
-            }
+        } else if (args.length == 5 && args[0].equalsIgnoreCase("goldgem") && args[1].equalsIgnoreCase("fill")) {
+            return Arrays.asList("1", "2");
         }
         return completions.stream().filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase())).collect(Collectors.toList());
     }

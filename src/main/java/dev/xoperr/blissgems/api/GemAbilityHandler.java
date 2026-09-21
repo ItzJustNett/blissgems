@@ -1,51 +1,32 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.entity.Player
+ */
 package dev.xoperr.blissgems.api;
 
 import org.bukkit.entity.Player;
 
-/**
- * Contract for gem ability handling. Addon plugins implement this to define
- * what happens when a player activates each ability slot.
- */
 public interface GemAbilityHandler {
+    public void onPrimary(Player var1, int var2);
 
-    /**
-     * Primary ability (right-click / ability:main command).
-     */
-    void onPrimary(Player player, int tier);
+    default public void onSecondary(Player player, int tier) {
+    }
 
-    /**
-     * Secondary ability (shift+right-click / ability:secondary command).
-     * Default no-op for gems that don't have a secondary.
-     */
-    default void onSecondary(Player player, int tier) {}
+    default public void onTertiary(Player player, int tier) {
+    }
 
-    /**
-     * Tertiary ability (F key / ability:tertiary command).
-     * Default no-op for gems that don't have a tertiary.
-     */
-    default void onTertiary(Player player, int tier) {}
+    default public void onQuaternary(Player player, int tier) {
+    }
 
-    /**
-     * Quaternary ability (Shift+F key / ability:quaternary command).
-     * Default no-op for gems that don't have a quaternary.
-     */
-    default void onQuaternary(Player player, int tier) {}
+    default public void onQuinary(Player player, int tier) {
+    }
 
-    /**
-     * Quinary ability (left-click by default / ability:quinary command).
-     * Only the Gold Gem uses this slot; default no-op for every other gem.
-     */
-    default void onQuinary(Player player, int tier) {}
+    default public void onSenary(Player player, int tier) {
+    }
 
-    /**
-     * Senary ability (Shift+left-click by default / ability:senary command).
-     * Only the Gold Gem uses this slot; default no-op for every other gem.
-     */
-    default void onSenary(Player player, int tier) {}
-
-    /**
-     * Called when a player's active gem changes away from this gem type,
-     * or the player disconnects. Use this to cancel running tasks, remove entities, etc.
-     */
-    default void cleanup(Player player) {}
+    default public void cleanup(Player player) {
+    }
 }
+

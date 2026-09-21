@@ -1,10 +1,40 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Location
+ *  org.bukkit.Material
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.HumanEntity
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.block.BlockBreakEvent
+ *  org.bukkit.event.block.BlockPlaceEvent
+ *  org.bukkit.event.entity.EntityDamageByEntityEvent
+ *  org.bukkit.event.entity.ProjectileLaunchEvent
+ *  org.bukkit.event.inventory.InventoryOpenEvent
+ *  org.bukkit.event.player.PlayerDropItemEvent
+ *  org.bukkit.event.player.PlayerInteractEvent
+ *  org.bukkit.event.player.PlayerItemConsumeEvent
+ *  org.bukkit.event.player.PlayerMoveEvent
+ *  org.bukkit.event.player.PlayerToggleFlightEvent
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.projectiles.ProjectileSource
+ *  org.bukkit.util.Vector
+ */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
 import dev.xoperr.blissgems.abilities.SpeedAbilities;
+import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,51 +50,33 @@ import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.util.Vector;
 
-import java.util.UUID;
-
-/**
- * Handles stun/freeze restrictions for:
- * - Flux Gem Ground ability (stun)
- * - Speed Gem Speed Storm ability (freeze)
- */
-public class StunListener implements Listener {
+public class StunListener
+implements Listener {
     private final BlissGems plugin;
 
     public StunListener(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Check if player is stunned (Flux) or frozen (Speed Storm)
-     */
     private boolean isImmobilized(UUID playerId) {
         return FluxAbilities.isPlayerStunned(playerId) || SpeedAbilities.isPlayerFrozen(playerId);
     }
 
-    /**
-     * Check if player is frozen (Speed Storm or Flux Ground — same restrictions)
-     */
     private boolean isFrozen(UUID playerId) {
         return SpeedAbilities.isPlayerFrozen(playerId) || FluxAbilities.isPlayerStunned(playerId);
     }
 
-    // ========================================================================
-    // Movement Blocking (Speed Storm freeze only - stricter)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-
-        // Only block movement for Speed Storm freeze (not Flux stun)
-        if (isFrozen(player.getUniqueId())) {
+        if (this.isFrozen(player.getUniqueId())) {
             Location from = event.getFrom();
             Location to = event.getTo();
-
-            // Allow head rotation but block position change
             if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
-                // Keep the same position but allow looking around
                 Location stayLoc = from.clone();
                 stayLoc.setYaw(to.getYaw());
                 stayLoc.setPitch(to.getPitch());
@@ -73,177 +85,116 @@ public class StunListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onToggleFlight(PlayerToggleFlightEvent event) {
-        if (isImmobilized(event.getPlayer().getUniqueId())) {
+        if (this.isImmobilized(event.getPlayer().getUniqueId())) {
             event.setCancelled(true);
         }
     }
 
-    // ========================================================================
-    // Item Usage Blocking
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
-
         if (item == null) {
             return;
         }
-
         UUID playerId = player.getUniqueId();
-
-        // Check if player is immobilized (stunned or frozen)
-        if (isImmobilized(playerId)) {
+        if (this.isImmobilized(playerId)) {
             Material type = item.getType();
-
-            // Block ender pearls and chorus fruit completely
             if (type == Material.ENDER_PEARL || type == Material.CHORUS_FRUIT) {
                 event.setCancelled(true);
-                player.sendMessage(plugin.getConfigManager().getFormattedMessage(
-                    "cannot-use-while-stunned", "item",
-                    type == Material.ENDER_PEARL ? "ender pearls" : "chorus fruit"));
+                player.sendMessage(this.plugin.getConfigManager().getFormattedMessage("cannot-use-while-stunned", "item", type == Material.ENDER_PEARL ? "ender pearls" : "chorus fruit"));
                 return;
             }
-
-            // For frozen players (Speed Storm), block ALL interactions except gapples
-            if (isFrozen(playerId)) {
-                // Allow only golden apples
+            if (this.isFrozen(playerId)) {
                 if (type != Material.GOLDEN_APPLE && type != Material.ENCHANTED_GOLDEN_APPLE) {
                     event.setCancelled(true);
-                    if (item.getType().isEdible() ||
-                        type == Material.POTION ||
-                        type == Material.SPLASH_POTION ||
-                        type == Material.LINGERING_POTION) {
-                        player.sendMessage(plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
+                    if (item.getType().isEdible() || type == Material.POTION || type == Material.SPLASH_POTION || type == Material.LINGERING_POTION) {
+                        player.sendMessage(this.plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
                     }
                     return;
                 }
-            } else {
-                // For stunned players (Flux), only block non-gapple consumables
-                if (type != Material.GOLDEN_APPLE && type != Material.ENCHANTED_GOLDEN_APPLE) {
-                    if (item.getType().isEdible() ||
-                        type == Material.POTION ||
-                        type == Material.SPLASH_POTION ||
-                        type == Material.LINGERING_POTION) {
-                        event.setCancelled(true);
-                        player.sendMessage(plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
-                    }
-                }
+            } else if (type != Material.GOLDEN_APPLE && type != Material.ENCHANTED_GOLDEN_APPLE && (item.getType().isEdible() || type == Material.POTION || type == Material.SPLASH_POTION || type == Material.LINGERING_POTION)) {
+                event.setCancelled(true);
+                player.sendMessage(this.plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerConsume(PlayerItemConsumeEvent event) {
+        Material type;
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
-
-        if (isImmobilized(player.getUniqueId())) {
-            Material type = item.getType();
-
-            // Only allow golden apples
-            if (type != Material.GOLDEN_APPLE && type != Material.ENCHANTED_GOLDEN_APPLE) {
-                event.setCancelled(true);
-                player.sendMessage(plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
-            }
+        if (this.isImmobilized(player.getUniqueId()) && (type = item.getType()) != Material.GOLDEN_APPLE && type != Material.ENCHANTED_GOLDEN_APPLE) {
+            event.setCancelled(true);
+            player.sendMessage(this.plugin.getConfigManager().getMessage("can-only-eat-golden-apple-stunned"));
         }
     }
 
-    // ========================================================================
-    // Projectile Blocking (pearls, snowballs, etc.)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
-        if (event.getEntity().getShooter() instanceof Player player) {
-            if (isImmobilized(player.getUniqueId())) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    // ========================================================================
-    // Inventory Blocking (Speed Storm freeze only)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInventoryOpen(InventoryOpenEvent event) {
-        if (event.getPlayer() instanceof Player player) {
-            // Only block inventory for frozen players (Speed Storm)
-            if (isFrozen(player.getUniqueId())) {
-                event.setCancelled(true);
-                player.sendMessage("§c§lYou cannot open inventories while frozen!");
-            }
-        }
-    }
-
-    // ========================================================================
-    // Item Drop Blocking (Speed Storm freeze only)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onItemDrop(PlayerDropItemEvent event) {
-        if (isFrozen(event.getPlayer().getUniqueId())) {
+        Player player;
+        ProjectileSource projectileSource = event.getEntity().getShooter();
+        if (projectileSource instanceof Player && this.isImmobilized((player = (Player)projectileSource).getUniqueId())) {
             event.setCancelled(true);
         }
     }
 
-    // ========================================================================
-    // Combat Blocking (Speed Storm freeze only)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onEntityDamage(EntityDamageByEntityEvent event) {
-        // Block frozen players from dealing damage
-        if (event.getDamager() instanceof Player player) {
-            if (isFrozen(player.getUniqueId())) {
-                event.setCancelled(true);
-                player.sendMessage("§c§lYou cannot attack while frozen!");
-            }
+    @EventHandler(priority=EventPriority.HIGHEST)
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        Player player;
+        HumanEntity humanEntity = event.getPlayer();
+        if (humanEntity instanceof Player && this.isFrozen((player = (Player)humanEntity).getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7lYou cannot open inventories while frozen!");
         }
     }
 
-    // ========================================================================
-    // Knockback Blocking (immobilized players — stun AND freeze)
-    // ========================================================================
+    @EventHandler(priority=EventPriority.HIGHEST)
+    public void onItemDrop(PlayerDropItemEvent event) {
+        if (this.isFrozen(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
 
-    /**
-     * Cancel incoming knockback for immobilized players. While a player is held in place
-     * by the freeze/stun logic, knockback from a hit (a mob or another player) fights the
-     * movement-cancel handler; the velocity accumulates and launches them into the air.
-     * We snap their velocity back to zero on the following tick — after vanilla applies the
-     * knockback — which keeps them grounded without the deprecated EntityKnockbackEvent.
-     */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGHEST)
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        Player player;
+        Entity entity = event.getDamager();
+        if (entity instanceof Player && this.isFrozen((player = (Player)entity).getUniqueId())) {
+            event.setCancelled(true);
+            player.sendMessage("\u00a7c\u00a7lYou cannot attack while frozen!");
+        }
+    }
+
+    @EventHandler(priority=EventPriority.MONITOR, ignoreCancelled=true)
     public void onImmobilizedKnockback(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player player) || !isImmobilized(player.getUniqueId())) {
+        Player player;
+        Entity entity = event.getEntity();
+        if (!(entity instanceof Player) || !this.isImmobilized((player = (Player)entity).getUniqueId())) {
             return;
         }
-        this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-            if (player.isOnline() && isImmobilized(player.getUniqueId())) {
-                player.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+        this.plugin.getServer().getScheduler().runTask((Plugin)this.plugin, () -> {
+            if (player.isOnline() && this.isImmobilized(player.getUniqueId())) {
+                player.setVelocity(new Vector(0, 0, 0));
             }
         });
     }
 
-    // ========================================================================
-    // Block Interaction Blocking (Speed Storm freeze only)
-    // ========================================================================
-
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onBlockBreak(BlockBreakEvent event) {
-        if (isFrozen(event.getPlayer().getUniqueId())) {
+        if (this.isFrozen(event.getPlayer().getUniqueId())) {
             event.setCancelled(true);
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onBlockPlace(BlockPlaceEvent event) {
-        if (isFrozen(event.getPlayer().getUniqueId())) {
+        if (this.isFrozen(event.getPlayer().getUniqueId())) {
             event.setCancelled(true);
         }
     }
 }
+

@@ -1,19 +1,26 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Material
+ *  org.bukkit.NamespacedKey
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.inventory.meta.ItemMeta
+ *  org.bukkit.persistence.PersistentDataContainer
+ *  org.bukkit.persistence.PersistentDataType
+ *  org.bukkit.plugin.Plugin
+ */
 package dev.xoperr.blissgems.core.managers;
 
-import org.bukkit.plugin.Plugin;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 
-/**
- * Manager class handling gem protection logic.
- * Uses PersistentDataContainer to store protection data on items.
- */
 public class ProtectionManager {
-
     private final Plugin plugin;
     private final NamespacedKey gemKey;
     private final NamespacedKey gemIdKey;
@@ -26,142 +33,103 @@ public class ProtectionManager {
         this.gemTierKey = new NamespacedKey(plugin, "gem_tier");
     }
 
-    /**
-     * Mark an item as a gem.
-     */
     public boolean markAsGem(ItemStack item) {
+        ItemMeta meta;
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
-        if (isGem(item)) {
-            return false; // Already marked
+        if (this.isGem(item)) {
+            return false;
         }
-
-        ItemMeta meta = item.hasItemMeta() ? item.getItemMeta() : plugin.getServer().getItemFactory().getItemMeta(item.getType());
+        ItemMeta itemMeta = meta = item.hasItemMeta() ? item.getItemMeta() : this.plugin.getServer().getItemFactory().getItemMeta(item.getType());
         if (meta == null) {
             return false;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        container.set(gemKey, PersistentDataType.BYTE, (byte) 1);
-
+        container.set(this.gemKey, PersistentDataType.BYTE, (byte)1);
         item.setItemMeta(meta);
         return true;
     }
 
-    /**
-     * Mark an item as a gem with additional metadata.
-     */
     public boolean markAsGem(ItemStack item, String gemId, int tier) {
+        ItemMeta meta;
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
-        ItemMeta meta = item.hasItemMeta() ? item.getItemMeta() : plugin.getServer().getItemFactory().getItemMeta(item.getType());
+        ItemMeta itemMeta = meta = item.hasItemMeta() ? item.getItemMeta() : this.plugin.getServer().getItemFactory().getItemMeta(item.getType());
         if (meta == null) {
             return false;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        container.set(gemKey, PersistentDataType.BYTE, (byte) 1);
-
+        container.set(this.gemKey, PersistentDataType.BYTE, (byte)1);
         if (gemId != null) {
-            container.set(gemIdKey, PersistentDataType.STRING, gemId);
+            container.set(this.gemIdKey, PersistentDataType.STRING, gemId);
         }
-
-        container.set(gemTierKey, PersistentDataType.INTEGER, tier);
-
+        container.set(this.gemTierKey, PersistentDataType.INTEGER, tier);
         item.setItemMeta(meta);
         return true;
     }
 
-    /**
-     * Remove gem protection from an item.
-     */
     public boolean unmarkGem(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
         if (!item.hasItemMeta()) {
             return false;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return false;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-
-        if (!container.has(gemKey, PersistentDataType.BYTE)) {
-            return false; // Not a gem
+        if (!container.has(this.gemKey, PersistentDataType.BYTE)) {
+            return false;
         }
-
-        // Remove all gem-related keys
-        container.remove(gemKey);
-        container.remove(gemIdKey);
-        container.remove(gemTierKey);
-
+        container.remove(this.gemKey);
+        container.remove(this.gemIdKey);
+        container.remove(this.gemTierKey);
         item.setItemMeta(meta);
         return true;
     }
 
-    /**
-     * Check if an item is marked as a gem.
-     */
     public boolean isGem(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
         if (!item.hasItemMeta()) {
             return false;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return false;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        return container.has(gemKey, PersistentDataType.BYTE) &&
-               container.get(gemKey, PersistentDataType.BYTE) == 1;
+        return container.has(this.gemKey, PersistentDataType.BYTE) && (Byte)container.get(this.gemKey, PersistentDataType.BYTE) == 1;
     }
 
-    /**
-     * Get the gem ID from an item.
-     */
     public String getGemId(ItemStack item) {
-        if (!isGem(item)) {
+        if (!this.isGem(item)) {
             return null;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return null;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        return container.get(gemIdKey, PersistentDataType.STRING);
+        return (String)container.get(this.gemIdKey, PersistentDataType.STRING);
     }
 
-    /**
-     * Get the gem tier from an item.
-     */
     public int getGemTier(ItemStack item) {
-        if (!isGem(item)) {
+        if (!this.isGem(item)) {
             return 0;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return 0;
         }
-
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        Integer tier = container.get(gemTierKey, PersistentDataType.INTEGER);
+        Integer tier = (Integer)container.get(this.gemTierKey, PersistentDataType.INTEGER);
         return tier != null ? tier : 0;
     }
 }
+

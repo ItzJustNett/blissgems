@@ -1,9 +1,8 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package dev.xoperr.blissgems.utils;
 
-/**
- * The six discrete input gestures a player can bind to ability slots.
- * Sneak variants are detected via player.isSneaking() at the moment the event fires.
- */
 public enum AbilityBinding {
     RIGHT_CLICK("right_click", "Right Click", false),
     SHIFT_RIGHT_CLICK("shift_right_click", "Shift + Right Click", true),
@@ -16,29 +15,32 @@ public enum AbilityBinding {
     private final String displayName;
     private final boolean requiresSneak;
 
-    AbilityBinding(String id, String displayName, boolean requiresSneak) {
+    private AbilityBinding(String id, String displayName, boolean requiresSneak) {
         this.id = id;
         this.displayName = displayName;
         this.requiresSneak = requiresSneak;
     }
 
     public String getId() {
-        return id;
+        return this.id;
     }
 
     public String getDisplayName() {
-        return displayName;
+        return this.displayName;
     }
 
     public boolean requiresSneak() {
-        return requiresSneak;
+        return this.requiresSneak;
     }
 
     public static AbilityBinding fromId(String id) {
-        if (id == null) return null;
+        if (id == null) {
+            return null;
+        }
         String lower = id.toLowerCase().replace('-', '_');
-        for (AbilityBinding b : values()) {
-            if (b.id.equals(lower)) return b;
+        for (AbilityBinding b : AbilityBinding.values()) {
+            if (!b.id.equals(lower)) continue;
+            return b;
         }
         return null;
     }
@@ -55,3 +57,4 @@ public enum AbilityBinding {
         return sneaking ? SHIFT_SWAP_HAND : SWAP_HAND;
     }
 }
+

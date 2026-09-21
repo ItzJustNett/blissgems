@@ -2,7 +2,13 @@
  * Decompiled with CFR 0.152.
  * 
  * Could not load the following classes:
+ *  org.bukkit.ChatColor
+ *  org.bukkit.command.CommandSender
+ *  org.bukkit.configuration.file.YamlConfiguration
  *  org.bukkit.entity.Player
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.scheduler.BukkitRunnable
+ *  org.bukkit.scheduler.BukkitTask
  */
 package dev.xoperr.blissgems.managers;
 
@@ -10,19 +16,25 @@ import dev.xoperr.blissgems.BlissGems;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 public class AbilityManager {
     private final BlissGems plugin;
     private final Map<UUID, Map<String, Long>> cooldowns;
+    private final Map<UUID, Map<String, Long>> activeAbilities = new HashMap<UUID, Map<String, Long>>();
+    private final Map<UUID, Map<String, BukkitTask>> durationTasks = new HashMap<UUID, Map<String, BukkitTask>>();
     private final File cooldownDataFolder;
-    /** Players with admin-granted cooldown exemption (/bliss nocdtoggle). Not persisted. */
-    private final Set<UUID> noCooldown = new java.util.HashSet<UUID>();
+    private final Set<UUID> noCooldown = new HashSet<UUID>();
 
     public AbilityManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -33,10 +45,6 @@ public class AbilityManager {
         }
     }
 
-    /**
-     * Flip a player's cooldown exemption. Returns the new state (true = exempt).
-     * Clears any running cooldowns when switching on so abilities are usable immediately.
-     */
     public boolean toggleNoCooldown(Player player) {
         UUID uuid = player.getUniqueId();
         if (this.noCooldown.remove(uuid)) {
@@ -54,6 +62,9 @@ public class AbilityManager {
     public boolean isOnCooldown(Player player, String abilityKey) {
         if (this.noCooldown.contains(player.getUniqueId())) {
             return false;
+        }
+        if (this.isAbilityActive(player, abilityKey)) {
+            return true;
         }
         Map<String, Long> playerCooldowns = this.cooldowns.get(player.getUniqueId());
         if (playerCooldowns == null) {
@@ -83,40 +94,70 @@ public class AbilityManager {
     }
 
     public void setCooldown(Player player, String abilityKey, int seconds) {
-        // Don't even record it, so toggling the exemption back off leaves a clean slate.
         if (this.noCooldown.contains(player.getUniqueId())) {
             return;
         }
         Map playerCooldowns = this.cooldowns.computeIfAbsent(player.getUniqueId(), k -> new HashMap());
         playerCooldowns.put(abilityKey, System.currentTimeMillis() + (long)seconds * 1000L);
-        // Persist cooldown to disk
-        saveCooldowns(player.getUniqueId());
+        this.saveCooldowns(player.getUniqueId());
+    }
+
+    public boolean isAbilityActive(Player player, String abilityKey) {
+        if (player == null || this.noCooldown.contains(player.getUniqueId())) {
+            return false;
+        }
+        Map<String, Long> active = this.activeAbilities.get(player.getUniqueId());
+        if (active == null) {
+            return false;
+        }
+        Long endTime = active.get(abilityKey);
+        if (endTime == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() >= endTime) {
+            this.endAbilityDuration(player, abilityKey);
+            return false;
+        }
+        return true;
+    }
+
+    public int getRemainingActiveDuration(Player player, String abilityKey) {
+        if (player == null || this.noCooldown.contains(player.getUniqueId())) {
+            return 0;
+        }
+        Map<String, Long> active = this.activeAbilities.get(player.getUniqueId());
+        if (active == null) {
+            return 0;
+        }
+        Long endTime = active.get(abilityKey);
+        if (endTime == null) {
+            return 0;
+        }
+        long remaining = endTime - System.currentTimeMillis();
+        return remaining > 0L ? (int)Math.ceil((double)remaining / 1000.0) : 0;
     }
 
     public boolean canUseAbility(Player player, String abilityKey) {
-        // Check if gems are disabled in this region (WorldGuard integration)
-        if (this.plugin.getRegionManager() != null &&
-            this.plugin.getRegionManager().areGemsDisabled(player)) {
+        if (this.plugin.getRegionManager() != null && this.plugin.getRegionManager().areGemsDisabled(player)) {
             String message = this.plugin.getRegionManager().getDisabledMessage();
             if (message != null && !message.isEmpty()) {
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+                player.sendMessage(ChatColor.translateAlternateColorCodes((char)'&', (String)message));
             }
             return false;
         }
         if (!this.plugin.getEnergyManager().canUseAbilities(player)) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "ability-no-energy");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-no-energy", new Object[0]);
             return false;
         }
-        // Check if abilities are suppressed by Dimensional Void (skip check for astra abilities — void user isn't suppressed)
         if (!abilityKey.startsWith("astra-") && this.plugin.getAstraAbilities().isAbilitySuppressed(player)) {
             player.sendMessage("\u00a74\u00a7l\u00a7oYour gem abilities are nullified by a Dimensional Void!");
             return false;
         }
-        if (this.isOnCooldown(player, abilityKey)) {
-            // Cooldown is displayed in action bar, no need for chat message
+        if (this.isAbilityActive(player, abilityKey)) {
+            player.sendMessage("\u00a7c\u00a7oThis ability is currently active!");
             return false;
         }
-        return true;
+        return !this.isOnCooldown(player, abilityKey);
     }
 
     public void useAbility(Player player, String abilityKey) {
@@ -124,79 +165,131 @@ public class AbilityManager {
         this.setCooldown(player, abilityKey, cooldown);
     }
 
+    public void useAbilityWithDuration(final Player player, final String abilityKey, int durationSeconds) {
+        if (player == null) {
+            return;
+        }
+        if (this.noCooldown.contains(player.getUniqueId())) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        Map playerTasks = this.durationTasks.computeIfAbsent(uuid, k -> new HashMap());
+        BukkitTask oldTask = (BukkitTask)playerTasks.remove(abilityKey);
+        if (oldTask != null) {
+            oldTask.cancel();
+        }
+        if (durationSeconds <= 0) {
+            this.useAbility(player, abilityKey);
+            return;
+        }
+        Map playerActive = this.activeAbilities.computeIfAbsent(uuid, k -> new HashMap());
+        playerActive.put(abilityKey, System.currentTimeMillis() + (long)durationSeconds * 1000L);
+        BukkitTask task = new BukkitRunnable(){
+
+            public void run() {
+                AbilityManager.this.endAbilityDuration(player, abilityKey);
+            }
+        }.runTaskLater((Plugin)this.plugin, (long)durationSeconds * 20L);
+        playerTasks.put(abilityKey, task);
+    }
+
+    public void endAbilityDuration(Player player, String abilityKey) {
+        Map<String, Long> playerActive;
+        boolean wasActive;
+        BukkitTask task;
+        if (player == null) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        Map<String, BukkitTask> playerTasks = this.durationTasks.get(uuid);
+        if (playerTasks != null && (task = playerTasks.remove(abilityKey)) != null) {
+            task.cancel();
+        }
+        boolean bl = wasActive = (playerActive = this.activeAbilities.get(uuid)) != null && playerActive.remove(abilityKey) != null;
+        if (wasActive && !this.noCooldown.contains(uuid)) {
+            this.useAbility(player, abilityKey);
+        }
+    }
+
     public void clearCooldowns(Player player) {
-        this.cooldowns.remove(player.getUniqueId());
-        // Also clear from disk
-        File cooldownFile = new File(cooldownDataFolder, player.getUniqueId() + ".yml");
+        UUID uuid = player.getUniqueId();
+        Map<String, BukkitTask> tasks = this.durationTasks.remove(uuid);
+        if (tasks != null) {
+            for (BukkitTask task : tasks.values()) {
+                if (task == null) continue;
+                task.cancel();
+            }
+        }
+        this.activeAbilities.remove(uuid);
+        this.cooldowns.remove(uuid);
+        File cooldownFile = new File(this.cooldownDataFolder, String.valueOf(player.getUniqueId()) + ".yml");
         if (cooldownFile.exists()) {
             cooldownFile.delete();
         }
     }
 
     public void clearCache(UUID uuid) {
+        Map<String, BukkitTask> tasks = this.durationTasks.remove(uuid);
+        if (tasks != null) {
+            for (BukkitTask task : tasks.values()) {
+                if (task == null) continue;
+                task.cancel();
+            }
+        }
+        this.activeAbilities.remove(uuid);
         this.cooldowns.remove(uuid);
     }
 
-    /**
-     * Load cooldowns from disk for a player (called on join)
-     */
     public void loadCooldowns(UUID uuid) {
-        File cooldownFile = new File(cooldownDataFolder, uuid + ".yml");
+        File cooldownFile = new File(this.cooldownDataFolder, String.valueOf(uuid) + ".yml");
         if (!cooldownFile.exists()) {
             return;
         }
-
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(cooldownFile);
-        Map<String, Long> playerCooldowns = new HashMap<>();
-
+        YamlConfiguration config = YamlConfiguration.loadConfiguration((File)cooldownFile);
+        HashMap<String, Long> playerCooldowns = new HashMap<String, Long>();
         Set<String> keys = config.getKeys(false);
         if (keys != null) {
             for (String key : keys) {
                 long endTime = config.getLong(key, 0L);
-                // Only load cooldowns that haven't expired yet
-                if (endTime > System.currentTimeMillis()) {
-                    playerCooldowns.put(key, endTime);
-                }
+                if (endTime <= System.currentTimeMillis()) continue;
+                playerCooldowns.put(key, endTime);
             }
         }
-
         if (!playerCooldowns.isEmpty()) {
             this.cooldowns.put(uuid, playerCooldowns);
         }
     }
 
-    /**
-     * Save cooldowns to disk for a player
-     */
     private void saveCooldowns(UUID uuid) {
         Map<String, Long> playerCooldowns = this.cooldowns.get(uuid);
         if (playerCooldowns == null || playerCooldowns.isEmpty()) {
             return;
         }
-
-        File cooldownFile = new File(cooldownDataFolder, uuid + ".yml");
+        File cooldownFile = new File(this.cooldownDataFolder, String.valueOf(uuid) + ".yml");
         YamlConfiguration config = new YamlConfiguration();
-
-        // Save only non-expired cooldowns
         for (Map.Entry<String, Long> entry : playerCooldowns.entrySet()) {
-            if (entry.getValue() > System.currentTimeMillis()) {
-                config.set(entry.getKey(), entry.getValue());
-            }
+            if (entry.getValue() <= System.currentTimeMillis()) continue;
+            config.set(entry.getKey(), (Object)entry.getValue());
         }
-
         try {
             config.save(cooldownFile);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save cooldowns for " + uuid + ": " + e.getMessage());
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save cooldowns for " + String.valueOf(uuid) + ": " + e.getMessage());
         }
     }
 
-    /**
-     * Save all player cooldowns (called on plugin disable)
-     */
+    public Map<String, Long> getActiveAbilitiesFor(UUID uuid) {
+        Map<String, Long> active = this.activeAbilities.get(uuid);
+        if (active == null) {
+            return java.util.Collections.emptyMap();
+        }
+        return new HashMap<>(active);
+    }
+
     public void saveAllCooldowns() {
-        for (UUID uuid : cooldowns.keySet()) {
-            saveCooldowns(uuid);
+        for (UUID uuid : this.cooldowns.keySet()) {
+            this.saveCooldowns(uuid);
         }
     }
 }

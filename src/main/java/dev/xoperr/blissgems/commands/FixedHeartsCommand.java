@@ -1,8 +1,25 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Bukkit
+ *  org.bukkit.attribute.AttributeInstance
+ *  org.bukkit.attribute.AttributeModifier
+ *  org.bukkit.command.Command
+ *  org.bukkit.command.CommandExecutor
+ *  org.bukkit.command.CommandSender
+ *  org.bukkit.command.TabCompleter
+ *  org.bukkit.entity.Player
+ */
 package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.Attributes;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.Command;
@@ -11,134 +28,90 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-
-/**
- * /fixedhearts everyone true|false
- *
- * Toggles the global "fixed hearts" feature. When enabled, every player is
- * forced back to exactly 10 hearts (vanilla 20.0 max health) when they join,
- * and all currently-online players are reset immediately. The setting persists
- * in config.yml so it survives restarts.
- */
-public class FixedHeartsCommand implements CommandExecutor, TabCompleter {
+public class FixedHeartsCommand
+implements CommandExecutor,
+TabCompleter {
     private final BlissGems plugin;
 
     public FixedHeartsCommand(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Force a single player back to exactly 10 hearts (vanilla 20.0 max health),
-     * stripping every max-health modifier and resetting the base value. Current
-     * health is clamped down to the new max if needed (never healed up).
-     *
-     * @return the number of modifiers removed, or -1 if the attribute was unavailable.
-     */
     public static int applyTenHearts(BlissGems plugin, Player target) {
-        AttributeInstance attr = target.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        AttributeInstance attr = target.getAttribute(Attributes.maxHealth());
         if (attr == null) {
             return -1;
         }
-
-        // Drop BlissGems' own max-health contributions first. These cleanups are key-filtered
-        // (they only remove Life/Soul modifiers tagged 'blissgems'), so they never touch another
-        // plugin's or mod's max-health.
         if (plugin.getLifeAbilities() != null) {
             plugin.getLifeAbilities().cleanup(target);
         }
         if (plugin.getSoulManager() != null) {
             plugin.getSoulManager().cleanup(target);
         }
-
-        // By default, RESPECT external max-health: a mod/plugin that grants variable max hearts
-        // (e.g. a Ranked/Lifesteal SMP) owns the base value and its own modifiers. Stripping those
-        // and resetting the base to 20.0 would reset players to 10 hearts and break that system.
-        // Set fixed-hearts.respect-external-hearts: false to hard-force exactly 10 hearts instead.
         int removed = 0;
         boolean respectExternal = plugin.getConfig().getBoolean("fixed-hearts.respect-external-hearts", true);
         if (!respectExternal) {
             for (AttributeModifier m : new ArrayList<>(attr.getModifiers())) {
                 attr.removeModifier(m);
-                removed++;
+                ++removed;
             }
             attr.setBaseValue(attr.getDefaultValue());
         }
-
-        // Clamp current health down to the (possibly external) max so setHealth never exceeds it.
         if (target.getHealth() > attr.getValue()) {
             target.setHealth(attr.getValue());
         }
         return removed;
     }
 
-    @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("blissgems.admin") && !sender.hasPermission("blissgems.fixedhearts")) {
-            sender.sendMessage("§cYou don't have permission to use this command.");
+            sender.sendMessage("\u00a7cYou don't have permission to use this command.");
             return true;
         }
-
         if (args.length < 2 || !args[0].equalsIgnoreCase("everyone")) {
-            sender.sendMessage("§cUsage: §e/fixedhearts everyone <true|false>");
-            sender.sendMessage("§7Currently: " + (this.plugin.getConfigManager().isFixedHeartsEnabled()
-                ? "§aenabled" : "§cdisabled"));
+            sender.sendMessage("\u00a7cUsage: \u00a7e/fixedhearts everyone <true|false>");
+            sender.sendMessage("\u00a77Currently: " + (this.plugin.getConfigManager().isFixedHeartsEnabled() ? "\u00a7aenabled" : "\u00a7cdisabled"));
             return true;
         }
-
-        Boolean enabled = parseBoolean(args[1]);
+        Boolean enabled = FixedHeartsCommand.parseBoolean(args[1]);
         if (enabled == null) {
-            sender.sendMessage("§cExpected §etrue §cor §efalse§c, got §e" + args[1] + "§c.");
+            sender.sendMessage("\u00a7cExpected \u00a7etrue \u00a7cor \u00a7efalse\u00a7c, got \u00a7e" + args[1] + "\u00a7c.");
             return true;
         }
-
         this.plugin.getConfigManager().setFixedHeartsEnabled(enabled);
-
-        if (enabled) {
+        if (enabled.booleanValue()) {
             int affected = 0;
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (applyTenHearts(this.plugin, online) >= 0) {
-                    affected++;
-                }
+                if (FixedHeartsCommand.applyTenHearts(this.plugin, online) < 0) continue;
+                ++affected;
             }
-            sender.sendMessage("§d§l❤ §aFixed hearts §lENABLED§a. Everyone is locked to 10 hearts on join "
-                + "§7(reset " + affected + " online player(s)).");
-            this.plugin.getLogger().info("[fixedhearts] " + sender.getName()
-                + " ENABLED fixed hearts (reset " + affected + " online player(s))");
+            sender.sendMessage("\u00a7d\u00a7l\u2764 \u00a7aFixed hearts \u00a7lENABLED\u00a7a. Everyone is locked to 10 hearts on join \u00a77(reset " + affected + " online player(s)).");
+            this.plugin.getLogger().info("[fixedhearts] " + sender.getName() + " ENABLED fixed hearts (reset " + affected + " online player(s))");
         } else {
-            sender.sendMessage("§d§l❤ §eFixed hearts §lDISABLED§e. Players keep their current hearts on join.");
+            sender.sendMessage("\u00a7d\u00a7l\u2764 \u00a7eFixed hearts \u00a7lDISABLED\u00a7e. Players keep their current hearts on join.");
             this.plugin.getLogger().info("[fixedhearts] " + sender.getName() + " DISABLED fixed hearts");
         }
         return true;
     }
 
     private static Boolean parseBoolean(String s) {
-        if (s.equalsIgnoreCase("true") || s.equalsIgnoreCase("on") || s.equalsIgnoreCase("enable")
-            || s.equalsIgnoreCase("enabled") || s.equalsIgnoreCase("yes")) {
+        if (s.equalsIgnoreCase("true") || s.equalsIgnoreCase("on") || s.equalsIgnoreCase("enable") || s.equalsIgnoreCase("enabled") || s.equalsIgnoreCase("yes")) {
             return Boolean.TRUE;
         }
-        if (s.equalsIgnoreCase("false") || s.equalsIgnoreCase("off") || s.equalsIgnoreCase("disable")
-            || s.equalsIgnoreCase("disabled") || s.equalsIgnoreCase("no")) {
+        if (s.equalsIgnoreCase("false") || s.equalsIgnoreCase("off") || s.equalsIgnoreCase("disable") || s.equalsIgnoreCase("disabled") || s.equalsIgnoreCase("no")) {
             return Boolean.FALSE;
         }
         return null;
     }
 
-    @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("everyone").stream()
-                .filter(s -> s.startsWith(args[0].toLowerCase()))
-                .collect(Collectors.toList());
+            return Arrays.asList("everyone").stream().filter(s -> s.startsWith(args[0].toLowerCase())).collect(Collectors.toList());
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("everyone")) {
-            return Arrays.asList("true", "false").stream()
-                .filter(s -> s.startsWith(args[1].toLowerCase()))
-                .collect(Collectors.toList());
+            return Arrays.asList("true", "false").stream().filter(s -> s.startsWith(args[1].toLowerCase())).collect(Collectors.toList());
         }
-        return new ArrayList<>();
+        return new ArrayList<String>();
     }
 }
+

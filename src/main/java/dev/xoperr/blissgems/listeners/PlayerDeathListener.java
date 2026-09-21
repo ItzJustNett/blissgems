@@ -1,22 +1,36 @@
 /*
  * Decompiled with CFR 0.152.
- *
+ * 
  * Could not load the following classes:
  *  org.bukkit.Location
+ *  org.bukkit.configuration.file.YamlConfiguration
  *  org.bukkit.entity.Player
  *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
  *  org.bukkit.event.Listener
  *  org.bukkit.event.entity.PlayerDeathEvent
  *  org.bukkit.event.player.PlayerJoinEvent
  *  org.bukkit.event.player.PlayerQuitEvent
+ *  org.bukkit.event.player.PlayerRespawnEvent
  *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
  */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
-import dev.xoperr.blissgems.utils.EnergyState;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.EnergyState;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,51 +40,35 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 
 public class PlayerDeathListener
 implements Listener {
     private final BlissGems plugin;
-    private final Map<UUID, List<ItemStack>> savedGems = new HashMap<>();
+    private final Map<UUID, List<ItemStack>> savedGems = new HashMap<UUID, List<ItemStack>>();
 
     public PlayerDeathListener(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
-
-        // Check victim's energy state BEFORE death to determine if killer can gain energy
         EnergyState victimState = this.plugin.getEnergyManager().getEnergyState(victim);
         boolean victimHadEnergy = victimState != EnergyState.BROKEN;
-
         int energyLoss = this.plugin.getConfigManager().getEnergyLossOnDeath();
         this.plugin.getEnergyManager().removeEnergy(victim, energyLoss);
-
-        // Check if player reached 0 energy and ban is enabled
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(victim);
         if (currentEnergy <= 0 && this.plugin.getConfigManager().isBanOnZeroEnergyEnabled()) {
-            String banMessage = this.plugin.getConfigManager().getFormattedMessage("energy-zero-banned");
+            String banMessage = this.plugin.getConfigManager().getFormattedMessage("energy-zero-banned", new Object[0]);
             if (banMessage == null || banMessage.isEmpty()) {
                 banMessage = "You have been banned for reaching 0 energy!";
             }
-            // Ban the player
-            victim.ban(banMessage, (java.util.Date)null, (String)null);
+            victim.ban(banMessage, (Date)null, (String)null);
         }
-
         if (killer != null && victimHadEnergy) {
-            // Only give killer energy if victim had energy to drop (not BROKEN)
             int energyGain = this.plugin.getConfigManager().getEnergyGainOnKill();
             this.plugin.getEnergyManager().addEnergy(killer, energyGain);
             EnergyState killerState = this.plugin.getEnergyManager().getEnergyState(killer);
@@ -78,58 +76,74 @@ implements Listener {
                 this.dropEnergyBottle(victim.getLocation());
             }
         }
-
-        // A Tier 2 holder leaves their upgrader behind on death, so the tier can be taken
-        // back off them even though the gem itself is drop-protected.
-        if (this.plugin.getConfigManager().isUpgraderDropOnTier2DeathEnabled()
-                && this.plugin.getGemManager().hasActiveGem(victim)
-                && this.plugin.getGemManager().getGemTier(victim) == 2) {
+        if (this.plugin.getConfigManager().isUpgraderDropOnTier2DeathEnabled() && this.plugin.getGemManager().hasActiveGem(victim) && this.plugin.getGemManager().getGemTier(victim) == 2) {
             this.dropUpgrader(victim.getLocation());
         }
-
-        // NOTE: Gem drop-protection runs in onPlayerDeathProtectGems() at LOWEST priority
-        // (below) so it strips gems out of event.getDrops() BEFORE gravestone / SMP-core
-        // plugins snapshot or replace the drop list. Doing it here at HIGHEST ran too late.
-
-        // Clean up any active Astra gem abilities (projection, drift, void)
         this.plugin.getAstraAbilities().cleanup(victim);
-        // Clean up any active Fire gem charging
         this.plugin.getFireAbilities().cleanup(victim);
-        // Clean up any active Flux gem charging
         this.plugin.getFluxAbilities().cleanup(victim);
-        // Clean up Life gem heart modifiers (Circle of Life, Heart Lock)
         this.plugin.getLifeAbilities().cleanup(victim);
-        // Clean up Astra Soul Absorption max-health modifiers
         if (this.plugin.getSoulManager() != null) {
             this.plugin.getSoulManager().cleanup(victim);
         }
-        // The Gold Gem is soulbound and stays, but its awakening does not survive a death.
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldAbilities().cleanup(victim);
             this.plugin.getGoldGemManager().resetProgress(victim);
         }
-
+        this.handleUpgraderChargeLoss(victim);
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
             this.plugin.getGemManager().updateActiveGem(killer);
         }
     }
 
-    /**
-     * Strip undroppable gems from the death drops at the EARLIEST possible point.
-     *
-     * Other death-handling plugins (gravestones, "SMP core" lives/hardcore systems, some
-     * lag plugins) frequently read or replace event.getDrops() at NORMAL/HIGH priority. If
-     * we stripped gems at HIGHEST we'd run AFTER them — they'd already have copied the gems
-     * into a grave / their own drop handling, so the gem effectively becomes droppable.
-     * Running at LOWEST pulls gems out of the list before anyone else sees it. Gems are
-     * restored on respawn, with enforceOneGemOnly() guarding against any duplication (e.g.
-     * a plugin-driven keepInventory that also retains the gem).
-     */
-    @EventHandler(priority = EventPriority.LOWEST)
+    private void handleUpgraderChargeLoss(Player player) {
+        int maxCharges = this.plugin.getConfig().getInt("upgrader.charges", 3);
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item == null) continue;
+            String id = CustomItemManager.getIdByItem(item);
+            if (!"gem_upgrader".equals(id)) continue;
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null) continue;
+            int currentCharges = maxCharges;
+            List<String> lore = meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+            for (String line : lore) {
+                String stripped = ChatColor.stripColor(line);
+                if (stripped != null && stripped.startsWith("Charges: ")) {
+                    try { currentCharges = Integer.parseInt(stripped.substring(9).split("/")[0].trim()); } catch (Exception ignored) {}
+                    break;
+                }
+            }
+            currentCharges--;
+            if (currentCharges <= 0) {
+                player.getInventory().setItem(i, null);
+                String gemId = this.plugin.getGemManager().getGemId(player);
+                if (gemId != null && this.plugin.getGemManager().getGemTier(player) == 2) {
+                    this.plugin.getGemManager().downgradeGem(player, gemId);
+                    player.sendMessage("§c§lYour upgrader broke! Your gem reverted to Tier 1.");
+                }
+            } else {
+                boolean found = false;
+                for (int j = 0; j < lore.size(); j++) {
+                    String stripped = ChatColor.stripColor(lore.get(j));
+                    if (stripped != null && stripped.startsWith("Charges: ")) {
+                        lore.set(j, "§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    lore.add("§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
+                }
+                meta.setLore(lore);
+                item.setItemMeta(meta);
+            }
+        }
+    }
+
+    @EventHandler(priority=EventPriority.LOWEST)
     public void onPlayerDeathProtectGems(PlayerDeathEvent event) {
-        // Harvesting runs before drop-protection on purpose: a gem the Gold Gem takes must
-        // never reach gemsToSave, or the victim would be handed it straight back on respawn.
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().harvestOnDeath(event);
         }
@@ -137,34 +151,24 @@ implements Listener {
             return;
         }
         Player victim = event.getEntity();
-        List<ItemStack> gemsToSave = new ArrayList<>();
-        List<String> droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death")
-                ? this.plugin.getConfig().getStringList("gems.droppable-on-death")
-                : java.util.List.of();
+        ArrayList<ItemStack> gemsToSave = new ArrayList<ItemStack>();
+        List droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death") ? this.plugin.getConfig().getStringList("gems.droppable-on-death") : List.of();
         event.getDrops().removeIf(item -> {
             if (CustomItemManager.isUndroppable(item)) {
-                if (isDroppableOnDeath(item, droppableOnDeath)) {
-                    return false; // configured to drop on death — leave it in the drops
+                if (this.isDroppableOnDeath((ItemStack)item, droppableOnDeath)) {
+                    return false;
                 }
                 gemsToSave.add(item.clone());
-                return true; // remove from drops
+                return true;
             }
             return false;
         });
         if (!gemsToSave.isEmpty()) {
-            savedGems.put(victim.getUniqueId(), gemsToSave);
-            saveGemsToDisk(victim.getUniqueId(), gemsToSave);
+            this.savedGems.put(victim.getUniqueId(), gemsToSave);
+            this.saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }
     }
 
-    /**
-     * True if the item is a gem whose type is configured to drop on death (e.g. heretic/auratus),
-     * so it is left in the death drops instead of being kept and re-given on respawn.
-     *
-     * Matching ignores case and accepts either the plain gem id ("auratus") or a full item id
-     * ("auratus_gem_t1"), because both are the obvious thing to write and a config that only
-     * accepted one of them looked simply broken to anyone who guessed the other.
-     */
     private boolean isDroppableOnDeath(ItemStack item, List<String> droppableGems) {
         if (droppableGems.isEmpty()) {
             return false;
@@ -179,223 +183,153 @@ implements Listener {
         }
         String gemId = id.substring(0, gemMarker);
         for (String entry : droppableGems) {
-            if (entry == null) {
-                continue;
-            }
-            String trimmed = entry.trim();
-            if (trimmed.equalsIgnoreCase(gemId) || trimmed.equalsIgnoreCase(id)) {
-                return true;
-            }
+            String trimmed;
+            if (entry == null || !(trimmed = entry.trim()).equalsIgnoreCase(gemId) && !trimmed.equalsIgnoreCase(id)) continue;
+            return true;
         }
         return false;
     }
 
-    /**
-     * Log any {@code gems.droppable-on-death} entry that names no gem the server knows about.
-     * Called a tick after startup so addon gems (the mythics) have registered themselves
-     * first. A typo here fails silently at death time, which is exactly when nobody is
-     * reading the console - so it is reported up front instead.
-     */
     public void validateDroppableOnDeathConfig() {
         List<String> configured = this.plugin.getConfig().getStringList("gems.droppable-on-death");
         for (String entry : configured) {
-            if (entry == null || entry.trim().isEmpty()) {
-                continue;
-            }
+            if (entry == null || entry.trim().isEmpty()) continue;
             String gemId = entry.trim().toLowerCase();
             int gemMarker = gemId.indexOf("_gem_t");
             if (gemMarker > 0) {
                 gemId = gemId.substring(0, gemMarker);
             }
-            if (this.plugin.getGemRegistry() == null || this.plugin.getGemRegistry().getGem(gemId) == null) {
-                this.plugin.getLogger().warning("gems.droppable-on-death lists '" + entry
-                    + "', which is not a known gem - it will never drop. Use the plain gem id"
-                    + " (e.g. auratus, heretic).");
-            }
+            if (this.plugin.getGemRegistry() != null && this.plugin.getGemRegistry().getGem(gemId) != null) continue;
+            this.plugin.getLogger().warning("gems.droppable-on-death lists '" + entry + "', which is not a known gem - it will never drop. Use the plain gem id (e.g. auratus, heretic).");
         }
     }
 
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-
-        // Give saved gems back to player
         UUID playerId = player.getUniqueId();
         List<ItemStack> gems = null;
-
-        // Check memory first (for immediate respawns)
-        if (savedGems.containsKey(playerId)) {
-            gems = savedGems.remove(playerId);
-            // Also clear disk copy to prevent duplication on future restarts
-            clearGemsFromDisk(playerId);
+        if (this.savedGems.containsKey(playerId)) {
+            gems = this.savedGems.remove(playerId);
+            this.clearGemsFromDisk(playerId);
+        } else {
+            gems = this.loadGemsFromDisk(playerId);
         }
-        // If not in memory, check disk (for respawns after disconnect/restart)
-        else {
-            gems = loadGemsFromDisk(playerId);
-        }
-
         if (gems != null && !gems.isEmpty()) {
-            // Safety check: If single-gem-only is enabled, only return the first gem
-            // This prevents duplication bugs
+            List<ItemStack> toRestore;
             boolean singleGemOnly = this.plugin.getConfig().getBoolean("gems.single-gem-only", true);
-            List<ItemStack> toRestore = (singleGemOnly && gems.size() > 1)
-                ? List.of(gems.get(0))
-                : gems;
+            List<ItemStack> list = toRestore = singleGemOnly && gems.size() > 1 ? List.of(gems.get(0)) : gems;
             if (singleGemOnly && gems.size() > 1) {
-                this.plugin.getLogger().warning("Player " + player.getName() + " had " + gems.size() +
-                    " gems saved! Only returning first gem due to single-gem-only config.");
+                this.plugin.getLogger().warning("Player " + player.getName() + " had " + gems.size() + " gems saved! Only returning first gem due to single-gem-only config.");
             }
             for (ItemStack gem : toRestore) {
-                // Idempotent restore: if the player already holds this gem (e.g. it was kept
-                // via keepInventory by the Revive Beacon), don't add a duplicate.
-                if (!playerAlreadyHasGem(player, gem)) {
-                    player.getInventory().addItem(gem);
-                }
+                if (this.playerAlreadyHasGem(player, gem)) continue;
+                player.getInventory().addItem(new ItemStack[]{gem});
             }
         }
-
-        // Enforce single-gem-only after restoring gems (safety net against duplication)
-        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             if (player.isOnline()) {
-                enforceOneGemOnly(player);
+                this.enforceOneGemOnly(player);
                 this.plugin.getGemManager().updateActiveGem(player);
             }
         }, 1L);
     }
 
     private void dropEnergyBottle(Location location) {
-        ItemStack bottle = CustomItemManager.getItemById((String)"energy_bottle");
+        ItemStack bottle = CustomItemManager.getItemById("energy_bottle");
         if (bottle != null) {
             location.getWorld().dropItemNaturally(location, bottle);
         }
     }
 
     private void dropUpgrader(Location location) {
-        ItemStack upgrader = CustomItemManager.getItemById((String)"gem_upgrader");
+        ItemStack upgrader = CustomItemManager.getItemById("gem_upgrader");
         if (upgrader != null) {
             location.getWorld().dropItemNaturally(location, upgrader);
         }
     }
 
-    /**
-     * Save gems to disk so they persist across server restarts/disconnects
-     */
     private void saveGemsToDisk(UUID playerId, List<ItemStack> gems) {
+        File file;
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-
-        File file = new File(dataFolder, playerId + ".yml");
-        FileConfiguration data;
-
-        if (file.exists()) {
-            data = YamlConfiguration.loadConfiguration(file);
-        } else {
-            data = new YamlConfiguration();
-        }
-
-        // Save gem items as serialized data
+        YamlConfiguration data = (file = new File(dataFolder, String.valueOf(playerId) + ".yml")).exists() ? YamlConfiguration.loadConfiguration((File)file) : new YamlConfiguration();
         data.set("saved-gems", gems);
-
         try {
             data.save(file);
-        } catch (IOException e) {
-            this.plugin.getLogger().severe("Failed to save gems for player " + playerId + ": " + e.getMessage());
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().severe("Failed to save gems for player " + String.valueOf(playerId) + ": " + e.getMessage());
         }
     }
 
-    /**
-     * Load saved gems from disk
-     */
     private List<ItemStack> loadGemsFromDisk(UUID playerId) {
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        File file = new File(dataFolder, playerId + ".yml");
-
+        File file = new File(dataFolder, String.valueOf(playerId) + ".yml");
         if (!file.exists()) {
             return null;
         }
-
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
-
-        @SuppressWarnings("unchecked")
-        List<ItemStack> gems = (List<ItemStack>) data.get("saved-gems");
-
-        // Clear the saved gems from disk after loading
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
+        List gems = (List)data.get("saved-gems");
         if (gems != null) {
             data.set("saved-gems", null);
             try {
                 data.save(file);
-            } catch (IOException e) {
-                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + playerId);
+            }
+            catch (IOException e) {
+                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + String.valueOf(playerId));
             }
         }
-
         return gems;
     }
 
-    /**
-     * Clear saved gems from disk without loading them
-     */
     private void clearGemsFromDisk(UUID playerId) {
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        File file = new File(dataFolder, playerId + ".yml");
-
+        File file = new File(dataFolder, String.valueOf(playerId) + ".yml");
         if (!file.exists()) {
             return;
         }
-
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         if (data.contains("saved-gems")) {
             data.set("saved-gems", null);
             try {
                 data.save(file);
-            } catch (IOException e) {
-                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + playerId);
+            }
+            catch (IOException e) {
+                this.plugin.getLogger().warning("Failed to clear saved gems from disk for " + String.valueOf(playerId));
             }
         }
     }
 
-    /**
-     * True if the player already has a gem with the same id as the given gem in their inventory.
-     * Used to avoid re-adding a gem that keepInventory already retained (Revive Beacon).
-     */
     private boolean playerAlreadyHasGem(Player player, ItemStack gem) {
         String gemId = CustomItemManager.getIdByItem(gem);
         if (gemId == null) {
             return false;
         }
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item == null) continue;
-            if (gemId.equals(CustomItemManager.getIdByItem(item))) {
-                return true;
-            }
+            if (item == null || !gemId.equals(CustomItemManager.getIdByItem(item))) continue;
+            return true;
         }
         return false;
     }
 
-    /**
-     * Remove duplicate gems from inventory, keeping only the first one found.
-     */
     private void enforceOneGemOnly(Player player) {
         if (!this.plugin.getConfigManager().isSingleGemOnly()) {
             return;
         }
-
         boolean foundFirst = false;
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
+            String itemId;
             ItemStack item = player.getInventory().getItem(i);
-            if (item == null) continue;
-            String itemId = CustomItemManager.getIdByItem(item);
-            if (itemId == null) continue;
-            if (!this.plugin.getGemManager().isAnyGem(itemId)) continue;
-
+            if (item == null || (itemId = CustomItemManager.getIdByItem(item)) == null || !this.plugin.getGemManager().isAnyGem(itemId)) continue;
             if (!foundFirst) {
                 foundFirst = true;
-            } else {
-                player.getInventory().setItem(i, null);
-                this.plugin.getLogger().info("Removed duplicate gem from " + player.getName() + " on respawn.");
+                continue;
             }
+            player.getInventory().setItem(i, null);
+            this.plugin.getLogger().info("Removed duplicate gem from " + player.getName() + " on respawn.");
         }
     }
 
@@ -407,28 +341,14 @@ implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-
-        // Clean up Astra gem abilities (projection, drift, void)
         this.plugin.getAstraAbilities().cleanup(player);
-        // Clean up Fire gem charging
         this.plugin.getFireAbilities().cleanup(player);
-        // Clean up Flux gem charging
         this.plugin.getFluxAbilities().cleanup(player);
-        // Clean up Speed gem Adrenaline Rush
         this.plugin.getSpeedAbilities().cleanup(player.getUniqueId());
-        // Clean up Wealth gem amplification/effects
         this.plugin.getWealthAbilities().cleanup(player);
-        // Clean up Life gem heart modifiers (Circle of Life, Heart Lock)
         this.plugin.getLifeAbilities().cleanup(player);
-        // Clean up Astra Soul Absorption max-health modifiers
         this.plugin.getSoulManager().cleanup(player);
-
-        // Clear captured souls
         this.plugin.getSoulManager().clearSouls(player.getUniqueId());
-
-        // No need to clear saved gems - they're persisted to disk now!
-        // If player quits before respawning, gems will be loaded from disk on next login
-
         this.plugin.getEnergyManager().clearCache(player.getUniqueId());
         this.plugin.getGemManager().clearCache(player.getUniqueId());
         this.plugin.getAbilityManager().clearCache(player.getUniqueId());

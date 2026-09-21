@@ -1,3 +1,6 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package dev.xoperr.blissgems.utils;
 
 public enum Achievement {
@@ -19,21 +22,22 @@ public enum Achievement {
     private final String description;
     private final int targetProgress;
 
-    Achievement(String displayName, String description, int targetProgress) {
+    private Achievement(String displayName, String description, int targetProgress) {
         this.displayName = displayName;
         this.description = description;
         this.targetProgress = targetProgress;
     }
 
     public String getDisplayName() {
-        return displayName;
+        return this.displayName;
     }
 
     public String getDescription() {
-        return description;
+        return this.description;
     }
 
     public int getTargetProgress() {
-        return targetProgress;
+        return this.targetProgress;
     }
 }
+

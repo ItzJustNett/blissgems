@@ -1,3 +1,27 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Bukkit
+ *  org.bukkit.NamespacedKey
+ *  org.bukkit.Particle
+ *  org.bukkit.Particle$DustOptions
+ *  org.bukkit.Sound
+ *  org.bukkit.command.CommandSender
+ *  org.bukkit.configuration.file.YamlConfiguration
+ *  org.bukkit.enchantments.Enchantment
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.Player
+ *  org.bukkit.inventory.Inventory
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.inventory.meta.ItemMeta
+ *  org.bukkit.persistence.PersistentDataContainer
+ *  org.bukkit.persistence.PersistentDataType
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.potion.PotionEffect
+ *  org.bukkit.potion.PotionEffectType
+ *  org.bukkit.util.RayTraceResult
+ */
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
@@ -12,16 +36,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -30,33 +54,23 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.RayTraceResult;
 
-public class WealthAbilities implements GemAbilityHandler {
+public class WealthAbilities
+implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Map<UUID, Inventory> pocketsInventories;
     private final Map<UUID, Boolean> autoSmeltEnabled;
     private final File pocketsDataFolder;
-
-    // Unfortunate: tracks players whose actions are disabled
-    private static final Set<UUID> unfortunatePlayers = new HashSet<>();
-
-    // Item Lock: tracks players with a locked item
-    private static final Map<UUID, ItemStack> itemLockedPlayers = new HashMap<>();
-
-    // Amplification: tracks which players are currently amplified (for preventing stacking)
-    private final Set<UUID> amplifiedPlayers = new HashSet<>();
-
-    // PDC prefix for amplify original enchant levels
+    private static final Set<UUID> unfortunatePlayers = new HashSet<UUID>();
+    private static final Map<UUID, ItemStack> itemLockedPlayers = new HashMap<UUID, ItemStack>();
+    private final Set<UUID> amplifiedPlayers = new HashSet<UUID>();
     private static final String AMP_PDC_PREFIX = "amp_orig_";
-    // PDC prefix used by auto-enchant system (to skip those enchants)
     private static final String AE_PDC_PREFIX = "ae_orig_";
-
-    // Rich Rush: tracks players with active Rich Rush (increased drops)
-    private static final Set<UUID> richRushPlayers = new HashSet<>();
+    private static final Set<UUID> richRushPlayers = new HashSet<UUID>();
 
     public WealthAbilities(BlissGems plugin) {
         this.plugin = plugin;
-        this.pocketsInventories = new HashMap<>();
-        this.autoSmeltEnabled = new HashMap<>();
+        this.pocketsInventories = new HashMap<UUID, Inventory>();
+        this.autoSmeltEnabled = new HashMap<UUID, Boolean>();
         this.pocketsDataFolder = new File(plugin.getDataFolder(), "pockets");
         if (!this.pocketsDataFolder.exists()) {
             this.pocketsDataFolder.mkdirs();
@@ -91,7 +105,6 @@ public class WealthAbilities implements GemAbilityHandler {
         this.amplification(player);
     }
 
-    /** Shared tier gate: messages the player and returns false when they are below Tier 2. */
     private boolean requireTier2(Player player) {
         if (this.plugin.getGemManager().getGemTier(player) >= 2) {
             return true;
@@ -101,12 +114,12 @@ public class WealthAbilities implements GemAbilityHandler {
     }
 
     public void pockets(Player player) {
-        if (!requireTier2(player)) {
+        if (!this.requireTier2(player)) {
             return;
         }
         Inventory pockets = this.pocketsInventories.computeIfAbsent(player.getUniqueId(), uuid -> {
-            Inventory inv = Bukkit.createInventory(null, 9, "\u00a76\u00a7lPockets");
-            loadPocketsInventory(player.getUniqueId(), inv);
+            Inventory inv = Bukkit.createInventory(null, (int)9, (String)"\u00a76\u00a7lPockets");
+            this.loadPocketsInventory(player.getUniqueId(), inv);
             return inv;
         });
         player.openInventory(pockets);
@@ -114,7 +127,8 @@ public class WealthAbilities implements GemAbilityHandler {
     }
 
     public void unfortunate(Player player) {
-        if (!requireTier2(player)) {
+        Entity entity2;
+        if (!this.requireTier2(player)) {
             return;
         }
         String abilityKey = "wealth-unfortunate";
@@ -122,36 +136,33 @@ public class WealthAbilities implements GemAbilityHandler {
             return;
         }
         RayTraceResult target = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 15.0, entity -> entity instanceof Player && entity != player);
-        if (target == null || !(target.getHitEntity() instanceof Player targetPlayer)) {
+        if (target == null || !((entity2 = target.getHitEntity()) instanceof Player)) {
             player.sendMessage("\u00a7cNo player target found!");
             return;
         }
+        Player targetPlayer = (Player)entity2;
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-unfortunate");
-
-        // Membership in this set is what actually disables the target's actions (PassiveListener).
         UUID targetUUID = targetPlayer.getUniqueId();
         unfortunatePlayers.add(targetUUID);
-
-        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             unfortunatePlayers.remove(targetUUID);
             if (targetPlayer.isOnline()) {
                 targetPlayer.sendMessage("\u00a7a\u00a7oUnfortunate has worn off.");
             }
-        }, duration * 20L);
-
+            this.plugin.getAbilityManager().endAbilityDuration(player, abilityKey);
+        }, (long)duration * 20L);
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
-        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, greenDust, true);
+        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, (Object)greenDust, true);
         targetPlayer.getWorld().spawnParticle(Particle.SMOKE, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
         player.playSound(player.getLocation(), Sound.ENTITY_WITCH_CELEBRATE, 1.0f, 0.8f);
-
         targetPlayer.sendMessage("\u00a7c\u00a7oYou've been afflicted with Unfortunate! Actions disabled for " + duration + "s!");
-
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Unfortunate");
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, duration);
+        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-activated", "ability", "Unfortunate");
     }
 
     public void itemLock(Player player) {
-        if (!requireTier2(player)) {
+        Entity entity2;
+        if (!this.requireTier2(player)) {
             return;
         }
         String abilityKey = "wealth-item-lock";
@@ -159,43 +170,36 @@ public class WealthAbilities implements GemAbilityHandler {
             return;
         }
         RayTraceResult target = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 15.0, entity -> entity instanceof Player && entity != player);
-        if (target == null || !(target.getHitEntity() instanceof Player targetPlayer)) {
+        if (target == null || !((entity2 = target.getHitEntity()) instanceof Player)) {
             player.sendMessage("\u00a7cNo player target found!");
             return;
         }
+        Player targetPlayer = (Player)entity2;
         ItemStack targetItem = targetPlayer.getInventory().getItemInMainHand();
-
         if (targetItem == null || targetItem.getType().isAir()) {
             player.sendMessage("\u00a7cTarget isn't holding an item!");
             return;
         }
-
-        // Snapshot the held item: the listener matches by isSimilar, so it must be a copy.
         UUID targetUUID = targetPlayer.getUniqueId();
         itemLockedPlayers.put(targetUUID, targetItem.clone());
-
         int duration = this.plugin.getConfig().getInt("abilities.durations.wealth-item-lock", 10);
-
-        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             itemLockedPlayers.remove(targetUUID);
             if (targetPlayer.isOnline()) {
                 targetPlayer.sendMessage("\u00a7a\u00a7oItem Lock has worn off.");
             }
-        }, duration * 20L);
-
+            this.plugin.getAbilityManager().endAbilityDuration(player, abilityKey);
+        }, (long)duration * 20L);
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
-        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, greenDust, true);
+        targetPlayer.getWorld().spawnParticle(Particle.DUST, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5, 0.0, (Object)greenDust, true);
         targetPlayer.playSound(targetPlayer.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 0.5f);
-
         String itemName = targetItem.getType().name().toLowerCase().replace('_', ' ');
         if (targetItem.hasItemMeta() && targetItem.getItemMeta().hasDisplayName()) {
             itemName = targetItem.getItemMeta().getDisplayName();
         }
-
         targetPlayer.sendMessage("\u00a7c\u00a7oYour " + itemName + " has been locked for " + duration + "s!");
-
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Item Lock");
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, duration);
+        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-activated", "ability", "Item Lock");
     }
 
     public void richRush(Player player) {
@@ -209,39 +213,32 @@ public class WealthAbilities implements GemAbilityHandler {
         }
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-rich-rush");
         UUID uuid = player.getUniqueId();
-
-        // Apply Haste (faster mining) and Luck
         player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration * 20, 2, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.LUCK, duration * 20, 3, false, true));
-
-        // Track active Rich Rush for drop multiplication in listeners
         richRushPlayers.add(uuid);
         Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             richRushPlayers.remove(uuid);
-            Player p = Bukkit.getPlayer(uuid);
+            this.plugin.getAbilityManager().endAbilityDuration(player, abilityKey);
+            Player p = Bukkit.getPlayer((UUID)uuid);
             if (p != null && p.isOnline()) {
                 p.sendMessage("\u00a7e\u00a7oRich Rush has worn off.");
             }
-        }, duration * 20L);
-
-        // Rich Rush with bright green dust (RGB 0, 166, 44)
+        }, (long)duration * 20L);
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5, 0.0, greenDust, true);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5, 0.0, (Object)greenDust, true);
         player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5);
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Rich Rush");
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, duration);
+        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-activated", "ability", "Rich Rush");
         player.sendMessage("\u00a76\u00a7lRich Rush! \u00a7eMob and ore drops doubled for " + duration + "s!");
     }
 
-    /**
-     * Check if a player has Rich Rush active (for drop multiplication in listeners)
-     */
     public static boolean hasRichRush(UUID uuid) {
         return richRushPlayers.contains(uuid);
     }
 
     public void amplification(Player player) {
+        ItemStack offHand;
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;
@@ -250,206 +247,151 @@ public class WealthAbilities implements GemAbilityHandler {
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-
         UUID uuid = player.getUniqueId();
-
-        // Prevent stacking amplify
-        if (amplifiedPlayers.contains(uuid)) {
+        if (this.amplifiedPlayers.contains(uuid)) {
             player.sendMessage("\u00a7c\u00a7oAmplification is already active!");
             return;
         }
-
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-amplification");
-
-        // Collect all equipment items to amplify
         boolean anyAmplified = false;
         ItemStack[] armor = player.getInventory().getArmorContents();
-        for (int i = 0; i < armor.length; i++) {
-            if (amplifyItem(armor[i])) anyAmplified = true;
+        for (int i = 0; i < armor.length; ++i) {
+            if (!this.amplifyItem(armor[i])) continue;
+            anyAmplified = true;
         }
         player.getInventory().setArmorContents(armor);
-
         ItemStack mainHand = player.getInventory().getItemInMainHand();
-        if (amplifyItem(mainHand)) anyAmplified = true;
-
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-        if (amplifyItem(offHand)) anyAmplified = true;
-
-        amplifiedPlayers.add(uuid);
-
-        // Schedule revert after duration
+        if (this.amplifyItem(mainHand)) {
+            anyAmplified = true;
+        }
+        if (this.amplifyItem(offHand = player.getInventory().getItemInOffHand())) {
+            anyAmplified = true;
+        }
+        this.amplifiedPlayers.add(uuid);
         Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
-            amplifiedPlayers.remove(uuid);
-
-            Player p = Bukkit.getPlayer(uuid);
-            if (p == null || !p.isOnline()) return;
-
-            // Scan ALL items in inventory for amplify PDC markers and revert
-            revertAllAmplifiedItems(p);
-
+            this.amplifiedPlayers.remove(uuid);
+            this.plugin.getAbilityManager().endAbilityDuration(player, abilityKey);
+            Player p = Bukkit.getPlayer((UUID)uuid);
+            if (p == null || !p.isOnline()) {
+                return;
+            }
+            this.revertAllAmplifiedItems(p);
             p.sendMessage("\u00a7e\u00a7oAmplification has worn off. Enchantments restored.");
-        }, duration * 20L);
-
-        // Particles + sound
+        }, (long)duration * 20L);
         Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.5f);
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.5f);
-        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 1.0, 0.5, 0.0, greenDust, true);
+        player.spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 1.0, 0.5, 0.0, (Object)greenDust, true);
         player.spawnParticle(Particle.ENCHANT, player.getLocation().add(0.0, 1.0, 0.0), 80, 0.5, 1.0, 0.5);
-        // Achievement: Boundary Break
         if (this.plugin.getAchievementManager() != null && anyAmplified) {
             this.plugin.getAchievementManager().unlock(player, Achievement.BOUNDARY_BREAK);
         }
-
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
-        this.plugin.getConfigManager().sendFormattedMessage(player, "ability-activated", "ability", "Amplification");
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, duration);
+        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-activated", "ability", "Amplification");
     }
 
-    /**
-     * Amplify a single item: boost all non-auto-enchanted enchants by +1,
-     * storing originals in PDC so they can be reverted regardless of slot.
-     * Returns true if any enchants were boosted.
-     */
     private boolean amplifyItem(ItemStack item) {
-        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return false;
-
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) {
+            return false;
+        }
         Map<Enchantment, Integer> enchants = item.getEnchantments();
-        if (enchants.isEmpty()) return false;
-
+        if (enchants.isEmpty()) {
+            return false;
+        }
         ItemMeta meta = item.getItemMeta();
-        if (meta == null) return false;
-
+        if (meta == null) {
+            return false;
+        }
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         boolean modified = false;
-
         for (Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
+            NamespacedKey ampKey;
             Enchantment enchant = entry.getKey();
             int currentLevel = entry.getValue();
-
-            // Skip auto-enchanted enchants (they're temporary and managed by auto-enchant system)
-            NamespacedKey aeKey = new NamespacedKey(plugin, AE_PDC_PREFIX + enchant.getKey().getKey());
-            if (pdc.has(aeKey, PersistentDataType.INTEGER)) {
-                continue;
-            }
-
-            // Skip if already amplified
-            NamespacedKey ampKey = new NamespacedKey(plugin, AMP_PDC_PREFIX + enchant.getKey().getKey());
-            if (pdc.has(ampKey, PersistentDataType.INTEGER)) {
-                continue;
-            }
-
-            // Store original level and boost by +1
+            NamespacedKey aeKey = new NamespacedKey((Plugin)this.plugin, AE_PDC_PREFIX + enchant.getKey().getKey());
+            if (pdc.has(aeKey, PersistentDataType.INTEGER) || pdc.has(ampKey = new NamespacedKey((Plugin)this.plugin, AMP_PDC_PREFIX + enchant.getKey().getKey()), PersistentDataType.INTEGER)) continue;
             pdc.set(ampKey, PersistentDataType.INTEGER, currentLevel);
             meta.addEnchant(enchant, currentLevel + 1, true);
             modified = true;
         }
-
         if (modified) {
             item.setItemMeta(meta);
         }
         return modified;
     }
 
-    /**
-     * Revert all amplified enchants on all items in a player's inventory.
-     * Scans by PDC markers so it works regardless of what slot items ended up in.
-     */
     private void revertAllAmplifiedItems(Player p) {
-        // Scan all inventory slots
-        for (int i = 0; i < p.getInventory().getSize(); i++) {
+        ItemStack offHand;
+        for (int i = 0; i < p.getInventory().getSize(); ++i) {
             ItemStack item = p.getInventory().getItem(i);
-            if (item != null && !item.getType().isAir()) {
-                stripAmplifyEnchants(item);
-            }
+            if (item == null || item.getType().isAir()) continue;
+            WealthAbilities.stripAmplifyEnchants(item);
         }
-        // Armor contents (accessed separately to ensure setArmorContents is called)
         ItemStack[] armor = p.getInventory().getArmorContents();
         boolean armorModified = false;
-        for (int i = 0; i < armor.length; i++) {
-            if (armor[i] != null && !armor[i].getType().isAir()) {
-                if (stripAmplifyEnchants(armor[i])) armorModified = true;
-            }
+        for (int i = 0; i < armor.length; ++i) {
+            if (armor[i] == null || armor[i].getType().isAir() || !WealthAbilities.stripAmplifyEnchants(armor[i])) continue;
+            armorModified = true;
         }
         if (armorModified) {
             p.getInventory().setArmorContents(armor);
         }
-        // Off hand
-        ItemStack offHand = p.getInventory().getItemInOffHand();
-        if (!offHand.getType().isAir()) {
-            stripAmplifyEnchants(offHand);
+        if (!(offHand = p.getInventory().getItemInOffHand()).getType().isAir()) {
+            WealthAbilities.stripAmplifyEnchants(offHand);
         }
     }
 
-    /**
-     * Strip amplify PDC markers from an item, restoring original enchant levels.
-     * Can be called on any item (e.g., dropped items).
-     * Returns true if the item was modified.
-     */
     public static boolean stripAmplifyEnchants(ItemStack item) {
-        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return false;
-
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) {
+            return false;
+        }
         ItemMeta meta = item.getItemMeta();
-        if (meta == null) return false;
-
+        if (meta == null) {
+            return false;
+        }
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         boolean modified = false;
-
         for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey ampKey = getAmpKey(item, enchant);
-            if (ampKey != null && pdc.has(ampKey, PersistentDataType.INTEGER)) {
-                int originalLevel = pdc.get(ampKey, PersistentDataType.INTEGER);
-                if (originalLevel == 0) {
-                    meta.removeEnchant(enchant);
-                } else {
-                    meta.addEnchant(enchant, originalLevel, true);
-                }
-                pdc.remove(ampKey);
-                modified = true;
+            NamespacedKey ampKey = WealthAbilities.getAmpKey(item, enchant);
+            if (ampKey == null || !pdc.has(ampKey, PersistentDataType.INTEGER)) continue;
+            int originalLevel = (Integer)pdc.get(ampKey, PersistentDataType.INTEGER);
+            if (originalLevel == 0) {
+                meta.removeEnchant(enchant);
+            } else {
+                meta.addEnchant(enchant, originalLevel, true);
             }
+            pdc.remove(ampKey);
+            modified = true;
         }
-
         if (modified) {
             item.setItemMeta(meta);
         }
         return modified;
     }
 
-    /**
-     * Check if an item has any amplify PDC markers.
-     */
     public static boolean hasAmplifyEnchants(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
         for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey ampKey = getAmpKey(item, enchant);
-            if (ampKey != null && pdc.has(ampKey, PersistentDataType.INTEGER)) {
-                return true;
-            }
+            NamespacedKey ampKey = WealthAbilities.getAmpKey(item, enchant);
+            if (ampKey == null || !pdc.has(ampKey, PersistentDataType.INTEGER)) continue;
+            return true;
         }
         return false;
     }
 
-    /**
-     * Helper: get the amplify PDC NamespacedKey for an enchantment.
-     * Returns null if the item has no meta (shouldn't happen if checked beforehand).
-     */
     private static NamespacedKey getAmpKey(ItemStack item, Enchantment enchant) {
-        if (!item.hasItemMeta()) return null;
-        // Use the namespace from the item's existing PDC keys plugin context
-        // Since this is static, we construct the key manually with "blissgems" namespace
-        return NamespacedKey.fromString("blissgems:" + AMP_PDC_PREFIX + enchant.getKey().getKey());
+        if (!item.hasItemMeta()) {
+            return null;
+        }
+        return NamespacedKey.fromString((String)("blissgems:amp_orig_" + enchant.getKey().getKey()));
     }
 
-    // Static accessors for PassiveListener
     public static boolean isUnfortunate(UUID uuid) {
         return unfortunatePlayers.contains(uuid);
     }
 
-    /**
-     * Check if unfortunate player's action should fail based on config chance
-     * @param uuid Player UUID
-     * @param failChance Chance of failure (0.0 to 1.0)
-     * @return true if action should be blocked
-     */
     public static boolean shouldUnfortunateFail(UUID uuid, double failChance) {
         return unfortunatePlayers.contains(uuid) && Math.random() < failChance;
     }
@@ -462,23 +404,18 @@ public class WealthAbilities implements GemAbilityHandler {
         return itemLockedPlayers.get(uuid);
     }
 
-    /**
-     * Clean up all active Wealth abilities for a player (called on quit/death).
-     * Reverts amplified enchants and removes from all tracking sets.
-     */
     @Override
     public void cleanup(Player player) {
         UUID uuid = player.getUniqueId();
-
-        // Revert amplified enchants on all items
-        if (amplifiedPlayers.remove(uuid)) {
-            revertAllAmplifiedItems(player);
+        if (this.amplifiedPlayers.remove(uuid)) {
+            this.revertAllAmplifiedItems(player);
+            this.plugin.getAbilityManager().endAbilityDuration(player, "wealth-amplification");
         }
-
-        // Clean up other active effects
         unfortunatePlayers.remove(uuid);
         itemLockedPlayers.remove(uuid);
-        richRushPlayers.remove(uuid);
+        if (richRushPlayers.remove(uuid)) {
+            this.plugin.getAbilityManager().endAbilityDuration(player, "wealth-rich-rush");
+        }
     }
 
     public Inventory getPocketsInventory(UUID uuid) {
@@ -493,62 +430,51 @@ public class WealthAbilities implements GemAbilityHandler {
         this.autoSmeltEnabled.put(player.getUniqueId(), enabled);
     }
 
-    /**
-     * Save a player's pockets inventory to disk
-     */
     public void savePocketsInventory(UUID uuid) {
         Inventory inv = this.pocketsInventories.get(uuid);
-        if (inv == null) return;
-
-        File file = new File(this.pocketsDataFolder, uuid.toString() + ".yml");
-        FileConfiguration data = new YamlConfiguration();
-
-        // Save each item stack with its index
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack item = inv.getItem(i);
-            if (item != null && !item.getType().isAir()) {
-                data.set("items." + i, item);
-            }
+        if (inv == null) {
+            return;
         }
-
+        File file = new File(this.pocketsDataFolder, uuid.toString() + ".yml");
+        YamlConfiguration data = new YamlConfiguration();
+        for (int i = 0; i < inv.getSize(); ++i) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType().isAir()) continue;
+            data.set("items." + i, (Object)item);
+        }
         try {
             data.save(file);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save pockets inventory for " + uuid + ": " + e.getMessage());
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().severe("Failed to save pockets inventory for " + String.valueOf(uuid) + ": " + e.getMessage());
         }
     }
 
-    /**
-     * Load a player's pockets inventory from disk
-     */
     private void loadPocketsInventory(UUID uuid, Inventory inv) {
         File file = new File(this.pocketsDataFolder, uuid.toString() + ".yml");
-        if (!file.exists()) return;
-
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
-
-        // Load each saved item
+        if (!file.exists()) {
+            return;
+        }
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         if (data.contains("items")) {
             for (String key : data.getConfigurationSection("items").getKeys(false)) {
                 try {
                     int slot = Integer.parseInt(key);
                     ItemStack item = data.getItemStack("items." + key);
-                    if (item != null && slot >= 0 && slot < inv.getSize()) {
-                        inv.setItem(slot, item);
-                    }
-                } catch (NumberFormatException e) {
-                    plugin.getLogger().warning("Invalid slot key in pockets data: " + key);
+                    if (item == null || slot < 0 || slot >= inv.getSize()) continue;
+                    inv.setItem(slot, item);
+                }
+                catch (NumberFormatException e) {
+                    this.plugin.getLogger().warning("Invalid slot key in pockets data: " + key);
                 }
             }
         }
     }
 
-    /**
-     * Save all loaded pockets inventories to disk (call on plugin disable)
-     */
     public void saveAllPockets() {
         for (UUID uuid : this.pocketsInventories.keySet()) {
-            savePocketsInventory(uuid);
+            this.savePocketsInventory(uuid);
         }
     }
 }
+

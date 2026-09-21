@@ -1,6 +1,6 @@
 /*
  * Decompiled with CFR 0.152.
- *
+ * 
  * Could not load the following classes:
  *  org.bukkit.entity.Player
  *  org.bukkit.inventory.ItemStack
@@ -10,20 +10,24 @@ package dev.xoperr.blissgems.managers;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemDefinition;
-import dev.xoperr.blissgems.api.GemRegistry;
-import java.util.ArrayList;
-import java.util.List;
-import dev.xoperr.blissgems.utils.GemType;
+import dev.xoperr.blissgems.managers.GemRegistryImpl;
+import dev.xoperr.blissgems.managers.GoldGemManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.GemType;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class GemManager {
     private final BlissGems plugin;
     private final Map<UUID, ActiveGem> activeGems;
+    private final Map<UUID, Integer> channelTierOverride = new ConcurrentHashMap<UUID, Integer>();
 
     public GemManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -31,47 +35,32 @@ public class GemManager {
     }
 
     public void updateActiveGem(Player player) {
-        // Get current gem before updating
+        GemAbilityHandler handler;
         ActiveGem currentGem = this.activeGems.get(player.getUniqueId());
-
         ItemStack[] contents = player.getInventory().getContents();
         ActiveGem foundGem = null;
-        GemRegistry registry = this.plugin.getGemRegistry();
-
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         for (ItemStack item : contents) {
+            int tier;
             String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
-
-            // Check built-in gems first
+            if (item == null || (itemId = CustomItemManager.getIdByItem(item)) == null) continue;
             if (GemType.isGem(itemId)) {
                 GemType type = GemType.fromOraxenId(itemId);
-                int tier = GemType.getTierFromOraxenId(itemId);
+                tier = GemType.getTierFromOraxenId(itemId);
                 if (type != null && this.plugin.getConfigManager().isGemEnabled(type)) {
                     foundGem = new ActiveGem(type, tier);
                     break;
                 }
             }
-
-            // Check addon gems via registry
-            if (registry != null && registry.isRegisteredGem(itemId)) {
-                String gemId = registry.gemIdFromItemId(itemId);
-                int tier = registry.tierFromItemId(itemId);
-                foundGem = new ActiveGem(gemId, tier);
-                break;
-            }
+            if (registry == null || !registry.isRegisteredGem(itemId)) continue;
+            String gemId = registry.gemIdFromItemId(itemId);
+            tier = registry.tierFromItemId(itemId);
+            foundGem = new ActiveGem(gemId, tier);
+            break;
         }
-
-        // Clean up if gem changed or removed
-        if (currentGem != null && (foundGem == null || !java.util.Objects.equals(currentGem.getGemId(), foundGem.getGemId()))) {
-            // Gem was removed or type changed - clean up abilities via registry
-            if (currentGem.getGemId() != null && registry != null) {
-                GemAbilityHandler handler = registry.getAbilityHandler(currentGem.getGemId());
-                if (handler != null) {
-                    handler.cleanup(player);
-                }
-            }
+        if (!(currentGem == null || foundGem != null && Objects.equals(currentGem.getGemId(), foundGem.getGemId()) || currentGem.getGemId() == null || registry == null || (handler = registry.getAbilityHandler(currentGem.getGemId())) == null)) {
+            handler.cleanup(player);
         }
-
         if (foundGem != null) {
             this.activeGems.put(player.getUniqueId(), foundGem);
         } else {
@@ -92,19 +81,11 @@ public class GemManager {
         return gem != null ? gem.getType() : null;
     }
 
-    /**
-     * While the Gold Gem channels a harvested soul, the soul's tier temporarily stands in
-     * for the holder's own gem tier — so the soul's Tier-2 gate sees the tier it was
-     * harvested at instead of "the Gold Gem is Tier 1".
-     */
-    private final java.util.Map<java.util.UUID, Integer> channelTierOverride =
-        new java.util.concurrent.ConcurrentHashMap<>();
-
-    public void setChannelTierOverride(java.util.UUID id, int tier) {
+    public void setChannelTierOverride(UUID id, int tier) {
         this.channelTierOverride.put(id, tier);
     }
 
-    public void clearChannelTierOverride(java.util.UUID id) {
+    public void clearChannelTierOverride(UUID id) {
         this.channelTierOverride.remove(id);
     }
 
@@ -117,10 +98,6 @@ public class GemManager {
         return gem != null ? gem.getTier() : 1;
     }
 
-    /**
-     * Get the string gem ID for the player's active gem.
-     * Works for both built-in and addon gems.
-     */
     public String getGemId(Player player) {
         ActiveGem gem = this.getActiveGem(player);
         return gem != null ? gem.getGemId() : null;
@@ -131,18 +108,15 @@ public class GemManager {
         return gem != null && gem.getType() == type;
     }
 
-    /**
-     * Get the custom item ID of the gem the player is holding.
-     * Passives work with the gem in either hand; the offhand wins if both hold gems.
-     */
     private String getHeldGemItemId(Player player) {
+        String itemId;
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        String itemId = offhand != null ? CustomItemManager.getIdByItem((ItemStack)offhand) : null;
+        String string = itemId = offhand != null ? CustomItemManager.getIdByItem(offhand) : null;
         if (itemId != null && this.isAnyGem(itemId)) {
             return itemId;
         }
         ItemStack mainHand = player.getInventory().getItemInMainHand();
-        itemId = mainHand != null ? CustomItemManager.getIdByItem((ItemStack)mainHand) : null;
+        String string2 = itemId = mainHand != null ? CustomItemManager.getIdByItem(mainHand) : null;
         if (itemId != null && this.isAnyGem(itemId)) {
             return itemId;
         }
@@ -154,53 +128,31 @@ public class GemManager {
         if (itemId == null) {
             return false;
         }
-        // Check built-in gems
         if (GemType.isGem(itemId)) {
             GemType type = GemType.fromOraxenId(itemId);
             return type != null && this.plugin.getConfigManager().isGemEnabled(type);
         }
-        // Check addon gems via registry
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         return registry != null && registry.isRegisteredGem(itemId);
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
-        return this.isGemOfType(player.getInventory().getItemInOffHand(), type)
-            || this.isGemOfType(player.getInventory().getItemInMainHand(), type)
-            || this.hasHarvestedSoul(player, type);
+        return this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type) || this.hasHarvestedSoul(player, type);
     }
 
-    /**
-     * True if this player carries a Gold Gem that has harvested the given gem's soul.
-     *
-     * Every event-driven passive gates on {@link #hasGemTypeInOffhand}, so answering here is
-     * what makes a stolen gem's passives - Puff's double jump, Wealth's durability chip, the
-     * rest - actually fire for the Gold Gem's holder. Absorbed souls stack: a holder who has
-     * taken four gems has all four sets of passives at once.
-     */
     private boolean hasHarvestedSoul(Player player, GemType type) {
         GoldGemManager gold = this.plugin.getGoldGemManager();
         if (gold == null || type == null) {
             return false;
         }
-        return gold.getHarvested(player.getUniqueId()).containsKey(type.getId())
-            && gold.holdsGoldGem(player);
+        return gold.getHarvested(player.getUniqueId()).containsKey(type.getId()) && gold.holdsGoldGem(player);
     }
 
-    /**
-     * The tier a passive should run at for a specific gem type: the held gem's own tier
-     * normally, or the tier that soul was harvested at when the power comes from a Gold Gem.
-     * A soul only ever gives up what it had, so a Tier 1 gem taken off a victim keeps its
-     * Tier 1 numbers even in the hands of a fully awakened holder.
-     */
     public int getTierFor(Player player, GemType type) {
-        if (type != null
-                && !this.isGemOfType(player.getInventory().getItemInOffHand(), type)
-                && !this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
+        if (type != null && !this.isGemOfType(player.getInventory().getItemInOffHand(), type) && !this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
+            GoldGemManager.Harvest soul;
             GoldGemManager gold = this.plugin.getGoldGemManager();
-            GoldGemManager.Harvest soul = gold != null
-                ? gold.getHarvested(player.getUniqueId()).get(type.getId())
-                : null;
+            GoldGemManager.Harvest harvest = soul = gold != null ? gold.getHarvested(player.getUniqueId()).get(type.getId()) : null;
             if (soul != null) {
                 return soul.tier();
             }
@@ -212,7 +164,7 @@ public class GemManager {
         if (item == null) {
             return false;
         }
-        String itemId = CustomItemManager.getIdByItem((ItemStack)item);
+        String itemId = CustomItemManager.getIdByItem(item);
         if (itemId == null || !GemType.isGem(itemId)) {
             return false;
         }
@@ -227,42 +179,37 @@ public class GemManager {
         return GemType.fromOraxenId(itemId);
     }
 
-    /**
-     * Get the string gem ID from the held gem (either hand, offhand priority).
-     * Works for both built-in and addon gems.
-     */
     public String getGemIdFromOffhand(Player player) {
         String itemId = this.getHeldGemItemId(player);
-        if (itemId == null) return null;
-        // Check built-in
+        if (itemId == null) {
+            return null;
+        }
         GemType type = GemType.fromOraxenId(itemId);
-        if (type != null) return type.getId();
-        // Check addon via registry
-        GemRegistry registry = this.plugin.getGemRegistry();
-        if (registry != null) return registry.gemIdFromItemId(itemId);
+        if (type != null) {
+            return type.getId();
+        }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry != null) {
+            return registry.gemIdFromItemId(itemId);
+        }
         return null;
     }
 
     public int getTierFromOffhand(Player player) {
         String itemId = this.getHeldGemItemId(player);
         if (itemId == null) {
-            return 1; // Default to tier 1
+            return 1;
         }
-        // Check built-in
         if (GemType.isGem(itemId)) {
             return GemType.getTierFromOraxenId(itemId);
         }
-        // Check addon via registry
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         if (registry != null && registry.isRegisteredGem(itemId)) {
             return registry.tierFromItemId(itemId);
         }
         return 1;
     }
 
-    // ---- Passive detection that also scans the whole hotbar. Some Bedrock players keep the
-    // ---- gem in a hotbar slot (offhanding is awkward on Bedrock), so their passives were
-    // ---- never applied. Gated by config passives.apply-in-hotbar (default true).
     private String getPassiveGemItemId(Player player) {
         String held = this.getHeldGemItemId(player);
         if (held != null) {
@@ -271,17 +218,16 @@ public class GemManager {
         if (!this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
             return null;
         }
-        for (int slot = 0; slot < 9; slot++) {
+        for (int slot = 0; slot < 9; ++slot) {
+            String id;
             ItemStack it = player.getInventory().getItem(slot);
-            String id = it != null ? CustomItemManager.getIdByItem(it) : null;
-            if (id != null && this.isAnyGem(id)) {
-                return id;
-            }
+            String string = id = it != null ? CustomItemManager.getIdByItem(it) : null;
+            if (id == null || !this.isAnyGem(id)) continue;
+            return id;
         }
         return null;
     }
 
-    /** True if the player has a gem eligible for passives (offhand/main hand, or hotbar when enabled). */
     public boolean hasGemForPassives(Player player) {
         return this.getPassiveGemItemId(player) != null;
     }
@@ -303,7 +249,7 @@ public class GemManager {
         if (type != null) {
             return type.getId();
         }
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         return registry != null ? registry.gemIdFromItemId(itemId) : null;
     }
 
@@ -315,7 +261,7 @@ public class GemManager {
         if (GemType.isGem(itemId)) {
             return GemType.getTierFromOraxenId(itemId);
         }
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         if (registry != null && registry.isRegisteredGem(itemId)) {
             return registry.tierFromItemId(itemId);
         }
@@ -323,9 +269,9 @@ public class GemManager {
     }
 
     public boolean giveGem(Player player, GemType type, int tier) {
+        int energy;
         String itemId = GemType.buildOraxenId(type, tier);
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        ItemStack gem = CustomItemManager.getItemById((String)itemId, energy);
+        ItemStack gem = CustomItemManager.getItemById(itemId, energy = this.plugin.getEnergyManager().getEnergy(player));
         if (gem != null) {
             player.getInventory().addItem(new ItemStack[]{gem});
             this.updateActiveGem(player);
@@ -334,154 +280,127 @@ public class GemManager {
         return false;
     }
 
-    /**
-     * Give a gem by string gem ID (works for both built-in and addon gems).
-     * @param player Target player
-     * @param gemId  The gem ID (e.g. "fire", "ice")
-     * @param tier   The tier (1 or 2)
-     * @return true if the gem was given successfully
-     */
     public boolean giveGem(Player player, String gemId, int tier) {
-        // Try built-in gem first
+        int energy;
+        String itemId;
+        ItemStack gem;
+        GemDefinition def;
         for (GemType type : GemType.values()) {
-            if (type.getId().equalsIgnoreCase(gemId)) {
-                return giveGem(player, type, tier);
-            }
+            if (!type.getId().equalsIgnoreCase(gemId)) continue;
+            return this.giveGem(player, type, tier);
         }
-        // Try addon gem via registry
-        GemRegistry registry = this.plugin.getGemRegistry();
-        if (registry != null) {
-            dev.xoperr.blissgems.api.GemDefinition def = registry.getGem(gemId);
-            if (def != null) {
-                String itemId = def.buildItemId(tier);
-                int energy = this.plugin.getEnergyManager().getEnergy(player);
-                ItemStack gem = CustomItemManager.getItemById(itemId, energy);
-                if (gem != null) {
-                    player.getInventory().addItem(new ItemStack[]{gem});
-                    this.updateActiveGem(player);
-                    return true;
-                }
-            }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry != null && (def = registry.getGem(gemId)) != null && (gem = CustomItemManager.getItemById(itemId = def.buildItemId(tier), energy = this.plugin.getEnergyManager().getEnergy(player))) != null) {
+            player.getInventory().addItem(new ItemStack[]{gem});
+            this.updateActiveGem(player);
+            return true;
         }
         return false;
     }
 
     public ItemStack findGemInInventory(Player player) {
-        GemRegistry registry = this.plugin.getGemRegistry();
-        // Check the offhand first — gems are normally held there, and getContents()
-        // doesn't reliably include it across API versions.
+        String itemId;
+        String offId;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand != null) {
-            String offId = CustomItemManager.getIdByItem(offhand);
-            if (offId != null && (GemType.isGem(offId) || (registry != null && registry.isRegisteredGem(offId)))) {
-                return offhand;
-            }
+        if (offhand != null && (offId = CustomItemManager.getIdByItem(offhand)) != null && (GemType.isGem(offId) || registry != null && registry.isRegisteredGem(offId))) {
+            return offhand;
         }
-        // Check main inventory
         for (ItemStack item : player.getInventory().getContents()) {
-            String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
-            if (GemType.isGem(itemId)) return item;
-            if (registry != null && registry.isRegisteredGem(itemId)) return item;
+            if (item == null || (itemId = CustomItemManager.getIdByItem(item)) == null) continue;
+            if (GemType.isGem(itemId)) {
+                return item;
+            }
+            if (registry == null || !registry.isRegisteredGem(itemId)) continue;
+            return item;
         }
-        // Check ender chest
         for (ItemStack item : player.getEnderChest().getContents()) {
-            String itemId;
-            if (item == null || (itemId = CustomItemManager.getIdByItem((ItemStack)item)) == null) continue;
-            if (GemType.isGem(itemId)) return item;
-            if (registry != null && registry.isRegisteredGem(itemId)) return item;
+            if (item == null || (itemId = CustomItemManager.getIdByItem(item)) == null) continue;
+            if (GemType.isGem(itemId)) {
+                return item;
+            }
+            if (registry == null || !registry.isRegisteredGem(itemId)) continue;
+            return item;
         }
         return null;
     }
 
-    /**
-     * Check if an item ID represents any gem (built-in or addon).
-     */
     public boolean isAnyGem(String itemId) {
-        if (itemId == null) return false;
-        if (GemType.isGem(itemId)) return true;
-        GemRegistry registry = this.plugin.getGemRegistry();
+        if (itemId == null) {
+            return false;
+        }
+        if (GemType.isGem(itemId)) {
+            return true;
+        }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         return registry != null && registry.isRegisteredGem(itemId);
     }
 
-    /** Resolve a gem ID to its built-in {@link GemType}, or null if it is an addon gem. */
     public static GemType builtInType(String gemId) {
-        if (gemId == null) return null;
+        if (gemId == null) {
+            return null;
+        }
         for (GemType type : GemType.values()) {
-            if (type.getId().equalsIgnoreCase(gemId)) return type;
+            if (!type.getId().equalsIgnoreCase(gemId)) continue;
+            return type;
         }
         return null;
     }
 
-    /**
-     * Every gem ID that may be RANDOMLY granted (first join, reroll): enabled built-in gems
-     * plus registered addon gems — MINUS any listed in config {@code gems.exclude-from-random}
-     * (default: the mythic gems auratus + heretic, so newcomers can't roll them).
-     * Built-in gems are also in the registry, so registry entries that resolve to a GemType
-     * are skipped to avoid re-adding a config-disabled gem or double-counting.
-     */
     public List<String> getAvailableGemIds() {
-        List<String> ids = new ArrayList<>();
+        ArrayList<String> ids = new ArrayList<String>();
         for (GemType type : GemType.values()) {
-            if (this.plugin.getConfigManager().isGemEnabled(type)) {
-                ids.add(type.getId());
-            }
+            if (!this.plugin.getConfigManager().isGemEnabled(type)) continue;
+            ids.add(type.getId());
         }
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         if (registry != null) {
-            List<String> excluded = this.plugin.getConfig().contains("gems.exclude-from-random")
-                ? this.plugin.getConfig().getStringList("gems.exclude-from-random")
-                : List.of("auratus", "heretic", "gold");
+            List excluded = this.plugin.getConfig().contains("gems.exclude-from-random") ? this.plugin.getConfig().getStringList("gems.exclude-from-random") : List.of("auratus", "heretic", "gold");
             for (GemDefinition def : registry.getAllGems()) {
-                // The Gold Gem is craft-only by design: it must never come out of a trader,
-                // a first-join roll or a Restoration Book, whatever the config list says.
-                if ("gold".equals(def.getId())) {
-                    continue;
-                }
-                if (builtInType(def.getId()) == null
-                        && !ids.contains(def.getId())
-                        && !excluded.contains(def.getId())) {
-                    ids.add(def.getId());
-                }
+                if ("gold".equals(def.getId()) || GemManager.builtInType(def.getId()) != null || ids.contains(def.getId()) || excluded.contains(def.getId())) continue;
+                ids.add(def.getId());
             }
         }
         return ids;
     }
 
-    /** Display name for any gem ID (built-in or addon). Falls back to the raw ID. */
     public String getGemDisplayName(String gemId) {
-        GemType type = builtInType(gemId);
-        if (type != null) return type.getDisplayName();
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemType type = GemManager.builtInType(gemId);
+        if (type != null) {
+            return type.getDisplayName();
+        }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         GemDefinition def = registry != null ? registry.getGem(gemId) : null;
         return def != null ? def.getDisplayName() : gemId;
     }
 
-    /** Chat color code for any gem ID (built-in or addon). Falls back to gray. */
     public String getGemColorCode(String gemId) {
-        GemType type = builtInType(gemId);
-        if (type != null) return type.getColor();
-        GemRegistry registry = this.plugin.getGemRegistry();
+        GemType type = GemManager.builtInType(gemId);
+        if (type != null) {
+            return type.getColor();
+        }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
         GemDefinition def = registry != null ? registry.getGem(gemId) : null;
-        return def != null ? def.getColor() : "§7";
+        return def != null ? def.getColor() : "\u00a77";
     }
 
-    /**
-     * Give a gem (built-in OR addon, by string id) directly into the offhand — the string
-     * counterpart of {@link #giveGemToOffhand(Player, GemType, int)} used by reroll.
-     */
     public boolean giveGemToOffhand(Player player, String gemId, int tier) {
-        GemType type = builtInType(gemId);
+        int energy;
+        GemDefinition def;
+        GemType type = GemManager.builtInType(gemId);
         if (type != null) {
-            return giveGemToOffhand(player, type, tier);
+            return this.giveGemToOffhand(player, type, tier);
         }
-        GemRegistry registry = this.plugin.getGemRegistry();
-        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
-        if (def == null) return false;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        GemDefinition gemDefinition = def = registry != null ? registry.getGem(gemId) : null;
+        if (def == null) {
+            return false;
+        }
         String itemId = def.buildItemId(tier);
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        ItemStack gem = CustomItemManager.getItemById(itemId, energy);
-        if (gem == null) return false;
+        ItemStack gem = CustomItemManager.getItemById(itemId, energy = this.plugin.getEnergyManager().getEnergy(player));
+        if (gem == null) {
+            return false;
+        }
         ItemStack current = player.getInventory().getItemInOffHand();
         if (current == null || current.getType().isAir()) {
             player.getInventory().setItemInOffHand(gem);
@@ -496,12 +415,8 @@ public class GemManager {
         return this.replaceGem(player, newType.getId());
     }
 
-    /**
-     * In-place replace of the player's current gem with another gem id — built-in OR addon
-     * (mythic/expansion) — preserving the current tier. String counterpart of
-     * {@link #replaceGemType(Player, GemType)}; used by the trader so expansion gems trade.
-     */
     public boolean replaceGem(Player player, String newGemId) {
+        int energy;
         if (newGemId == null) {
             return false;
         }
@@ -509,14 +424,13 @@ public class GemManager {
         if (currentGem == null) {
             return false;
         }
-        String currentId = CustomItemManager.getIdByItem((ItemStack)currentGem);
+        String currentId = CustomItemManager.getIdByItem(currentGem);
         if (currentId == null) {
             return false;
         }
         int tier = GemType.getTierFromOraxenId(currentId);
         String newId = newGemId + "_gem_t" + tier;
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        ItemStack newGem = CustomItemManager.getItemById((String)newId, energy);
+        ItemStack newGem = CustomItemManager.getItemById(newId, energy = this.plugin.getEnergyManager().getEnergy(player));
         if (newGem == null) {
             return false;
         }
@@ -527,9 +441,8 @@ public class GemManager {
             this.updateActiveGem(player);
             return true;
         }
-        // The storage loop may not cover the offhand slot; replace it there directly.
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand != null && offhand.equals((Object) currentGem)) {
+        if (offhand != null && offhand.equals((Object)currentGem)) {
             player.getInventory().setItemInOffHand(newGem);
             this.updateActiveGem(player);
             return true;
@@ -537,16 +450,10 @@ public class GemManager {
         return false;
     }
 
-    /**
-     * Give a gem placed directly into the player's offhand (the canonical gem slot).
-     * If the offhand is occupied by something else, falls back to a normal inventory add.
-     * Used by reroll so the new gem lands where gem resolution looks first — preventing a
-     * stale gem elsewhere from continuing to drive abilities.
-     */
     public boolean giveGemToOffhand(Player player, GemType type, int tier) {
+        int energy;
         String itemId = GemType.buildOraxenId(type, tier);
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        ItemStack gem = CustomItemManager.getItemById(itemId, energy);
+        ItemStack gem = CustomItemManager.getItemById(itemId, energy = this.plugin.getEnergyManager().getEnergy(player));
         if (gem == null) {
             return false;
         }
@@ -564,12 +471,10 @@ public class GemManager {
         return type != null && this.upgradeGem(player, type.getId());
     }
 
-    /**
-     * Upgrade the player's held tier-1 gem to tier 2 — built-in OR addon (mythic/expansion).
-     * String counterpart of {@link #upgradeGem(Player, GemType)}; used by the upgrader so
-     * expansion gems can be upgraded (their built-in GemType is null).
-     */
     public boolean upgradeGem(Player player, String gemId) {
+        int energy;
+        String newId;
+        ItemStack newGem;
         if (gemId == null) {
             return false;
         }
@@ -577,26 +482,22 @@ public class GemManager {
         if (currentGem == null) {
             return false;
         }
-        String currentId = CustomItemManager.getIdByItem((ItemStack)currentGem);
+        String currentId = CustomItemManager.getIdByItem(currentGem);
         if (currentId == null) {
             return false;
         }
-        // Only the tier-1 form of the gem the player actually holds may be upgraded.
         if (!currentId.equals(gemId + "_gem_t1")) {
             return false;
         }
-        // Addon gems may cap at tier 1 — respect their declared max tier.
-        if (builtInType(gemId) == null) {
-            GemRegistry registry = this.plugin.getGemRegistry();
-            GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        if (GemManager.builtInType(gemId) == null) {
+            GemDefinition def;
+            GemRegistryImpl registry = this.plugin.getGemRegistry();
+            GemDefinition gemDefinition = def = registry != null ? registry.getGem(gemId) : null;
             if (def == null || def.getMaxTier() < 2) {
                 return false;
             }
         }
-        String newId = gemId + "_gem_t2";
-        int energy = this.plugin.getEnergyManager().getEnergy(player);
-        ItemStack newGem = CustomItemManager.getItemById((String)newId, energy);
-        if (newGem == null) {
+        if ((newGem = CustomItemManager.getItemById(newId = gemId + "_gem_t2", energy = this.plugin.getEnergyManager().getEnergy(player))) == null) {
             return false;
         }
         for (int i = 0; i < player.getInventory().getSize(); ++i) {
@@ -606,9 +507,8 @@ public class GemManager {
             this.updateActiveGem(player);
             return true;
         }
-        // The storage loop may not cover the offhand slot; upgrade it there directly.
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand != null && offhand.equals((Object) currentGem)) {
+        if (offhand != null && offhand.equals((Object)currentGem)) {
             player.getInventory().setItemInOffHand(newGem);
             this.updateActiveGem(player);
             return true;
@@ -616,16 +516,36 @@ public class GemManager {
         return false;
     }
 
-    /**
-     * Update the texture of all gems in a player's inventory based on their current energy
-     * Called when energy changes
-     */
+    public boolean downgradeGem(Player player, String gemId) {
+        if (gemId == null) return false;
+        ItemStack currentGem = this.findGemInInventory(player);
+        if (currentGem == null) return false;
+        String currentId = CustomItemManager.getIdByItem(currentGem);
+        if (currentId == null || !currentId.equals(gemId + "_gem_t2")) return false;
+        int energy = this.plugin.getEnergyManager().getEnergy(player);
+        ItemStack t1Gem = CustomItemManager.getItemById(gemId + "_gem_t1", energy);
+        if (t1Gem == null) return false;
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item == null || !item.equals((Object)currentGem)) continue;
+            player.getInventory().setItem(i, t1Gem);
+            this.updateActiveGem(player);
+            return true;
+        }
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand != null && offhand.equals((Object)currentGem)) {
+            player.getInventory().setItemInOffHand(t1Gem);
+            this.updateActiveGem(player);
+            return true;
+        }
+        return false;
+    }
+
     public void updateGemTextures(Player player) {
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null) {
-                CustomItemManager.updateGemTexture(item, energy);
-            }
+            if (item == null) continue;
+            CustomItemManager.updateGemTexture(item, energy);
         }
     }
 
@@ -638,26 +558,22 @@ public class GemManager {
         private final String gemId;
         private final int tier;
 
-        /** Constructor for built-in gems */
         public ActiveGem(GemType type, int tier) {
             this.type = type;
             this.gemId = type != null ? type.getId() : null;
             this.tier = tier;
         }
 
-        /** Constructor for addon gems (type is null) */
         public ActiveGem(String gemId, int tier) {
             this.type = null;
             this.gemId = gemId;
             this.tier = tier;
         }
 
-        /** Returns the GemType for built-in gems, null for addon gems */
         public GemType getType() {
             return this.type;
         }
 
-        /** Returns the string gem ID (works for both built-in and addon gems) */
         public String getGemId() {
             return this.gemId;
         }

@@ -1,70 +1,64 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Location
+ *  org.bukkit.Particle
+ *  org.bukkit.entity.Player
+ *  org.bukkit.plugin.Plugin
+ */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
-import org.bukkit.Location;
-import org.bukkit.entity.Player;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
-/**
- * Manages active revive beacons and their locations
- */
 public class ReviveBeaconManager {
     private final BlissGems plugin;
-    private final Map<UUID, ReviveBeacon> activeBeacons = new HashMap<>();
+    private final Map<UUID, ReviveBeacon> activeBeacons = new HashMap<UUID, ReviveBeacon>();
 
     public ReviveBeaconManager(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Activates a revive beacon for a player, replacing any beacon they already had.
-     * @param duration Duration in seconds
-     * @param range Range in blocks
-     */
     public void activateBeacon(Player player, Location location, int duration, double range) {
         UUID playerId = player.getUniqueId();
-
-        ReviveBeacon previous = activeBeacons.get(playerId);
+        ReviveBeacon previous = this.activeBeacons.get(playerId);
         if (previous != null) {
             previous.cancel();
         }
-
-        ReviveBeacon beacon = new ReviveBeacon(plugin, player, location, duration, range);
-        activeBeacons.put(playerId, beacon);
+        ReviveBeacon beacon = new ReviveBeacon(this.plugin, player, location, duration, range);
+        this.activeBeacons.put(playerId, beacon);
         beacon.start();
     }
 
-    /**
-     * @return true if the player has an active beacon and is standing in its range
-     */
     public boolean canRevive(Player player) {
-        ReviveBeacon beacon = activeBeacons.get(player.getUniqueId());
+        ReviveBeacon beacon = this.activeBeacons.get(player.getUniqueId());
         return beacon != null && beacon.isActive() && beacon.isInRange(player.getLocation());
     }
 
-    /**
-     * @return the revive location, or null if the player has no beacon
-     */
     public Location getReviveLocation(Player player) {
-        ReviveBeacon beacon = activeBeacons.get(player.getUniqueId());
+        ReviveBeacon beacon = this.activeBeacons.get(player.getUniqueId());
         return beacon != null ? beacon.getLocation() : null;
     }
 
     public void removeBeacon(Player player) {
-        ReviveBeacon beacon = activeBeacons.remove(player.getUniqueId());
+        ReviveBeacon beacon = this.activeBeacons.remove(player.getUniqueId());
         if (beacon != null) {
             beacon.cancel();
         }
     }
 
     public void cleanup() {
-        for (ReviveBeacon beacon : activeBeacons.values()) {
+        for (ReviveBeacon beacon : this.activeBeacons.values()) {
             beacon.cancel();
         }
-        activeBeacons.clear();
+        this.activeBeacons.clear();
     }
 
     private static class ReviveBeacon {
@@ -81,54 +75,47 @@ public class ReviveBeaconManager {
             this.player = player;
             this.location = location.clone();
             this.range = range;
-            this.expiryTime = System.currentTimeMillis() + (duration * 1000L);
+            this.expiryTime = System.currentTimeMillis() + (long)duration * 1000L;
         }
 
         public void start() {
-            int durationTicks = (int) ((expiryTime - System.currentTimeMillis()) / 50);
-            taskId = plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-                active = false;
-                player.sendMessage("§c§lYour Revive Beacon has expired!");
-            }, durationTicks);
-
-            plugin.getServer().getScheduler().runTaskTimer(plugin, (task) -> {
-                if (!active || System.currentTimeMillis() >= expiryTime) {
+            int durationTicks = (int)((this.expiryTime - System.currentTimeMillis()) / 50L);
+            this.taskId = this.plugin.getServer().getScheduler().scheduleSyncDelayedTask((Plugin)this.plugin, () -> {
+                this.active = false;
+                this.player.sendMessage("\u00a7c\u00a7lYour Revive Beacon has expired!");
+            }, (long)durationTicks);
+            this.plugin.getServer().getScheduler().runTaskTimer((Plugin)this.plugin, task -> {
+                if (!this.active || System.currentTimeMillis() >= this.expiryTime) {
                     task.cancel();
                     return;
                 }
-
-                if (location.getWorld() != null) {
-                    location.getWorld().spawnParticle(
-                        org.bukkit.Particle.TOTEM_OF_UNDYING,
-                        location.clone().add(0, 1, 0),
-                        10,
-                        0.5, 0.5, 0.5,
-                        0.05
-                    );
+                if (this.location.getWorld() != null) {
+                    this.location.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, this.location.clone().add(0.0, 1.0, 0.0), 10, 0.5, 0.5, 0.5, 0.05);
                 }
-            }, 0L, 20L); // Every second
+            }, 0L, 20L);
         }
 
         public boolean isActive() {
-            return active && System.currentTimeMillis() < expiryTime;
+            return this.active && System.currentTimeMillis() < this.expiryTime;
         }
 
         public boolean isInRange(Location loc) {
-            if (location.getWorld() == null || !location.getWorld().equals(loc.getWorld())) {
+            if (this.location.getWorld() == null || !this.location.getWorld().equals((Object)loc.getWorld())) {
                 return false;
             }
-            return location.distance(loc) <= range;
+            return this.location.distance(loc) <= this.range;
         }
 
         public Location getLocation() {
-            return location.clone();
+            return this.location.clone();
         }
 
         public void cancel() {
-            active = false;
-            if (taskId != -1) {
-                plugin.getServer().getScheduler().cancelTask(taskId);
+            this.active = false;
+            if (this.taskId != -1) {
+                this.plugin.getServer().getScheduler().cancelTask(this.taskId);
             }
         }
     }
 }
+

@@ -36,15 +36,16 @@ public enum GemType {
     }
 
     public String getColor() {
-        return switch (this) {
-            case ASTRA -> "\u00a7d";    // Light Purple (Mystical/Ethereal)
-            case FIRE -> "\u00a7c";     // Red (Fire/Burning)
-            case FLUX -> "\u00a7b";     // Aqua (Electric/Energy)
-            case LIFE -> "\u00a7a";     // Green (Nature/Healing)
-            case PUFF -> "\u00a7f";     // White (Air/Clouds)
-            case SPEED -> "\u00a7e";    // Yellow (Fast/Quick)
-            case STRENGTH -> "\u00a74"; // Dark Red (Power/Strength)
-            case WEALTH -> "\u00a76";   // Gold (Riches/Fortune)
+        return switch (this.ordinal()) {
+            default -> throw new IncompatibleClassChangeError();
+            case 0 -> "\u00a7d";
+            case 1 -> "\u00a7c";
+            case 2 -> "\u00a7b";
+            case 3 -> "\u00a7a";
+            case 4 -> "\u00a7f";
+            case 5 -> "\u00a7e";
+            case 6 -> "\u00a74";
+            case 7 -> "\u00a76";
         };
     }
 
