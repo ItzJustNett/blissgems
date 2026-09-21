@@ -92,6 +92,15 @@ import dev.xoperr.blissgems.managers.SoulManager;
 import dev.xoperr.blissgems.managers.StatsManager;
 import dev.xoperr.blissgems.managers.TrustedPlayersManager;
 import dev.xoperr.blissgems.managers.UpdateChecker;
+import dev.xoperr.blissgems.managers.MaceVillagerManager;
+import dev.xoperr.blissgems.managers.EnchantLimiterManager;
+import dev.xoperr.blissgems.managers.MythicWorldEventManager;
+import dev.xoperr.blissgems.managers.SpawnBeaconManager;
+import dev.xoperr.blissgems.managers.EndSkyVisualManager;
+import dev.xoperr.blissgems.listeners.MaceVillagerListener;
+import dev.xoperr.blissgems.listeners.EnchantLimiterListener;
+import dev.xoperr.blissgems.listeners.BrokenMythicListener;
+import dev.xoperr.blissgems.commands.NewsCommand;
 import dev.xoperr.blissgems.utils.ConfigManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
@@ -153,6 +162,11 @@ implements BlissGemsAPI {
     private RegionManager regionManager;
     private AchievementManager achievementManager;
     private GemRitualManager gemRitualManager;
+    private MaceVillagerManager maceVillagerManager;
+    private EnchantLimiterManager enchantLimiterManager;
+    private MythicWorldEventManager mythicWorldEventManager;
+    private SpawnBeaconManager spawnBeaconManager;
+    private EndSkyVisualManager endSkyVisualManager;
     private Metrics metrics;
 
     public void onEnable() {
@@ -484,6 +498,18 @@ implements BlissGemsAPI {
             e.printStackTrace();
         }
         try {
+            this.spawnBeaconManager = new SpawnBeaconManager(this);
+            this.maceVillagerManager = new MaceVillagerManager(this);
+            this.enchantLimiterManager = new EnchantLimiterManager(this);
+            this.mythicWorldEventManager = new MythicWorldEventManager(this);
+            this.endSkyVisualManager = new EndSkyVisualManager(this);
+        }
+        catch (Exception e) {
+            this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: World/Villager/Beacon Managers ===");
+            this.getLogger().severe(e.getMessage());
+            e.printStackTrace();
+        }
+        try {
             this.registerListeners();
         }
         catch (Exception e) {
@@ -552,6 +578,12 @@ implements BlissGemsAPI {
         }
         if (this.goldHarvestCeremony != null) {
             this.goldHarvestCeremony.cleanup();
+        }
+        if (this.mythicWorldEventManager != null) {
+            this.mythicWorldEventManager.cleanup();
+        }
+        if (this.endSkyVisualManager != null) {
+            this.endSkyVisualManager.cleanup();
         }
         if (this.pluginMessagingManager != null) {
             this.pluginMessagingManager.shutdown();
@@ -657,12 +689,25 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)this.itemOwnershipListener, (Plugin)this);
         this.itemOwnershipListener.start();
         this.getServer().getPluginManager().registerEvents((Listener)this.enhancedGuiManager, (Plugin)this);
+        if (this.maceVillagerManager != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)new MaceVillagerListener(this, this.maceVillagerManager), (Plugin)this);
+        }
+        if (this.enchantLimiterManager != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)new EnchantLimiterListener(this, this.enchantLimiterManager), (Plugin)this);
+        }
+        if (this.mythicWorldEventManager != null) {
+            this.getServer().getPluginManager().registerEvents((Listener)new BrokenMythicListener(this, this.mythicWorldEventManager), (Plugin)this);
+        }
     }
 
     private void registerCommands() {
         this.blissCommand = new BlissCommand(this);
         this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
         this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
+        NewsCommand newsCommand = new NewsCommand(this);
+        if (this.getCommand("news") != null) {
+            this.getCommand("news").setExecutor((CommandExecutor)newsCommand);
+        }
         FixHeartsCommand fixHearts = new FixHeartsCommand(this);
         if (this.getCommand("fixhearts") != null) {
             this.getCommand("fixhearts").setExecutor((CommandExecutor)fixHearts);
@@ -870,6 +915,26 @@ implements BlissGemsAPI {
             return false;
         }
         return gemId.equals(gem.getGemId());
+    }
+
+    public MaceVillagerManager getMaceVillagerManager() {
+        return this.maceVillagerManager;
+    }
+
+    public EnchantLimiterManager getEnchantLimiterManager() {
+        return this.enchantLimiterManager;
+    }
+
+    public MythicWorldEventManager getMythicWorldEventManager() {
+        return this.mythicWorldEventManager;
+    }
+
+    public SpawnBeaconManager getSpawnBeaconManager() {
+        return this.spawnBeaconManager;
+    }
+
+    public EndSkyVisualManager getEndSkyVisualManager() {
+        return this.endSkyVisualManager;
     }
 
     private void registerBuiltInGems() {

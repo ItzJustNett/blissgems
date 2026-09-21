@@ -83,6 +83,9 @@ implements Listener {
                 Location itemLoc = droppedItem.getLocation();
                 Block blockBelow = itemLoc.subtract(0.0, 1.0, 0.0).getBlock();
                 if (blockBelow.getType() == Material.BEACON) {
+                    if (RepairKitListener.this.plugin.getSpawnBeaconManager() != null && !RepairKitListener.this.plugin.getSpawnBeaconManager().canRepairGems(player)) {
+                        return;
+                    }
                     droppedItem.remove();
                     boolean success = RepairKitListener.this.plugin.getRepairKitManager().createPedestal(blockBelow.getLocation());
                     if (success) {

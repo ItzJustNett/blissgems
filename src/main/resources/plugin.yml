@@ -20,6 +20,10 @@ commands:
     description: Toggle forcing every player to 10 hearts on join
     usage: /<command> everyone <true|false>
     permission: blissgems.fixedhearts
+  news:
+    description: View the BlissGems server news board, respawn timers, and repair windows
+    usage: /<command>
+    aliases: [gemnews]
 
 permissions:
   blissgems.*:

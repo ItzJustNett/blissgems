@@ -29,6 +29,7 @@ import dev.xoperr.blissgems.managers.AbilityBindingManager;
 import dev.xoperr.blissgems.managers.GemLockManager;
 import dev.xoperr.blissgems.managers.GemRegistryImpl;
 import dev.xoperr.blissgems.managers.GoldGemManager;
+import dev.xoperr.blissgems.managers.MaceVillagerManager;
 import dev.xoperr.blissgems.managers.SoulManager;
 import dev.xoperr.blissgems.utils.AbilityBinding;
 import dev.xoperr.blissgems.utils.AbilitySlot;
@@ -310,11 +311,84 @@ TabCompleter {
                 this.handleGoldArmorToggle(sender);
                 break;
             }
+            case "enchantlimit": {
+                this.handleEnchantLimit(sender, args);
+                break;
+            }
+            case "spawnvillager": {
+                this.handleSpawnVillager(sender, args);
+                break;
+            }
+            case "news": {
+                new NewsCommand(this.plugin).onCommand(sender, command, label, args);
+                break;
+            }
             default: {
                 this.sendHelp(sender);
             }
         }
         return true;
+    }
+
+    private void handleEnchantLimit(CommandSender sender, String[] args) {
+        if (!this.requireAdmin(sender)) {
+            return;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(org.bukkit.ChatColor.GOLD + "=== Enchantment Limits ===");
+            if (this.plugin.getEnchantLimiterManager() != null) {
+                for (java.util.Map.Entry<String, Integer> e : this.plugin.getEnchantLimiterManager().getAllLimits().entrySet()) {
+                    sender.sendMessage(org.bukkit.ChatColor.YELLOW + e.getKey() + ": " + org.bukkit.ChatColor.WHITE + e.getValue());
+                }
+            }
+            sender.sendMessage(org.bukkit.ChatColor.GRAY + "Usage: /bliss enchantlimit <enchantment> <maxLevel>");
+            return;
+        }
+        String enchant = args[1].toLowerCase();
+        int maxLevel;
+        try {
+            maxLevel = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage(org.bukkit.ChatColor.RED + "Invalid number for maxLevel: " + args[2]);
+            return;
+        }
+        if (this.plugin.getEnchantLimiterManager() != null) {
+            this.plugin.getEnchantLimiterManager().setLimit(enchant, maxLevel);
+            sender.sendMessage(org.bukkit.ChatColor.GREEN + "Set enchantment limit for " + org.bukkit.ChatColor.YELLOW + enchant + org.bukkit.ChatColor.GREEN + " to " + org.bukkit.ChatColor.YELLOW + maxLevel);
+        }
+    }
+
+    private void handleSpawnVillager(CommandSender sender, String[] args) {
+        if (!this.requireAdmin(sender)) {
+            return;
+        }
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(org.bukkit.ChatColor.RED + "Only players can run this command.");
+            return;
+        }
+        Player player = (Player) sender;
+        if (args.length < 2) {
+            player.sendMessage(org.bukkit.ChatColor.RED + "Usage: /bliss spawnvillager <mace1|mace2|mace3|energy>");
+            return;
+        }
+        String typeKey = args[1].toLowerCase();
+        String type;
+        if (typeKey.contains("1") || typeKey.equalsIgnoreCase("mace1")) {
+            type = MaceVillagerManager.TYPE_MACE_1;
+        } else if (typeKey.contains("2") || typeKey.equalsIgnoreCase("mace2")) {
+            type = MaceVillagerManager.TYPE_MACE_2;
+        } else if (typeKey.contains("3") || typeKey.equalsIgnoreCase("mace3")) {
+            type = MaceVillagerManager.TYPE_MACE_3;
+        } else if (typeKey.contains("energy") || typeKey.equalsIgnoreCase("energygames")) {
+            type = MaceVillagerManager.TYPE_ENERGY;
+        } else {
+            player.sendMessage(org.bukkit.ChatColor.RED + "Unknown villager type. Options: mace1, mace2, mace3, energy");
+            return;
+        }
+        if (this.plugin.getMaceVillagerManager() != null) {
+            this.plugin.getMaceVillagerManager().spawnCustomVillager(player.getLocation(), type);
+            player.sendMessage(org.bukkit.ChatColor.GREEN + "Spawned custom merchant: " + org.bukkit.ChatColor.YELLOW + type);
+        }
     }
 
     private void handleGive(CommandSender sender, String[] args) {
@@ -1995,8 +2069,14 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("spawnvillager")) {
+                return Arrays.asList("mace1", "mace2", "mace3", "energy");
+            }
+            if (args[0].equalsIgnoreCase("enchantlimit")) {
+                return Arrays.asList("density", "breach", "wind_burst", "sharpness", "protection", "unbreaking", "mending");
+            }
             if (args[0].equalsIgnoreCase("nocdtoggle") || args[0].equalsIgnoreCase("setwatts") || args[0].equalsIgnoreCase("getwatts")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }
