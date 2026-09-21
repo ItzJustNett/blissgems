@@ -1,30 +1,34 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
-import dev.xoperr.blissgems.api.*;
+import dev.xoperr.blissgems.api.CooldownEntry;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.GemPassiveHandler;
+import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.utils.CustomItemManager;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Implementation of {@link GemRegistry}. Both built-in and addon gems
- * register through this class.
- */
-public class GemRegistryImpl implements GemRegistry {
-
+public class GemRegistryImpl
+implements GemRegistry {
     private static final Pattern GEM_ITEM_PATTERN = Pattern.compile("^(.+)_gem_t(\\d+)$");
-
     private final BlissGems plugin;
     private final Logger logger;
-
-    private final Map<String, GemDefinition> gems = new ConcurrentHashMap<>();
-    private final Map<String, GemAbilityHandler> abilityHandlers = new ConcurrentHashMap<>();
-    private final Map<String, GemPassiveHandler> passiveHandlers = new ConcurrentHashMap<>();
-    private final Map<String, List<CooldownEntry>> cooldownEntries = new ConcurrentHashMap<>();
+    private final Map<String, GemDefinition> gems = new ConcurrentHashMap<String, GemDefinition>();
+    private final Map<String, GemAbilityHandler> abilityHandlers = new ConcurrentHashMap<String, GemAbilityHandler>();
+    private final Map<String, GemPassiveHandler> passiveHandlers = new ConcurrentHashMap<String, GemPassiveHandler>();
+    private final Map<String, List<CooldownEntry>> cooldownEntries = new ConcurrentHashMap<String, List<CooldownEntry>>();
 
     public GemRegistryImpl(BlissGems plugin) {
         this.plugin = plugin;
@@ -34,113 +38,103 @@ public class GemRegistryImpl implements GemRegistry {
     @Override
     public void registerGem(GemDefinition definition) {
         String id = definition.getId();
-        if (gems.containsKey(id)) {
-            // Idempotent: a duplicate registration (two addons claiming the same id, a copy
-            // of an addon, or a re-register on reload) must NOT crash the caller's onEnable.
-            // Keep the first registration and skip the duplicate.
-            this.plugin.getLogger().warning("Gem ID '" + id + "' is already registered — keeping the existing gem, skipping the duplicate.");
+        if (this.gems.containsKey(id)) {
+            this.plugin.getLogger().warning("Gem ID '" + id + "' is already registered \u2014 keeping the existing gem, skipping the duplicate.");
             return;
         }
-
-        gems.put(id, definition);
-
-        // For addon gems (non-BlissGems plugins), register items via CustomItemManager
+        this.gems.put(id, definition);
         if (!"BlissGems".equals(definition.getPluginName())) {
-            registerAddonItems(definition);
+            this.registerAddonItems(definition);
         }
-
-        logger.info("[AddonAPI] Registered gem: " + id + " (" + definition.getPluginName() + ")");
+        this.logger.info("[AddonAPI] Registered gem: " + id + " (" + definition.getPluginName() + ")");
     }
 
     private void registerAddonItems(GemDefinition def) {
-        // Register T1
         if (def.getT1CustomModelData() > 0) {
             String t1Id = def.buildItemId(1);
-            String t1Name = def.getT1DisplayName() != null ? def.getT1DisplayName()
-                    : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
-            CustomItemManager.registerAddonItem(t1Id, def.getMaterial(),
-                    def.getT1CustomModelData(), t1Name, def.getT1Lore());
+            String t1Name = def.getT1DisplayName() != null ? def.getT1DisplayName() : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
+            CustomItemManager.registerAddonItem(t1Id, def.getMaterial(), def.getT1CustomModelData(), t1Name, def.getT1Lore());
         }
-
-        // Register T2
         if (def.getMaxTier() >= 2 && def.getT2CustomModelData() > 0) {
             String t2Id = def.buildItemId(2);
-            String t2Name = def.getT2DisplayName() != null ? def.getT2DisplayName()
-                    : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
-            CustomItemManager.registerAddonItem(t2Id, def.getMaterial(),
-                    def.getT2CustomModelData(), t2Name, def.getT2Lore());
+            String t2Name = def.getT2DisplayName() != null ? def.getT2DisplayName() : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
+            CustomItemManager.registerAddonItem(t2Id, def.getMaterial(), def.getT2CustomModelData(), t2Name, def.getT2Lore());
         }
     }
 
     @Override
     public void registerAbilities(String gemId, GemAbilityHandler handler) {
-        abilityHandlers.put(gemId, handler);
+        this.abilityHandlers.put(gemId, handler);
     }
 
     @Override
     public void registerPassives(String gemId, GemPassiveHandler handler) {
-        passiveHandlers.put(gemId, handler);
+        this.passiveHandlers.put(gemId, handler);
     }
 
     @Override
     public void registerCooldowns(String gemId, List<CooldownEntry> entries) {
-        cooldownEntries.put(gemId, Collections.unmodifiableList(new ArrayList<>(entries)));
+        this.cooldownEntries.put(gemId, Collections.unmodifiableList(new ArrayList<CooldownEntry>(entries)));
     }
 
     @Override
     public GemDefinition getGem(String gemId) {
-        return gems.get(gemId);
+        return this.gems.get(gemId);
     }
 
     @Override
     public GemAbilityHandler getAbilityHandler(String gemId) {
-        return abilityHandlers.get(gemId);
+        return this.abilityHandlers.get(gemId);
     }
 
     @Override
     public GemPassiveHandler getPassiveHandler(String gemId) {
-        return passiveHandlers.get(gemId);
+        return this.passiveHandlers.get(gemId);
     }
 
     @Override
     public List<CooldownEntry> getCooldownEntries(String gemId) {
-        return cooldownEntries.getOrDefault(gemId, Collections.emptyList());
+        return this.cooldownEntries.getOrDefault(gemId, Collections.emptyList());
     }
 
     @Override
     public Collection<GemDefinition> getAllGems() {
-        return Collections.unmodifiableCollection(gems.values());
+        return Collections.unmodifiableCollection(this.gems.values());
     }
 
     @Override
     public boolean isRegisteredGem(String itemId) {
-        return gemIdFromItemId(itemId) != null;
+        return this.gemIdFromItemId(itemId) != null;
     }
 
     @Override
     public String gemIdFromItemId(String itemId) {
-        if (itemId == null) return null;
+        String candidateId;
+        if (itemId == null) {
+            return null;
+        }
         Matcher matcher = GEM_ITEM_PATTERN.matcher(itemId);
-        if (matcher.matches()) {
-            String candidateId = matcher.group(1);
-            if (gems.containsKey(candidateId)) {
-                return candidateId;
-            }
+        if (matcher.matches() && this.gems.containsKey(candidateId = matcher.group(1))) {
+            return candidateId;
         }
         return null;
     }
 
     @Override
     public int tierFromItemId(String itemId) {
-        if (itemId == null) return 1;
+        if (itemId == null) {
+            return 1;
+        }
         Matcher matcher = GEM_ITEM_PATTERN.matcher(itemId);
         if (matcher.matches()) {
             try {
                 return Integer.parseInt(matcher.group(2));
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 return 1;
             }
         }
         return 1;
     }
 }
+

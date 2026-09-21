@@ -1,14 +1,16 @@
 /*
  * Decompiled with CFR 0.152.
- *
+ * 
  * Could not load the following classes:
  *  org.bukkit.Particle
  *  org.bukkit.Sound
+ *  org.bukkit.command.CommandSender
  *  org.bukkit.entity.Player
  *  org.bukkit.event.EventHandler
  *  org.bukkit.event.Listener
  *  org.bukkit.event.block.Action
  *  org.bukkit.event.player.PlayerInteractEvent
+ *  org.bukkit.inventory.EquipmentSlot
  *  org.bukkit.inventory.ItemStack
  */
 package dev.xoperr.blissgems.listeners;
@@ -16,8 +18,12 @@ package dev.xoperr.blissgems.listeners;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -25,18 +31,12 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import org.bukkit.inventory.meta.ItemMeta;
 
 public class UpgraderListener
 implements Listener {
     private final BlissGems plugin;
-    // Debounce: a single right-click fires PlayerInteractEvent twice (main + off hand),
-    // and rapid clicks can double-process before the gem's tier updates — both let one
-    // upgrader upgrade more than one gem. Ignore repeat fires within this window.
-    private final Map<UUID, Long> lastUpgrade = new HashMap<>();
+    private final Map<UUID, Long> lastUpgrade = new HashMap<UUID, Long>();
     private static final long UPGRADE_DEBOUNCE_MS = 400L;
 
     public UpgraderListener(BlissGems plugin) {
@@ -48,8 +48,6 @@ implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
-        // Only handle the hand that actually holds the upgrader; ignore the paired
-        // off-hand fire of the same physical click.
         if (event.getHand() != EquipmentSlot.HAND && event.getHand() != EquipmentSlot.OFF_HAND) {
             return;
         }
@@ -58,57 +56,101 @@ implements Listener {
         if (item == null) {
             return;
         }
-        String oraxenId = CustomItemManager.getIdByItem((ItemStack)item);
-        // Check if it's a universal gem upgrader (not type-specific anymore)
+        String oraxenId = CustomItemManager.getIdByItem(item);
         if (oraxenId == null || !oraxenId.equals("gem_upgrader")) {
             return;
         }
         event.setCancelled(true);
-
-        // Debounce double-fires / spam-clicks so one upgrader can't upgrade multiple gems.
         long now = System.currentTimeMillis();
-        Long last = lastUpgrade.get(player.getUniqueId());
-        if (last != null && now - last < UPGRADE_DEBOUNCE_MS) {
+        Long last = this.lastUpgrade.get(player.getUniqueId());
+        if (last != null && now - last < 400L) {
             return;
         }
-        lastUpgrade.put(player.getUniqueId(), now);
-
-        // Check if player has a gem
+        this.lastUpgrade.put(player.getUniqueId(), now);
         if (!this.plugin.getGemManager().hasActiveGem(player)) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "no-gem");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "no-gem", new Object[0]);
             return;
         }
-
-        // Get current gem info by string id so addon/expansion gems upgrade too
-        // (their built-in GemType is null).
         String currentGemId = this.plugin.getGemManager().getGemId(player);
         int currentTier = this.plugin.getGemManager().getGemTier(player);
-
-        // Check if already tier 2
         if (currentTier != 1) {
-            this.plugin.getConfigManager().sendFormattedMessage(player, "upgrade-already-tier2");
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-already-tier2", new Object[0]);
             return;
         }
-
-        // Upgrade the gem (universal upgrader works for any gem type)
+        int charges = this.plugin.getConfig().getInt("upgrader.charges", 3);
+        ItemMeta meta = item.getItemMeta();
+        int currentCharges = charges;
+        if (meta != null && meta.hasLore() && meta.getLore() != null) {
+            for (String line : meta.getLore()) {
+                String stripped = org.bukkit.ChatColor.stripColor(line);
+                if (stripped.startsWith("Charges: ")) {
+                    try { currentCharges = Integer.parseInt(stripped.substring(9).trim()); } catch (Exception ignored) {}
+                    break;
+                }
+            }
+        }
+        if (currentCharges <= 0) {
+            player.sendMessage("§cThis upgrader has no charges left!");
+            return;
+        }
         if (this.plugin.getGemManager().upgradeGem(player, currentGemId)) {
-            // Determine which hand has the upgrader and remove from correct hand
+            boolean upgraderInOffHand;
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             ItemStack offHand = player.getInventory().getItemInOffHand();
-
-            boolean upgraderInMainHand = mainHand != null &&
-                "gem_upgrader".equals(CustomItemManager.getIdByItem(mainHand));
-            boolean upgraderInOffHand = offHand != null &&
-                "gem_upgrader".equals(CustomItemManager.getIdByItem(offHand));
-
-            if (item.getAmount() > 1) {
-                item.setAmount(item.getAmount() - 1);
-            } else {
-                // Remove upgrader from the correct hand
-                if (upgraderInMainHand) {
+            boolean upgraderInMainHand = mainHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(mainHand));
+            boolean bl = upgraderInOffHand = offHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(offHand));
+            currentCharges--;
+            if (currentCharges <= 0) {
+                if (item.getAmount() > 1) {
+                    item.setAmount(item.getAmount() - 1);
+                } else if (upgraderInMainHand) {
                     player.getInventory().setItemInMainHand(null);
                 } else if (upgraderInOffHand) {
                     player.getInventory().setItemInOffHand(null);
+                }
+                player.sendMessage("§eUpgrader used all charges and was consumed.");
+            } else {
+                if (meta != null) {
+                    java.util.List<String> lore = meta.getLore() != null ? new java.util.ArrayList<>(meta.getLore()) : new java.util.ArrayList<>();
+                    boolean found = false;
+                    for (int i = 0; i < lore.size(); i++) {
+                        String stripped = org.bukkit.ChatColor.stripColor(lore.get(i));
+                        if (stripped.startsWith("Charges: ")) {
+                            lore.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        lore.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
+                    }
+                    meta.setLore(lore);
+                    item.setItemMeta(meta);
+                }
+                if (item.getAmount() > 1) {
+                    item.setAmount(item.getAmount() - 1);
+                    ItemStack updated = item.clone();
+                    updated.setAmount(1);
+                    if (updated.getItemMeta() != null) {
+                        ItemMeta um = updated.getItemMeta();
+                        java.util.List<String> ul = um.getLore() != null ? new java.util.ArrayList<>(um.getLore()) : new java.util.ArrayList<>();
+                        boolean uf = false;
+                        for (int i = 0; i < ul.size(); i++) {
+                            if (org.bukkit.ChatColor.stripColor(ul.get(i)).startsWith("Charges: ")) {
+                                ul.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
+                                uf = true;
+                                break;
+                            }
+                        }
+                        if (!uf) ul.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
+                        um.setLore(ul);
+                        updated.setItemMeta(um);
+                    }
+                    if (upgraderInMainHand) {
+                        player.getInventory().setItemInMainHand(updated);
+                    } else if (upgraderInOffHand) {
+                        player.getInventory().setItemInOffHand(updated);
+                    }
                 }
             }
             if (this.plugin.getConfigManager().shouldPlayUpgradeEffects()) {
@@ -125,8 +167,7 @@ implements Listener {
                     this.plugin.getLogger().warning("Invalid particle or sound in config: " + e.getMessage());
                 }
             }
-            this.plugin.getConfigManager().sendFormattedMessage(player, "upgrade-success");
-            // Achievement: The Next Level
+            this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-success", new Object[0]);
             if (this.plugin.getAchievementManager() != null) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.THE_NEXT_LEVEL);
             }

@@ -2,21 +2,26 @@
  * Decompiled with CFR 0.152.
  * 
  * Could not load the following classes:
+ *  org.bukkit.command.CommandSender
  *  org.bukkit.configuration.file.FileConfiguration
+ *  org.bukkit.configuration.file.YamlConfiguration
  */
 package dev.xoperr.blissgems.utils;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.GemType;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Set;
 import java.util.logging.Level;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 public class ConfigManager {
     private final BlissGems plugin;
@@ -34,108 +39,63 @@ public class ConfigManager {
         this.config = this.plugin.getConfig();
     }
 
-    /**
-     * Auto-repairs broken or outdated configs by adding missing keys
-     */
     private void autoRepairConfig() {
-        File configFile = new File(plugin.getDataFolder(), "config.yml");
-
-        // If config doesn't exist, saveDefaultConfig will handle it
+        String expectedVersion;
+        File configFile = new File(this.plugin.getDataFolder(), "config.yml");
         if (!configFile.exists()) {
             return;
         }
-
-        // Load default config from JAR
-        FileConfiguration defaultConfig = YamlConfiguration.loadConfiguration(
-            new java.io.InputStreamReader(
-                plugin.getResource("config.yml"),
-                java.nio.charset.StandardCharsets.UTF_8
-            )
-        );
-
-        // Read the on-disk config directly. plugin.getConfig() has the JAR's config.yml
-        // installed as its *defaults*, so every contains()/getString() below would fall
-        // through to those defaults and report the file as complete - the repair never
-        // ran and new keys were never written to the server's config.yml on update.
-        FileConfiguration userConfig = YamlConfiguration.loadConfiguration(configFile);
-
-        // Check version
+        YamlConfiguration defaultConfig = YamlConfiguration.loadConfiguration((Reader)new InputStreamReader(this.plugin.getResource("config.yml"), StandardCharsets.UTF_8));
+        YamlConfiguration userConfig = YamlConfiguration.loadConfiguration((File)configFile);
         String currentVersion = userConfig.getString("config-version", "unknown");
-        String expectedVersion = defaultConfig.getString("config-version", CONFIG_VERSION);
-        boolean isOutdated = !currentVersion.equals(expectedVersion);
-
-        // Check if repair is needed
+        boolean isOutdated = !currentVersion.equals(expectedVersion = defaultConfig.getString("config-version", CONFIG_VERSION));
         boolean needsRepair = false;
         int missingKeys = 0;
-
-        // Get all keys from default config
         Set<String> defaultKeys = defaultConfig.getKeys(true);
-
         for (String key : defaultKeys) {
-            // Skip checking values that aren't leaf nodes
-            if (defaultConfig.isConfigurationSection(key)) {
-                continue;
-            }
-
-            // If key is missing, mark for repair
-            if (!userConfig.contains(key)) {
-                needsRepair = true;
-                missingKeys++;
-            }
+            if (defaultConfig.isConfigurationSection(key) || userConfig.contains(key)) continue;
+            needsRepair = true;
+            ++missingKeys;
         }
-
-        // If no repair needed, exit early
         if (!needsRepair) {
-            // Just update version if outdated but complete
             if (isOutdated) {
-                config.set("config-version", expectedVersion);
+                this.config.set("config-version", (Object)expectedVersion);
                 try {
-                    config.save(configFile);
-                    plugin.getLogger().info("Updated config version from " + currentVersion + " to " + expectedVersion);
-                } catch (IOException e) {
-                    plugin.getLogger().warning("Failed to update config version: " + e.getMessage());
+                    this.config.save(configFile);
+                    this.plugin.getLogger().info("Updated config version from " + currentVersion + " to " + expectedVersion);
+                }
+                catch (IOException e) {
+                    this.plugin.getLogger().warning("Failed to update config version: " + e.getMessage());
                 }
             }
             return;
         }
-
-        // Backup old config
         try {
-            File backupFile = new File(plugin.getDataFolder(), "config.yml.backup");
+            File backupFile = new File(this.plugin.getDataFolder(), "config.yml.backup");
             Files.copy(configFile.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            plugin.getLogger().info("Created config backup: config.yml.backup");
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to backup config: " + e.getMessage());
+            this.plugin.getLogger().info("Created config backup: config.yml.backup");
         }
-
-        // Add missing keys
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to backup config: " + e.getMessage());
+        }
         if (isOutdated) {
-            plugin.getLogger().warning("Detected outdated config! (v" + currentVersion + " -> v" + expectedVersion + ")");
+            this.plugin.getLogger().warning("Detected outdated config! (v" + currentVersion + " -> v" + expectedVersion + ")");
         }
-        plugin.getLogger().warning("Auto-repairing config: " + missingKeys + " missing entries detected.");
-
+        this.plugin.getLogger().warning("Auto-repairing config: " + missingKeys + " missing entries detected.");
         for (String key : defaultKeys) {
-            if (defaultConfig.isConfigurationSection(key)) {
-                continue;
-            }
-
-            if (!userConfig.contains(key)) {
-                config.set(key, defaultConfig.get(key));
-                plugin.getLogger().info("  + Added: " + key);
-            }
+            if (defaultConfig.isConfigurationSection(key) || userConfig.contains(key)) continue;
+            this.config.set(key, defaultConfig.get(key));
+            this.plugin.getLogger().info("  + Added: " + key);
         }
-
-        // Update version to latest
-        config.set("config-version", expectedVersion);
-
-        // Save repaired config
+        this.config.set("config-version", (Object)expectedVersion);
         try {
-            config.save(configFile);
-            plugin.getLogger().info("Config auto-repair complete! " + missingKeys + " keys added.");
-            plugin.getLogger().info("Your old config was backed up to config.yml.backup");
-            this.reload(); // Reload to use the repaired config
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to save repaired config!", e);
+            this.config.save(configFile);
+            this.plugin.getLogger().info("Config auto-repair complete! " + missingKeys + " keys added.");
+            this.plugin.getLogger().info("Your old config was backed up to config.yml.backup");
+            this.reload();
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to save repaired config!", e);
         }
     }
 
@@ -172,11 +132,12 @@ public class ConfigManager {
     }
 
     public void setBanOnZeroEnergy(boolean enabled) {
-        this.config.set("energy.ban-on-zero-energy", enabled);
+        this.config.set("energy.ban-on-zero-energy", (Object)enabled);
         try {
-            this.config.save(new File(plugin.getDataFolder(), "config.yml"));
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save config: " + e.getMessage());
+            this.config.save(new File(this.plugin.getDataFolder(), "config.yml"));
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save config: " + e.getMessage());
         }
     }
 
@@ -185,11 +146,12 @@ public class ConfigManager {
     }
 
     public void setSmpStarted(boolean started) {
-        this.config.set("smp.started", started);
+        this.config.set("smp.started", (Object)started);
         try {
-            this.config.save(new File(plugin.getDataFolder(), "config.yml"));
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save config: " + e.getMessage());
+            this.config.save(new File(this.plugin.getDataFolder(), "config.yml"));
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save config: " + e.getMessage());
         }
     }
 
@@ -202,11 +164,12 @@ public class ConfigManager {
     }
 
     public void setFixedHeartsEnabled(boolean enabled) {
-        this.config.set("fixed-hearts.enabled", enabled);
+        this.config.set("fixed-hearts.enabled", (Object)enabled);
         try {
-            this.config.save(new File(plugin.getDataFolder(), "config.yml"));
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save config: " + e.getMessage());
+            this.config.save(new File(this.plugin.getDataFolder(), "config.yml"));
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save config: " + e.getMessage());
         }
     }
 
@@ -218,18 +181,10 @@ public class ConfigManager {
         return this.config.getBoolean("gems.single-gem-only", true);
     }
 
-    /**
-     * When enabled, a player holding a Tier 2 gem drops a Gem Upgrader where they died.
-     * The gem keeps its tier, so this creates a new upgrader on every Tier 2 death.
-     */
     public boolean isUpgraderDropOnTier2DeathEnabled() {
         return this.config.getBoolean("gems.drop-upgrader-on-tier2-death", false);
     }
 
-    /**
-     * When enabled, tier 1 gems also auto-enchant (at reduced levels). On by default -
-     * set to false to keep auto-enchant a tier 2 perk.
-     */
     public boolean isTier1AutoEnchantEnabled() {
         return this.config.getBoolean("auto-enchant.tier1-enabled", true);
     }
@@ -238,17 +193,11 @@ public class ConfigManager {
         return this.config.getInt("passives.update-interval", 20);
     }
 
-    // ==========================================
-    // TIER-SPECIFIC PASSIVE GETTERS
-    // ==========================================
-
-    // Astra Passives
     public double getPhaseChance(int tier) {
         String path = "passives.astra.tier" + tier + ".phase-chance";
-        return this.config.getDouble(path, tier == 1 ? 0.10 : 0.15);
+        return this.config.getDouble(path, tier == 1 ? 0.1 : 0.15);
     }
 
-    // Life Passives
     public double getLifeHealAmount(int tier) {
         String path = "passives.life.tier" + tier + ".heal-amount";
         return this.config.getDouble(path, tier == 1 ? 0.3 : 0.5);
@@ -274,7 +223,6 @@ public class ConfigManager {
         return this.config.getInt(path, tier == 1 ? 0 : 1);
     }
 
-    // Flux Passives
     public double getShockingArrowDamage(int tier) {
         String path = "passives.flux.tier" + tier + ".shocking-arrow-damage";
         return this.config.getDouble(path, tier == 1 ? 2.0 : 3.0);
@@ -285,7 +233,6 @@ public class ConfigManager {
         return this.config.getDouble(path, tier == 1 ? 0.15 : 0.2);
     }
 
-    // Puff Passives
     public boolean isDoubleJumpEnabled(int tier) {
         String path = "passives.puff.tier" + tier + ".double-jump-enabled";
         return this.config.getBoolean(path, true);
@@ -311,7 +258,6 @@ public class ConfigManager {
         return this.config.getBoolean(path, tier == 2);
     }
 
-    // Fire Passives
     public boolean isAutoSmeltEnabled(int tier) {
         String path = "passives.fire.tier" + tier + ".auto-smelt";
         return this.config.getBoolean(path, true);
@@ -322,7 +268,6 @@ public class ConfigManager {
         return this.config.getBoolean(path, true);
     }
 
-    // Speed Passives
     public boolean isSoulSandImmunity(int tier) {
         String path = "passives.speed.tier" + tier + ".soul-sand-immunity";
         return this.config.getBoolean(path, true);
@@ -333,7 +278,6 @@ public class ConfigManager {
         return this.config.getInt(path, tier == 1 ? 0 : 1);
     }
 
-    // Strength Passives
     public int getStrengthLevel(int tier) {
         String path = "passives.strength.tier" + tier + ".strength-level";
         return this.config.getInt(path, tier == 1 ? 0 : 1);
@@ -344,7 +288,6 @@ public class ConfigManager {
         return this.config.getDouble(path, tier == 1 ? 7.0 : 10.0);
     }
 
-    // Wealth Passives
     public int getLuckLevel(int tier) {
         String path = "passives.wealth.tier" + tier + ".luck-level";
         return this.config.getInt(path, tier == 1 ? 0 : 1);
@@ -352,36 +295,32 @@ public class ConfigManager {
 
     public double getVillagerDiscount(int tier) {
         String path = "passives.wealth.tier" + tier + ".villager-discount";
-        return this.config.getDouble(path, tier == 1 ? 0.10 : 0.20);
+        return this.config.getDouble(path, tier == 1 ? 0.1 : 0.2);
     }
-
-    // ==========================================
-    // LEGACY GETTERS (for backwards compatibility - will use tier 2 defaults)
-    // ==========================================
 
     @Deprecated
     public double getPhaseChance() {
-        return getPhaseChance(2);
+        return this.getPhaseChance(2);
     }
 
     @Deprecated
     public double getLifeHealAmount() {
-        return getLifeHealAmount(2);
+        return this.getLifeHealAmount(2);
     }
 
     @Deprecated
     public int getLifeHealInterval() {
-        return getLifeHealInterval(2);
+        return this.getLifeHealInterval(2);
     }
 
     @Deprecated
     public double getUndeadDamageMultiplier() {
-        return getUndeadDamageMultiplier(2);
+        return this.getUndeadDamageMultiplier(2);
     }
 
     @Deprecated
     public double getSaturationMultiplier() {
-        return getSaturationMultiplier(2);
+        return this.getSaturationMultiplier(2);
     }
 
     public int getGlobalAbilityCooldown() {
@@ -461,53 +400,32 @@ public class ConfigManager {
     }
 
     public String getFormattedMessage(String key, Object ... replacements) {
-        // Check if this is an optional message and they're disabled
-        if (areOptionalMessagesDisabled()) {
-            // Only suppress ability activation confirmations (spammy)
-            // Do NOT suppress click-activation-disabled — it's critical user feedback
-            if (key.equals("ability-activated")) {
-                return null; // Suppress the message
-            }
+        if (this.areOptionalMessagesDisabled() && key.equals("ability-activated")) {
+            return null;
         }
-
         String message = this.getMessage(key);
-
-        // If message is empty or just whitespace, return NULL (not empty string)
-        // This way callers can check for null and skip sendMessage
         if (message == null || message.trim().isEmpty()) {
             return null;
         }
-
         for (int i = 0; i < replacements.length; i += 2) {
             if (i + 1 >= replacements.length) continue;
             message = message.replace("{" + String.valueOf(replacements[i]) + "}", String.valueOf(replacements[i + 1]));
         }
-
-        // Add prefix with proper spacing and ensure message is visible
         String result = this.getPrefix() + " \u00a7f" + message;
-
-        // Final check: if result is effectively just the prefix, return null
-        String cleanResult = result.replaceAll("§[0-9a-fk-or]", "").trim();
-        if (cleanResult.equals("BlissGems »") || cleanResult.isEmpty()) {
+        String cleanResult = result.replaceAll("\u00a7[0-9a-fk-or]", "").trim();
+        if (cleanResult.equals("BlissGems \u00bb") || cleanResult.isEmpty()) {
             return null;
         }
-
         return result;
     }
 
-    // Helper method that safely sends formatted messages (won't send if null/empty)
-    public void sendFormattedMessage(org.bukkit.command.CommandSender sender, String key, Object... replacements) {
-        String message = getFormattedMessage(key, replacements);
+    public void sendFormattedMessage(CommandSender sender, String key, Object ... replacements) {
+        String message = this.getFormattedMessage(key, replacements);
         if (message != null && !message.isEmpty()) {
             sender.sendMessage(message);
         }
     }
 
-    /**
-     * Check if optional messages are disabled.
-     * Optional messages include: ability activation confirmations, click activation errors, etc.
-     * @return true if optional messages should NOT be sent
-     */
     public boolean areOptionalMessagesDisabled() {
         return this.config.getBoolean("disable-optional-messages", true);
     }

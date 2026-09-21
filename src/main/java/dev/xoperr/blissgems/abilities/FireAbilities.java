@@ -1,15 +1,50 @@
 /*
- * Fire Gem Abilities
- * - Charged Fireball (Tier 1+2): 15 second charge with visual particles
- * - Campfire (Tier 2): Places campfire block that burns enemies and heals caster
- * - Crisp (Tier 2): Evaporates all water in range and replaces surrounding blocks with nether blocks
- * - Meteor Shower (Tier 2): Rains fire on a target area
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  net.md_5.bungee.api.ChatMessageType
+ *  net.md_5.bungee.api.chat.BaseComponent
+ *  net.md_5.bungee.api.chat.TextComponent
+ *  org.bukkit.Location
+ *  org.bukkit.Material
+ *  org.bukkit.Particle
+ *  org.bukkit.Particle$DustOptions
+ *  org.bukkit.Sound
+ *  org.bukkit.World
+ *  org.bukkit.block.Block
+ *  org.bukkit.entity.Display$Brightness
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.EntityType
+ *  org.bukkit.entity.Fireball
+ *  org.bukkit.entity.ItemDisplay
+ *  org.bukkit.entity.LivingEntity
+ *  org.bukkit.entity.Player
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.potion.PotionEffect
+ *  org.bukkit.potion.PotionEffectType
+ *  org.bukkit.projectiles.ProjectileSource
+ *  org.bukkit.scheduler.BukkitRunnable
+ *  org.bukkit.scheduler.BukkitTask
+ *  org.bukkit.util.RayTraceResult
+ *  org.bukkit.util.Transformation
+ *  org.bukkit.util.Vector
+ *  org.joml.Vector3f
  */
 package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.ParticleUtils;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -24,76 +59,39 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Transformation;
-import org.joml.Vector3f;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.RayTraceResult;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
+import org.joml.Vector3f;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
-
-public class FireAbilities implements GemAbilityHandler {
+public class FireAbilities
+implements GemAbilityHandler {
     private final BlissGems plugin;
-    private final Map<UUID, Integer> chargingPlayers = new HashMap<>();
-    private final Map<UUID, BukkitTask> chargingTasks = new HashMap<>();
-    private final Map<UUID, ItemDisplay> chargeDisplays = new HashMap<>();
-    private final Map<UUID, Location> activeCampfires = new HashMap<>();
-    private final Map<UUID, BukkitTask> campfireTasks = new HashMap<>();
-
-    // Crisp state
-    private final Set<UUID> crispActivePlayers = new HashSet<>();
-    private final Map<UUID, BukkitTask> crispTasks = new HashMap<>();
-    private final Map<UUID, Map<Location, Material>> crispOriginalBlocks = new HashMap<>();
-    private final Map<UUID, Map<Location, Material>> crispOriginalWater = new HashMap<>();
-
-    // Meteor Shower state
-    private final Set<UUID> meteorShowersActive = new HashSet<>();
-    private final Map<UUID, BukkitTask> meteorTasks = new HashMap<>();
-
+    private final Map<UUID, Integer> chargingPlayers = new HashMap<UUID, Integer>();
+    private final Map<UUID, BukkitTask> chargingTasks = new HashMap<UUID, BukkitTask>();
+    private final Map<UUID, ItemDisplay> chargeDisplays = new HashMap<UUID, ItemDisplay>();
+    private final Map<UUID, Location> activeCampfires = new HashMap<UUID, Location>();
+    private final Map<UUID, BukkitTask> campfireTasks = new HashMap<UUID, BukkitTask>();
+    private final Set<UUID> crispActivePlayers = new HashSet<UUID>();
+    private final Map<UUID, BukkitTask> crispTasks = new HashMap<UUID, BukkitTask>();
+    private final Map<UUID, Map<Location, Material>> crispOriginalBlocks = new HashMap<UUID, Map<Location, Material>>();
+    private final Map<UUID, Map<Location, Material>> crispOriginalWater = new HashMap<UUID, Map<Location, Material>>();
+    private final Set<UUID> meteorShowersActive = new HashSet<UUID>();
+    private final Map<UUID, BukkitTask> meteorTasks = new HashMap<UUID, BukkitTask>();
     private static final int MAX_CHARGE = 100;
-    private static final int CHARGE_DURATION_TICKS = 300; // 15 seconds
-
-    // Nether block palette for Crisp
-    private static final Material[] NETHER_BLOCKS = {
-        Material.NETHERRACK,
-        Material.NETHER_BRICKS,
-        Material.NETHER_BRICK_FENCE,
-        Material.MAGMA_BLOCK,
-        Material.SOUL_SAND
-    };
-
+    private static final int CHARGE_DURATION_TICKS = 300;
+    private static final Material[] NETHER_BLOCKS = new Material[]{Material.NETHERRACK, Material.NETHER_BRICKS, Material.NETHER_BRICK_FENCE, Material.MAGMA_BLOCK, Material.SOUL_SAND};
     private final Random random = new Random();
 
-    /**
-     * Check if a block is a container (chest, shulker, barrel, etc.)
-     * to prevent data loss when transforming blocks.
-     */
     private static boolean isContainer(Material material) {
         String name = material.name();
-        return name.contains("CHEST") ||
-               name.contains("SHULKER_BOX") ||
-               name.contains("BARREL") ||
-               name.contains("HOPPER") ||
-               name.contains("FURNACE") ||
-               name.contains("BLAST_FURNACE") ||
-               name.contains("SMOKER") ||
-               name.contains("DROPPER") ||
-               name.contains("DISPENSER") ||
-               name.contains("BREWING_STAND") ||
-               material == Material.JUKEBOX ||
-               material == Material.LECTERN ||
-               material == Material.CHISELED_BOOKSHELF;
+        return name.contains("CHEST") || name.contains("SHULKER_BOX") || name.contains("BARREL") || name.contains("HOPPER") || name.contains("FURNACE") || name.contains("BLAST_FURNACE") || name.contains("SMOKER") || name.contains("DROPPER") || name.contains("DISPENSER") || name.contains("BREWING_STAND") || material == Material.JUKEBOX || material == Material.LECTERN || material == Material.CHISELED_BOOKSHELF;
     }
 
     public FireAbilities(BlissGems plugin) {
@@ -101,24 +99,21 @@ public class FireAbilities implements GemAbilityHandler {
     }
 
     public boolean isCharging(Player player) {
-        return chargingPlayers.containsKey(player.getUniqueId());
+        return this.chargingPlayers.containsKey(player.getUniqueId());
     }
 
     public int getCharge(Player player) {
-        return chargingPlayers.getOrDefault(player.getUniqueId(), 0);
+        return this.chargingPlayers.getOrDefault(player.getUniqueId(), 0);
     }
 
     public boolean isCrispActive(Player player) {
-        return crispActivePlayers.contains(player.getUniqueId());
+        return this.crispActivePlayers.contains(player.getUniqueId());
     }
 
     public boolean isProtectedBlock(Location loc) {
-        // Only Crisp-scorched nether blocks are unbreakable. Campfires are intentionally
-        // breakable — the campfire task already detects and cleans up a broken campfire.
-        for (Map<Location, Material> blocks : crispOriginalBlocks.values()) {
-            if (blocks.containsKey(loc)) {
-                return true;
-            }
+        for (Map<Location, Material> blocks : this.crispOriginalBlocks.values()) {
+            if (!blocks.containsKey(loc)) continue;
+            return true;
         }
         return false;
     }
@@ -151,825 +146,581 @@ public class FireAbilities implements GemAbilityHandler {
         this.meteorShower(player);
     }
 
-    public void chargedFireball(Player player) {
+    public void chargedFireball(final Player player) {
         String abilityKey = "fire-fireball";
-
-        if (isCharging(player)) {
-            fireChargedShot(player);
+        if (this.isCharging(player)) {
+            this.fireChargedShot(player);
             return;
         }
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-
-        UUID uuid = player.getUniqueId();
-        chargingPlayers.put(uuid, 0);
-
+        final UUID uuid = player.getUniqueId();
+        this.chargingPlayers.put(uuid, 0);
         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.5f);
         player.sendMessage("\u00a76\u00a7oCharging fireball... Right-click again to fire!");
-
-        // Spawn a glowing fire-charge ItemDisplay above the player's head.
-        // Brightness override (15,15) makes it look fully lit even at night.
-        spawnChargeDisplay(player);
-        spawnChargeStartBurst(player);
-
-        BukkitTask task = new BukkitRunnable() {
+        this.spawnChargeDisplay(player);
+        this.spawnChargeStartBurst(player);
+        BukkitTask task = new BukkitRunnable(){
             int ticksElapsed = 0;
             boolean maxChargeNotified = false;
             boolean decaying = false;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || player.isDead() || !chargingPlayers.containsKey(uuid)) {
-                    cancelCharging(player);
+                int newCharge;
+                if (!player.isOnline() || player.isDead() || !FireAbilities.this.chargingPlayers.containsKey(uuid)) {
+                    FireAbilities.this.cancelCharging(player);
                     this.cancel();
                     return;
                 }
-
-                ticksElapsed++;
-
-                int currentCharge = chargingPlayers.getOrDefault(uuid, 0);
-                int newCharge;
-
-                int chargeDurationTicks = Math.max(1,
-                    plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", CHARGE_DURATION_TICKS));
-                if (!decaying) {
-                    newCharge = Math.min((ticksElapsed * MAX_CHARGE) / chargeDurationTicks, MAX_CHARGE);
-
-                    if (newCharge >= MAX_CHARGE) {
-                        decaying = true;
-                        newCharge = MAX_CHARGE;
+                ++this.ticksElapsed;
+                int currentCharge = FireAbilities.this.chargingPlayers.getOrDefault(uuid, 0);
+                int chargeDurationTicks = Math.max(1, FireAbilities.this.plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", 300));
+                if (!this.decaying) {
+                    newCharge = Math.min(this.ticksElapsed * 100 / chargeDurationTicks, 100);
+                    if (newCharge >= 100) {
+                        this.decaying = true;
+                        newCharge = 100;
                     }
                 } else {
-                    Block blockBelow = player.getLocation().subtract(0, 1, 0).getBlock();
-                    if (blockBelow.getType() == Material.OBSIDIAN || blockBelow.getType() == Material.CRYING_OBSIDIAN) {
-                        // Standing on obsidian — hold charge
-                        newCharge = currentCharge;
-                    } else {
-                        // Decay ~1% per tick (100 ticks = 5 seconds to drain)
-                        newCharge = currentCharge - 1;
-                    }
-
+                    Block blockBelow = player.getLocation().subtract(0.0, 1.0, 0.0).getBlock();
+                    newCharge = blockBelow.getType() == Material.OBSIDIAN || blockBelow.getType() == Material.CRYING_OBSIDIAN ? currentCharge : currentCharge - 1;
                     if (newCharge <= 0) {
                         player.sendMessage("\u00a7c\u00a7oFireball charge fizzled!");
                         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
-                        cancelCharging(player);
+                        FireAbilities.this.cancelCharging(player);
                         this.cancel();
                         return;
                     }
                 }
-
-                chargingPlayers.put(uuid, newCharge);
-
-                updateChargeDisplay(player, newCharge);
-                showChargeBar(player, newCharge);
-
+                FireAbilities.this.chargingPlayers.put(uuid, newCharge);
+                FireAbilities.this.updateChargeDisplay(player, newCharge);
+                FireAbilities.this.showChargeBar(player, newCharge);
                 if (newCharge == 25 || newCharge == 50 || newCharge == 75) {
-                    player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.5f, 1.0f + (newCharge / 100.0f));
+                    player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.5f, 1.0f + (float)newCharge / 100.0f);
                 }
-
-                if (newCharge >= MAX_CHARGE && !maxChargeNotified) {
+                if (newCharge >= 100 && !this.maxChargeNotified) {
                     player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 1.5f);
                     player.sendMessage("\u00a76\u00a7lFully charged! \u00a7eRight-click to fire!");
-                    maxChargeNotified = true;
+                    this.maxChargeNotified = true;
                 }
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
-        chargingTasks.put(uuid, task);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.chargingTasks.put(uuid, task);
     }
 
     private void showChargeBar(Player player, int charge) {
-        int bars = charge / 5; // 20 bars total for 100 charge
+        int bars = charge / 5;
         StringBuilder bar = new StringBuilder("\u00a76Fireball: \u00a7c");
-
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 20; ++i) {
             if (i < bars) {
                 bar.append("\u2588");
-            } else {
-                bar.append("\u00a78\u2588");
+                continue;
             }
+            bar.append("\u00a78\u2588");
         }
-
         bar.append(" \u00a7e").append(charge).append("%");
-
-        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString()));
+        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, (BaseComponent)new TextComponent(bar.toString()));
     }
 
     private void fireChargedShot(Player player) {
         UUID uuid = player.getUniqueId();
-        int charge = chargingPlayers.getOrDefault(uuid, 0);
-
-        BukkitTask task = chargingTasks.remove(uuid);
+        int charge = this.chargingPlayers.getOrDefault(uuid, 0);
+        BukkitTask task = this.chargingTasks.remove(uuid);
         if (task != null) {
             task.cancel();
         }
-        chargingPlayers.remove(uuid);
-        removeChargeDisplay(uuid);
-
+        this.chargingPlayers.remove(uuid);
+        this.removeChargeDisplay(uuid);
         if (charge < 10) {
             player.sendMessage("\u00a7c\u00a7oNot enough charge!");
             return;
         }
-
         double yieldBase = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-base", 1.5);
         double yieldPerPercent = this.plugin.getConfig().getDouble("abilities.fire-fireball.yield-per-percent", 0.025);
-        float yield = (float) (yieldBase + (yieldPerPercent * charge));
-
+        float yield = (float)(yieldBase + yieldPerPercent * (double)charge);
         Location eyeLoc = player.getEyeLocation();
         Vector direction = eyeLoc.getDirection();
         Fireball fireball = (Fireball)player.getWorld().spawn(eyeLoc.clone().add(direction.clone().multiply(1.5)), Fireball.class);
         fireball.setShooter((ProjectileSource)player);
-        fireball.setVelocity(direction.multiply(1.5 + (charge / 100.0))); // Speed based on charge
+        fireball.setVelocity(direction.multiply(1.5 + (double)charge / 100.0));
         fireball.setYield(yield);
         fireball.setIsIncendiary(true);
-
-        int particles = 20 + (charge / 2);
-        player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f + (charge / 200.0f));
+        int particles = 20 + charge / 2;
+        player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f + (float)charge / 200.0f);
         player.spawnParticle(Particle.FLAME, eyeLoc, particles, 0.5, 0.5, 0.5, 0.1);
-
         this.plugin.getAbilityManager().useAbility(player, "fire-fireball");
         player.sendMessage("\u00a76\u00a7oFired at " + charge + "% power!");
     }
 
     public void cancelCharging(Player player) {
         UUID uuid = player.getUniqueId();
-        BukkitTask task = chargingTasks.remove(uuid);
+        BukkitTask task = this.chargingTasks.remove(uuid);
         if (task != null) {
             task.cancel();
         }
-        chargingPlayers.remove(uuid);
-        removeChargeDisplay(uuid);
+        this.chargingPlayers.remove(uuid);
+        this.removeChargeDisplay(uuid);
     }
 
-    /**
-     * One-time fire burst around the player when charging starts.
-     * After this, the floating fireball is the only visual — no per-tick particles.
-     */
     private void spawnChargeStartBurst(Player player) {
         Location loc = player.getLocation();
         World world = player.getWorld();
         Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
-
-        // Ring of flames around the feet
-        for (int i = 0; i < 24; i++) {
-            double angle = (i / 24.0) * 2 * Math.PI;
+        for (int i = 0; i < 24; ++i) {
+            double angle = (double)i / 24.0 * 2.0 * Math.PI;
             double x = Math.cos(angle) * 1.4;
             double z = Math.sin(angle) * 1.4;
-            world.spawnParticle(Particle.FLAME,
-                loc.clone().add(x, 0.2, z), 2, 0.05, 0.05, 0.05, 0.02);
-            world.spawnParticle(Particle.DUST,
-                loc.clone().add(x, 0.4, z), 1, 0.05, 0.05, 0.05, 0.0, orangeDust, true);
+            world.spawnParticle(Particle.FLAME, loc.clone().add(x, 0.2, z), 2, 0.05, 0.05, 0.05, 0.02);
+            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.4, z), 1, 0.05, 0.05, 0.05, 0.0, (Object)orangeDust, true);
         }
-
-        // Upward puff of flame at the center
-        world.spawnParticle(Particle.FLAME,
-            loc.clone().add(0, 0.6, 0), 25, 0.4, 0.4, 0.4, 0.06);
-        world.spawnParticle(Particle.LAVA,
-            loc.clone().add(0, 0.3, 0), 6, 0.5, 0.1, 0.5, 0);
+        world.spawnParticle(Particle.FLAME, loc.clone().add(0.0, 0.6, 0.0), 25, 0.4, 0.4, 0.4, 0.06);
+        world.spawnParticle(Particle.LAVA, loc.clone().add(0.0, 0.3, 0.0), 6, 0.5, 0.1, 0.5, 0.0);
     }
 
     private void spawnChargeDisplay(Player player) {
         try {
             UUID uuid = player.getUniqueId();
-            removeChargeDisplay(uuid); // safety: kill any leftover
-            Location loc = displayLocation(player);
-            ItemDisplay display = (ItemDisplay) player.getWorld().spawnEntity(loc, EntityType.ITEM_DISPLAY);
+            this.removeChargeDisplay(uuid);
+            Location loc = this.displayLocation(player);
+            ItemDisplay display = (ItemDisplay)player.getWorld().spawnEntity(loc, EntityType.ITEM_DISPLAY);
             display.setItemStack(new ItemStack(Material.FIRE_CHARGE));
             display.setBrightness(new Display.Brightness(15, 15));
-            display.setTeleportDuration(2); // smooth follow
-            applyDisplayScale(display, 0.3f);
-            chargeDisplays.put(uuid, display);
-        } catch (Throwable t) {
-            // Don't break the charge if display spawn fails for any reason
-            plugin.getLogger().warning("Failed to spawn fireball charge display: " + t.getMessage());
+            display.setTeleportDuration(2);
+            this.applyDisplayScale(display, 0.3f);
+            this.chargeDisplays.put(uuid, display);
+        }
+        catch (Throwable t) {
+            this.plugin.getLogger().warning("Failed to spawn fireball charge display: " + t.getMessage());
         }
     }
 
     private void updateChargeDisplay(Player player, int charge) {
-        ItemDisplay display = chargeDisplays.get(player.getUniqueId());
-        if (display == null || !display.isValid()) return;
-        // Scale 0.3 → 1.0 across 0 → MAX_CHARGE
-        float scale = 0.3f + (Math.max(0, Math.min(charge, MAX_CHARGE)) / (float) MAX_CHARGE) * 0.7f;
-        applyDisplayScale(display, scale);
-        display.teleport(displayLocation(player));
+        ItemDisplay display = this.chargeDisplays.get(player.getUniqueId());
+        if (display == null || !display.isValid()) {
+            return;
+        }
+        float scale = 0.3f + (float)Math.max(0, Math.min(charge, 100)) / 100.0f * 0.7f;
+        this.applyDisplayScale(display, scale);
+        display.teleport(this.displayLocation(player));
     }
 
     private void removeChargeDisplay(UUID uuid) {
-        ItemDisplay display = chargeDisplays.remove(uuid);
+        ItemDisplay display = this.chargeDisplays.remove(uuid);
         if (display != null && display.isValid()) {
             display.remove();
         }
     }
 
     private Location displayLocation(Player player) {
-        // Float ~1 block above the head, regardless of view angle
-        return player.getLocation().add(0, 2.5, 0);
+        return player.getLocation().add(0.0, 2.5, 0.0);
     }
 
     private void applyDisplayScale(ItemDisplay display, float scale) {
         Transformation t = display.getTransformation();
-        display.setTransformation(new Transformation(
-            t.getTranslation(),
-            t.getLeftRotation(),
-            new Vector3f(scale, scale, scale),
-            t.getRightRotation()
-        ));
+        display.setTransformation(new Transformation(t.getTranslation(), t.getLeftRotation(), new Vector3f(scale, scale, scale), t.getRightRotation()));
     }
 
-    public void cozyCampfire(Player player) {
+    public void cozyCampfire(final Player player) {
+        Block targetBlock;
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;
         }
-
         String abilityKey = "fire-campfire";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-
-        UUID uuid = player.getUniqueId();
-
-        if (activeCampfires.containsKey(uuid)) {
-            removeCampfire(player);
+        final UUID uuid = player.getUniqueId();
+        if (this.activeCampfires.containsKey(uuid)) {
+            this.removeCampfire(player);
         }
-
-        Block targetBlock = player.getLocation().getBlock();
-
-        if (targetBlock.getType() != Material.AIR) {
-            targetBlock = targetBlock.getRelative(0, 1, 0);
+        double maxRange = this.plugin.getConfig().getDouble("abilities.fire-campfire.range", 15.0);
+        RayTraceResult rayResult = player.getWorld().rayTraceBlocks(player.getEyeLocation(), player.getEyeLocation().getDirection(), maxRange);
+        if (rayResult != null && rayResult.getHitBlock() != null) {
+            targetBlock = rayResult.getHitBlock().getRelative(rayResult.getHitBlockFace());
+        } else {
+            targetBlock = player.getLocation().add(player.getEyeLocation().getDirection().multiply(maxRange)).getBlock();
         }
-
         if (targetBlock.getType() != Material.AIR && targetBlock.getType() != Material.CAVE_AIR) {
             player.sendMessage("\u00a7c\u00a7oCannot place campfire here!");
             return;
         }
-
         targetBlock.setType(Material.CAMPFIRE);
-        Location campfireLocation = targetBlock.getLocation().clone();
+        final Location campfireLocation = targetBlock.getLocation().clone();
         World campfireWorld = campfireLocation.getWorld();
-
-        activeCampfires.put(uuid, campfireLocation);
-
-        double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 5.0);
-        double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 2.0);
-        int burnDuration = this.plugin.getConfig().getInt("abilities.fire-campfire.burn-duration", 3);
-        int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60) * 20; // Convert to ticks
-
+        this.activeCampfires.put(uuid, campfireLocation);
+        final double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 5.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 2.0);
+        final int burnDuration = this.plugin.getConfig().getInt("abilities.fire-campfire.burn-duration", 3);
+        final int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60) * 20;
         player.playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 1.0f, 1.0f);
         player.sendMessage("\u00a76\u00a7oPlaced Campfire! Heals you and burns enemies for 1 minute.");
-
-        BukkitTask campfireTask = new BukkitRunnable() {
+        BukkitTask campfireTask = new BukkitRunnable(){
             int ticksElapsed = 0;
 
-            @Override
             public void run() {
                 Block currentBlock = campfireLocation.getBlock();
                 if (currentBlock.getType() != Material.CAMPFIRE) {
-                    activeCampfires.remove(uuid);
-                    campfireTasks.remove(uuid);
+                    FireAbilities.this.activeCampfires.remove(uuid);
+                    FireAbilities.this.campfireTasks.remove(uuid);
                     player.sendMessage("\u00a76\u00a7oCampfire was destroyed!");
                     this.cancel();
                     return;
                 }
-
-                if (ticksElapsed >= duration) {
-                    // Duration expired - remove campfire
-                    removeCampfireBlock(campfireLocation);
-                    activeCampfires.remove(uuid);
-                    campfireTasks.remove(uuid);
+                if (this.ticksElapsed >= duration) {
+                    FireAbilities.this.removeCampfireBlock(campfireLocation);
+                    FireAbilities.this.activeCampfires.remove(uuid);
+                    FireAbilities.this.campfireTasks.remove(uuid);
                     player.sendMessage("\u00a76\u00a7oCampfire expired!");
                     this.cancel();
                     return;
                 }
-
-                // Every second (20 ticks), apply effects
-                if (ticksElapsed % 20 == 0) {
-                    // Give Regeneration 4 to trusted players and the caster if in range
+                if (this.ticksElapsed % 20 == 0) {
                     for (Entity entity : campfireLocation.getWorld().getNearbyEntities(campfireLocation, radius, radius, radius)) {
-                        if (!(entity instanceof Player)) continue;
-                        Player nearby = (Player) entity;
-
-                        if (nearby.equals(player) || plugin.getTrustedPlayersManager().isTrusted(player, nearby)) {
-                            // Heal caster and trusted allies with Regeneration IV
-                            nearby.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 3)); // Regen IV for 2 seconds
-                        }
+                        Player nearby;
+                        if (!(entity instanceof Player) || !(nearby = (Player)entity).equals((Object)player) && !FireAbilities.this.plugin.getTrustedPlayersManager().isTrusted(player, nearby)) continue;
+                        nearby.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 3));
                     }
-
-                    // Damage and burn enemies in radius
                     for (Entity entity : campfireLocation.getWorld().getNearbyEntities(campfireLocation, radius, radius, radius)) {
-                        if (entity instanceof LivingEntity && entity != player) {
-                            LivingEntity target = (LivingEntity) entity;
-
-                            // Don't damage trusted players (friendly fire prevention)
-                            if (entity instanceof Player) {
-                                Player targetPlayer = (Player) entity;
-                                if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-                                    continue; // Skip trusted players
-                                }
-                            }
-
-                            // Deal damage
-                            target.damage(damage, player);
-
-                            // Set on fire
-                            target.setFireTicks(burnDuration * 20);
-
-                            // Fire particles on damaged entity
-                            target.getWorld().spawnParticle(Particle.FLAME,
-                                target.getLocation().add(0, 1, 0),
-                                10, 0.3, 0.5, 0.3, 0.02);
+                        if (!(entity instanceof LivingEntity) || entity == player) continue;
+                        LivingEntity target = (LivingEntity)entity;
+                        if (entity instanceof Player) {
+                            Player targetPlayer = (Player)entity;
+                            if (FireAbilities.this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) continue;
                         }
+                        target.damage(damage, (Entity)player);
+                        target.setFireTicks(burnDuration * 20);
+                        target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0.0, 1.0, 0.0), 10, 0.3, 0.5, 0.3, 0.02);
                     }
-
-                    // Play crackling sound periodically
                     campfireLocation.getWorld().playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 0.5f, 1.0f);
                 }
-
-                // MASSIVE VISIBLE CIRCLE showing campfire radius with Fire gem orange color
-                if (ticksElapsed % 5 == 0) { // Every 5 ticks for more visibility
-                    // DENSE fire ring to show radius - MANY MORE PARTICLES
-                    int circlePoints = 48; // Much denser circle
+                if (this.ticksElapsed % 5 == 0) {
+                    int circlePoints = 48;
                     Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.0f);
-                    for (int i = 0; i < circlePoints; i++) {
-                        double angle = (i / (double) circlePoints) * 2 * Math.PI;
+                    for (int i = 0; i < circlePoints; ++i) {
+                        double angle = (double)i / (double)circlePoints * 2.0 * Math.PI;
                         double x = Math.cos(angle) * radius;
                         double z = Math.sin(angle) * radius;
-
-                        // Ground level - Fire orange dust particles
-                        campfireLocation.getWorld().spawnParticle(Particle.DUST,
-                            campfireLocation.clone().add(x, 0.3, z),
-                            3, 0.1, 0.1, 0.1, 0.0, orangeDust, true);
-
-                        // Mid level - FLAME particles
-                        campfireLocation.getWorld().spawnParticle(Particle.FLAME,
-                            campfireLocation.clone().add(x, 0.8, z),
-                            2, 0.1, 0.1, 0.1, 0.01);
-
-                        // Higher level - LAVA particles for visibility
-                        if (i % 4 == 0) { // Every 4th point
-                            campfireLocation.getWorld().spawnParticle(Particle.LAVA,
-                                campfireLocation.clone().add(x, 1.2, z),
-                                1, 0, 0, 0, 0);
-                        }
+                        campfireLocation.getWorld().spawnParticle(Particle.DUST, campfireLocation.clone().add(x, 0.3, z), 3, 0.1, 0.1, 0.1, 0.0, (Object)orangeDust, true);
+                        campfireLocation.getWorld().spawnParticle(Particle.FLAME, campfireLocation.clone().add(x, 0.8, z), 2, 0.1, 0.1, 0.1, 0.01);
+                        if (i % 4 != 0) continue;
+                        campfireLocation.getWorld().spawnParticle(Particle.LAVA, campfireLocation.clone().add(x, 1.2, z), 1, 0.0, 0.0, 0.0, 0.0);
                     }
-
-                    // Extra center particles for visibility
-                    campfireLocation.getWorld().spawnParticle(Particle.FLAME,
-                        campfireLocation.clone().add(0.5, 1.0, 0.5),
-                        15, 0.3, 0.5, 0.3, 0.02);
-                    campfireLocation.getWorld().spawnParticle(Particle.LAVA,
-                        campfireLocation.clone().add(0.5, 0.5, 0.5),
-                        8, 0.5, 0.2, 0.5, 0);
+                    campfireLocation.getWorld().spawnParticle(Particle.FLAME, campfireLocation.clone().add(0.5, 1.0, 0.5), 15, 0.3, 0.5, 0.3, 0.02);
+                    campfireLocation.getWorld().spawnParticle(Particle.LAVA, campfireLocation.clone().add(0.5, 0.5, 0.5), 8, 0.5, 0.2, 0.5, 0.0);
                 }
-
-                ticksElapsed++;
+                ++this.ticksElapsed;
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
-        campfireTasks.put(uuid, campfireTask);
-
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.campfireTasks.put(uuid, campfireTask);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60);
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, durationSeconds);
     }
 
     private void removeCampfireBlock(Location location) {
+        World world;
         Block block = location.getBlock();
         if (block.getType() == Material.CAMPFIRE) {
             block.setType(Material.AIR);
             location.getWorld().playSound(location, Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
         }
+        if ((world = location.getWorld()) == null) {
+            return;
+        }
+        for (int dx = -2; dx <= 2; ++dx) {
+            for (int dy = -1; dy <= 2; ++dy) {
+                for (int dz = -2; dz <= 2; ++dz) {
+                    Block near = world.getBlockAt(location.getBlockX() + dx, location.getBlockY() + dy, location.getBlockZ() + dz);
+                    if (near.getType() != Material.FIRE) continue;
+                    near.setType(Material.AIR);
+                }
+            }
+        }
     }
 
     public void removeCampfire(Player player) {
+        Location loc;
         UUID uuid = player.getUniqueId();
-
-        // Cancel task
-        BukkitTask task = campfireTasks.remove(uuid);
+        BukkitTask task = this.campfireTasks.remove(uuid);
         if (task != null) {
             task.cancel();
         }
-
-        // Remove block
-        Location loc = activeCampfires.remove(uuid);
-        if (loc != null) {
-            removeCampfireBlock(loc);
+        if ((loc = this.activeCampfires.remove(uuid)) != null) {
+            this.removeCampfireBlock(loc);
         }
     }
 
-    // ========================================================================
-    // CRISP — Tier 2 Tertiary
-    // Evaporates all water in range and replaces surrounding blocks with nether blocks
-    // ========================================================================
-
-    public void crisp(Player player) {
+    public void crisp(final Player player) {
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;
         }
-
         String abilityKey = "fire-crisp";
-
-        if (isCrispActive(player)) {
+        if (this.isCrispActive(player)) {
             player.sendMessage("\u00a7c\u00a7oCrisp is already active!");
             return;
         }
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-
-        UUID uuid = player.getUniqueId();
+        final UUID uuid = player.getUniqueId();
         Location center = player.getLocation().clone();
-        int radius = this.plugin.getConfig().getInt("abilities.fire-crisp.radius", 10);
+        final int radius = this.plugin.getConfig().getInt("abilities.fire-crisp.radius", 10);
         int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-crisp", 15);
-        int duration = durationSeconds * 20; // ticks
-
-        crispActivePlayers.add(uuid);
-
-        // Activation effects
+        final int duration = durationSeconds * 20;
+        this.crispActivePlayers.add(uuid);
         player.playSound(center, Sound.BLOCK_LAVA_AMBIENT, 1.5f, 0.5f);
         player.playSound(center, Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 0.7f);
         player.sendMessage("\u00a76\u00a7lCrisp! \u00a7eEvaporating water and scorching the earth for " + durationSeconds + "s!");
-
-        // --- Initial pass: replace water and surrounding blocks ---
-        crispOriginalBlocks.put(uuid, new HashMap<>());
-        crispOriginalWater.put(uuid, new HashMap<>());
-        evaporateAndScorch(center, radius, uuid);
-
-        // Activation visual — expanding ring of fire
-        for (int i = 0; i < 36; i++) {
-            double angle = (i / 36.0) * 2 * Math.PI;
-            for (double r = 0; r <= radius; r += 0.5) {
+        this.crispOriginalBlocks.put(uuid, new HashMap());
+        this.crispOriginalWater.put(uuid, new HashMap());
+        this.evaporateAndScorch(center, radius, uuid);
+        for (int i = 0; i < 36; ++i) {
+            double angle = (double)i / 36.0 * 2.0 * Math.PI;
+            for (double r = 0.0; r <= (double)radius; r += 0.5) {
                 double x = Math.cos(angle) * r;
                 double z = Math.sin(angle) * r;
-                center.getWorld().spawnParticle(Particle.FLAME,
-                    center.clone().add(x, 0.3, z), 1, 0.05, 0.1, 0.05, 0.02);
+                center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(x, 0.3, z), 1, 0.05, 0.1, 0.05, 0.02);
             }
         }
         Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.5f);
-        for (int i = 0; i < 48; i++) {
-            double angle = (i / 48.0) * 2 * Math.PI;
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
-            center.getWorld().spawnParticle(Particle.DUST,
-                center.clone().add(x, 0.5, z), 5, 0.1, 0.3, 0.1, 0.0, orangeDust, true);
+        for (int i = 0; i < 48; ++i) {
+            double angle = (double)i / 48.0 * 2.0 * Math.PI;
+            double x = Math.cos(angle) * (double)radius;
+            double z = Math.sin(angle) * (double)radius;
+            center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 5, 0.1, 0.3, 0.1, 0.0, (Object)orangeDust, true);
         }
-
-        // Ongoing task — keep evaporating water placed after activation
-        BukkitTask crispTask = new BukkitRunnable() {
+        BukkitTask crispTask = new BukkitRunnable(){
             int ticksElapsed = 0;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || player.isDead() || ticksElapsed >= duration) {
-                    endCrisp(player);
+                if (!player.isOnline() || player.isDead() || this.ticksElapsed >= duration) {
+                    FireAbilities.this.endCrisp(player);
                     this.cancel();
                     return;
                 }
-
-                ticksElapsed++;
-
-                // Every 10 ticks (0.5s), sweep for new water blocks placed in the area
-                if (ticksElapsed % 10 == 0) {
+                ++this.ticksElapsed;
+                if (this.ticksElapsed % 10 == 0) {
                     Location playerLoc = player.getLocation();
-                    evaporateWater(playerLoc, radius, uuid);
-
-                    // Ambient effects: small lava/flame particles on scorched ground
-                    if (ticksElapsed % 20 == 0) {
-                        for (int i = 0; i < 8; i++) {
-                            double angle = random.nextDouble() * 2 * Math.PI;
-                            double r = random.nextDouble() * radius;
+                    FireAbilities.this.evaporateWater(playerLoc, radius, uuid);
+                    if (this.ticksElapsed % 20 == 0) {
+                        for (int i = 0; i < 8; ++i) {
+                            double angle = FireAbilities.this.random.nextDouble() * 2.0 * Math.PI;
+                            double r = FireAbilities.this.random.nextDouble() * (double)radius;
                             double x = Math.cos(angle) * r;
                             double z = Math.sin(angle) * r;
-                            playerLoc.getWorld().spawnParticle(Particle.LAVA,
-                                playerLoc.clone().add(x, 0.2, z), 1, 0.1, 0.1, 0.1, 0);
-                            playerLoc.getWorld().spawnParticle(Particle.FLAME,
-                                playerLoc.clone().add(x, 0.3, z), 1, 0.1, 0.1, 0.1, 0.01);
+                            playerLoc.getWorld().spawnParticle(Particle.LAVA, playerLoc.clone().add(x, 0.2, z), 1, 0.1, 0.1, 0.1, 0.0);
+                            playerLoc.getWorld().spawnParticle(Particle.FLAME, playerLoc.clone().add(x, 0.3, z), 1, 0.1, 0.1, 0.1, 0.01);
                         }
                         playerLoc.getWorld().playSound(playerLoc, Sound.BLOCK_FIRE_AMBIENT, 0.4f, 0.8f);
                     }
                 }
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
-        crispTasks.put(uuid, crispTask);
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.crispTasks.put(uuid, crispTask);
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, durationSeconds);
     }
 
-    /**
-     * Evaporates all water blocks in radius and replaces surrounding solid blocks with nether blocks.
-     */
     private void evaporateAndScorch(Location center, int radius, UUID ownerUuid) {
-        evaporateWater(center, radius, ownerUuid);
-
-        Map<Location, Material> originalBlocks = crispOriginalBlocks.get(ownerUuid);
-
-        // Replace surface-level solid blocks around center with nether blocks
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                if (x * x + z * z > radius * radius) continue; // Circle check
-                Location loc = center.clone().add(x, 0, z);
-                // Find the surface block
-                Block surface = loc.getWorld().getHighestBlockAt(loc);
-
-                // Skip containers and tile entities to preserve their contents
-                if (isContainer(surface.getType())) {
-                    continue;
+        this.evaporateWater(center, radius, ownerUuid);
+        Map<Location, Material> originalBlocks = this.crispOriginalBlocks.get(ownerUuid);
+        for (int x = -radius; x <= radius; ++x) {
+            for (int z = -radius; z <= radius; ++z) {
+                Location loc;
+                Block surface;
+                if (x * x + z * z > radius * radius || FireAbilities.isContainer((surface = (loc = center.clone().add((double)x, 0.0, (double)z)).getWorld().getHighestBlockAt(loc)).getType()) || !surface.getType().isSolid() || surface.getType().name().startsWith("NETHER") || surface.getType() == Material.MAGMA_BLOCK || surface.getType() == Material.SOUL_SAND) continue;
+                Location blockLoc = surface.getLocation();
+                if (originalBlocks != null) {
+                    originalBlocks.put(blockLoc, surface.getType());
                 }
-
-                if (surface.getType().isSolid() && !surface.getType().name().startsWith("NETHER") &&
-                        surface.getType() != Material.MAGMA_BLOCK && surface.getType() != Material.SOUL_SAND) {
-                    // Store original block type before replacing
-                    Location blockLoc = surface.getLocation();
-                    if (originalBlocks != null) {
-                        originalBlocks.put(blockLoc, surface.getType());
-                    }
-                    // Replace with random nether block
-                    Material netherMat = NETHER_BLOCKS[random.nextInt(NETHER_BLOCKS.length)];
-                    surface.setType(netherMat);
-                }
+                Material netherMat = NETHER_BLOCKS[this.random.nextInt(NETHER_BLOCKS.length)];
+                surface.setType(netherMat);
             }
         }
     }
 
-    /**
-     * Evaporates (removes) all water source and flowing water blocks in the area.
-     * Each cleared block's material is recorded in crispOriginalWater[ownerUuid] so
-     * endCrisp can put the ocean back together. First-write wins so repeated sweeps
-     * over the same area don't overwrite the genuine original block type with AIR.
-     */
     private void evaporateWater(Location center, int radius, UUID ownerUuid) {
-        Map<Location, Material> waterMap = crispOriginalWater.get(ownerUuid);
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    if (x * x + y * y + z * z > radius * radius) continue;
-                    Block block = center.clone().add(x, y, z).getBlock();
-                    Material t = block.getType();
-                    if (t == Material.WATER || t == Material.BUBBLE_COLUMN ||
-                            t == Material.KELP || t == Material.KELP_PLANT ||
-                            t == Material.SEAGRASS || t == Material.TALL_SEAGRASS) {
-                        if (waterMap != null) {
-                            waterMap.putIfAbsent(block.getLocation(), t);
-                        }
-                        // Spawn steam effect before removing
-                        center.getWorld().spawnParticle(Particle.CLOUD,
-                            block.getLocation().add(0.5, 0.5, 0.5), 3, 0.2, 0.2, 0.2, 0.02);
-                        block.setType(Material.AIR);
+        Map<Location, Material> waterMap = this.crispOriginalWater.get(ownerUuid);
+        for (int x = -radius; x <= radius; ++x) {
+            for (int y = -radius; y <= radius; ++y) {
+                for (int z = -radius; z <= radius; ++z) {
+                    Block block;
+                    Material t;
+                    if (x * x + y * y + z * z > radius * radius || (t = (block = center.clone().add((double)x, (double)y, (double)z).getBlock()).getType()) != Material.WATER && t != Material.BUBBLE_COLUMN && t != Material.KELP && t != Material.KELP_PLANT && t != Material.SEAGRASS && t != Material.TALL_SEAGRASS) continue;
+                    if (waterMap != null) {
+                        waterMap.putIfAbsent(block.getLocation(), t);
                     }
+                    center.getWorld().spawnParticle(Particle.CLOUD, block.getLocation().add(0.5, 0.5, 0.5), 3, 0.2, 0.2, 0.2, 0.02);
+                    block.setType(Material.AIR);
                 }
             }
         }
     }
 
     private void endCrisp(Player player) {
+        Map<Location, Material> originalWater;
+        Map<Location, Material> originalBlocks;
         UUID uuid = player.getUniqueId();
-        boolean wasActive = crispActivePlayers.remove(uuid);
-
-        BukkitTask task = crispTasks.remove(uuid);
-        if (task != null) task.cancel();
-
-        // Restore all blocks to their original materials
-        Map<Location, Material> originalBlocks = crispOriginalBlocks.remove(uuid);
-        if (originalBlocks != null) {
+        boolean wasActive = this.crispActivePlayers.remove(uuid);
+        BukkitTask task = this.crispTasks.remove(uuid);
+        if (task != null) {
+            task.cancel();
+        }
+        if ((originalBlocks = this.crispOriginalBlocks.remove(uuid)) != null) {
             for (Map.Entry<Location, Material> entry : originalBlocks.entrySet()) {
                 Block block = entry.getKey().getBlock();
-                // Only restore if the block is still a nether block (hasn't been broken/changed by player)
                 String blockName = block.getType().name();
-                if (blockName.startsWith("NETHER") || block.getType() == Material.MAGMA_BLOCK ||
-                        block.getType() == Material.SOUL_SAND) {
-                    block.setType(entry.getValue());
-                }
+                if (!blockName.startsWith("NETHER") && block.getType() != Material.MAGMA_BLOCK && block.getType() != Material.SOUL_SAND) continue;
+                block.setType(entry.getValue());
             }
         }
-
-        // Restore evaporated water / kelp / seagrass. Only restore if the space is still
-        // empty (AIR) \u2014 if a player has built or another block has moved in, leave it alone.
-        Map<Location, Material> originalWater = crispOriginalWater.remove(uuid);
-        if (originalWater != null) {
+        if ((originalWater = this.crispOriginalWater.remove(uuid)) != null) {
             for (Map.Entry<Location, Material> entry : originalWater.entrySet()) {
                 Block block = entry.getKey().getBlock();
-                if (block.getType() == Material.AIR) {
-                    block.setType(entry.getValue());
-                }
+                if (block.getType() != Material.AIR) continue;
+                block.setType(entry.getValue());
             }
         }
-
         if (wasActive && player.isOnline()) {
             player.sendMessage("\u00a76\u00a7oCrisp faded. Terrain restored.");
         }
     }
 
-    // ========================================================================
-    // METEOR SHOWER — Tier 2 Quaternary
-    // Rains fire on a target area
-    // ========================================================================
-
-    public void meteorShower(Player player) {
+    public void meteorShower(final Player player) {
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;
         }
-
         String abilityKey = "fire-meteor-shower";
-
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-
-        UUID uuid = player.getUniqueId();
-
-        // Target: where the player is looking (up to 50 blocks, landing on ground)
-        Location target = getGroundTarget(player, 50);
+        final UUID uuid = player.getUniqueId();
+        Location target = this.getGroundTarget(player, 50);
         if (target == null) {
             player.sendMessage("\u00a7c\u00a7oNo valid target area found!");
             return;
         }
-
         int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-meteor-shower", 8);
-        int duration = durationSeconds * 20;
-        double aoeRadius = this.plugin.getConfig().getDouble("abilities.fire-meteor-shower.radius", 8.0);
-        double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 5.0);
-        int meteorInterval = this.plugin.getConfig().getInt("abilities.fire-meteor-shower.interval-ticks", 10);
-
-        meteorShowersActive.add(uuid);
-
-        // Announcement
+        final int duration = durationSeconds * 20;
+        final double aoeRadius = this.plugin.getConfig().getDouble("abilities.fire-meteor-shower.radius", 8.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 5.0);
+        final int meteorInterval = this.plugin.getConfig().getInt("abilities.fire-meteor-shower.interval-ticks", 10);
+        this.meteorShowersActive.add(uuid);
         player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.3f);
         player.sendMessage("\u00a76\u00a7lMeteor Shower! \u00a7eFire rains down for " + durationSeconds + "s!");
-
-        // Show target radius visually
         Particle.DustOptions orangeDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 1.2f);
-        for (int i = 0; i < 48; i++) {
-            double angle = (i / 48.0) * 2 * Math.PI;
+        for (int i = 0; i < 48; ++i) {
+            double angle = (double)i / 48.0 * 2.0 * Math.PI;
             double x = Math.cos(angle) * aoeRadius;
             double z = Math.sin(angle) * aoeRadius;
-            target.getWorld().spawnParticle(Particle.DUST,
-                target.clone().add(x, 0.5, z), 3, 0.1, 0.2, 0.1, 0.0, orangeDust, true);
+            target.getWorld().spawnParticle(Particle.DUST, target.clone().add(x, 0.5, z), 3, 0.1, 0.2, 0.1, 0.0, (Object)orangeDust, true);
         }
-
         final Location finalTarget = target.clone();
-
-        BukkitTask meteorTask = new BukkitRunnable() {
+        BukkitTask meteorTask = new BukkitRunnable(){
             int ticksElapsed = 0;
 
-            @Override
             public void run() {
-                if (!player.isOnline() || player.isDead() || ticksElapsed >= duration) {
-                    meteorShowersActive.remove(uuid);
-                    meteorTasks.remove(uuid);
+                if (!player.isOnline() || player.isDead() || this.ticksElapsed >= duration) {
+                    FireAbilities.this.meteorShowersActive.remove(uuid);
+                    FireAbilities.this.meteorTasks.remove(uuid);
                     if (player.isOnline()) {
                         player.sendMessage("\u00a76\u00a7oMeteor Shower ended.");
                     }
                     this.cancel();
                     return;
                 }
-
-                ticksElapsed++;
-
-                // Spawn a meteor every meteorInterval ticks
-                if (ticksElapsed % meteorInterval == 0) {
-                    // Random position within AoE radius
-                    double angle = random.nextDouble() * 2 * Math.PI;
-                    double r = Math.sqrt(random.nextDouble()) * aoeRadius; // sqrt for uniform distribution
+                ++this.ticksElapsed;
+                if (this.ticksElapsed % meteorInterval == 0) {
+                    double angle = FireAbilities.this.random.nextDouble() * 2.0 * Math.PI;
+                    double r = Math.sqrt(FireAbilities.this.random.nextDouble()) * aoeRadius;
                     double mx = Math.cos(angle) * r;
                     double mz = Math.sin(angle) * r;
-
-                    // Spawn high above the target
-                    int spawnHeight = 20 + random.nextInt(10);
-                    Location spawnLoc = finalTarget.clone().add(mx, spawnHeight, mz);
-                    Location impactLoc = finalTarget.clone().add(mx, 0, mz);
-
-                    // Find actual ground level at impact
+                    int spawnHeight = 20 + FireAbilities.this.random.nextInt(10);
+                    Location spawnLoc = finalTarget.clone().add(mx, (double)spawnHeight, mz);
+                    Location impactLoc = finalTarget.clone().add(mx, 0.0, mz);
                     Block groundBlock = finalTarget.getWorld().getHighestBlockAt(impactLoc);
-                    impactLoc.setY(groundBlock.getY() + 0.5);
-
-                    // Create meteor trail — particles falling down
+                    impactLoc.setY((double)groundBlock.getY() + 0.5);
                     Vector trajectory = impactLoc.toVector().subtract(spawnLoc.toVector()).normalize();
-
-                    // Draw particle trail from spawn to impact
-                    plugin.getServer().getScheduler().runTaskLater((Plugin) plugin, () -> {
-                        if (!player.isOnline()) return;
-
-                        // Particle trail
-                        double totalDist = spawnLoc.distance(impactLoc);
-                        for (double d = 0; d < totalDist; d += 0.8) {
-                            Location trailLoc = spawnLoc.clone().add(trajectory.clone().multiply(d));
-                            finalTarget.getWorld().spawnParticle(Particle.FLAME,
-                                trailLoc, 30, 0.3, 0.3, 0.3, 0.03);
-                            finalTarget.getWorld().spawnParticle(Particle.LAVA,
-                                trailLoc, 10, 0.15, 0.15, 0.15, 0);
+                    FireAbilities.this.plugin.getServer().getScheduler().runTaskLater((Plugin)FireAbilities.this.plugin, () -> {
+                        Block below;
+                        Block impactBlock;
+                        if (!player.isOnline()) {
+                            return;
                         }
-
-                        // Impact explosion visuals
-                        finalTarget.getWorld().spawnParticle(Particle.FLAME,
-                            impactLoc, 400, 3.0, 1.5, 3.0, 0.1);
-                        finalTarget.getWorld().spawnParticle(Particle.LAVA,
-                            impactLoc, 150, 1.5, 0.6, 1.5, 0);
-                        finalTarget.getWorld().spawnParticle(Particle.EXPLOSION,
-                            impactLoc, 30, 0.9, 0.3, 0.9, 0.0);
-                        finalTarget.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME,
-                            impactLoc, 100, 1.5, 0.9, 1.5, 0.05);
-
-                        // Impact sound
+                        double totalDist = spawnLoc.distance(impactLoc);
+                        for (double d = 0.0; d < totalDist; d += 0.8) {
+                            Location trailLoc = spawnLoc.clone().add(trajectory.clone().multiply(d));
+                            finalTarget.getWorld().spawnParticle(Particle.FLAME, trailLoc, 30, 0.3, 0.3, 0.3, 0.03);
+                            finalTarget.getWorld().spawnParticle(Particle.LAVA, trailLoc, 10, 0.15, 0.15, 0.15, 0.0);
+                        }
+                        finalTarget.getWorld().spawnParticle(Particle.FLAME, impactLoc, 400, 3.0, 1.5, 3.0, 0.1);
+                        finalTarget.getWorld().spawnParticle(Particle.LAVA, impactLoc, 150, 1.5, 0.6, 1.5, 0.0);
+                        finalTarget.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 30, 0.9, 0.3, 0.9, 0.0);
+                        finalTarget.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, impactLoc, 100, 1.5, 0.9, 1.5, 0.05);
                         finalTarget.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.5f);
                         finalTarget.getWorld().playSound(impactLoc, Sound.BLOCK_LAVA_POP, 1.0f, 0.8f);
-
-                        // Damage entities in small impact radius
                         double impactRadius = 2.5;
                         for (Entity entity : finalTarget.getWorld().getNearbyEntities(impactLoc, impactRadius, impactRadius, impactRadius)) {
-                            if (!(entity instanceof LivingEntity)) continue;
-                            if (entity == player) continue;
-
-                            LivingEntity livingTarget = (LivingEntity) entity;
-
-                            // Skip trusted players
+                            if (!(entity instanceof LivingEntity) || entity == player) continue;
+                            LivingEntity livingTarget = (LivingEntity)entity;
                             if (entity instanceof Player) {
-                                Player targetPlayer = (Player) entity;
-                                if (plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
-                                    continue;
-                                }
+                                Player targetPlayer = (Player)entity;
+                                if (FireAbilities.this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) continue;
                             }
-
-                            livingTarget.damage(damage, player);
-                            livingTarget.setFireTicks(60); // 3 seconds on fire
-
-                            livingTarget.getWorld().spawnParticle(Particle.FLAME,
-                                livingTarget.getLocation().add(0, 1, 0),
-                                150, 1.2, 1.8, 1.2, 0.05);
+                            livingTarget.damage(damage, (Entity)player);
+                            livingTarget.setFireTicks(60);
+                            livingTarget.getWorld().spawnParticle(Particle.FLAME, livingTarget.getLocation().add(0.0, 1.0, 0.0), 150, 1.2, 1.8, 1.2, 0.05);
                         }
-
-                        // Create a small explosion that breaks blocks and spreads fire
-                        float meteorYield = (float) plugin.getConfig().getDouble("abilities.fire-meteor-shower.yield", 2.0);
-                        boolean breakBlocks = plugin.getConfig().getBoolean("abilities.fire-meteor-shower.break-blocks", true);
-                        if (meteorYield > 0) {
-                            impactLoc.getWorld().createExplosion(impactLoc, meteorYield, true, breakBlocks, player);
+                        float meteorYield = (float)FireAbilities.this.plugin.getConfig().getDouble("abilities.fire-meteor-shower.yield", 2.0);
+                        boolean breakBlocks = FireAbilities.this.plugin.getConfig().getBoolean("abilities.fire-meteor-shower.break-blocks", true);
+                        if (meteorYield > 0.0f) {
+                            impactLoc.getWorld().createExplosion(impactLoc, meteorYield, true, breakBlocks, (Entity)player);
                         }
-
-                        // Set ground blocks on fire if exposed to sky (fallback after explosion)
-                        Block impactBlock = impactLoc.getBlock();
-                        if (impactBlock.getType() == Material.AIR || impactBlock.getType() == Material.CAVE_AIR) {
-                            Block below = impactBlock.getRelative(0, -1, 0);
-                            if (below.getType().isSolid()) {
-                                impactBlock.setType(Material.FIRE);
-                            }
+                        if (((impactBlock = impactLoc.getBlock()).getType() == Material.AIR || impactBlock.getType() == Material.CAVE_AIR) && (below = impactBlock.getRelative(0, -1, 0)).getType().isSolid()) {
+                            impactBlock.setType(Material.FIRE);
                         }
-
                     }, 0L);
                 }
-
-                // Ambient "incoming" warning — ring of particles showing AoE boundary every 20 ticks
-                if (ticksElapsed % 20 == 0) {
+                if (this.ticksElapsed % 20 == 0) {
                     Particle.DustOptions warningDust = new Particle.DustOptions(ParticleUtils.FIRE_ORANGE, 0.8f);
-                    for (int i = 0; i < 24; i++) {
-                        double angle = (i / 24.0) * 2 * Math.PI;
+                    for (int i = 0; i < 24; ++i) {
+                        double angle = (double)i / 24.0 * 2.0 * Math.PI;
                         double x = Math.cos(angle) * aoeRadius;
                         double z = Math.sin(angle) * aoeRadius;
-                        finalTarget.getWorld().spawnParticle(Particle.DUST,
-                            finalTarget.clone().add(x, 0.3, z), 20, 0.3, 0.3, 0.3, 0.0, warningDust, true);
+                        finalTarget.getWorld().spawnParticle(Particle.DUST, finalTarget.clone().add(x, 0.3, z), 20, 0.3, 0.3, 0.3, 0.0, (Object)warningDust, true);
                     }
                 }
             }
-        }.runTaskTimer(this.plugin, 0L, 1L);
-
-        meteorTasks.put(uuid, meteorTask);
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
+        this.meteorTasks.put(uuid, meteorTask);
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, durationSeconds);
     }
 
-    /**
-     * Finds the ground location where the player is looking, up to maxDistance blocks away.
-     */
     private Location getGroundTarget(Player player, int maxDistance) {
-        var result = player.getWorld().rayTraceBlocks(
-            player.getEyeLocation(),
-            player.getEyeLocation().getDirection(),
-            maxDistance
-        );
-
+        RayTraceResult result = player.getWorld().rayTraceBlocks(player.getEyeLocation(), player.getEyeLocation().getDirection(), (double)maxDistance);
         if (result != null && result.getHitBlock() != null) {
-            return result.getHitBlock().getLocation().add(0.5, 1, 0.5);
+            return result.getHitBlock().getLocation().add(0.5, 1.0, 0.5);
         }
-
-        // Fallback: project forward and find ground
-        Location projected = player.getEyeLocation().add(
-            player.getEyeLocation().getDirection().multiply(20)
-        );
+        Location projected = player.getEyeLocation().add(player.getEyeLocation().getDirection().multiply(20));
         Block highest = player.getWorld().getHighestBlockAt(projected);
-        return highest.getLocation().add(0.5, 1, 0.5);
+        return highest.getLocation().add(0.5, 1.0, 0.5);
     }
 
-    // Clean up when player leaves
+    @Override
     public void cleanup(Player player) {
-        cancelCharging(player);
-        removeCampfire(player);
-        endCrisp(player);
-
+        this.cancelCharging(player);
+        this.removeCampfire(player);
+        this.endCrisp(player);
         UUID uuid = player.getUniqueId();
-        crispOriginalBlocks.remove(uuid);
-        crispOriginalWater.remove(uuid);
-        meteorShowersActive.remove(uuid);
-        BukkitTask meteorTask = meteorTasks.remove(uuid);
-        if (meteorTask != null) meteorTask.cancel();
+        this.crispOriginalBlocks.remove(uuid);
+        this.crispOriginalWater.remove(uuid);
+        this.meteorShowersActive.remove(uuid);
+        BukkitTask meteorTask = this.meteorTasks.remove(uuid);
+        if (meteorTask != null) {
+            meteorTask.cancel();
+        }
     }
 }
+

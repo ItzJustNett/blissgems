@@ -1,77 +1,38 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package dev.xoperr.blissgems.api;
 
+import dev.xoperr.blissgems.api.CooldownEntry;
+import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.GemPassiveHandler;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Central registry for all gem types (built-in and addon).
- * Both built-in gems and addon gems register through this interface.
- */
 public interface GemRegistry {
+    public void registerGem(GemDefinition var1);
 
-    /**
-     * Register a new gem definition. For addon gems this also registers
-     * the custom items via CustomItemManager.
-     * @throws IllegalArgumentException if the gem ID is already registered
-     */
-    void registerGem(GemDefinition definition);
+    public void registerAbilities(String var1, GemAbilityHandler var2);
 
-    /**
-     * Register ability handlers for a gem.
-     */
-    void registerAbilities(String gemId, GemAbilityHandler handler);
+    public void registerPassives(String var1, GemPassiveHandler var2);
 
-    /**
-     * Register passive effect handlers for a gem.
-     */
-    void registerPassives(String gemId, GemPassiveHandler handler);
+    public void registerCooldowns(String var1, List<CooldownEntry> var2);
 
-    /**
-     * Register cooldown display entries for a gem.
-     */
-    void registerCooldowns(String gemId, List<CooldownEntry> entries);
+    public GemDefinition getGem(String var1);
 
-    /**
-     * Get the definition for a gem by its ID (e.g. "fire", "ice").
-     */
-    GemDefinition getGem(String gemId);
+    public GemAbilityHandler getAbilityHandler(String var1);
 
-    /**
-     * Get the ability handler for a gem.
-     */
-    GemAbilityHandler getAbilityHandler(String gemId);
+    public GemPassiveHandler getPassiveHandler(String var1);
 
-    /**
-     * Get the passive handler for a gem.
-     */
-    GemPassiveHandler getPassiveHandler(String gemId);
+    public List<CooldownEntry> getCooldownEntries(String var1);
 
-    /**
-     * Get the cooldown display entries for a gem.
-     */
-    List<CooldownEntry> getCooldownEntries(String gemId);
+    public Collection<GemDefinition> getAllGems();
 
-    /**
-     * Get all registered gem definitions.
-     */
-    Collection<GemDefinition> getAllGems();
+    public boolean isRegisteredGem(String var1);
 
-    /**
-     * Check if an item ID (e.g. "ice_gem_t1") belongs to any registered gem.
-     */
-    boolean isRegisteredGem(String itemId);
+    public String gemIdFromItemId(String var1);
 
-    /**
-     * Extract the gem ID from an item ID.
-     * E.g. "ice_gem_t1" -> "ice", "fire_gem_t2" -> "fire".
-     * Returns null if the item ID doesn't match any registered gem.
-     */
-    String gemIdFromItemId(String itemId);
-
-    /**
-     * Extract the tier from an item ID.
-     * E.g. "ice_gem_t2" -> 2, "fire_gem_t1" -> 1.
-     * Returns 1 as default.
-     */
-    int tierFromItemId(String itemId);
+    public int tierFromItemId(String var1);
 }
+

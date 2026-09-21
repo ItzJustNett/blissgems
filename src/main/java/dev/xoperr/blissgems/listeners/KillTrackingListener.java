@@ -1,6 +1,23 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.entity.EntityType
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.entity.EntityDamageByEntityEvent
+ *  org.bukkit.event.entity.PlayerDeathEvent
+ *  org.bukkit.metadata.FixedMetadataValue
+ *  org.bukkit.metadata.MetadataValue
+ *  org.bukkit.plugin.Plugin
+ */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -8,15 +25,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
+import org.bukkit.plugin.Plugin;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
-public class KillTrackingListener implements Listener {
+public class KillTrackingListener
+implements Listener {
     private final BlissGems plugin;
-    private final Map<UUID, Long> lastDamageTime = new HashMap<>();
-    private static final long KILL_WINDOW_MS = 3000; // 3 second window to count as gem kill
+    private final Map<UUID, Long> lastDamageTime = new HashMap<UUID, Long>();
+    private static final long KILL_WINDOW_MS = 3000L;
 
     public KillTrackingListener(BlissGems plugin) {
         this.plugin = plugin;
@@ -27,15 +43,11 @@ public class KillTrackingListener implements Listener {
         if (event.getEntity().getType() != EntityType.PLAYER || event.getDamager().getType() != EntityType.PLAYER) {
             return;
         }
-
-        Player victim = (Player) event.getEntity();
-        Player damager = (Player) event.getDamager();
-
-        // Check if damager has a gem
-        if (plugin.getGemManager().getGemType(damager) != null) {
-            // Mark the victim as damaged by a gem ability
-            victim.setMetadata("gem_damage_by", new FixedMetadataValue(plugin, damager.getUniqueId()));
-            lastDamageTime.put(victim.getUniqueId(), System.currentTimeMillis());
+        Player victim = (Player)event.getEntity();
+        Player damager = (Player)event.getDamager();
+        if (this.plugin.getGemManager().getGemType(damager) != null) {
+            victim.setMetadata("gem_damage_by", (MetadataValue)new FixedMetadataValue((Plugin)this.plugin, (Object)damager.getUniqueId()));
+            this.lastDamageTime.put(victim.getUniqueId(), System.currentTimeMillis());
         }
     }
 
@@ -43,25 +55,17 @@ public class KillTrackingListener implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
-
         if (killer != null) {
-            // Check if killer has a gem and victim was recently damaged by gem ability
-            if (plugin.getGemManager().getGemType(killer) != null) {
-                Long lastDamage = lastDamageTime.get(victim.getUniqueId());
-                if (lastDamage != null && (System.currentTimeMillis() - lastDamage) < KILL_WINDOW_MS) {
-                    // Count as gem kill
-                    plugin.getStatsManager().recordKill(killer, victim);
-                }
+            Long lastDamage;
+            if (this.plugin.getGemManager().getGemType(killer) != null && (lastDamage = this.lastDamageTime.get(victim.getUniqueId())) != null && System.currentTimeMillis() - lastDamage < 3000L) {
+                this.plugin.getStatsManager().recordKill(killer, victim);
             }
-
-            // Always record death
-            plugin.getStatsManager().recordDeath(victim);
+            this.plugin.getStatsManager().recordDeath(victim);
         }
-
-        // Cleanup
-        lastDamageTime.remove(victim.getUniqueId());
+        this.lastDamageTime.remove(victim.getUniqueId());
         if (victim.hasMetadata("gem_damage_by")) {
-            victim.removeMetadata("gem_damage_by", plugin);
+            victim.removeMetadata("gem_damage_by", (Plugin)this.plugin);
         }
     }
 }
+

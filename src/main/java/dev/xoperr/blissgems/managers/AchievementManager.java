@@ -1,24 +1,34 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Particle
+ *  org.bukkit.Sound
+ *  org.bukkit.configuration.file.YamlConfiguration
+ *  org.bukkit.entity.Player
+ */
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.Achievement;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
 public class AchievementManager {
     private final BlissGems plugin;
     private final File dataFolder;
-    // playerUUID -> (achievement -> progress)
-    private final Map<UUID, Map<Achievement, Integer>> progressCache = new HashMap<>();
-    // playerUUID -> set of unlocked achievements
-    private final Map<UUID, Set<Achievement>> unlockedCache = new HashMap<>();
+    private final Map<UUID, Map<Achievement, Integer>> progressCache = new HashMap<UUID, Map<Achievement, Integer>>();
+    private final Map<UUID, Set<Achievement>> unlockedCache = new HashMap<UUID, Set<Achievement>>();
 
     public AchievementManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -29,132 +39,114 @@ public class AchievementManager {
     }
 
     public boolean isUnlocked(Player player, Achievement achievement) {
-        return getUnlocked(player).contains(achievement);
+        return this.getUnlocked(player).contains((Object)achievement);
     }
 
     public Set<Achievement> getUnlocked(Player player) {
         UUID uuid = player.getUniqueId();
-        Set<Achievement> unlocked = unlockedCache.get(uuid);
+        Set<Achievement> unlocked = this.unlockedCache.get(uuid);
         if (unlocked == null) {
-            loadPlayerData(player);
-            unlocked = unlockedCache.get(uuid);
+            this.loadPlayerData(player);
+            unlocked = this.unlockedCache.get(uuid);
         }
         return unlocked;
     }
 
     public int getProgress(Player player, Achievement achievement) {
         UUID uuid = player.getUniqueId();
-        Map<Achievement, Integer> progress = progressCache.get(uuid);
+        Map<Achievement, Integer> progress = this.progressCache.get(uuid);
         if (progress == null) {
-            loadPlayerData(player);
-            progress = progressCache.get(uuid);
+            this.loadPlayerData(player);
+            progress = this.progressCache.get(uuid);
         }
-        return progress.getOrDefault(achievement, 0);
+        return progress.getOrDefault((Object)achievement, 0);
     }
 
-    /**
-     * Add cumulative progress to an achievement. Auto-unlocks when target is reached.
-     */
     public void addProgress(Player player, Achievement achievement, int amount) {
-        if (isUnlocked(player, achievement)) return;
-
+        if (this.isUnlocked(player, achievement)) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
-        Map<Achievement, Integer> playerProgress = progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
+        Map<Achievement, Integer> playerProgress = this.progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
         int newProgress = playerProgress.merge(achievement, amount, Integer::sum);
-
         if (newProgress >= achievement.getTargetProgress()) {
-            unlock(player, achievement);
+            this.unlock(player, achievement);
         }
     }
 
-    /**
-     * Set progress directly (useful for consecutive counters that can reset).
-     */
     public void setProgress(Player player, Achievement achievement, int amount) {
-        if (isUnlocked(player, achievement)) return;
-
+        if (this.isUnlocked(player, achievement)) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
-        Map<Achievement, Integer> playerProgress = progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
+        Map<Achievement, Integer> playerProgress = this.progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
         playerProgress.put(achievement, amount);
-
         if (amount >= achievement.getTargetProgress()) {
-            unlock(player, achievement);
+            this.unlock(player, achievement);
         }
     }
 
-    /**
-     * Directly unlock an achievement (for one-shot triggers).
-     */
     public void unlock(Player player, Achievement achievement) {
-        if (isUnlocked(player, achievement)) return;
-
+        if (this.isUnlocked(player, achievement)) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
-        Set<Achievement> unlocked = unlockedCache.computeIfAbsent(uuid, k -> new HashSet<>());
+        Set unlocked = this.unlockedCache.computeIfAbsent(uuid, k -> new HashSet());
         unlocked.add(achievement);
-
-        // Set progress to target for display purposes
-        Map<Achievement, Integer> playerProgress = progressCache.computeIfAbsent(uuid, k -> new HashMap<>());
+        Map playerProgress = this.progressCache.computeIfAbsent(uuid, k -> new HashMap());
         playerProgress.put(achievement, achievement.getTargetProgress());
-
         player.sendMessage("\u00a76\u00a7l\u2b50 ACHIEVEMENT UNLOCKED! \u00a7e" + achievement.getDisplayName());
         player.sendMessage("\u00a77\u00a7o" + achievement.getDescription());
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-        player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.1);
-
-        savePlayerData(uuid);
+        player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5, 0.1);
+        this.savePlayerData(uuid);
     }
 
     private void loadPlayerData(Player player) {
         UUID uuid = player.getUniqueId();
-        File file = new File(dataFolder, uuid + ".yml");
-
-        Set<Achievement> unlocked = new HashSet<>();
-        Map<Achievement, Integer> progress = new HashMap<>();
-
+        File file = new File(this.dataFolder, String.valueOf(uuid) + ".yml");
+        HashSet<Achievement> unlocked = new HashSet<Achievement>();
+        HashMap<Achievement, Integer> progress = new HashMap<Achievement, Integer>();
         if (file.exists()) {
-            FileConfiguration data = YamlConfiguration.loadConfiguration(file);
-
+            YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
             for (Achievement achievement : Achievement.values()) {
                 String key = achievement.name().toLowerCase();
                 progress.put(achievement, data.getInt("progress." + key, 0));
-                if (data.getBoolean("unlocked." + key, false)) {
-                    unlocked.add(achievement);
-                }
+                if (!data.getBoolean("unlocked." + key, false)) continue;
+                unlocked.add(achievement);
             }
         }
-
-        unlockedCache.put(uuid, unlocked);
-        progressCache.put(uuid, progress);
+        this.unlockedCache.put(uuid, unlocked);
+        this.progressCache.put(uuid, progress);
     }
 
     public void savePlayerData(UUID uuid) {
-        File file = new File(dataFolder, uuid + ".yml");
-        FileConfiguration data = new YamlConfiguration();
-
-        Map<Achievement, Integer> progress = progressCache.getOrDefault(uuid, Collections.emptyMap());
-        Set<Achievement> unlocked = unlockedCache.getOrDefault(uuid, Collections.emptySet());
-
+        File file = new File(this.dataFolder, String.valueOf(uuid) + ".yml");
+        YamlConfiguration data = new YamlConfiguration();
+        Map progress = this.progressCache.getOrDefault(uuid, Collections.emptyMap());
+        Set unlocked = this.unlockedCache.getOrDefault(uuid, Collections.emptySet());
         for (Achievement achievement : Achievement.values()) {
             String key = achievement.name().toLowerCase();
-            data.set("progress." + key, progress.getOrDefault(achievement, 0));
-            data.set("unlocked." + key, unlocked.contains(achievement));
+            data.set("progress." + key, (Object)progress.getOrDefault((Object)achievement, 0));
+            data.set("unlocked." + key, (Object)unlocked.contains((Object)achievement));
         }
-
         try {
             data.save(file);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save achievements for " + uuid + ": " + e.getMessage());
+        }
+        catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save achievements for " + String.valueOf(uuid) + ": " + e.getMessage());
         }
     }
 
     public void saveAll() {
-        for (UUID uuid : unlockedCache.keySet()) {
-            savePlayerData(uuid);
+        for (UUID uuid : this.unlockedCache.keySet()) {
+            this.savePlayerData(uuid);
         }
     }
 
     public void clearCache(UUID uuid) {
-        progressCache.remove(uuid);
-        unlockedCache.remove(uuid);
+        this.progressCache.remove(uuid);
+        this.unlockedCache.remove(uuid);
     }
 }
+

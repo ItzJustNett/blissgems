@@ -1,24 +1,38 @@
 /*
- * PlayerJoinListener - Handles first-time gem distribution
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.command.CommandSender
+ *  org.bukkit.configuration.file.YamlConfiguration
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.player.PlayerJoinEvent
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
  */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.commands.FixedHeartsCommand;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
+import dev.xoperr.blissgems.utils.OraxenGemFixer;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+import java.util.Random;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Random;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
-public class PlayerJoinListener implements Listener {
+public class PlayerJoinListener
+implements Listener {
     private final BlissGems plugin;
     private final Random random;
 
@@ -30,46 +44,31 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-
-        // Restore any souls the Gold Gem had harvested before the player logged off.
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().load(player.getUniqueId());
-            // Gems taken from this player and given back while they were offline.
             this.plugin.getGoldGemManager().deliverPendingGems(player);
         }
-
-        // Replace legacy (pre-Oraxen) gem items with their Oraxen-built equivalents.
-        // Delayed a second so the inventory is fully synced before we touch it.
-        if (dev.xoperr.blissgems.utils.OraxenGemFixer.isFixOnJoinEnabled(this.plugin)) {
-            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                if (player.isOnline()) {
-                    int fixed = dev.xoperr.blissgems.utils.OraxenGemFixer.fixInventory(this.plugin, player);
-                    if (fixed > 0) {
-                        this.plugin.getLogger().info("Replaced " + fixed + " legacy gem item(s) for " + player.getName());
-                    }
+        if (OraxenGemFixer.isFixOnJoinEnabled(this.plugin)) {
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                int fixed;
+                if (player.isOnline() && (fixed = OraxenGemFixer.fixInventory(this.plugin, player)) > 0) {
+                    this.plugin.getLogger().info("Replaced " + fixed + " legacy gem item(s) for " + player.getName());
                 }
             }, 20L);
         }
-
-        // Check if player has received their first gem and SMP has started
-        // IMPORTANT: Check both file flag AND actual gem presence to prevent duplication
-        if (!hasReceivedFirstGem(player) && this.plugin.getGemManager().findGemInInventory(player) == null) {
+        if (!this.hasReceivedFirstGem(player) && this.plugin.getGemManager().findGemInInventory(player) == null) {
             if (!this.plugin.getConfigManager().isSmpStarted()) {
-                // SMP hasn't started yet, notify the player
-                this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
                     if (player.isOnline()) {
-                        this.plugin.getConfigManager().sendFormattedMessage(player, "smp-not-started");
+                        this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "smp-not-started", new Object[0]);
                     }
                 }, 40L);
             } else {
-                // Give random gem
-                String randomGem = getRandomEnabledGem();
+                String randomGem = this.getRandomEnabledGem();
                 if (randomGem != null) {
-                    // Delay to ensure player is fully loaded
-                    final String finalGem = randomGem;
-                    this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                    String finalGem = randomGem;
+                    this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
                         if (player.isOnline()) {
-                            // Welcome messages
                             player.sendMessage("");
                             player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
                             player.sendMessage("\u00a7d\u00a7lWELCOME TO BLISSGEMS!");
@@ -78,21 +77,13 @@ public class PlayerJoinListener implements Listener {
                             player.sendMessage("\u00a77\u00a7oYour destiny is being forged...");
                             player.sendMessage("\u00a7d\u00a7l\u00a7m                                                  ");
                             player.sendMessage("");
-
-                            // Start the ritual animation
                             this.plugin.getGemRitualManager().performGemRitual(player, finalGem, true, 1);
-
-                            // Give the gem after a short delay (let ritual build up)
-                            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
                                 if (this.plugin.getGemManager().giveGem(player, finalGem, 1)) {
-                                    // Mark that player has received their first gem
-                                    markFirstGemReceived(player);
-
-                                    // Send welcome message
+                                    this.markFirstGemReceived(player);
                                     String gemName = this.plugin.getGemManager().getGemDisplayName(finalGem);
                                     String gemColor = this.plugin.getGemManager().getGemColorCode(finalGem);
-                                    String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received",
-                                        "gem", gemName);
+                                    String welcomeMsg = this.plugin.getConfigManager().getFormattedMessage("first-gem-received", "gem", gemName);
                                     if (welcomeMsg != null && !welcomeMsg.isEmpty()) {
                                         player.sendMessage(welcomeMsg);
                                     } else {
@@ -100,54 +91,38 @@ public class PlayerJoinListener implements Listener {
                                         player.sendMessage("\u00a7d\u00a7l\u00bb \u00a7fYour gem has been chosen: " + gemColor + "\u00a7l" + gemName + "\u00a7d\u00a7l \u00ab");
                                         player.sendMessage("");
                                     }
-
                                     this.plugin.getLogger().info("Gave " + player.getName() + " their first gem: " + gemName);
                                 }
-                            }, 20L); // 1 second delay
+                            }, 20L);
                         }
-                    }, 40L); // 2 second delay after join
+                    }, 40L);
                 }
             }
         }
-
-        // One-time migration: ensure all existing gems have the undroppable PDC tag
-        if (!hasBeenGemLockChecked(player)) {
+        if (!this.hasBeenGemLockChecked(player)) {
+            String itemId;
             boolean fixed = false;
-            for (int i = 0; i < player.getInventory().getSize(); i++) {
+            for (int i = 0; i < player.getInventory().getSize(); ++i) {
+                String itemId2;
                 ItemStack item = player.getInventory().getItem(i);
-                if (item == null) continue;
-                String itemId = CustomItemManager.getIdByItem(item);
-                if (itemId != null && GemType.isGem(itemId)) {
-                    if (CustomItemManager.markAsUndroppable(item)) {
-                        fixed = true;
-                    }
-                }
+                if (item == null || (itemId2 = CustomItemManager.getIdByItem(item)) == null || !GemType.isGem(itemId2) || !CustomItemManager.markAsUndroppable(item)) continue;
+                fixed = true;
             }
             ItemStack offHand = player.getInventory().getItemInOffHand();
-            if (offHand != null) {
-                String itemId = CustomItemManager.getIdByItem(offHand);
-                if (itemId != null && GemType.isGem(itemId)) {
-                    if (CustomItemManager.markAsUndroppable(offHand)) {
-                        fixed = true;
-                    }
-                }
+            if (offHand != null && (itemId = CustomItemManager.getIdByItem(offHand)) != null && GemType.isGem(itemId) && CustomItemManager.markAsUndroppable(offHand)) {
+                fixed = true;
             }
-            markGemLockChecked(player);
+            this.markGemLockChecked(player);
             if (fixed) {
                 this.plugin.getLogger().info("Fixed undroppable tags on gems for " + player.getName());
             }
         }
-
-        // Clear any stale max-health modifiers left from a prior session
-        // (Heart Lock / Circle of Life / Soul Absorption targets that logged off mid-effect).
-        // Run with a small delay — attribute data isn't always synced at PlayerJoinEvent time,
-        // so an immediate cleanup can run before the modifiers are visible to remove.
-        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-            if (!player.isOnline()) return;
-            // When fixed-hearts is enabled, force the player back to exactly 10 hearts
-            // on join (this also strips Life/Soul tracking + any stale modifiers).
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
             if (this.plugin.getConfigManager().isFixedHeartsEnabled()) {
-                dev.xoperr.blissgems.commands.FixedHeartsCommand.applyTenHearts(this.plugin, player);
+                FixedHeartsCommand.applyTenHearts(this.plugin, player);
                 return;
             }
             if (this.plugin.getLifeAbilities() != null) {
@@ -157,145 +132,115 @@ public class PlayerJoinListener implements Listener {
                 this.plugin.getSoulManager().cleanup(player);
             }
         }, 20L);
-
-        // Update active gem status
         this.plugin.getGemManager().updateActiveGem(player);
-
-        // Load ability cooldowns from disk
         this.plugin.getAbilityManager().loadCooldowns(player.getUniqueId());
-
-        // Send gem data to client mod (if installed)
-        // Small delay to ensure player is fully loaded
-        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             if (player.isOnline()) {
                 this.plugin.getPluginMessagingManager().sendGemData(player);
             }
-        }, 20L); // 1 second delay
-
-        // One-time tip about the new customizable ability bindings.
-        // Shown after a longer delay so it lands after the welcome/ritual messages.
-        if (!hasSeenBindingTip(player)) {
-            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-                if (!player.isOnline()) return;
+        }, 20L);
+        if (!this.hasSeenBindingTip(player)) {
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
                 player.sendMessage("");
-                player.sendMessage("§d§l⚡ Tip: §fYou can customize how your gem abilities are triggered!");
-                player.sendMessage("§7Run §f/bliss ability §7to see your current bindings.");
-                player.sendMessage("§7Change them with §f/bliss set_ability <slot> <input> §7(e.g. §f/bliss set_ability primary left_click§7).");
+                player.sendMessage("\u00a7d\u00a7l\u26a1 Tip: \u00a7fYou can customize how your gem abilities are triggered!");
+                player.sendMessage("\u00a77Run \u00a7f/bliss ability \u00a77to see your current bindings.");
+                player.sendMessage("\u00a77Change them with \u00a7f/bliss set_ability <slot> <input> \u00a77(e.g. \u00a7f/bliss set_ability primary left_click\u00a77).");
                 player.sendMessage("");
-                markBindingTipSeen(player);
-            }, 100L); // ~5s after join
+                this.markBindingTipSeen(player);
+            }, 100L);
         }
     }
 
     private boolean hasSeenBindingTip(Player player) {
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-        if (!file.exists()) return false;
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        File file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
+        if (!file.exists()) {
+            return false;
+        }
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         return data.getBoolean("seen-binding-tip", false);
     }
 
     private void markBindingTipSeen(Player player) {
+        File file;
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        if (!dataFolder.exists()) dataFolder.mkdirs();
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-        FileConfiguration data = file.exists()
-            ? YamlConfiguration.loadConfiguration(file)
-            : new YamlConfiguration();
-        data.set("seen-binding-tip", true);
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        YamlConfiguration data = (file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml")).exists() ? YamlConfiguration.loadConfiguration((File)file) : new YamlConfiguration();
+        data.set("seen-binding-tip", (Object)true);
         try {
             data.save(file);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             this.plugin.getLogger().warning("Failed to mark binding tip seen for " + player.getName() + ": " + e.getMessage());
         }
     }
 
     private boolean hasReceivedFirstGem(Player player) {
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-
+        File file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
         if (!file.exists()) {
             return false;
         }
-
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         return data.getBoolean("received-first-gem", false);
     }
 
     private void markFirstGemReceived(Player player) {
+        File file;
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-        FileConfiguration data;
-
-        if (file.exists()) {
-            data = YamlConfiguration.loadConfiguration(file);
-        } else {
-            data = new YamlConfiguration();
-        }
-
-        data.set("received-first-gem", true);
-
-        // Also set starting energy if not already set
+        YamlConfiguration data = (file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml")).exists() ? YamlConfiguration.loadConfiguration((File)file) : new YamlConfiguration();
+        data.set("received-first-gem", (Object)true);
         if (!data.contains("energy")) {
-            data.set("energy", this.plugin.getConfigManager().getStartingEnergy());
+            data.set("energy", (Object)this.plugin.getConfigManager().getStartingEnergy());
         }
-
         try {
             data.save(file);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save first gem status for " + player.getName() + ": " + e.getMessage());
         }
     }
 
     private boolean hasBeenGemLockChecked(Player player) {
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-
+        File file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml");
         if (!file.exists()) {
             return false;
         }
-
-        FileConfiguration data = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration data = YamlConfiguration.loadConfiguration((File)file);
         return data.getBoolean("gems-lock-checked", false);
     }
 
     private void markGemLockChecked(Player player) {
+        File file;
         File dataFolder = new File(this.plugin.getDataFolder(), "playerdata");
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-
-        File file = new File(dataFolder, player.getUniqueId() + ".yml");
-        FileConfiguration data;
-
-        if (file.exists()) {
-            data = YamlConfiguration.loadConfiguration(file);
-        } else {
-            data = new YamlConfiguration();
-        }
-
-        data.set("gems-lock-checked", true);
-
+        YamlConfiguration data = (file = new File(dataFolder, String.valueOf(player.getUniqueId()) + ".yml")).exists() ? YamlConfiguration.loadConfiguration((File)file) : new YamlConfiguration();
+        data.set("gems-lock-checked", (Object)true);
         try {
             data.save(file);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save gem-lock-checked for " + player.getName() + ": " + e.getMessage());
         }
     }
 
-    /**
-     * Pick a random gem ID from the grantable pool (enabled built-ins + addon gems, minus the
-     * config's random-exclude list — which keeps mythics out). Returns null if the pool is empty.
-     */
     private String getRandomEnabledGem() {
-        java.util.List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
+        List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
         if (enabledGems.isEmpty()) {
             return null;
         }
         return enabledGems.get(this.random.nextInt(enabledGems.size()));
     }
 }
+

@@ -1,7 +1,27 @@
 /*
- * Auto-enchant listener for Tier 2 gems.
- * Uses PDC markers on items to track auto-applied enchantments,
- * so cleanup works even if items are moved, dropped, or traded.
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.Material
+ *  org.bukkit.NamespacedKey
+ *  org.bukkit.enchantments.Enchantment
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.inventory.InventoryClickEvent
+ *  org.bukkit.event.inventory.InventoryDragEvent
+ *  org.bukkit.event.player.PlayerDropItemEvent
+ *  org.bukkit.event.player.PlayerItemHeldEvent
+ *  org.bukkit.event.player.PlayerJoinEvent
+ *  org.bukkit.event.player.PlayerQuitEvent
+ *  org.bukkit.event.player.PlayerSwapHandItemsEvent
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.inventory.meta.ItemMeta
+ *  org.bukkit.persistence.PersistentDataContainer
+ *  org.bukkit.persistence.PersistentDataType
+ *  org.bukkit.plugin.Plugin
+ *  org.bukkit.scheduler.BukkitRunnable
  */
 package dev.xoperr.blissgems.listeners;
 
@@ -9,6 +29,9 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.abilities.WealthAbilities;
 import dev.xoperr.blissgems.managers.GemManager;
 import dev.xoperr.blissgems.utils.GemType;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
@@ -27,17 +50,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
-public class AutoEnchantListener implements Listener {
+public class AutoEnchantListener
+implements Listener {
     private final BlissGems plugin;
-
-    // PDC key prefix for storing original enchant levels: "ae_orig_<enchant_key>"
-    // Value is the original level (0 = enchant was not present before auto-enchant)
     private static final String PDC_PREFIX = "ae_orig_";
 
     public AutoEnchantListener(BlissGems plugin) {
@@ -45,412 +63,309 @@ public class AutoEnchantListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerItemHeld(PlayerItemHeldEvent event) {
-        Player player = event.getPlayer();
-        // Strip auto-enchants from the item leaving the held slot immediately
+    public void onPlayerItemHeld(final PlayerItemHeldEvent event) {
+        final Player player = event.getPlayer();
         ItemStack prevItem = player.getInventory().getItem(event.getPreviousSlot());
         if (prevItem != null && !prevItem.getType().isAir()) {
-            stripAutoEnchants(prevItem);
+            this.stripAutoEnchants(prevItem);
         }
+        new BukkitRunnable(){
 
-        // Apply to new held slot after 1 tick (item might not be resolved yet)
-        new BukkitRunnable() {
-            @Override
             public void run() {
-                if (!player.isOnline()) return;
-                applyAutoEnchants(player, event.getNewSlot());
+                if (!player.isOnline()) {
+                    return;
+                }
+                AutoEnchantListener.this.applyAutoEnchants(player, event.getNewSlot());
             }
-        }.runTaskLater(plugin, 1L);
+        }.runTaskLater((Plugin)this.plugin, 1L);
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        new BukkitRunnable() {
-            @Override
+        final Player player = event.getPlayer();
+        new BukkitRunnable(){
+
             public void run() {
-                if (!player.isOnline()) return;
-                // Clean up any stale auto-enchants on all items first
-                stripAllAutoEnchants(player);
+                if (!player.isOnline()) {
+                    return;
+                }
+                AutoEnchantListener.this.stripAllAutoEnchants(player);
                 int heldSlot = player.getInventory().getHeldItemSlot();
-                applyAutoEnchants(player, heldSlot);
+                AutoEnchantListener.this.applyAutoEnchants(player, heldSlot);
             }
-        }.runTaskLater(plugin, 5L);
+        }.runTaskLater((Plugin)this.plugin, 5L);
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Strip all auto-enchants so items are saved clean
-        stripAllAutoEnchants(event.getPlayer());
-        // Also strip any amplified enchants (Wealth ability) so items are saved clean
-        stripAllAmplifyEnchants(event.getPlayer());
+        this.stripAllAutoEnchants(event.getPlayer());
+        this.stripAllAmplifyEnchants(event.getPlayer());
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        scheduleRefresh((Player) event.getWhoClicked());
+        if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        this.scheduleRefresh((Player)event.getWhoClicked());
     }
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        scheduleRefresh((Player) event.getWhoClicked());
+        if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        this.scheduleRefresh((Player)event.getWhoClicked());
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (event.isCancelled()) return;
-        // Strip auto-enchants and amplify enchants directly from the dropped item entity
+        if (event.isCancelled()) {
+            return;
+        }
         ItemStack droppedItem = event.getItemDrop().getItemStack();
-        boolean modified = stripAutoEnchants(droppedItem);
-        modified |= WealthAbilities.stripAmplifyEnchants(droppedItem);
-        if (modified) {
+        boolean modified = this.stripAutoEnchants(droppedItem);
+        if (modified |= WealthAbilities.stripAmplifyEnchants(droppedItem)) {
             event.getItemDrop().setItemStack(droppedItem);
         }
-        // Also refresh held slot in case something changed
-        scheduleRefresh(event.getPlayer());
+        this.scheduleRefresh(event.getPlayer());
     }
 
     @EventHandler
     public void onPlayerSwapHand(PlayerSwapHandItemsEvent event) {
-        scheduleRefresh(event.getPlayer());
+        this.scheduleRefresh(event.getPlayer());
     }
 
-    private void scheduleRefresh(Player player) {
-        new BukkitRunnable() {
-            @Override
+    private void scheduleRefresh(final Player player) {
+        new BukkitRunnable(){
+
             public void run() {
-                if (!player.isOnline()) return;
-                refreshAutoEnchants(player);
+                if (!player.isOnline()) {
+                    return;
+                }
+                AutoEnchantListener.this.refreshAutoEnchants(player);
             }
-        }.runTaskLater(plugin, 1L);
+        }.runTaskLater((Plugin)this.plugin, 1L);
     }
 
-    /**
-     * Scans ALL inventory items and strips auto-enchants from anything
-     * not in the currently held slot. Then re-applies to held slot.
-     */
     private void refreshAutoEnchants(Player player) {
         int heldSlot = player.getInventory().getHeldItemSlot();
-
-        // Strip auto-enchants from every slot that isn't the held slot
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
-            if (i == heldSlot) continue;
-            ItemStack item = player.getInventory().getItem(i);
-            if (item != null && !item.getType().isAir()) {
-                stripAutoEnchants(item);
-            }
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
+            ItemStack item;
+            if (i == heldSlot || (item = player.getInventory().getItem(i)) == null || item.getType().isAir()) continue;
+            this.stripAutoEnchants(item);
         }
-
-        // Also strip from off-hand (auto-enchants should only be on main hand)
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (!offHand.getType().isAir()) {
-            stripAutoEnchants(offHand);
+            this.stripAutoEnchants(offHand);
         }
-
-        // Re-apply to current held slot
-        applyAutoEnchants(player, heldSlot);
+        this.applyAutoEnchants(player, heldSlot);
     }
 
     public void applyAutoEnchants(Player player, int slot) {
-        if (!plugin.getConfig().getBoolean("auto-enchant.enabled", true)) {
+        int tier;
+        if (!this.plugin.getConfig().getBoolean("auto-enchant.enabled", true)) {
             return;
         }
-
-        GemManager.ActiveGem activeGem = plugin.getGemManager().getActiveGem(player);
-        // type is null for addon/registered gems — they manage their own enchants via the
-        // registry, so the built-in auto-enchant switch must not run (it would NPE on null).
+        GemManager.ActiveGem activeGem = this.plugin.getGemManager().getActiveGem(player);
         if (activeGem == null || activeGem.getType() == null) {
             return;
         }
-        // Most gems require T2 for auto-enchant, but Strength gets Sharpness at both tiers.
-        // auto-enchant.tier1-enabled opens the rest up to T1 as well, at reduced levels.
-        if (activeGem.getTier() < 2
-            && activeGem.getType() != GemType.STRENGTH
-            && !plugin.getConfigManager().isTier1AutoEnchantEnabled()) {
+        if (activeGem.getTier() < 2 && activeGem.getType() != GemType.STRENGTH && !this.plugin.getConfigManager().isTier1AutoEnchantEnabled()) {
             return;
         }
-
-        if (!plugin.getEnergyManager().arePassivesActive(player)) {
+        if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
             return;
         }
-
         ItemStack item = player.getInventory().getItem(slot);
         if (item == null || item.getType() == Material.AIR) {
             return;
         }
-
         GemType gemType = activeGem.getType();
-        int tier = activeGem.getTier();
-        Map<Enchantment, Integer> enchantsToAdd = getEnchantsForGem(gemType, item, tier);
-
+        Map<Enchantment, Integer> enchantsToAdd = this.getEnchantsForGem(gemType, item, tier = activeGem.getTier());
         if (enchantsToAdd.isEmpty()) {
             return;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return;
         }
-
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         boolean modified = false;
-
         for (Map.Entry<Enchantment, Integer> entry : enchantsToAdd.entrySet()) {
             Enchantment enchant = entry.getKey();
             int targetLevel = entry.getValue();
             int currentLevel = meta.getEnchantLevel(enchant);
-
-            NamespacedKey origKey = new NamespacedKey(plugin, PDC_PREFIX + enchant.getKey().getKey());
-
-            // Skip if already auto-enchanted at the correct level
-            if (pdc.has(origKey, PersistentDataType.INTEGER)) {
-                continue;
-            }
-
-            // Only boost if current level is below target
-            if (currentLevel < targetLevel) {
-                // Store original level in PDC (0 if enchant wasn't present)
-                pdc.set(origKey, PersistentDataType.INTEGER, currentLevel);
-                meta.addEnchant(enchant, targetLevel, true);
-                modified = true;
-            }
+            NamespacedKey origKey = new NamespacedKey((Plugin)this.plugin, PDC_PREFIX + enchant.getKey().getKey());
+            if (pdc.has(origKey, PersistentDataType.INTEGER) || currentLevel >= targetLevel) continue;
+            pdc.set(origKey, PersistentDataType.INTEGER, currentLevel);
+            meta.addEnchant(enchant, targetLevel, true);
+            modified = true;
         }
-
         if (modified) {
             item.setItemMeta(meta);
         }
     }
 
-    /**
-     * Strip all auto-enchant PDC markers from an item, restoring original enchant levels.
-     * Returns true if the item was modified.
-     */
     public boolean stripAutoEnchants(ItemStack item) {
         if (item == null || item.getType().isAir() || !item.hasItemMeta()) {
             return false;
         }
-
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return false;
         }
-
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         boolean modified = false;
-
-        // Check all known enchantments for auto-enchant PDC markers
         for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey origKey = new NamespacedKey(plugin, PDC_PREFIX + enchant.getKey().getKey());
-
-            if (pdc.has(origKey, PersistentDataType.INTEGER)) {
-                int originalLevel = pdc.get(origKey, PersistentDataType.INTEGER);
-
-                if (originalLevel == 0) {
-                    meta.removeEnchant(enchant);
-                } else {
-                    meta.addEnchant(enchant, originalLevel, true);
-                }
-
-                pdc.remove(origKey);
-                modified = true;
+            NamespacedKey origKey = new NamespacedKey((Plugin)this.plugin, PDC_PREFIX + enchant.getKey().getKey());
+            if (!pdc.has(origKey, PersistentDataType.INTEGER)) continue;
+            int originalLevel = (Integer)pdc.get(origKey, PersistentDataType.INTEGER);
+            if (originalLevel == 0) {
+                meta.removeEnchant(enchant);
+            } else {
+                meta.addEnchant(enchant, originalLevel, true);
             }
+            pdc.remove(origKey);
+            modified = true;
         }
-
         if (modified) {
             item.setItemMeta(meta);
         }
         return modified;
     }
 
-    /**
-     * Strip auto-enchants from ALL items in a player's inventory.
-     */
     public void stripAllAutoEnchants(Player player) {
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item = player.getInventory().getItem(i);
-            if (item != null && !item.getType().isAir()) {
-                stripAutoEnchants(item);
-            }
+            if (item == null || item.getType().isAir()) continue;
+            this.stripAutoEnchants(item);
         }
-        // Off-hand
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (!offHand.getType().isAir()) {
-            stripAutoEnchants(offHand);
+            this.stripAutoEnchants(offHand);
         }
     }
 
-    /**
-     * Strip amplify enchants from ALL items in a player's inventory.
-     */
     private void stripAllAmplifyEnchants(Player player) {
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
+        ItemStack offHand;
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item = player.getInventory().getItem(i);
-            if (item != null && !item.getType().isAir()) {
-                WealthAbilities.stripAmplifyEnchants(item);
-            }
+            if (item == null || item.getType().isAir()) continue;
+            WealthAbilities.stripAmplifyEnchants(item);
         }
         ItemStack[] armor = player.getInventory().getArmorContents();
         boolean armorModified = false;
-        for (int i = 0; i < armor.length; i++) {
-            if (armor[i] != null && !armor[i].getType().isAir()) {
-                if (WealthAbilities.stripAmplifyEnchants(armor[i])) armorModified = true;
-            }
+        for (int i = 0; i < armor.length; ++i) {
+            if (armor[i] == null || armor[i].getType().isAir() || !WealthAbilities.stripAmplifyEnchants(armor[i])) continue;
+            armorModified = true;
         }
         if (armorModified) {
             player.getInventory().setArmorContents(armor);
         }
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-        if (!offHand.getType().isAir()) {
+        if (!(offHand = player.getInventory().getItemInOffHand()).getType().isAir()) {
             WealthAbilities.stripAmplifyEnchants(offHand);
         }
     }
 
-    /**
-     * Check if an item has any auto-enchant markers (used by amplify to skip).
-     */
     public boolean hasAutoEnchants(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
         for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey origKey = new NamespacedKey(plugin, PDC_PREFIX + enchant.getKey().getKey());
-            if (pdc.has(origKey, PersistentDataType.INTEGER)) {
-                return true;
-            }
+            NamespacedKey origKey = new NamespacedKey((Plugin)this.plugin, PDC_PREFIX + enchant.getKey().getKey());
+            if (!pdc.has(origKey, PersistentDataType.INTEGER)) continue;
+            return true;
         }
         return false;
     }
 
     private Map<Enchantment, Integer> getEnchantsForGem(GemType gemType, ItemStack item, int tier) {
-        Map<Enchantment, Integer> enchants = new HashMap<>();
+        HashMap<Enchantment, Integer> enchants = new HashMap<Enchantment, Integer>();
         Material type = item.getType();
-
         switch (gemType) {
-            case SPEED:
-                if (plugin.getConfig().getBoolean("auto-enchant.speed.efficiency", true)) {
-                    if (isTool(type)) {
-                        enchants.put(Enchantment.EFFICIENCY, (tier >= 2) ? 5 : 3);
-                    }
-                }
+            case SPEED: {
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.speed.efficiency", true) || !this.isTool(type)) break;
+                enchants.put(Enchantment.EFFICIENCY, tier >= 2 ? 5 : 3);
                 break;
-
-            case WEALTH:
-                if (plugin.getConfig().getBoolean("auto-enchant.wealth.fortune", true)) {
-                    if (isPickaxe(type) || isShovel(type) || isAxe(type)) {
-                        enchants.put(Enchantment.FORTUNE, (tier >= 2) ? 3 : 2);
-                    }
+            }
+            case WEALTH: {
+                if (this.plugin.getConfig().getBoolean("auto-enchant.wealth.fortune", true) && (this.isPickaxe(type) || this.isShovel(type) || this.isAxe(type))) {
+                    enchants.put(Enchantment.FORTUNE, tier >= 2 ? 3 : 2);
                 }
-                if (plugin.getConfig().getBoolean("auto-enchant.wealth.looting", true)) {
-                    if (isSword(type)) {
-                        enchants.put(Enchantment.LOOTING, (tier >= 2) ? 3 : 2);
-                    }
+                if (this.plugin.getConfig().getBoolean("auto-enchant.wealth.looting", true) && this.isSword(type)) {
+                    enchants.put(Enchantment.LOOTING, tier >= 2 ? 3 : 2);
                 }
-                if (plugin.getConfig().getBoolean("auto-enchant.wealth.mending", true)) {
-                    if (isTool(type) || isWeapon(type) || isArmor(type)) {
-                        enchants.put(Enchantment.MENDING, 1);
-                    }
-                }
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.wealth.mending", true) || !this.isTool(type) && !this.isWeapon(type) && !this.isArmor(type)) break;
+                enchants.put(Enchantment.MENDING, 1);
                 break;
-
-            case FIRE:
-                if (plugin.getConfig().getBoolean("auto-enchant.fire.flame", true)) {
-                    if (type == Material.BOW) {
-                        enchants.put(Enchantment.FLAME, 1);
-                    }
+            }
+            case FIRE: {
+                if (this.plugin.getConfig().getBoolean("auto-enchant.fire.flame", true) && type == Material.BOW) {
+                    enchants.put(Enchantment.FLAME, 1);
                 }
-                if (plugin.getConfig().getBoolean("auto-enchant.fire.fire-aspect", true)) {
-                    if (isSword(type)) {
-                        enchants.put(Enchantment.FIRE_ASPECT, (tier >= 2) ? 2 : 1);
-                    }
-                }
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.fire.fire-aspect", true) || !this.isSword(type)) break;
+                enchants.put(Enchantment.FIRE_ASPECT, tier >= 2 ? 2 : 1);
                 break;
-
-            case PUFF:
-                if (plugin.getConfig().getBoolean("auto-enchant.puff.feather-falling", true)) {
-                    if (isBoots(type)) {
-                        enchants.put(Enchantment.FEATHER_FALLING, (tier >= 2) ? 4 : 2);
-                    }
+            }
+            case PUFF: {
+                if (this.plugin.getConfig().getBoolean("auto-enchant.puff.feather-falling", true) && this.isBoots(type)) {
+                    enchants.put(Enchantment.FEATHER_FALLING, tier >= 2 ? 4 : 2);
                 }
-                if (plugin.getConfig().getBoolean("auto-enchant.puff.power", true)) {
-                    if (type == Material.BOW) {
-                        enchants.put(Enchantment.POWER, (tier >= 2) ? 5 : 3);
-                    }
+                if (this.plugin.getConfig().getBoolean("auto-enchant.puff.power", true) && type == Material.BOW) {
+                    enchants.put(Enchantment.POWER, tier >= 2 ? 5 : 3);
                 }
-                if (plugin.getConfig().getBoolean("auto-enchant.puff.punch", true)) {
-                    if (type == Material.BOW) {
-                        enchants.put(Enchantment.PUNCH, (tier >= 2) ? 2 : 1);
-                    }
-                }
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.puff.punch", true) || type != Material.BOW) break;
+                enchants.put(Enchantment.PUNCH, tier >= 2 ? 2 : 1);
                 break;
-
-            case STRENGTH:
-                if (plugin.getConfig().getBoolean("auto-enchant.strength.sharpness", true)) {
-                    if (isSword(type) || isAxe(type)) {
-                        int sharpnessLevel = (tier >= 2) ? 5 : 2;
-                        enchants.put(Enchantment.SHARPNESS, sharpnessLevel);
-                    }
-                }
+            }
+            case STRENGTH: {
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.strength.sharpness", true) || !this.isSword(type) && !this.isAxe(type)) break;
+                int sharpnessLevel = tier >= 2 ? 5 : 2;
+                enchants.put(Enchantment.SHARPNESS, sharpnessLevel);
                 break;
-
-            case LIFE:
-                if (plugin.getConfig().getBoolean("auto-enchant.life.unbreaking", true)) {
-                    if (isTool(type) || isWeapon(type) || isArmor(type)) {
-                        enchants.put(Enchantment.UNBREAKING, (tier >= 2) ? 3 : 2);
-                    }
-                }
+            }
+            case LIFE: {
+                if (!this.plugin.getConfig().getBoolean("auto-enchant.life.unbreaking", true) || !this.isTool(type) && !this.isWeapon(type) && !this.isArmor(type)) break;
+                enchants.put(Enchantment.UNBREAKING, tier >= 2 ? 3 : 2);
                 break;
-
-            default:
-                break;
+            }
         }
-
         return enchants;
     }
 
     private boolean isTool(Material type) {
-        return isPickaxe(type) || isShovel(type) || isAxe(type) || isHoe(type);
+        return this.isPickaxe(type) || this.isShovel(type) || this.isAxe(type) || this.isHoe(type);
     }
 
     private boolean isPickaxe(Material type) {
-        return type == Material.WOODEN_PICKAXE || type == Material.STONE_PICKAXE ||
-               type == Material.IRON_PICKAXE || type == Material.GOLDEN_PICKAXE ||
-               type == Material.DIAMOND_PICKAXE || type == Material.NETHERITE_PICKAXE;
+        return type == Material.WOODEN_PICKAXE || type == Material.STONE_PICKAXE || type == Material.IRON_PICKAXE || type == Material.GOLDEN_PICKAXE || type == Material.DIAMOND_PICKAXE || type == Material.NETHERITE_PICKAXE;
     }
 
     private boolean isShovel(Material type) {
-        return type == Material.WOODEN_SHOVEL || type == Material.STONE_SHOVEL ||
-               type == Material.IRON_SHOVEL || type == Material.GOLDEN_SHOVEL ||
-               type == Material.DIAMOND_SHOVEL || type == Material.NETHERITE_SHOVEL;
+        return type == Material.WOODEN_SHOVEL || type == Material.STONE_SHOVEL || type == Material.IRON_SHOVEL || type == Material.GOLDEN_SHOVEL || type == Material.DIAMOND_SHOVEL || type == Material.NETHERITE_SHOVEL;
     }
 
     private boolean isAxe(Material type) {
-        return type == Material.WOODEN_AXE || type == Material.STONE_AXE ||
-               type == Material.IRON_AXE || type == Material.GOLDEN_AXE ||
-               type == Material.DIAMOND_AXE || type == Material.NETHERITE_AXE;
+        return type == Material.WOODEN_AXE || type == Material.STONE_AXE || type == Material.IRON_AXE || type == Material.GOLDEN_AXE || type == Material.DIAMOND_AXE || type == Material.NETHERITE_AXE;
     }
 
     private boolean isHoe(Material type) {
-        return type == Material.WOODEN_HOE || type == Material.STONE_HOE ||
-               type == Material.IRON_HOE || type == Material.GOLDEN_HOE ||
-               type == Material.DIAMOND_HOE || type == Material.NETHERITE_HOE;
+        return type == Material.WOODEN_HOE || type == Material.STONE_HOE || type == Material.IRON_HOE || type == Material.GOLDEN_HOE || type == Material.DIAMOND_HOE || type == Material.NETHERITE_HOE;
     }
 
     private boolean isSword(Material type) {
-        return type == Material.WOODEN_SWORD || type == Material.STONE_SWORD ||
-               type == Material.IRON_SWORD || type == Material.GOLDEN_SWORD ||
-               type == Material.DIAMOND_SWORD || type == Material.NETHERITE_SWORD;
+        return type == Material.WOODEN_SWORD || type == Material.STONE_SWORD || type == Material.IRON_SWORD || type == Material.GOLDEN_SWORD || type == Material.DIAMOND_SWORD || type == Material.NETHERITE_SWORD;
     }
 
     private boolean isWeapon(Material type) {
-        return isSword(type) || isAxe(type) || type == Material.BOW ||
-               type == Material.CROSSBOW || type == Material.TRIDENT;
+        return this.isSword(type) || this.isAxe(type) || type == Material.BOW || type == Material.CROSSBOW || type == Material.TRIDENT;
     }
 
     private boolean isArmor(Material type) {
         String name = type.name();
-        return name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") ||
-               name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS");
+        return name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") || name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS");
     }
 
     private boolean isBoots(Material type) {
@@ -458,6 +373,6 @@ public class AutoEnchantListener implements Listener {
     }
 
     public void clearCache(UUID uuid) {
-        // No in-memory state to clear anymore (PDC is on items)
     }
 }
+

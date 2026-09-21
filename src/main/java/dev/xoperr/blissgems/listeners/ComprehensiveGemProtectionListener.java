@@ -1,11 +1,47 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  org.bukkit.GameMode
+ *  org.bukkit.Material
+ *  org.bukkit.entity.Entity
+ *  org.bukkit.entity.Item
+ *  org.bukkit.entity.LivingEntity
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.EventHandler
+ *  org.bukkit.event.EventPriority
+ *  org.bukkit.event.Listener
+ *  org.bukkit.event.entity.EntityPickupItemEvent
+ *  org.bukkit.event.entity.ItemDespawnEvent
+ *  org.bukkit.event.entity.ItemMergeEvent
+ *  org.bukkit.event.entity.ItemSpawnEvent
+ *  org.bukkit.event.inventory.ClickType
+ *  org.bukkit.event.inventory.InventoryClickEvent
+ *  org.bukkit.event.inventory.InventoryCloseEvent
+ *  org.bukkit.event.inventory.InventoryDragEvent
+ *  org.bukkit.event.inventory.InventoryMoveItemEvent
+ *  org.bukkit.event.inventory.InventoryType
+ *  org.bukkit.event.player.PlayerChangedWorldEvent
+ *  org.bukkit.event.player.PlayerDropItemEvent
+ *  org.bukkit.event.player.PlayerInteractEntityEvent
+ *  org.bukkit.event.player.PlayerInteractEvent
+ *  org.bukkit.event.player.PlayerQuitEvent
+ *  org.bukkit.inventory.EquipmentSlot
+ *  org.bukkit.inventory.Inventory
+ *  org.bukkit.inventory.ItemStack
+ *  org.bukkit.plugin.Plugin
+ */
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
-import dev.xoperr.blissgems.utils.GemType;
+import java.util.ArrayList;
+import java.util.Iterator;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -14,8 +50,12 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.ItemMergeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.*;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -23,562 +63,316 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Comprehensive gem protection listener that prevents gems from leaving player inventory
- * through ANY possible method. This covers all the scenarios listed:
- *
- * DROP EVENTS:
- * - Q / Ctrl+Q → PlayerDropItemEvent
- * - Death → PlayerDeathEvent (handled separately in PlayerDeathListener)
- * - Cursor on disconnect → PlayerQuitEvent
- *
- * INVENTORY INTERACTIONS:
- * - Shift+click to container → InventoryClickEvent (SHIFT_*)
- * - Hotbar swap (1-9) on ground item → InventoryClickEvent (HOTBAR_SWAP)
- * - Drag outside inventory → InventoryDragEvent
- * - Leftover items in crafting/anvil/etc on close → InventoryCloseEvent
- * - Cursor item on inventory close → InventoryCloseEvent
- *
- * CONTAINERS/BLOCKS:
- * - All container types (chests, barrels, shulkers, etc.)
- * - Furnaces, brewing stands, beacons, composters
- * - Item frames, armor stands
- * - Lecterns, smithing tables, etc.
- *
- * ENTITIES/MOBS:
- * - Hoppers extracting items → InventoryMoveItemEvent
- * - Allay/mob pickup → EntityPickupItemEvent
- * - Armor stand/item frame placement → PlayerInteractEntityEvent
- *
- * OTHER:
- * - Creative mode item deletion
- * - Any other edge cases
- */
-public class ComprehensiveGemProtectionListener implements Listener {
+public class ComprehensiveGemProtectionListener
+implements Listener {
     private final BlissGems plugin;
 
     public ComprehensiveGemProtectionListener(BlissGems plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Check if gem protection is enabled in config
-     */
     private boolean isProtectionEnabled() {
-        return plugin.getConfig().getBoolean("gems.prevent-drop", true);
+        return this.plugin.getConfig().getBoolean("gems.prevent-drop", true);
     }
 
-    /**
-     * Send protection message to player
-     */
     private void sendProtectionMessage(Player player) {
-        String message = plugin.getConfigManager().getFormattedMessage("cannot-drop-gem");
+        String message = this.plugin.getConfigManager().getFormattedMessage("cannot-drop-gem", new Object[0]);
         if (message != null && !message.isEmpty()) {
             player.sendMessage(message);
         } else {
-            player.sendMessage("§c§lYou cannot drop your gem!");
+            player.sendMessage("\u00a7c\u00a7lYou cannot drop your gem!");
         }
     }
 
-    /**
-     * Re-send the offhand (slot 40) to the client after a cancelled SWAP_OFFHAND click.
-     *
-     * The client predicts the swap locally, and when the click is cancelled the server only
-     * resyncs the slots of the *open* container — the offhand is not part of a chest/container
-     * menu, so the client keeps showing it empty and the gem looks lost until relog.
-     * Sending the equipment change writes the item straight back into the client's offhand.
-     */
     static void resyncOffhand(BlissGems plugin, Player player) {
         ItemStack offhand = player.getInventory().getItemInOffHand();
         ItemStack copy = offhand == null ? new ItemStack(Material.AIR) : offhand.clone();
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            player.sendEquipmentChange(player, EquipmentSlot.OFF_HAND, copy);
+        plugin.getServer().getScheduler().runTask((Plugin)plugin, () -> {
+            player.sendEquipmentChange((LivingEntity)player, EquipmentSlot.OFF_HAND, copy);
             player.updateInventory();
         });
     }
 
-    // ==========================================
-    // DROP EVENTS
-    // ==========================================
-
-    /**
-     * Prevent direct item dropping (Q key, Ctrl+Q)
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onItemDrop(PlayerDropItemEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         ItemStack droppedItem = event.getItemDrop().getItemStack();
         if (CustomItemManager.isUndroppable(droppedItem)) {
             event.setCancelled(true);
-            sendProtectionMessage(event.getPlayer());
-            // Re-sync the client next tick so any predicted ghost copy is cleared.
+            this.sendProtectionMessage(event.getPlayer());
             Player p = event.getPlayer();
-            plugin.getServer().getScheduler().runTask(plugin, p::updateInventory);
+            this.plugin.getServer().getScheduler().runTask((Plugin)this.plugin, () -> ((Player)p).updateInventory());
         }
     }
 
-    /**
-     * Prevent cursor item from being lost on disconnect
-     * Return it to player inventory
-     */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Gem locks are in-memory and clear on logout.
-        if (plugin.getGemLockManager() != null) {
-            plugin.getGemLockManager().clear(event.getPlayer().getUniqueId());
+        if (this.plugin.getGemLockManager() != null) {
+            this.plugin.getGemLockManager().clear(event.getPlayer().getUniqueId());
         }
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         Player player = event.getPlayer();
         ItemStack cursorItem = player.getItemOnCursor();
-
         if (cursorItem != null && CustomItemManager.isUndroppable(cursorItem)) {
-            // Return gem to inventory
             player.setItemOnCursor(null);
-
-            // Try to add to inventory
             if (player.getInventory().firstEmpty() != -1) {
-                player.getInventory().addItem(cursorItem);
+                player.getInventory().addItem(new ItemStack[]{cursorItem});
             } else {
-                // Inventory full - force drop at player location
-                // (PlayerDeathListener will handle this if they log out during death)
                 player.getWorld().dropItemNaturally(player.getLocation(), cursorItem);
             }
         }
     }
 
-    // ==========================================
-    // INVENTORY CLICK EVENTS
-    // ==========================================
-
-    /**
-     * Comprehensive inventory click handler
-     * Covers: shift-clicks, hotbar swaps, cursor placement, number key swaps, etc.
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!isProtectionEnabled()) {
+        ItemStack hotbarItem;
+        int hotbarButton;
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
-
-        Player player = (Player) event.getWhoClicked();
+        Player player = (Player)event.getWhoClicked();
         ItemStack cursor = event.getCursor();
         ItemStack clicked = event.getCurrentItem();
         Inventory clickedInventory = event.getClickedInventory();
         Inventory topInventory = event.getView().getTopInventory();
-
-        // CRITICAL: Explicitly block ender chest placement
-        if (topInventory != null && topInventory.getType() == InventoryType.ENDER_CHEST) {
-            // Check if trying to place/move a gem into ender chest
-            if ((cursor != null && CustomItemManager.isUndroppable(cursor)) ||
-                (clicked != null && CustomItemManager.isUndroppable(clicked) && event.isShiftClick())) {
-                event.setCancelled(true);
-                sendProtectionMessage(player);
-                return;
-            }
+        if (topInventory != null && topInventory.getType() == InventoryType.ENDER_CHEST && (cursor != null && CustomItemManager.isUndroppable(cursor) || clicked != null && CustomItemManager.isUndroppable(clicked) && event.isShiftClick())) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 1: Prevent placing gem from cursor into non-player inventory
-        if (cursor != null && CustomItemManager.isUndroppable(cursor)) {
-            if (clickedInventory != null && !isPlayerInventory(clickedInventory)) {
-                event.setCancelled(true);
-                sendProtectionMessage(player);
-                return;
-            }
+        if (cursor != null && CustomItemManager.isUndroppable(cursor) && clickedInventory != null && !this.isPlayerInventory(clickedInventory)) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 2: Prevent shift-clicking gem from player inventory to other inventories
-        if (event.isShiftClick() && clicked != null && CustomItemManager.isUndroppable(clicked)) {
-            if (clickedInventory != null && isPlayerInventory(clickedInventory)) {
-                // Shift-clicking FROM player inventory
-                // Check if there's a non-player inventory open
-                if (topInventory != null && !isPlayerInventory(topInventory)) {
-                    event.setCancelled(true);
-                    sendProtectionMessage(player);
-                    return;
-                }
-            }
+        if (event.isShiftClick() && clicked != null && CustomItemManager.isUndroppable(clicked) && clickedInventory != null && this.isPlayerInventory(clickedInventory) && topInventory != null && !this.isPlayerInventory(topInventory)) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 3: Prevent hotbar swap (number keys 1-9) to move gems to non-player inventory
-        if (event.getClick() == ClickType.NUMBER_KEY) {
-            int hotbarButton = event.getHotbarButton();
-            if (hotbarButton >= 0 && hotbarButton < 9) {
-                ItemStack hotbarItem = player.getInventory().getItem(hotbarButton);
-                if (hotbarItem != null && CustomItemManager.isUndroppable(hotbarItem)) {
-                    if (clickedInventory != null && !isPlayerInventory(clickedInventory)) {
-                        event.setCancelled(true);
-                        sendProtectionMessage(player);
-                        return;
-                    }
-                }
-            }
+        if (event.getClick() == ClickType.NUMBER_KEY && (hotbarButton = event.getHotbarButton()) >= 0 && hotbarButton < 9 && (hotbarItem = player.getInventory().getItem(hotbarButton)) != null && CustomItemManager.isUndroppable(hotbarItem) && clickedInventory != null && !this.isPlayerInventory(clickedInventory)) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 4: Prevent dropping gems in creative mode (Click outside inventory)
-        if (event.getClick() == ClickType.DROP || event.getClick() == ClickType.CONTROL_DROP) {
-            if (clicked != null && CustomItemManager.isUndroppable(clicked)) {
-                event.setCancelled(true);
-                sendProtectionMessage(player);
-                return;
-            }
+        if ((event.getClick() == ClickType.DROP || event.getClick() == ClickType.CONTROL_DROP) && clicked != null && CustomItemManager.isUndroppable(clicked)) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 5: Prevent moving gems using SWAP_OFFHAND (F key)
-        // Block in ALL inventories (including player's own) to prevent dupe exploit
         if (event.getClick() == ClickType.SWAP_OFFHAND) {
             ItemStack offhand = player.getInventory().getItemInOffHand();
-            if ((clicked != null && CustomItemManager.isUndroppable(clicked)) ||
-                (offhand != null && CustomItemManager.isUndroppable(offhand))) {
+            if (clicked != null && CustomItemManager.isUndroppable(clicked) || offhand != null && CustomItemManager.isUndroppable(offhand)) {
                 event.setCancelled(true);
-                resyncOffhand(plugin, player);
+                ComprehensiveGemProtectionListener.resyncOffhand(this.plugin, player);
                 return;
             }
         }
-
-        // Case 6: Prevent double-clicking to collect gems into non-player inventory
-        if (event.getClick() == ClickType.DOUBLE_CLICK) {
-            if (cursor != null && CustomItemManager.isUndroppable(cursor)) {
-                if (clickedInventory != null && !isPlayerInventory(clickedInventory)) {
-                    event.setCancelled(true);
-                    sendProtectionMessage(player);
-                    return;
-                }
-            }
+        if (event.getClick() == ClickType.DOUBLE_CLICK && cursor != null && CustomItemManager.isUndroppable(cursor) && clickedInventory != null && !this.isPlayerInventory(clickedInventory)) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
+            return;
         }
-
-        // Case 7: Creative mode middle-click cloning
-        if (player.getGameMode() == GameMode.CREATIVE) {
-            if (event.getClick() == ClickType.CREATIVE) {
-                if (clicked != null && CustomItemManager.isUndroppable(clicked)) {
-                    // Allow cloning in creative, but mark the clone as undroppable too
-                    // This is handled automatically by the PDC being copied
-                }
-            }
+        if (player.getGameMode() != GameMode.CREATIVE || event.getClick() != ClickType.CREATIVE || clicked == null || CustomItemManager.isUndroppable(clicked)) {
+            // empty if block
         }
     }
 
-    /**
-     * Prevent gems from being dragged into non-player inventories
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
-
         ItemStack draggedItem = event.getOldCursor();
         if (draggedItem == null || !CustomItemManager.isUndroppable(draggedItem)) {
             return;
         }
-
-        // Check if any of the dragged slots are in a non-player inventory
         Inventory topInventory = event.getView().getTopInventory();
-        if (topInventory != null && !isPlayerInventory(topInventory)) {
+        if (topInventory != null && !this.isPlayerInventory(topInventory)) {
             int topSize = topInventory.getSize();
-
-            for (int slot : event.getRawSlots()) {
-                if (slot < topSize) {
-                    // Slot is in the top (non-player) inventory
-                    event.setCancelled(true);
-                    sendProtectionMessage((Player) event.getWhoClicked());
-                    return;
-                }
+            Iterator iterator = event.getRawSlots().iterator();
+            while (iterator.hasNext()) {
+                int slot = (Integer)iterator.next();
+                if (slot >= topSize) continue;
+                event.setCancelled(true);
+                this.sendProtectionMessage((Player)event.getWhoClicked());
+                return;
             }
         }
     }
 
-    /**
-     * Handle cursor items when closing inventories
-     * Bukkit automatically returns cursor items to inventory on close,
-     * but if inventory is full, it drops them - we prevent that.
-     */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.MONITOR, ignoreCancelled=true)
     public void onInventoryClose(InventoryCloseEvent event) {
-        // NOTE: We don't need to handle crafting-table leftovers manually.
-        // Bukkit automatically returns them to player inventory.
-        // Our onInventoryClick handler already prevents gems from being placed
-        // in crafting/anvil/etc. slots in the first place.
-
-        // The cursor item is also automatically returned by Bukkit.
-        // We just need to prevent it from dropping if inventory is full,
-        // which is already handled by onItemDrop event.
     }
 
-    // ==========================================
-    // HOPPER/AUTOMATED MOVEMENT
-    // ==========================================
-
-    /**
-     * Prevent hoppers and other automated systems from moving gems
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         ItemStack item = event.getItem();
         if (CustomItemManager.isUndroppable(item)) {
             event.setCancelled(true);
         }
     }
 
-    // ==========================================
-    // ENTITY INTERACTIONS
-    // ==========================================
-
-    /**
-     * Prevent placing gems in item frames, armor stands, etc.
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        if (!isProtectionEnabled()) {
+        Entity entity;
+        ItemStack offhand;
+        Entity entity2;
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
-
-        if (CustomItemManager.isUndroppable(item)) {
-            Entity entity = event.getRightClicked();
-
-            // Prevent placing in item frames, armor stands, etc.
-            if (entity.getType().name().contains("ITEM_FRAME") ||
-                entity.getType().name().contains("ARMOR_STAND")) {
-                event.setCancelled(true);
-                sendProtectionMessage(player);
-            }
+        if (CustomItemManager.isUndroppable(item) && ((entity2 = event.getRightClicked()).getType().name().contains("ITEM_FRAME") || entity2.getType().name().contains("ARMOR_STAND"))) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
         }
-
-        // Also check offhand
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (CustomItemManager.isUndroppable(offhand)) {
-            Entity entity = event.getRightClicked();
-
-            if (entity.getType().name().contains("ITEM_FRAME") ||
-                entity.getType().name().contains("ARMOR_STAND")) {
-                event.setCancelled(true);
-                sendProtectionMessage(player);
-            }
+        if (CustomItemManager.isUndroppable(offhand = player.getInventory().getItemInOffHand()) && ((entity = event.getRightClicked()).getType().name().contains("ITEM_FRAME") || entity.getType().name().contains("ARMOR_STAND"))) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(player);
         }
     }
 
-    /**
-     * Prevent non-player entities from picking up gems
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onEntityPickupItem(EntityPickupItemEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
-        // Allow players to pick up gems
         if (event.getEntity() instanceof Player) {
             return;
         }
-
-        // Prevent non-player entities (Allay, mobs, etc.) from picking up gems
         ItemStack item = event.getItem().getItemStack();
         if (CustomItemManager.isUndroppable(item)) {
             event.setCancelled(true);
         }
     }
 
-    /**
-     * Prevent using gems in composters and other block interactions
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onPlayerInteract(PlayerInteractEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
-
         ItemStack item = event.getItem();
-        if (item != null && CustomItemManager.isUndroppable(item)) {
-            // Prevent inserting a gem into blocks that accept item placement via right-click:
-            // composters, decorated pots, chiseled bookshelves, and the new Shelf block
-            // (incl. its powered variant) — all of which could stash a gem out of inventory.
-            if (event.getClickedBlock() != null && isItemStashingBlock(event.getClickedBlock().getType().name())) {
-                event.setCancelled(true);
-                sendProtectionMessage(event.getPlayer());
-            }
+        if (item != null && CustomItemManager.isUndroppable(item) && event.getClickedBlock() != null && this.isItemStashingBlock(event.getClickedBlock().getType().name())) {
+            event.setCancelled(true);
+            this.sendProtectionMessage(event.getPlayer());
         }
     }
 
-    /**
-     * Block types that can hold an item placed by a right-click interaction (not a
-     * standard container GUI). Matched by name so it works across API versions, including
-     * blocks (like Shelf) newer than the compile-time Bukkit API.
-     */
     private boolean isItemStashingBlock(String blockName) {
-        return blockName.contains("COMPOSTER")
-            || blockName.contains("SHELF")          // SHELF, BOOKSHELF, CHISELED_BOOKSHELF
-            || blockName.contains("DECORATED_POT");
+        return blockName.contains("COMPOSTER") || blockName.contains("SHELF") || blockName.contains("DECORATED_POT");
     }
 
-    // ==========================================
-    // PORTAL / WORLD CHANGE (anti-duplication)
-    // ==========================================
-
-    /**
-     * Prevent gem duplication when travelling through End/Nether portals.
-     * Some server implementations can duplicate inventory items during world transitions.
-     * We enforce single-gem-only after every world change.
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority=EventPriority.MONITOR)
     public void onWorldChange(PlayerChangedWorldEvent event) {
-        if (!isProtectionEnabled()) {
+        if (!this.isProtectionEnabled()) {
             return;
         }
         Player player = event.getPlayer();
-        // Run 1 tick later to ensure inventory is fully loaded in new world
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
-            enforceOneGemOnly(player);
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            this.enforceOneGemOnly(player);
         }, 1L);
     }
 
-    /**
-     * Scan inventory and remove duplicate gems, keeping only the first one found.
-     */
     private void enforceOneGemOnly(Player player) {
-        if (!plugin.getConfigManager().isSingleGemOnly()) {
+        if (!this.plugin.getConfigManager().isSingleGemOnly()) {
             return;
         }
-
         boolean foundFirst = false;
-        List<Integer> duplicateSlots = new ArrayList<>();
-
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
+        ArrayList<Integer> duplicateSlots = new ArrayList<Integer>();
+        for (int i = 0; i < player.getInventory().getSize(); ++i) {
+            String itemId;
             ItemStack item = player.getInventory().getItem(i);
-            if (item == null) continue;
-            String itemId = CustomItemManager.getIdByItem(item);
-            if (itemId == null) continue;
-            if (!plugin.getGemManager().isAnyGem(itemId)) continue;
-
+            if (item == null || (itemId = CustomItemManager.getIdByItem(item)) == null || !this.plugin.getGemManager().isAnyGem(itemId)) continue;
             if (!foundFirst) {
                 foundFirst = true;
-            } else {
-                duplicateSlots.add(i);
+                continue;
             }
+            duplicateSlots.add(i);
         }
-
         if (!duplicateSlots.isEmpty()) {
-            for (int slot : duplicateSlots) {
+            Iterator iterator = duplicateSlots.iterator();
+            while (iterator.hasNext()) {
+                int slot = (Integer)iterator.next();
                 player.getInventory().setItem(slot, null);
             }
-            plugin.getLogger().info("Removed " + duplicateSlots.size() +
-                " duplicate gem(s) from " + player.getName() + " after world change.");
+            this.plugin.getLogger().info("Removed " + duplicateSlots.size() + " duplicate gem(s) from " + player.getName() + " after world change.");
         }
     }
 
-    // ==========================================
-    // GROUND-ITEM PROTECTION (ClearLagg / cleanup-plugin compat)
-    // ==========================================
-
-    /**
-     * When a gem item entity spawns in the world, harden it against cleanup plugins:
-     * never despawn, invulnerable, no pickup delay, and re-mark with the undroppable PDC tag
-     * in case a prior plugin (e.g. ClearLagg item merging) stripped it.
-     */
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority=EventPriority.LOWEST)
     public void onItemSpawn(ItemSpawnEvent event) {
-        org.bukkit.entity.Item itemEntity = event.getEntity();
+        Item itemEntity = event.getEntity();
         ItemStack stack = itemEntity.getItemStack();
-        if (stack == null || !isGemLike(stack)) {
+        if (stack == null || !this.isGemLike(stack)) {
             return;
         }
         CustomItemManager.markAsUndroppable(stack);
         itemEntity.setItemStack(stack);
         try {
             itemEntity.setUnlimitedLifetime(true);
-        } catch (NoSuchMethodError ignored) {
+        }
+        catch (NoSuchMethodError ignored) {
             itemEntity.setTicksLived(1);
         }
         itemEntity.setInvulnerable(true);
         itemEntity.setPersistent(true);
     }
 
-    /**
-     * Prevent natural despawn of gem item entities.
-     */
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.LOWEST, ignoreCancelled=true)
     public void onItemDespawn(ItemDespawnEvent event) {
         ItemStack stack = event.getEntity().getItemStack();
-        if (isGemLike(stack)) {
+        if (this.isGemLike(stack)) {
             event.setCancelled(true);
         }
     }
 
-    /**
-     * Prevent gem item entities from merging with anything — merges can strip PDC tags
-     * and cause stack identity loss when other cleanup plugins are present.
-     */
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority=EventPriority.LOWEST, ignoreCancelled=true)
     public void onItemMerge(ItemMergeEvent event) {
-        if (isGemLike(event.getEntity().getItemStack()) || isGemLike(event.getTarget().getItemStack())) {
+        if (this.isGemLike(event.getEntity().getItemStack()) || this.isGemLike(event.getTarget().getItemStack())) {
             event.setCancelled(true);
         }
     }
 
-    /**
-     * Identify gem items by PDC tag OR by being a registered gem id —
-     * needed because plugins like ClearLagg can strip PDC during item merging,
-     * leaving the item identifiable only by its custom item id.
-     */
     private boolean isGemLike(ItemStack item) {
-        if (item == null) return false;
-        if (CustomItemManager.isUndroppable(item)) return true;
+        if (item == null) {
+            return false;
+        }
+        if (CustomItemManager.isUndroppable(item)) {
+            return true;
+        }
         String id = CustomItemManager.getIdByItem(item);
-        return id != null && plugin.getGemManager().isAnyGem(id);
+        return id != null && this.plugin.getGemManager().isAnyGem(id);
     }
 
-    // ==========================================
-    // HELPER METHODS
-    // ==========================================
-
-    /**
-     * Check if an inventory belongs to a player's main inventory
-     * (NOT ender chest - ender chests should be blocked)
-     */
     private boolean isPlayerInventory(Inventory inventory) {
         if (inventory == null) {
             return false;
         }
-
         InventoryType type = inventory.getType();
-
-        // IMPORTANT: ENDER_CHEST is NOT a player inventory for our purposes
-        // We want to block gems from being placed in ender chests
         if (type == InventoryType.ENDER_CHEST) {
             return false;
         }
-
-        // Only allow player main inventory and crafting view
-        if (type == InventoryType.PLAYER || type == InventoryType.CRAFTING) {
-            return true;
-        }
-
-        return false;
+        return type == InventoryType.PLAYER || type == InventoryType.CRAFTING;
     }
 }
+
