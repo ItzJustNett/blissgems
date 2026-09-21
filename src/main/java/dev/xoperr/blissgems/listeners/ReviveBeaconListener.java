@@ -50,6 +50,21 @@ implements Listener {
         this.plugin = plugin;
     }
 
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onSpawnBeaconToss(org.bukkit.event.player.PlayerDropItemEvent event) {
+        org.bukkit.entity.Item dropped = event.getItemDrop();
+        ItemStack item = dropped.getItemStack();
+        if (this.plugin.getSpawnBeaconManager() == null) return;
+        if (!this.plugin.getSpawnBeaconManager().isWithinBeacon(event.getPlayer().getLocation())) return;
+
+        String id = CustomItemManager.getIdByItem(item);
+        if ("revive_beacon".equals(id)) {
+            this.plugin.getSpawnBeaconManager().onReviveBeaconDropped(event.getPlayer(), dropped);
+        } else if (item.getType() == org.bukkit.Material.PLAYER_HEAD) {
+            this.plugin.getSpawnBeaconManager().onPlayerHeadDropped(event.getPlayer(), dropped);
+        }
+    }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (!event.getAction().toString().contains("RIGHT_CLICK")) {

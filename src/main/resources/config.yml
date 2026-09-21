@@ -137,6 +137,9 @@ crafting:
 # COMBAT
 # ==========================================
 combat:
+  # Ender pearl cooldown in seconds
+  ender-pearl-cooldown-seconds: 15
+
   # Gem holders hit harder when the victim's own gem is Broken (energy 0).
   broken-gem-bonus:
     enabled: true
@@ -469,6 +472,20 @@ abilities:
     charge-timeout-seconds: 30  # Stored strikes expire after this long
     knockback: 0.4  # Knockback applied per strike (0 = none, 1.5 = old behaviour)
 
+  # Astra Daggers settings
+  astra-daggers:
+    speed: 1.1  # Flight velocity
+    range: 30  # Max travel distance in blocks
+    armor-piercing: 0.35  # Percentage of damage that ignores armor (0.0 = 0%, 1.0 = 100% true damage)
+    glowing-duration-ticks: 60  # Duration in ticks target glows upon hit (20 ticks = 1 second)
+
+  # Speed Storm / Blood Storm settings
+  speed-storm:
+    radius: 8.0  # Field radius in blocks
+    ally-buff-duration: 45  # Duration of Speed and Haste buff to allies
+    enemy-slowness-level: 3  # Slowness applied to enemies
+    damage: 2.0  # Damage per pulse to enemies caught in the storm
+
   # Ability damage values
   damage:
     astra-daggers: 12.0  # 6 hearts (tripled from 4.0)
@@ -482,6 +499,26 @@ abilities:
     puff-dash: 2.0
     blur: 4.0  # Damage per lightning strike (5 strikes by default)
     strength-chad-bonus: 4.0  # Chad Strength bonus damage on every 4th hit (2 hearts)
+
+    # ==========================================
+    # MYTHIC & SPECIAL DAMAGE CONFIGS
+    # ==========================================
+    # Auratus Chain Strike Damage
+    auratus-chain: 8.0  # Damage dealt by Auratus chain lightning to chained targets
+
+    # Blood Saws Damage & Vulnerability
+    blood-saws: 6.0  # Base damage dealt by Blood Saws per strike
+    blood-saws-vulnerability-multiplier: 1.25  # Damage multiplier taken while Blood Saws are active (makes user easier to kill)
+
+    # Hemorrhage Damage
+    hemorrhage: 3.0  # Bleed damage per tick to afflicted enemies
+    hemorrhage-interval-ticks: 20  # How often hemorrhage damage applies
+
+    # Spore Damage
+    spore: 2.5  # Poisonous spore cloud damage per tick
+
+    # Speed Storm / Blood Storm Damage
+    speed-storm-damage: 2.0  # Damage to caught enemies
 
   # Ability durations (in seconds)
   durations:
@@ -884,6 +921,52 @@ messages:
   smp-already-started: "&cSMP has already started!"
   smp-started: "&a&lSMP Started! All online players are receiving their gems!"
   smp-not-started: "&cThe SMP hasn't started yet! Gems will be given when an admin runs /bliss smp start."
+
+# ==========================================
+# ENCHANT LIMITER (ADMIN CONFIGURABLE)
+# ==========================================
+enchant-limiter:
+  enabled: true
+  limits:
+    sharpness: 5
+    protection: 4
+    density: 2
+    breach: 0
+    wind_burst: 0
+
+# ==========================================
+# SPAWN BEACON & REPAIRS
+# ==========================================
+spawn-beacon:
+  world: "world"
+  x: 0.5
+  y: 64.0
+  z: 0.5
+  radius: 15.0
+  require-beacon-for-repairs: true
+  repair-schedule:
+    # UTC hours when gem repairs are permitted (0, 6, 12, 18)
+    open-hours-utc:
+      - 0
+      - 6
+      - 12
+      - 18
+    # Duration in minutes each window remains open
+    duration-minutes: 60
+
+# ==========================================
+# BROKEN MYTHIC RESPAWN
+# ==========================================
+mythic-respawn:
+  timer-days: 7  # 7-day countdown after break before reforming
+  world-border-size: 10000  # 10k x 10k coordinates border
+
+# ==========================================
+# MAIN END ISLAND SKY ATMOSPHERE
+# ==========================================
+end-sky:
+  enabled: true
+  green-black-gradient: true
 
 # ==========================================
 # METRICS

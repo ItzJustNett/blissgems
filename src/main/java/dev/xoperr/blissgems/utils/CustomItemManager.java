@@ -43,12 +43,22 @@ public class CustomItemManager {
     private static NamespacedKey UNDROPPABLE_KEY;
     private static NamespacedKey OWNER_KEY;
     private static NamespacedKey GOLD_INSTANCE_KEY;
+    private static NamespacedKey DOUBLE_DURABILITY_KEY;
+    private static NamespacedKey MYTHIC_KEY;
+    private static NamespacedKey MACE_LIMITED_KEY;
+    private static NamespacedKey VILLAGER_SOUL_KEY;
+    private static NamespacedKey VILLAGER_DATA_KEY;
 
     public static void initialize(JavaPlugin plugin) {
         ITEM_ID_KEY = new NamespacedKey((Plugin)plugin, "item_id");
         UNDROPPABLE_KEY = new NamespacedKey((Plugin)plugin, "locked_item");
         OWNER_KEY = new NamespacedKey((Plugin)plugin, "item_owner");
         GOLD_INSTANCE_KEY = new NamespacedKey((Plugin)plugin, "gold_instance_id");
+        DOUBLE_DURABILITY_KEY = new NamespacedKey((Plugin)plugin, "double_durability");
+        MYTHIC_KEY = new NamespacedKey((Plugin)plugin, "special_mythic");
+        MACE_LIMITED_KEY = new NamespacedKey((Plugin)plugin, "mace_limited");
+        VILLAGER_SOUL_KEY = new NamespacedKey((Plugin)plugin, "villager_soul");
+        VILLAGER_DATA_KEY = new NamespacedKey((Plugin)plugin, "villager_data");
         GemCosmetics.initialize(plugin);
     }
 
@@ -204,12 +214,79 @@ public class CustomItemManager {
     }
 
     private static void applySignatureEnchants(String id, ItemMeta meta) {
-        if (!"prismatic_edge".equals(id)) {
-            return;
+        if ("prismatic_edge".equals(id)) {
+            meta.addEnchant(Enchantment.SHARPNESS, 7, true);
+            meta.addEnchant(Enchantment.MENDING, 1, true);
+            meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "prismatic_edge");
+            }
+        } else if ("netherite_helmet_mythic".equals(id)) {
+            meta.addEnchant(Enchantment.PROTECTION, 3, true);
+            meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+            meta.addEnchant(Enchantment.MENDING, 1, true);
+            meta.addEnchant(Enchantment.RESPIRATION, 3, true);
+            meta.addEnchant(Enchantment.AQUA_AFFINITY, 1, true);
+            if (DOUBLE_DURABILITY_KEY != null) {
+                meta.getPersistentDataContainer().set(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE, (byte)1);
+            }
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "netherite_helmet");
+            }
+        } else if ("netherite_chestplate_mythic".equals(id)) {
+            meta.addEnchant(Enchantment.PROTECTION, 3, true);
+            meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+            meta.addEnchant(Enchantment.MENDING, 1, true);
+            if (DOUBLE_DURABILITY_KEY != null) {
+                meta.getPersistentDataContainer().set(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE, (byte)1);
+            }
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "netherite_chestplate");
+            }
+        } else if ("netherite_leggings_mythic".equals(id)) {
+            meta.addEnchant(Enchantment.PROTECTION, 3, true);
+            meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+            meta.addEnchant(Enchantment.MENDING, 1, true);
+            if (Enchantment.SWIFT_SNEAK != null) {
+                meta.addEnchant(Enchantment.SWIFT_SNEAK, 3, true);
+            }
+            if (DOUBLE_DURABILITY_KEY != null) {
+                meta.getPersistentDataContainer().set(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE, (byte)1);
+            }
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "netherite_leggings");
+            }
+        } else if ("netherite_boots_mythic".equals(id)) {
+            meta.addEnchant(Enchantment.PROTECTION, 3, true);
+            meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+            meta.addEnchant(Enchantment.MENDING, 1, true);
+            meta.addEnchant(Enchantment.FEATHER_FALLING, 4, true);
+            meta.addEnchant(Enchantment.DEPTH_STRIDER, 3, true);
+            if (Enchantment.SOUL_SPEED != null) {
+                meta.addEnchant(Enchantment.SOUL_SPEED, 3, true);
+            }
+            if (DOUBLE_DURABILITY_KEY != null) {
+                meta.getPersistentDataContainer().set(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE, (byte)1);
+            }
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "netherite_boots");
+            }
+        } else if ("mace_1".equals(id)) {
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "mace_1");
+            }
+        } else if ("mace_limited".equals(id)) {
+            if (MACE_LIMITED_KEY != null) {
+                meta.getPersistentDataContainer().set(MACE_LIMITED_KEY, PersistentDataType.BYTE, (byte)1);
+            }
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "mace_limited");
+            }
+        } else if ("mace_3".equals(id)) {
+            if (MYTHIC_KEY != null) {
+                meta.getPersistentDataContainer().set(MYTHIC_KEY, PersistentDataType.STRING, "mace_3");
+            }
         }
-        meta.addEnchant(Enchantment.SHARPNESS, 7, true);
-        meta.addEnchant(Enchantment.MENDING, 1, true);
-        meta.addEnchant(Enchantment.UNBREAKING, 3, true);
     }
 
     private static int getPristineModelData(int baseModelData, int energy, String itemId) {
@@ -316,7 +393,66 @@ public class CustomItemManager {
         return container.has(UNDROPPABLE_KEY, PersistentDataType.BYTE) && (Byte)container.get(UNDROPPABLE_KEY, PersistentDataType.BYTE) == 1;
     }
 
+    public static boolean isDoubleDurability(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || DOUBLE_DURABILITY_KEY == null) {
+            return false;
+        }
+        Byte b = (Byte)item.getItemMeta().getPersistentDataContainer().get(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE);
+        return b != null && b == 1;
+    }
+
+    public static boolean isLimitedMace(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || MACE_LIMITED_KEY == null) {
+            return false;
+        }
+        Byte b = (Byte)item.getItemMeta().getPersistentDataContainer().get(MACE_LIMITED_KEY, PersistentDataType.BYTE);
+        return b != null && b == 1;
+    }
+
+    public static boolean isMythic(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || MYTHIC_KEY == null) {
+            return false;
+        }
+        return item.getItemMeta().getPersistentDataContainer().has(MYTHIC_KEY, PersistentDataType.STRING);
+    }
+
+    public static String getMythicId(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || MYTHIC_KEY == null) {
+            return null;
+        }
+        return (String)item.getItemMeta().getPersistentDataContainer().get(MYTHIC_KEY, PersistentDataType.STRING);
+    }
+
+    public static NamespacedKey getVillagerSoulKey() {
+        return VILLAGER_SOUL_KEY;
+    }
+
+    public static NamespacedKey getVillagerDataKey() {
+        return VILLAGER_DATA_KEY;
+    }
+
+    public static NamespacedKey getDoubleDurabilityKey() {
+        return DOUBLE_DURABILITY_KEY;
+    }
+
+    public static NamespacedKey getMythicKey() {
+        return MYTHIC_KEY;
+    }
+
+    public static NamespacedKey getMaceLimitedKey() {
+        return MACE_LIMITED_KEY;
+    }
+
     static {
+        CustomItemManager.registerItem("mace_1", Material.MACE, 6001, "\u00a7e\u00a7lHeavy Mace", List.of("\u00a77A perfectly balanced battle mace.", "", "\u00a7a\u2714 Fully Enchantable", "\u00a78Part of the original triad."));
+        CustomItemManager.registerItem("mace_limited", Material.MACE, 6002, "\u00a7c\u00a7lTempered Mace", List.of("\u00a77A heavy, restricted battle mace.", "", "\u00a7c\u2716 Density max level II", "\u00a7c\u2716 Wind Burst & Breach Restricted", "\u00a76\u26a1 60s Combat Cooldown"));
+        CustomItemManager.registerItem("mace_3", Material.MACE, 6003, "\u00a7b\u00a7lOvercharged Mace", List.of("\u00a77Surging with raw kinetic force.", "", "\u00a7b\u2726 High Impact Triad Weapon"));
+        CustomItemManager.registerItem("netherite_helmet_mythic", Material.NETHERITE_HELMET, 7001, "\u00a76\u00a7lMythic Netherite Helmet", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (814 Max)"));
+        CustomItemManager.registerItem("netherite_chestplate_mythic", Material.NETHERITE_CHESTPLATE, 7002, "\u00a76\u00a7lMythic Netherite Chestplate", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (1184 Max)"));
+        CustomItemManager.registerItem("netherite_leggings_mythic", Material.NETHERITE_LEGGINGS, 7003, "\u00a76\u00a7lMythic Netherite Leggings", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (1110 Max)"));
+        CustomItemManager.registerItem("netherite_boots_mythic", Material.NETHERITE_BOOTS, 7004, "\u00a76\u00a7lMythic Netherite Boots", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (962 Max)"));
+        CustomItemManager.registerItem("player_tracker", Material.COMPASS, 8001, "\u00a7a\u00a7lPlayer Tracker", List.of("\u00a77Points towards the nearest player.", "", "\u00a7eTrade with the Energy Games Villager", "\u00a7efor raw Energy."));
+        CustomItemManager.registerItem("villager_soul", Material.NETHER_STAR, 8002, "\u00a7d\u00a7lVillager Soul", List.of("\u00a77An essence encapsulating a merchant.", "", "\u00a7eShift + Right-Click block to release.", "\u00a78Preserves all trade history and limits."));
         CustomItemManager.registerItem("astra_gem_t1", Material.ECHO_SHARD, 1001, "\u00a7d\u00a7lASTRA GEM", List.of("\u00a7f\u00a7lMANAGE THE TIDES OF THE COSMOS", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Soul Capture & Soul Healing", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd2a ASTRAL DAGGERS", "\u00a77Conjure 3 phantom daggers, launch each one by one", "", "\u00a78Upgrade to Tier 2 for Astral Projection,", "\u00a78Dimensional Drift & Void!"));
         CustomItemManager.registerItem("fire_gem_t1", Material.ECHO_SHARD, 1002, "\u00a7d\u00a7lFIRE GEM", List.of("\u00a7f\u00a7lMANIPULATE FIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Fire Resistance", "\u00a77- Flame & Fire Aspect on weapons", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd25 CHARGED FIREBALL", "\u00a77Hold to charge, release to fire", "\u00a77Stand on obsidian to prevent charge decay", "", "\u00a78Upgrade to Tier 2 for Campfire,", "\u00a78Crisp & Meteor Shower!"));
         CustomItemManager.registerItem("flux_gem_t1", Material.ECHO_SHARD, 1003, "\u00a7d\u00a7lFLUX GEM", List.of("\u00a7f\u00a7lWITH GREAT POWER COMES GREAT RESPONSIBILITY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Immune to Weakness, Slowness & Hunger", "\u00a77- Shocking Chance (stun on arrow hits)", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Conduction (/bliss conduction \u2192 nearest copper block)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2720 FLUX BEAM", "\u00a77Charge and fire a powerful beam", "\u00a77Charged beam deals massive armor damage", "", "\u00a78Upgrade to Tier 2 for Ground & more!"));

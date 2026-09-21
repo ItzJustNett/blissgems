@@ -42,11 +42,8 @@ public class EnergyManager {
     }
 
     public void setEnergy(Player player, int energy) {
+        setEnergy(player.getUniqueId(), energy);
         int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
-        energy = Math.max(0, Math.min(maxEnergy, energy));
-        this.energyCache.put(player.getUniqueId(), energy);
-        this.savePlayerEnergy(player, energy);
-        this.plugin.getGemManager().updateGemTextures(player);
         if (this.plugin.getAchievementManager() != null) {
             if (energy == 0) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.SHATTERED);
@@ -54,6 +51,24 @@ public class EnergyManager {
             if (energy == maxEnergy) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.OVERFLOWING);
             }
+        }
+    }
+
+    public void setEnergy(UUID uuid, int energy) {
+        int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
+        energy = Math.max(0, Math.min(maxEnergy, energy));
+        this.energyCache.put(uuid, energy);
+        File file = new File(this.dataFolder, uuid + ".yml");
+        FileConfiguration data = file.exists() ? YamlConfiguration.loadConfiguration(file) : new YamlConfiguration();
+        data.set("energy", energy);
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Failed to save player data for " + uuid + ": " + e.getMessage());
+        }
+        Player online = this.plugin.getServer().getPlayer(uuid);
+        if (online != null) {
+            this.plugin.getGemManager().updateGemTextures(online);
         }
     }
 
