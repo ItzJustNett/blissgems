@@ -340,9 +340,13 @@ implements GemAbilityHandler {
         if (rayResult != null && rayResult.getHitBlock() != null) {
             targetBlock = rayResult.getHitBlock().getRelative(rayResult.getHitBlockFace());
         } else {
-            targetBlock = player.getLocation().add(player.getEyeLocation().getDirection().multiply(maxRange)).getBlock();
+            Location look = player.getEyeLocation().add(player.getEyeLocation().getDirection().multiply(maxRange));
+            targetBlock = look.getWorld().getHighestBlockAt(look).getRelative(0, 1, 0);
         }
-        if (targetBlock.getType() != Material.AIR && targetBlock.getType() != Material.CAVE_AIR) {
+        if (targetBlock.getType() != Material.AIR && targetBlock.getType() != Material.CAVE_AIR && !targetBlock.isReplaceable()) {
+            targetBlock = targetBlock.getRelative(0, 1, 0);
+        }
+        if (targetBlock.getType() != Material.AIR && targetBlock.getType() != Material.CAVE_AIR && !targetBlock.isReplaceable()) {
             player.sendMessage("\u00a7c\u00a7oCannot place campfire here!");
             return;
         }

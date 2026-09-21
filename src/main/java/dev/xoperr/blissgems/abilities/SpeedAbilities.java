@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -44,6 +45,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 public class SpeedAbilities
@@ -101,7 +103,97 @@ implements GemAbilityHandler {
 
     @Override
     public void onQuaternary(Player player, int tier) {
-        this.galeClouds(player);
+        this.lightningBackstab(player);
+    }
+
+    public void lightningBackstab(Player player) {
+        if (this.plugin.getGemManager().getGemTier(player) < 2) {
+            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+            return;
+        }
+        String abilityKey = "speed-gale-clouds";
+        if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
+            return;
+        }
+        int range = this.plugin.getConfig().getInt("abilities.speed-4th.range", 20);
+        Player target = this.getTargetPlayer(player, range);
+        if (target == null) {
+            player.sendMessage("\u00a7cNo target player found in range (" + range + "m)!");
+            return;
+        }
+        if (target.equals(player)) {
+            player.sendMessage("\u00a7cCannot target yourself!");
+            return;
+        }
+        if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, target)) {
+            player.sendMessage("\u00a7cCannot target a trusted player!");
+            return;
+        }
+
+        Location departure = player.getLocation().clone();
+        Vector targetDir = target.getLocation().getDirection().setY(0).normalize();
+        if (targetDir.lengthSquared() < 0.01) {
+            targetDir = new Vector(0, 0, -1);
+        }
+        Location behind = target.getLocation().clone().subtract(targetDir.multiply(1.5));
+        behind.setPitch(target.getLocation().getPitch());
+        behind.setYaw(target.getLocation().getYaw());
+
+        player.teleport(behind);
+
+        org.bukkit.World world = player.getWorld();
+        Vector step = behind.toVector().subtract(departure.toVector());
+        double dist = step.length();
+        if (dist > 0) {
+            step.normalize().multiply(0.5);
+            Location current = departure.clone();
+            Particle.DustOptions yellow = new Particle.DustOptions(Color.fromRGB(255, 255, 100), 1.2f);
+            for (double d = 0; d < dist; d += 0.5) {
+                world.spawnParticle(Particle.ELECTRIC_SPARK, current, 2, 0.1, 0.1, 0.1, 0.05);
+                world.spawnParticle(Particle.DUST, current, 1, 0.05, 0.05, 0.05, 0.0, (Object)yellow, true);
+                current.add(step);
+            }
+        }
+        world.strikeLightningEffect(behind);
+        world.playSound(behind, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.2f);
+        world.playSound(behind, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.4f);
+
+        // 3 hearts true damage bypassing armor
+        double currentHp = target.getHealth();
+        double newHp = Math.max(0.0, currentHp - 6.0);
+        target.setHealth(newHp);
+        target.playHurtAnimation(player.getLocation().getYaw());
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0f, 1.0f);
+
+        // Disable target's wind charges for 5 seconds (100 ticks)
+        target.setCooldown(Material.WIND_CHARGE, 100);
+        target.sendMessage("\u00a7c\u00a7l\u26a1 Your wind charges have been disabled for 5 seconds!");
+        target.sendMessage("\u00a7c\u00a7l\u26a1 " + player.getName() + " struck you from behind dealing 3 hearts true damage!");
+
+        player.sendMessage("\u00a7b\u00a7l\u26a1 Teleported behind \u00a7f" + target.getName() + "\u00a7b dealing \u00a7c3 hearts true damage\u00a7b!");
+
+        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+    }
+
+    private Player getTargetPlayer(Player player, int range) {
+        RayTraceResult result = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), (double)range, 0.5, entity -> entity instanceof Player && entity != player);
+        if (result != null && result.getHitEntity() instanceof Player target) {
+            return target;
+        }
+        Player best = null;
+        double bestDist = (double)range * (double)range;
+        for (Player p : player.getWorld().getPlayers()) {
+            if (p.equals(player) || !player.canSee(p)) continue;
+            double d = p.getLocation().distanceSquared(player.getLocation());
+            if (d <= bestDist) {
+                Vector toTarget = p.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+                if (player.getLocation().getDirection().dot(toTarget) > 0.6) {
+                    best = p;
+                    bestDist = d;
+                }
+            }
+        }
+        return best;
     }
 
     @Override
@@ -149,13 +241,14 @@ implements GemAbilityHandler {
             public void run() {
                 SpeedAbilities.this.blurExpiryTasks.remove(uuid);
                 SpeedAbilities.this.blurCharges.remove(uuid);
+                SpeedAbilities.this.plugin.getAbilityManager().endAbilityDuration(player, "speed-blur");
             }
         }.runTaskLater((Plugin)this.plugin, (long)timeoutSeconds * 20L);
         BukkitTask oldExpiry = this.blurExpiryTasks.put(uuid, expiry);
         if (oldExpiry != null) {
             oldExpiry.cancel();
         }
-        this.plugin.getAbilityManager().useAbility(player, abilityKey);
+        this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, timeoutSeconds);
         String msg = this.plugin.getConfigManager().getFormattedMessage("ability-activated", "ability", "Blur");
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
@@ -329,6 +422,7 @@ implements GemAbilityHandler {
             if (expiry != null) {
                 expiry.cancel();
             }
+            this.plugin.getAbilityManager().endAbilityDuration(player, "speed-blur");
         } else {
             this.blurCharges.put(uuid, remaining);
         }

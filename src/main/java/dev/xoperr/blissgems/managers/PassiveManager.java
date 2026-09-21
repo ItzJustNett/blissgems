@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -192,7 +193,7 @@ public class PassiveManager {
                     for (int z = -radius; z <= radius; ++z) {
                         Block b = loc.getBlock().getRelative(x, y, z);
                         Material mat = b.getType();
-                        if (mat != Material.AIR && mat.isSolid()) {
+                        if (mat != Material.AIR && (mat.isSolid() || Tag.LEAVES.isTagged(mat) || mat.name().contains("MOSS") || mat.name().contains("GRASS"))) {
                             blockCounts.put(mat, blockCounts.getOrDefault(mat, 0) + 1);
                         }
                     }

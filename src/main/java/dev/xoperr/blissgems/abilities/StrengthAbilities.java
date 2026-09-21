@@ -124,6 +124,12 @@ implements GemAbilityHandler {
         player.sendMessage("\u00a7c\u00a7l\u2694 \u00a7cYour next \u00a7l" + empoweredHits + "\u00a7c hits are empowered for \u00a7l" + durationSeconds + "s\u00a7c!");
     }
 
+    public int getChadHitsRemaining(Player player) {
+        if (player == null) return 0;
+        Integer remaining = this.chadHitsRemaining.get(player.getUniqueId());
+        return remaining != null ? remaining : 0;
+    }
+
     public double consumeChadBonus(Player player) {
         UUID id = player.getUniqueId();
         Integer remaining = this.chadHitsRemaining.get(id);

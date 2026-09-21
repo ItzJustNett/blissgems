@@ -39,8 +39,10 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.Plugin;
 
 public class PlayerDeathListener
@@ -76,6 +78,9 @@ implements Listener {
                 this.dropEnergyBottle(victim.getLocation());
             }
         }
+        if (killer != null && this.plugin.getConfig().getBoolean("pvp.drop-head-on-kill", true)) {
+            this.dropPlayerHead(victim);
+        }
         if (this.plugin.getConfigManager().isUpgraderDropOnTier2DeathEnabled() && this.plugin.getGemManager().hasActiveGem(victim) && this.plugin.getGemManager().getGemTier(victim) == 2) {
             this.dropUpgrader(victim.getLocation());
         }
@@ -97,13 +102,26 @@ implements Listener {
         }
     }
 
+    private void dropPlayerHead(Player victim) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (meta != null) {
+            meta.setPlayerProfile(victim.getPlayerProfile());
+            meta.setDisplayName("§e" + victim.getName() + "'s Head");
+            head.setItemMeta(meta);
+        }
+        victim.getWorld().dropItemNaturally(victim.getLocation(), head);
+    }
+
     private void handleUpgraderChargeLoss(Player player) {
         int maxCharges = this.plugin.getConfig().getInt("upgrader.charges", 3);
+        boolean foundUpgrader = false;
         for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item = player.getInventory().getItem(i);
             if (item == null) continue;
             String id = CustomItemManager.getIdByItem(item);
             if (!"gem_upgrader".equals(id)) continue;
+            foundUpgrader = true;
             ItemMeta meta = item.getItemMeta();
             if (meta == null) continue;
             int currentCharges = maxCharges;
@@ -138,6 +156,42 @@ implements Listener {
                 }
                 meta.setLore(lore);
                 item.setItemMeta(meta);
+            }
+        }
+        if (!foundUpgrader && this.plugin.getGemManager().getGemTier(player) == 2) {
+            ItemStack gem = this.plugin.getGemManager().findGemInInventory(player);
+            if (gem != null && gem.hasItemMeta()) {
+                ItemMeta meta = gem.getItemMeta();
+                List<String> lore = meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+                int currentCharges = maxCharges;
+                boolean hasChargeLore = false;
+                for (String line : lore) {
+                    String stripped = ChatColor.stripColor(line);
+                    if (stripped != null && stripped.startsWith("Charges: ")) {
+                        hasChargeLore = true;
+                        try { currentCharges = Integer.parseInt(stripped.substring(9).split("/")[0].trim()); } catch (Exception ignored) {}
+                        break;
+                    }
+                }
+                if (hasChargeLore) {
+                    currentCharges--;
+                    if (currentCharges <= 0) {
+                        String gemId = this.plugin.getGemManager().getGemId(player);
+                        this.plugin.getGemManager().downgradeGem(player, gemId);
+                        player.sendMessage("§c§lYour Tier 2 gem lost all charges and reverted to Tier 1!");
+                    } else {
+                        for (int j = 0; j < lore.size(); j++) {
+                            String stripped = ChatColor.stripColor(lore.get(j));
+                            if (stripped != null && stripped.startsWith("Charges: ")) {
+                                lore.set(j, "§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
+                                break;
+                            }
+                        }
+                        meta.setLore(lore);
+                        gem.setItemMeta(meta);
+                        player.sendMessage("§eYour Tier 2 gem lost a charge! (" + currentCharges + "/" + maxCharges + ")");
+                    }
+                }
             }
         }
     }
