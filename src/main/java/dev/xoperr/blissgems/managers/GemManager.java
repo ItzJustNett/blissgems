@@ -137,7 +137,17 @@ public class GemManager {
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
-        return this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type) || this.hasHarvestedSoul(player, type);
+        if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type) || this.hasHarvestedSoul(player, type)) {
+            return true;
+        }
+        if (this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
+            for (int slot = 0; slot < 9; ++slot) {
+                if (this.isGemOfType(player.getInventory().getItem(slot), type)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean hasHarvestedSoul(Player player, GemType type) {
@@ -155,6 +165,17 @@ public class GemManager {
             GoldGemManager.Harvest harvest = soul = gold != null ? gold.getHarvested(player.getUniqueId()).get(type.getId()) : null;
             if (soul != null) {
                 return soul.tier();
+            }
+            if (this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
+                for (int slot = 0; slot < 9; ++slot) {
+                    ItemStack it = player.getInventory().getItem(slot);
+                    if (this.isGemOfType(it, type)) {
+                        String id = CustomItemManager.getIdByItem(it);
+                        if (id != null && GemType.isGem(id)) {
+                            return GemType.getTierFromOraxenId(id);
+                        }
+                    }
+                }
             }
         }
         return this.getTierFromOffhand(player);

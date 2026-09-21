@@ -384,6 +384,33 @@ implements Listener {
             Player player = (Player)humanEntity;
             ItemStack clickedItem = event.getCurrentItem();
             ItemStack cursorItem = event.getCursor();
+            if (clickedItem != null && cursorItem != null && !cursorItem.getType().isAir() && this.plugin.getFluxEnergyManager() != null) {
+                String clickedGem = CustomItemManager.getIdByItem(clickedItem);
+                if (clickedGem != null && clickedGem.startsWith("flux_gem")) {
+                    int fuelVal = this.plugin.getFluxEnergyManager().getFuelWattValue(cursorItem.getType());
+                    if (fuelVal > 0) {
+                        event.setCancelled(true);
+                        UUID uuid = player.getUniqueId();
+                        double curWatts = this.plugin.getFluxEnergyManager().getWatts(uuid);
+                        int maxWatts = this.plugin.getFluxEnergyManager().getMaxWatts();
+                        if (curWatts >= (double)maxWatts) {
+                            player.sendMessage("\u00a7cYour Flux Gem is already at maximum capacity!");
+                            return;
+                        }
+                        int cursorAmount = cursorItem.getAmount();
+                        double needed = (double)maxWatts - curWatts;
+                        int countToUse = Math.min(cursorAmount, (int)Math.ceil(needed / (double)fuelVal));
+                        if (countToUse <= 0) countToUse = 1;
+                        double added = Math.min(needed, (double)countToUse * (double)fuelVal);
+                        this.plugin.getFluxEnergyManager().addWatts(uuid, added);
+                        cursorItem.setAmount(cursorAmount - countToUse);
+                        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.6f);
+                        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 1.0f, 1.2f);
+                        player.sendMessage("\u00a7b\u26a1 Charged Flux Gem with \u00a7f" + countToUse + "x " + cursorItem.getType().name() + " \u00a7b(+\u00a7f" + String.format("%,.0f", added) + " \u00a7bwatts)!");
+                        return;
+                    }
+                }
+            }
             ItemStack hotbarItem = null;
             if (event.getClick().toString().contains("NUMBER_KEY") && (hotbarSlot = event.getHotbarButton()) >= 0 && hotbarSlot < 9) {
                 hotbarItem = player.getInventory().getItem(hotbarSlot);

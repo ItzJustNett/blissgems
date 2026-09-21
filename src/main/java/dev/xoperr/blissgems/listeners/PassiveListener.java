@@ -955,7 +955,8 @@ implements Listener {
         if (!(event.getEntity() instanceof LivingEntity)) {
             return;
         }
-        boolean bl = hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH) || this.isHoldingStrengthGem(player);
+        boolean hasActiveChad = this.plugin.getStrengthAbilities() != null && this.plugin.getStrengthAbilities().getChadHitsRemaining(player) > 0;
+        hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH) || this.isHoldingStrengthGem(player) || hasActiveChad;
         if (!hasStrength) {
             return;
         }
@@ -966,7 +967,7 @@ implements Listener {
         if (tier == 0 && (oraxenId = CustomItemManager.getIdByItem(mainHand = player.getInventory().getItemInMainHand())) != null) {
             tier = GemType.getTierFromOraxenId(oraxenId);
         }
-        if (tier < 2) {
+        if (tier < 2 && !hasActiveChad) {
             return;
         }
         double bonusDamage = this.plugin.getStrengthAbilities().consumeChadBonus(player);
@@ -1168,6 +1169,9 @@ implements Listener {
     }
 
     private boolean canUsePassives(Player player) {
+        if (this.plugin.getGemLockManager() != null && this.plugin.getGemLockManager().isLocked(player)) {
+            return false;
+        }
         if (!this.plugin.getEnergyManager().arePassivesActive(player)) {
             return false;
         }
