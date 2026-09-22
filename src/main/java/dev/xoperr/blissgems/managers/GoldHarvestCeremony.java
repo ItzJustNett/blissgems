@@ -209,7 +209,8 @@ implements Listener {
         }
         victim.getWorld().spawnParticle(Particle.DUST, victim.getEyeLocation(), 60, 0.6, 0.8, 0.6, 0.0, (Object)new Particle.DustOptions(colour, 2.0f));
         victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 1.2f, 1.4f);
-        victim.damage(victim.getHealth() + 10.0, (Entity)killer);
+        victim.setHealth(Math.max(1.0, Math.min(victim.getHealth(), 2.0)));
+        victim.sendMessage(org.bukkit.ChatColor.GOLD + "§l[GOLD GEM] " + org.bukkit.ChatColor.YELLOW + "Your gem has been severed and absorbed into the Gold Gem!");
     }
 
     private void pin(Player player) {

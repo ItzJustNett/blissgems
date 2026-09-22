@@ -112,6 +112,20 @@ public final class PlayerCloneNPC {
             PlayerCloneNPC.sendSafely(pm, viewer, addInfo);
             PlayerCloneNPC.sendSafely(pm, viewer, spawn);
         }
+        try {
+            PacketContainer equip = pm.createPacket(PacketType.Play.Server.ENTITY_EQUIPMENT);
+            equip.getIntegers().write(0, entityId);
+            List<com.comphenix.protocol.wrappers.Pair<EnumWrappers.ItemSlot, ItemStack>> pairs = new ArrayList<>();
+            if (owner.getInventory().getHelmet() != null) pairs.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.HEAD, owner.getInventory().getHelmet()));
+            if (owner.getInventory().getChestplate() != null) pairs.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.CHEST, owner.getInventory().getChestplate()));
+            if (owner.getInventory().getLeggings() != null) pairs.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.LEGS, owner.getInventory().getLeggings()));
+            if (owner.getInventory().getBoots() != null) pairs.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.FEET, owner.getInventory().getBoots()));
+            if (owner.getInventory().getItemInMainHand() != null) pairs.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.MAINHAND, owner.getInventory().getItemInMainHand()));
+            equip.getSlotStackPairLists().write(0, pairs);
+            for (Player viewer : viewers) {
+                PlayerCloneNPC.sendSafely(pm, viewer, equip);
+            }
+        } catch (Throwable ignored) {}
         new BukkitRunnable(){
 
             public void run() {
