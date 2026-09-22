@@ -365,38 +365,35 @@ implements Listener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        if (event.getBlock().getType() == Material.ANCIENT_DEBRIS) {
-            boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
-                    || this.plugin.getGemManager().hasGemType(player, GemType.WEALTH)
-                    || this.isHoldingWealthGem(player);
-            if (hasWealth && this.canUsePassives(player)) {
-                int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
-                String tierKey = tier >= 2 ? "tier2" : "tier1";
-                if (this.plugin.getConfig().getBoolean("passives.wealth." + tierKey + ".double-debris", true)) {
-                    ItemStack extra = new ItemStack(Material.ANCIENT_DEBRIS, 1);
-                    event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), extra);
-                    Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.2f);
-                    player.getWorld().spawnParticle(Particle.DUST, event.getBlock().getLocation().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.0, (Object)greenDust, true);
-                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
-                    player.sendMessage("\u00a7a\u00a7oDouble Debris! Extra ancient debris!");
-                }
-            }
-        }
 
         boolean hasFireGem = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FIRE)
                 || this.plugin.getGemManager().hasGemType(player, GemType.FIRE);
         boolean hasWealthGem = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
-                || this.plugin.getGemManager().hasGemType(player, GemType.WEALTH);
+                || this.plugin.getGemManager().hasGemType(player, GemType.WEALTH)
+                || this.isHoldingWealthGem(player);
         int wealthTier = hasWealthGem ? this.plugin.getGemManager().getTierFor(player, GemType.WEALTH) : 0;
         boolean canAutoSmelt = (hasFireGem || (hasWealthGem && wealthTier >= 2)) && this.plugin.getWealthAbilities().isAutoSmeltEnabled(player);
-        if (!canAutoSmelt) {
-            return;
-        }
-        if (!this.canUsePassives(player)) {
-            return;
-        }
         ItemStack tool = player.getInventory().getItemInMainHand();
-        if (tool != null && tool.hasItemMeta() && tool.getItemMeta().hasEnchant(Enchantment.SILK_TOUCH)) {
+        boolean hasSilkTouch = tool != null && tool.hasItemMeta() && tool.getItemMeta().hasEnchant(Enchantment.SILK_TOUCH);
+        boolean willAutoSmelt = canAutoSmelt && this.canUsePassives(player) && !hasSilkTouch;
+
+        if (event.getBlock().getType() == Material.ANCIENT_DEBRIS) {
+            if (hasWealthGem && this.canUsePassives(player)) {
+                int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
+                String tierKey = tier >= 2 ? "tier2" : "tier1";
+                if (this.plugin.getConfig().getBoolean("passives.wealth." + tierKey + ".double-debris", true)) {
+                    Material dropMat = willAutoSmelt ? Material.NETHERITE_SCRAP : Material.ANCIENT_DEBRIS;
+                    ItemStack extra = new ItemStack(dropMat, 1);
+                    event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), extra);
+                    Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.2f);
+                    player.getWorld().spawnParticle(Particle.DUST, event.getBlock().getLocation().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.0, (Object)greenDust, true);
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
+                    player.sendMessage("\u00a7a\u00a7oDouble Debris! Extra " + (willAutoSmelt ? "netherite scrap" : "ancient debris") + "!");
+                }
+            }
+        }
+
+        if (!willAutoSmelt) {
             return;
         }
         Material blockType = event.getBlock().getType();
