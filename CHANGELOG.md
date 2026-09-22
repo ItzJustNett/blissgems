@@ -1,5 +1,28 @@
 # Changelog
 
+## BlissGems 5.0.0
+
+### Fixed
+- Ancient Debris double passive now properly drops extra debris when mined, and both drops are automatically smelted into netherite scrap when AutoSmelt is active.
+- Unfortunate action fail chance reduced from 100% to a balanced 50%, removing oppressive movement, jump, and interact locks. Added a 50% chance to fail Totems of Undying while under the effect.
+- Fixed an issue where gem abilities (Unfortunate, Item Lock, Puff bash, Bloodthorns, and durability chip) affected trusted allies.
+- Fixed a bug where targets affected by Flux Ground became invulnerable for several seconds. Targets now receive damage normally and their hotbar is shuffled.
+- Fixed Gold Gem absorbed souls being unable to use command-based abilities (/pockets, /amplify, /souls, /release, /charge, /conduction, /autosmelt).
+- Fixed ClassCastException when saving Gold Gem data and running /bliss goldgem fill.
+- Fixed Astra Gem Soul Capture and Dimensional Void triggering simultaneously on sneak left-click. Added sneak right-click mob capture.
+- Fixed Wealth Amplification enchantment boosts persisting permanently on items after the ability ends.
+- Fixed Astra Gem Drift and Nullify cooldowns not appearing in the action bar display.
+- Gold Gem Sundering Beam damage adjusted from 1000 to 24 HP, allowing high-tier defense setups (Turtle Master + enchanted golden apples) to survive.
+- Gold Harvest ceremony no longer triggers if the victim holds an active Totem of Undying, allowing the totem to pop normally.
+- Fixed Flux Charging Station failing to open or charge when holding the gem in offhand or via absorbed Flux.
+
+### Added
+- AutoSmelt is now toggleable for both Fire Gem (all tiers) and Wealth Gem (Tier 2+) via /bliss autosmelt.
+- Added direct commands to trigger gem abilities: /bliss primary, /bliss secondary, /bliss tertiary, and /bliss quaternary (also available via /bliss ability <slot>).
+- Added dedicated commands to open the gem viewer: /bliss viewer, /bliss gemviewer, /bliss gui, /bliss menu.
+
+---
+
 ## BlissGems 4.9.9 / BlissMythics 1.5.5
 
 ### Fixed
