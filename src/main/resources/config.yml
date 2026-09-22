@@ -164,8 +164,6 @@ combat:
 # alone - unbound left-click keeps its vanilla behaviour (mining, attacking).
 # Delete this whole section to fall back to the built-in defaults.
 ability-bindings:
-  # When true, unshifted F key naturally swaps gems into/out of offhand instead of triggering tertiary ability
-  allow-f-swap-gem: true
   defaults:
     right_click: primary
     shift_right_click: secondary
