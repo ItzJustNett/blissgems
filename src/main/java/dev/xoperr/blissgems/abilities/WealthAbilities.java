@@ -24,6 +24,9 @@
  */
 package dev.xoperr.blissgems.abilities;
 
+import org.bukkit.Registry;
+
+
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
@@ -141,6 +144,10 @@ implements GemAbilityHandler {
             return;
         }
         Player targetPlayer = (Player)entity2;
+        if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+            player.sendMessage("\u00a7c\u00a7lYou cannot use Unfortunate on a trusted player!");
+            return;
+        }
         int duration = this.plugin.getConfigManager().getAbilityDuration("wealth-unfortunate");
         UUID targetUUID = targetPlayer.getUniqueId();
         unfortunatePlayers.add(targetUUID);
@@ -175,6 +182,10 @@ implements GemAbilityHandler {
             return;
         }
         Player targetPlayer = (Player)entity2;
+        if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+            player.sendMessage("\u00a7c\u00a7lYou cannot use Item Lock on a trusted player!");
+            return;
+        }
         ItemStack targetItem = targetPlayer.getInventory().getItemInMainHand();
         if (targetItem == null || targetItem.getType().isAir()) {
             player.sendMessage("\u00a7cTarget isn't holding an item!");
@@ -320,11 +331,12 @@ implements GemAbilityHandler {
     }
 
     private void revertAllAmplifiedItems(Player p) {
-        ItemStack offHand;
         for (int i = 0; i < p.getInventory().getSize(); ++i) {
             ItemStack item = p.getInventory().getItem(i);
             if (item == null || item.getType().isAir()) continue;
-            WealthAbilities.stripAmplifyEnchants(item);
+            if (WealthAbilities.stripAmplifyEnchants(item)) {
+                p.getInventory().setItem(i, item);
+            }
         }
         ItemStack[] armor = p.getInventory().getArmorContents();
         boolean armorModified = false;
@@ -335,9 +347,15 @@ implements GemAbilityHandler {
         if (armorModified) {
             p.getInventory().setArmorContents(armor);
         }
-        if (!(offHand = p.getInventory().getItemInOffHand()).getType().isAir()) {
-            WealthAbilities.stripAmplifyEnchants(offHand);
+        ItemStack offHand = p.getInventory().getItemInOffHand();
+        if (offHand != null && !offHand.getType().isAir() && WealthAbilities.stripAmplifyEnchants(offHand)) {
+            p.getInventory().setItemInOffHand(offHand);
         }
+        ItemStack mainHand = p.getInventory().getItemInMainHand();
+        if (mainHand != null && !mainHand.getType().isAir() && WealthAbilities.stripAmplifyEnchants(mainHand)) {
+            p.getInventory().setItemInMainHand(mainHand);
+        }
+        p.updateInventory();
     }
 
     public static boolean stripAmplifyEnchants(ItemStack item) {
@@ -350,16 +368,41 @@ implements GemAbilityHandler {
         }
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         boolean modified = false;
-        for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey ampKey = WealthAbilities.getAmpKey(item, enchant);
-            if (ampKey == null || !pdc.has(ampKey, PersistentDataType.INTEGER)) continue;
-            int originalLevel = (Integer)pdc.get(ampKey, PersistentDataType.INTEGER);
-            if (originalLevel == 0) {
-                meta.removeEnchant(enchant);
-            } else {
-                meta.addEnchant(enchant, originalLevel, true);
+        Set<NamespacedKey> keys = new HashSet<>(pdc.getKeys());
+        for (NamespacedKey key : keys) {
+            if (!key.getKey().startsWith(AMP_PDC_PREFIX)) continue;
+            String enchName = key.getKey().substring(AMP_PDC_PREFIX.length());
+            Enchantment enchant = Registry.ENCHANTMENT.get(NamespacedKey.minecraft(enchName));
+            if (enchant == null) {
+                enchant = Registry.ENCHANTMENT.get(new NamespacedKey("blissgems", enchName));
             }
-            pdc.remove(ampKey);
+            if (enchant != null) {
+                Integer orig = pdc.get(key, PersistentDataType.INTEGER);
+                if (orig != null) {
+                    if (orig <= 0) {
+                        meta.removeEnchant(enchant);
+                    } else {
+                        meta.addEnchant(enchant, orig, true);
+                    }
+                    modified = true;
+                }
+            } else {
+                for (Enchantment e : meta.getEnchants().keySet()) {
+                    if (e.getKey().getKey().equalsIgnoreCase(enchName)) {
+                        Integer orig = pdc.get(key, PersistentDataType.INTEGER);
+                        if (orig != null) {
+                            if (orig <= 0) {
+                                meta.removeEnchant(e);
+                            } else {
+                                meta.addEnchant(e, orig, true);
+                            }
+                            modified = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            pdc.remove(key);
             modified = true;
         }
         if (modified) {
@@ -373,19 +416,19 @@ implements GemAbilityHandler {
             return false;
         }
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
-        for (Enchantment enchant : Enchantment.values()) {
-            NamespacedKey ampKey = WealthAbilities.getAmpKey(item, enchant);
-            if (ampKey == null || !pdc.has(ampKey, PersistentDataType.INTEGER)) continue;
-            return true;
+        for (NamespacedKey key : pdc.getKeys()) {
+            if (key.getKey().startsWith(AMP_PDC_PREFIX)) {
+                return true;
+            }
         }
         return false;
     }
 
     private static NamespacedKey getAmpKey(ItemStack item, Enchantment enchant) {
-        if (!item.hasItemMeta()) {
+        if (!item.hasItemMeta() || enchant == null) {
             return null;
         }
-        return NamespacedKey.fromString((String)("blissgems:amp_orig_" + enchant.getKey().getKey()));
+        return new NamespacedKey("blissgems", AMP_PDC_PREFIX + enchant.getKey().getKey());
     }
 
     public static boolean isUnfortunate(UUID uuid) {
@@ -423,7 +466,7 @@ implements GemAbilityHandler {
     }
 
     public boolean isAutoSmeltEnabled(Player player) {
-        return this.autoSmeltEnabled.getOrDefault(player.getUniqueId(), false);
+        return this.autoSmeltEnabled.getOrDefault(player.getUniqueId(), true);
     }
 
     public void setAutoSmelt(Player player, boolean enabled) {

@@ -201,7 +201,7 @@ Listener {
     private void fireBeam(Player player) {
         Entity entity2;
         double range = this.plugin.getConfig().getDouble("gold.beam.range", 60.0);
-        double damage = this.plugin.getConfig().getDouble("gold.beam.damage", 1000.0);
+        double damage = this.plugin.getConfig().getDouble("gold.beam.damage", 24.0);
         int cooldown = this.plugin.getConfig().getInt("gold.beam.cooldown", 300);
         Location eye = player.getEyeLocation();
         Vector direction = eye.getDirection().normalize();

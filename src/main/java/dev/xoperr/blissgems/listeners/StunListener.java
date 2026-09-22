@@ -67,7 +67,7 @@ implements Listener {
     }
 
     private boolean isFrozen(UUID playerId) {
-        return SpeedAbilities.isPlayerFrozen(playerId) || FluxAbilities.isPlayerStunned(playerId);
+        return SpeedAbilities.isPlayerFrozen(playerId);
     }
 
     @EventHandler(priority=EventPriority.HIGHEST)
@@ -173,11 +173,11 @@ implements Listener {
     public void onImmobilizedKnockback(EntityDamageByEntityEvent event) {
         Player player;
         Entity entity = event.getEntity();
-        if (!(entity instanceof Player) || !this.isImmobilized((player = (Player)entity).getUniqueId())) {
+        if (!(entity instanceof Player) || !this.isFrozen((player = (Player)entity).getUniqueId())) {
             return;
         }
         this.plugin.getServer().getScheduler().runTask((Plugin)this.plugin, () -> {
-            if (player.isOnline() && this.isImmobilized(player.getUniqueId())) {
+            if (player.isOnline() && this.isFrozen(player.getUniqueId())) {
                 player.setVelocity(new Vector(0, 0, 0));
             }
         });

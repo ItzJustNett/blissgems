@@ -450,7 +450,13 @@ public class FluxEnergyManager {
     public boolean isHoldingFluxGem(Player player) {
         ItemStack main = player.getInventory().getItemInMainHand();
         ItemStack off = player.getInventory().getItemInOffHand();
-        return this.isFluxGem(main) || this.isFluxGem(off);
+        if (this.isFluxGem(main) || this.isFluxGem(off)) {
+            return true;
+        }
+        if (this.plugin.getGemManager() != null && this.plugin.getGemManager().hasGemType(player, GemType.FLUX)) {
+            return true;
+        }
+        return false;
     }
 
     public boolean isFluxGem(ItemStack item) {

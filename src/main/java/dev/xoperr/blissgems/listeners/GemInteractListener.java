@@ -178,6 +178,21 @@ implements Listener {
         if (!(heldGem || offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
             return;
         }
+        if (player.isSneaking()) {
+            if (this.plugin.getSoulManager() != null && System.currentTimeMillis() - this.plugin.getSoulManager().getLastCaptureTime(player.getUniqueId()) < 1000L) {
+                return;
+            }
+            org.bukkit.util.RayTraceResult trace = player.getWorld().rayTraceEntities(
+                player.getEyeLocation(),
+                player.getEyeLocation().getDirection(),
+                4.5,
+                0.5,
+                e -> e instanceof org.bukkit.entity.LivingEntity && !(e instanceof Player) && !e.equals(player)
+            );
+            if (trace != null && trace.getHitEntity() != null) {
+                return;
+            }
+        }
         AbilityBinding input = AbilityBinding.leftClick(player.isSneaking());
         AbilitySlot abilitySlot = slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
         if (slot == null) {

@@ -42,7 +42,10 @@ implements Listener {
         if (!mainIsGem && !offIsGem) {
             return;
         }
-        event.setCancelled(true);
+        boolean allowFSwap = this.plugin.getConfig().getBoolean("ability-bindings.allow-f-swap-gem", true);
+        if (allowFSwap && !player.isSneaking()) {
+            return;
+        }
         if (this.plugin.getBlissCommand() == null) {
             return;
         }
@@ -51,6 +54,10 @@ implements Listener {
         }
         AbilityBinding input = AbilityBinding.swapHand(player.isSneaking());
         AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
+        if (slot == null) {
+            return;
+        }
+        event.setCancelled(true);
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 

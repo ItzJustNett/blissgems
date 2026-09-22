@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Display;
@@ -96,6 +97,13 @@ implements Listener {
             return;
         }
         if (victim.getHealth() - event.getFinalDamage() > 0.0) {
+            return;
+        }
+        ItemStack mainHand = victim.getInventory().getItemInMainHand();
+        ItemStack offHand = victim.getInventory().getItemInOffHand();
+        boolean hasTotem = (mainHand != null && mainHand.getType() == Material.TOTEM_OF_UNDYING)
+                || (offHand != null && offHand.getType() == Material.TOTEM_OF_UNDYING);
+        if (hasTotem) {
             return;
         }
         GoldGemManager gold = this.plugin.getGoldGemManager();
