@@ -291,7 +291,75 @@ TabCompleter {
                 break;
             }
             case "ability": {
+                if (args.length > 1) {
+                    String sub = args[1].toLowerCase();
+                    switch (sub) {
+                        case "main":
+                        case "primary": {
+                            this.handleAbilityMain(sender, args);
+                            return true;
+                        }
+                        case "secondary": {
+                            this.handleAbilitySecondary(sender, args);
+                            return true;
+                        }
+                        case "tertiary": {
+                            this.handleAbilityTertiary(sender, args);
+                            return true;
+                        }
+                        case "quaternary": {
+                            this.handleAbilityQuaternary(sender, args);
+                            return true;
+                        }
+                        case "quinary": {
+                            this.handleExtraSlot(sender, AbilitySlot.QUINARY);
+                            return true;
+                        }
+                        case "senary": {
+                            this.handleExtraSlot(sender, AbilitySlot.SENARY);
+                            return true;
+                        }
+                        default:
+                            break;
+                    }
+                }
                 this.handleAbilityBindingsList(sender, args);
+                break;
+            }
+            case "primary":
+            case "main": {
+                this.handleAbilityMain(sender, args);
+                break;
+            }
+            case "secondary": {
+                this.handleAbilitySecondary(sender, args);
+                break;
+            }
+            case "tertiary": {
+                this.handleAbilityTertiary(sender, args);
+                break;
+            }
+            case "quaternary": {
+                this.handleAbilityQuaternary(sender, args);
+                break;
+            }
+            case "quinary": {
+                this.handleExtraSlot(sender, AbilitySlot.QUINARY);
+                break;
+            }
+            case "senary": {
+                this.handleExtraSlot(sender, AbilitySlot.SENARY);
+                break;
+            }
+            case "viewer":
+            case "gemviewer":
+            case "gui":
+            case "menu": {
+                if (sender instanceof Player) {
+                    this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
+                } else {
+                    sender.sendMessage("\u00a7cOnly players can open the gem viewer!");
+                }
                 break;
             }
             case "set_ability": {
@@ -968,12 +1036,11 @@ TabCompleter {
             return;
         }
         Player player = (Player)sender;
-        GemType gemType = this.plugin.getGemManager().getGemType(player);
-        if (gemType != GemType.WEALTH) {
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.WEALTH)) {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "requires-wealth-gem-pockets", new Object[0]);
             return;
         }
-        int tier = this.plugin.getGemManager().getGemTier(player);
+        int tier = this.plugin.getGemManager().getGemTier(player, GemType.WEALTH);
         if (tier < 2) {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "requires-wealth-t2-pockets", new Object[0]);
             return;
@@ -986,12 +1053,11 @@ TabCompleter {
             return;
         }
         Player player = (Player)sender;
-        GemType gemType = this.plugin.getGemManager().getGemType(player);
-        if (gemType != GemType.WEALTH) {
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.WEALTH)) {
             player.sendMessage("\u00a7cYou need a Wealth gem to use Amplification!");
             return;
         }
-        int tier = this.plugin.getGemManager().getGemTier(player);
+        int tier = this.plugin.getGemManager().getGemTier(player, GemType.WEALTH);
         if (tier < 2) {
             player.sendMessage("\u00a7cAmplification requires Tier 2 Wealth gem!");
             return;
@@ -1691,10 +1757,10 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
             return;
         }
-        GemType playerGem = this.plugin.getGemManager().getGemType(player);
-        int tier = this.plugin.getGemManager().getGemTier(player);
-        if (playerGem != GemType.WEALTH || tier < 2) {
-            player.sendMessage("\u00a7c\u00a7lYou need Wealth Gem Tier 2 to use auto-smelt!");
+        boolean hasFire = this.plugin.getGemManager().hasGemType(player, GemType.FIRE);
+        boolean hasWealthT2 = this.plugin.getGemManager().hasGemType(player, GemType.WEALTH) && this.plugin.getGemManager().getGemTier(player, GemType.WEALTH) >= 2;
+        if (!hasFire && !hasWealthT2) {
+            player.sendMessage("\u00a7c\u00a7lYou need the Fire Gem or Wealth Gem (Tier 2) to use auto-smelt!");
             return;
         }
         boolean currentState = this.plugin.getWealthAbilities().isAutoSmeltEnabled(player);
@@ -1711,7 +1777,7 @@ TabCompleter {
             return;
         }
         Player player = (Player)sender;
-        if (this.plugin.getGemManager().getGemType(player) != GemType.FLUX) {
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.FLUX)) {
             player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use Conduction!");
             return;
         }
@@ -1723,7 +1789,7 @@ TabCompleter {
             return;
         }
         Player player = (Player)sender;
-        if (this.plugin.getGemManager().getGemType(player) != GemType.FLUX) {
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.FLUX)) {
             player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Charging Station!");
             return;
         }
@@ -2069,8 +2135,11 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("ability")) {
+                return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");
+            }
             if (args[0].equalsIgnoreCase("spawnvillager")) {
                 return Arrays.asList("mace1", "mace2", "mace3", "energy");
             }

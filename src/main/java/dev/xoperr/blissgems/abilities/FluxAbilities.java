@@ -343,13 +343,32 @@ implements GemAbilityHandler {
         }
         int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 5);
         int stunDuration = stunDurationSeconds * 20;
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 255, false, true));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 255, false, true));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, stunDuration, 250, false, true));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 1, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 3, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 1, false, true));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunDuration, 0, false, true));
+        target.setNoDamageTicks(0);
         if (target instanceof Player) {
-            stunnedPlayers.add(target.getUniqueId());
-            Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> stunnedPlayers.remove(target.getUniqueId()), (long)stunDuration);
+            Player targetPlayer = (Player)target;
+            stunnedPlayers.add(targetPlayer.getUniqueId());
+            Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> stunnedPlayers.remove(targetPlayer.getUniqueId()), (long)stunDuration);
+            new org.bukkit.scheduler.BukkitRunnable() {
+                int count = 0;
+                @Override
+                public void run() {
+                    if (!targetPlayer.isOnline() || targetPlayer.isDead() || ++count > (stunDurationSeconds * 2)) {
+                        cancel();
+                        return;
+                    }
+                    int slot1 = (int)(Math.random() * 9);
+                    int slot2 = (int)(Math.random() * 9);
+                    if (slot1 != slot2) {
+                        ItemStack i1 = targetPlayer.getInventory().getItem(slot1);
+                        ItemStack i2 = targetPlayer.getInventory().getItem(slot2);
+                        targetPlayer.getInventory().setItem(slot1, i2);
+                        targetPlayer.getInventory().setItem(slot2, i1);
+                    }
+                }
+            }.runTaskTimer((Plugin)this.plugin, 10L, 10L);
         }
         Particle.DustOptions darkCyanDust = new Particle.DustOptions(ParticleUtils.FLUX_DARK_CYAN, 1.5f);
         target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0.0, 1.0, 0.0), 200, 1.0, 1.8, 1.0, 0.0, (Object)darkCyanDust, true);

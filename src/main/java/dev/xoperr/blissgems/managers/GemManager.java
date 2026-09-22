@@ -94,8 +94,23 @@ public class GemManager {
         if (override != null) {
             return override;
         }
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold != null && gold.holdsGoldGem(player)) {
+            int goldTier = gold.getActiveTier(player.getUniqueId());
+            if (goldTier > 1) {
+                return goldTier;
+            }
+        }
         ActiveGem gem = this.getActiveGem(player);
         return gem != null ? gem.getTier() : 1;
+    }
+
+    public int getGemTier(Player player, GemType type) {
+        Integer override = this.channelTierOverride.get(player.getUniqueId());
+        if (override != null) {
+            return override;
+        }
+        return this.getTierFor(player, type);
     }
 
     public String getGemId(Player player) {
@@ -105,7 +120,10 @@ public class GemManager {
 
     public boolean hasGemType(Player player, GemType type) {
         ActiveGem gem = this.getActiveGem(player);
-        return gem != null && gem.getType() == type;
+        if (gem != null && gem.getType() == type) {
+            return true;
+        }
+        return this.hasGemTypeInOffhand(player, type);
     }
 
     private String getHeldGemItemId(Player player) {
@@ -150,7 +168,7 @@ public class GemManager {
         return false;
     }
 
-    private boolean hasHarvestedSoul(Player player, GemType type) {
+    public boolean hasHarvestedSoul(Player player, GemType type) {
         GoldGemManager gold = this.plugin.getGoldGemManager();
         if (gold == null || type == null) {
             return false;

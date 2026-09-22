@@ -164,6 +164,8 @@ combat:
 # alone - unbound left-click keeps its vanilla behaviour (mining, attacking).
 # Delete this whole section to fall back to the built-in defaults.
 ability-bindings:
+  # When true, unshifted F key naturally swaps gems into/out of offhand instead of triggering tertiary ability
+  allow-f-swap-gem: true
   defaults:
     right_click: primary
     shift_right_click: secondary
@@ -309,16 +311,12 @@ passives:
 
   # Unfortunate ability chances (0.0 = never fail, 1.0 = always fail)
   unfortunate:
-    attack-fail-chance: 0.75  # 75% chance attacks fail
+    attack-fail-chance: 0.50  # 50% chance attacks fail
     block-break-fail-chance: 0.50  # 50% chance block breaking fails
-    block-place-fail-chance: 1.0  # 100% chance block placing fails
-    eat-fail-chance: 1.0  # 100% chance eating fails
-    sprint-fail-chance: 0.50  # 50% chance sprinting fails
-    jump-fail-chance: 0.30  # 30% chance jumping fails
-    drop-item-fail-chance: 0.80  # 80% chance dropping items fails
-    pickup-item-fail-chance: 0.70  # 70% chance picking up items fails
-    interact-fail-chance: 0.60  # 60% chance interactions fail (right-click)
-    craft-fail-chance: 0.90  # 90% chance crafting fails
+    block-place-fail-chance: 0.50  # 50% chance block placing fails
+    eat-fail-chance: 0.50  # 50% chance eating fails
+    bow-fail-chance: 0.50  # 50% chance bow shooting fails
+    totem-fail-chance: 0.50  # 50% chance totem of undying fails to pop
 
 # ==========================================
 # ABILITIES
@@ -626,8 +624,8 @@ gold:
     # and any damage the caster takes breaks it.
     charge-ticks: 60
     range: 60.0
-    # High enough to kill outright. Lower it if the beam should be survivable.
-    damage: 1000.0
+    # High enough to be devastating (12 hearts), but survivable with turtle master + egap. Lower it if needed.
+    damage: 24.0
     cooldown: 300
   damage-boost:
     # Chance for any hit the holder lands to come through amplified.

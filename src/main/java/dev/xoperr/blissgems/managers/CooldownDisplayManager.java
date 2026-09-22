@@ -395,6 +395,21 @@ public class CooldownDisplayManager {
             }
             return display.toString();
         }
+        if (gemType == GemType.ASTRA) {
+            String ability1Icon = this.getAbilityIcon(gemType, 0);
+            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
+            if (tier == 2 && abilities.size() > 1) {
+                String ability2Icon = this.getAbilityIcon(gemType, 1);
+                display.append(" ").append(gemColor).append("| ").append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
+                if (abilities.size() > 2) {
+                    display.append(" ").append(gemColor).append("| ").append(gemColor).append("Drift: ").append(this.readyOrSeconds(player, abilities.get(2)[0]));
+                }
+                if (abilities.size() > 3) {
+                    display.append(" ").append(gemColor).append("| ").append(gemColor).append("Nullify: ").append(this.readyOrSeconds(player, abilities.get(3)[0]));
+                }
+            }
+            return display.toString();
+        }
         String[] ability1 = abilities.get(0);
         String ability1Key = ability1[0];
         String ability1Icon = this.getAbilityIcon(gemType, 0);
@@ -504,6 +519,12 @@ public class CooldownDisplayManager {
             default -> throw new IncompatibleClassChangeError();
             case ASTRA -> {
                 if (abilityIndex == 0) {
+                    yield "\ue010";
+                }
+                if (abilityIndex == 1) {
+                    yield "\ue011";
+                }
+                if (abilityIndex == 2) {
                     yield "\ue010";
                 }
                 yield "\ue011";
@@ -702,7 +723,7 @@ public class CooldownDisplayManager {
 
     static {
         GEM_ABILITIES.put(GemType.FIRE, Arrays.asList(new String[]{"fire-fireball", "Fireball"}, new String[]{"fire-campfire", "Campfire"}, new String[]{"fire-crisp", "Crisp"}, new String[]{"fire-meteor-shower", "Meteor"}));
-        GEM_ABILITIES.put(GemType.ASTRA, Arrays.asList(new String[]{"astra-daggers", "Daggers"}, new String[]{"astra-projection", "Projection"}));
+        GEM_ABILITIES.put(GemType.ASTRA, Arrays.asList(new String[]{"astra-daggers", "Daggers"}, new String[]{"astra-projection", "Projection"}, new String[]{"astra-drift", "Drift"}, new String[]{"astra-void", "Nullify"}));
         GEM_ABILITIES.put(GemType.LIFE, Arrays.asList(new String[]{"life-drainer", "Drainer"}, new String[]{"life-circle-of-life", "Circle"}, new String[]{"life-vitality-vortex", "Vortex"}, new String[]{"life-heart-lock", "Lock"}));
         GEM_ABILITIES.put(GemType.FLUX, Arrays.asList(new String[]{"flux-beam", "Beam"}, new String[]{"flux-ground", "Ground"}, new String[]{"flux-flashbang", "Flash"}, new String[]{"flux-kinetic-burst", "Kinetic"}));
         GEM_ABILITIES.put(GemType.PUFF, Arrays.asList(new String[]{"puff-dash", "Dash"}, new String[]{"puff-breezy-bash", "Bash"}, new String[]{"puff-group-bash", "Group"}));

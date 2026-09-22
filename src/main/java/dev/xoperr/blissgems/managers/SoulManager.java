@@ -57,6 +57,11 @@ public class SoulManager {
     private static final String SOUL_MODIFIER_PREFIX = "soul_absorb_";
     private int soulModifierCounter = 0;
     private final Map<UUID, List<UUID>> activeSoulModifiers = new HashMap<UUID, List<UUID>>();
+    private final Map<UUID, Long> lastCaptureTimes = new java.util.concurrent.ConcurrentHashMap<UUID, Long>();
+
+    public long getLastCaptureTime(UUID uuid) {
+        return this.lastCaptureTimes.getOrDefault(uuid, 0L);
+    }
 
     public SoulManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -127,6 +132,7 @@ public class SoulManager {
         player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1.0f, 2.0f);
         String mobName = capturedMob.getDisplayName();
         player.sendMessage("\u00a7d\u00a7lSoul Captured! \u00a7d\u00a7oCaptured " + mobName + " (" + souls.size() + "/2)");
+        this.lastCaptureTimes.put(player.getUniqueId(), System.currentTimeMillis());
         return true;
     }
 

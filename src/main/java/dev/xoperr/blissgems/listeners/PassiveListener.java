@@ -92,12 +92,15 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.EntityResurrectEvent;
+import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.FurnaceExtractEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
@@ -189,6 +192,9 @@ implements Listener {
             return;
         }
         Player targetPlayer = (Player)target;
+        if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+            return;
+        }
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         if (mainHand == null) {
             return;
@@ -358,14 +364,32 @@ implements Listener {
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        int tier;
         Player player = event.getPlayer();
-        boolean hasFireGem = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FIRE);
-        boolean hasWealthAutoSmelt = false;
-        if (this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH) && (tier = this.plugin.getGemManager().getGemTier(player)) >= 2 && this.plugin.getWealthAbilities().isAutoSmeltEnabled(player)) {
-            hasWealthAutoSmelt = true;
+        if (event.getBlock().getType() == Material.ANCIENT_DEBRIS) {
+            boolean hasWealth = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
+                    || this.plugin.getGemManager().hasGemType(player, GemType.WEALTH)
+                    || this.isHoldingWealthGem(player);
+            if (hasWealth && this.canUsePassives(player)) {
+                int tier = this.plugin.getGemManager().getTierFor(player, GemType.WEALTH);
+                String tierKey = tier >= 2 ? "tier2" : "tier1";
+                if (this.plugin.getConfig().getBoolean("passives.wealth." + tierKey + ".double-debris", true)) {
+                    ItemStack extra = new ItemStack(Material.ANCIENT_DEBRIS, 1);
+                    event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), extra);
+                    Particle.DustOptions greenDust = new Particle.DustOptions(ParticleUtils.WEALTH_GREEN, 1.2f);
+                    player.getWorld().spawnParticle(Particle.DUST, event.getBlock().getLocation().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.0, (Object)greenDust, true);
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
+                    player.sendMessage("\u00a7a\u00a7oDouble Debris! Extra ancient debris!");
+                }
+            }
         }
-        if (!hasFireGem && !hasWealthAutoSmelt) {
+
+        boolean hasFireGem = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.FIRE)
+                || this.plugin.getGemManager().hasGemType(player, GemType.FIRE);
+        boolean hasWealthGem = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.WEALTH)
+                || this.plugin.getGemManager().hasGemType(player, GemType.WEALTH);
+        int wealthTier = hasWealthGem ? this.plugin.getGemManager().getTierFor(player, GemType.WEALTH) : 0;
+        boolean canAutoSmelt = (hasFireGem || (hasWealthGem && wealthTier >= 2)) && this.plugin.getWealthAbilities().isAutoSmeltEnabled(player);
+        if (!canAutoSmelt) {
             return;
         }
         if (!this.canUsePassives(player)) {
@@ -566,6 +590,29 @@ implements Listener {
         }
     }
 
+    @EventHandler
+    public void onAstraSoulCaptureInteract(PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
+        if (!player.isSneaking()) {
+            return;
+        }
+        Entity target = event.getRightClicked();
+        if (!(target instanceof LivingEntity) || target instanceof Player) {
+            return;
+        }
+        boolean hasAstra = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.ASTRA) || this.isHoldingAstraGem(player);
+        if (!hasAstra) {
+            return;
+        }
+        if (!this.canUsePassives(player)) {
+            return;
+        }
+        LivingEntity mob = (LivingEntity)target;
+        if (this.plugin.getSoulManager().captureMob(player, mob)) {
+            event.setCancelled(true);
+        }
+    }
+
     private boolean isHoldingAstraGem(Player player) {
         String oraxenId;
         ItemStack mainHand = player.getInventory().getItemInMainHand();
@@ -630,6 +677,12 @@ implements Listener {
         if (!(event.getEntity() instanceof LivingEntity)) {
             return;
         }
+        if (event.getEntity() instanceof Player) {
+            Player victim = (Player)event.getEntity();
+            if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, victim)) {
+                return;
+            }
+        }
         boolean bl = hasStrength = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.STRENGTH) || this.isHoldingStrengthGem(player);
         if (!hasStrength) {
             return;
@@ -693,6 +746,9 @@ implements Listener {
             return;
         }
         Player targetPlayer = (Player)target;
+        if (this.plugin.getTrustedPlayersManager() != null && this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer)) {
+            return;
+        }
         ItemStack[] armor = targetPlayer.getInventory().getArmorContents();
         boolean damaged = false;
         for (int i = 0; i < armor.length; ++i) {
@@ -802,9 +858,10 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getDamager();
-        double attackFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.attack-fail-chance", 0.75);
+        double attackFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.attack-fail-chance", 0.50);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), attackFailChance)) {
             event.setCancelled(true);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
     }
@@ -812,9 +869,10 @@ implements Listener {
     @EventHandler
     public void onUnfortunateBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        double blockPlaceFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-place-fail-chance", 1.0);
+        double blockPlaceFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-place-fail-chance", 0.50);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockPlaceFailChance)) {
             event.setCancelled(true);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
     }
@@ -822,9 +880,10 @@ implements Listener {
     @EventHandler
     public void onUnfortunateEat(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
-        double eatFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.eat-fail-chance", 1.0);
+        double eatFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.eat-fail-chance", 0.50);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), eatFailChance)) {
             event.setCancelled(true);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
     }
@@ -832,81 +891,39 @@ implements Listener {
     @EventHandler
     public void onUnfortunateBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        double blockBreakFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-break-fail-chance", 0.5);
+        double blockBreakFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-break-fail-chance", 0.50);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockBreakFailChance)) {
             event.setCancelled(true);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
     }
 
     @EventHandler
-    public void onUnfortunateSprint(PlayerToggleSprintEvent event) {
-        if (!event.isSprinting()) {
-            return;
-        }
-        Player player = event.getPlayer();
-        double sprintFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.sprint-fail-chance", 0.5);
-        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), sprintFailChance)) {
-            event.setCancelled(true);
-            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
-        }
-    }
-
-    @EventHandler
-    public void onUnfortunateJump(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        if (event.getFrom().getY() < event.getTo().getY() && player.isOnGround()) {
-            double jumpFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.jump-fail-chance", 0.3);
-            if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), jumpFailChance)) {
-                event.setTo(event.getFrom());
-                player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
-            }
-        }
-    }
-
-    @EventHandler
-    public void onUnfortunateDropItem(PlayerDropItemEvent event) {
-        Player player = event.getPlayer();
-        double dropItemFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.drop-item-fail-chance", 0.8);
-        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), dropItemFailChance)) {
-            event.setCancelled(true);
-            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
-        }
-    }
-
-    @EventHandler
-    public void onUnfortunatePickupItem(EntityPickupItemEvent event) {
+    public void onUnfortunateBow(EntityShootBowEvent event) {
         if (!(event.getEntity() instanceof Player)) {
             return;
         }
         Player player = (Player)event.getEntity();
-        double pickupItemFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.pickup-item-fail-chance", 0.7);
-        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), pickupItemFailChance)) {
+        double bowFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.bow-fail-chance", 0.50);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), bowFailChance)) {
             event.setCancelled(true);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
             player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
         }
     }
 
-    @EventHandler
-    public void onUnfortunateInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        double interactFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.interact-fail-chance", 0.6);
-        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), interactFailChance)) {
-            event.setCancelled(true);
-            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
-        }
-    }
-
-    @EventHandler
-    public void onUnfortunateCraft(CraftItemEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) {
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+    public void onUnfortunateTotem(EntityResurrectEvent event) {
+        if (!(event.getEntity() instanceof Player)) {
             return;
         }
-        Player player = (Player)event.getWhoClicked();
-        double craftFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.craft-fail-chance", 0.9);
-        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), craftFailChance)) {
+        Player player = (Player)event.getEntity();
+        double totemFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.totem-fail-chance", 0.50);
+        if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), totemFailChance)) {
             event.setCancelled(true);
-            player.sendMessage("\u00a7c\u00a7oYou can't do that while Unfortunate!");
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 0.8f);
+            player.sendMessage("\u00a7c\u00a7oYour Totem of Undying failed to activate due to Unfortunate!");
         }
     }
 
