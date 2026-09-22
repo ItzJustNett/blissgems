@@ -33,7 +33,6 @@ import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.EnergyState;
 import java.io.File;
 import java.io.IOException;
-import java.lang.invoke.CallSite;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -695,16 +694,16 @@ public class GoldGemManager {
             data.set("gold.harvested", null);
             data.set("gold.active", null);
         } else {
-            ArrayList<CallSite> serialised = new ArrayList<CallSite>();
+            List<String> serialised = new ArrayList<String>();
             for (Harvest soul : souls.values()) {
-                serialised.add((CallSite)((Object)(soul.gemId() + ":" + soul.tier() + (String)(soul.owner() != null ? ":" + String.valueOf(soul.owner()) : ""))));
+                serialised.add(soul.gemId() + ":" + soul.tier() + (soul.owner() != null ? ":" + soul.owner().toString() : ""));
             }
             data.set("gold.harvested", serialised);
-            data.set("gold.active", (Object)this.active.get(playerId));
+            data.set("gold.active", this.active.get(playerId));
         }
         UUID instance = this.trackedInstance.get(playerId);
-        data.set("gold.instance", (Object)(instance != null ? instance.toString() : null));
-        data.set("gold.trims-disabled", (Object)(this.trimsDisabled.contains(playerId) ? Boolean.valueOf(true) : null));
+        data.set("gold.instance", instance != null ? instance.toString() : null);
+        data.set("gold.trims-disabled", this.trimsDisabled.contains(playerId) ? Boolean.valueOf(true) : null);
         try {
             data.save(file);
         }
