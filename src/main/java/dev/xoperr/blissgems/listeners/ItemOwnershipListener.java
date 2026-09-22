@@ -83,7 +83,14 @@ implements Listener {
         if (item == null || item.getType() == Material.AIR || item.getMaxStackSize() != 1) {
             return false;
         }
-        return CustomItemManager.setOwner(item, owner);
+        boolean stamped = CustomItemManager.setOwner(item, owner);
+        UUID currentOwner = CustomItemManager.getOwner(item);
+        if (currentOwner != null) {
+            org.bukkit.OfflinePlayer op = org.bukkit.Bukkit.getOfflinePlayer(currentOwner);
+            String name = op.getName() != null ? op.getName() : currentOwner.toString().substring(0, 8);
+            ItemOwnershipListener.setOwnerLore(item, name);
+        }
+        return stamped;
     }
 
     public static void setOwnerLore(ItemStack item, String ownerName) {
