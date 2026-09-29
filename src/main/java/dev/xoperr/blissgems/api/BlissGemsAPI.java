@@ -10,6 +10,7 @@ import dev.xoperr.blissgems.api.GemRegistry;
 import dev.xoperr.blissgems.managers.AbilityManager;
 import dev.xoperr.blissgems.managers.EnergyManager;
 import dev.xoperr.blissgems.managers.GemManager;
+import dev.xoperr.blissgems.managers.GemRollManager;
 import dev.xoperr.blissgems.managers.TrustedPlayersManager;
 import dev.xoperr.blissgems.utils.ConfigManager;
 import org.bukkit.entity.Player;
@@ -24,6 +25,8 @@ public interface BlissGemsAPI {
     public ConfigManager getConfigManager();
 
     public GemManager getGemManager();
+
+    public GemRollManager getGemRollManager();
 
     public TrustedPlayersManager getTrustedPlayersManager();
 

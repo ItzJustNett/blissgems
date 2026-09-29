@@ -24,6 +24,8 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemRegistry;
+import dev.xoperr.blissgems.api.event.GemImbueEvent;
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import dev.xoperr.blissgems.commands.StatsCommand;
 import dev.xoperr.blissgems.managers.AbilityBindingManager;
 import dev.xoperr.blissgems.managers.GemLockManager;
@@ -47,7 +49,6 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -267,6 +268,10 @@ TabCompleter {
             }
             case "souls": {
                 this.handleSoulsInfo(sender, args);
+                break;
+            }
+            case "imbue": {
+                this.handleImbue(sender);
                 break;
             }
             case "achievements": {
@@ -497,7 +502,7 @@ TabCompleter {
         if (args.length >= 4) {
             try {
                 tier = Integer.parseInt(args[3]);
-                if (tier < 1 || tier > 2) {
+                if (tier < 1 || tier > 3) {
                     sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
                     return;
                 }
@@ -509,8 +514,9 @@ TabCompleter {
         }
         GemDefinition gemDefinition = tierDef = (tierRegistry = this.plugin.getGemRegistry()) != null ? tierRegistry.getGem(resolvedGemId) : null;
         if (tierDef != null && tier > tierDef.getMaxTier()) {
+            int requestedTier = tier;
             tier = tierDef.getMaxTier();
-            sender.sendMessage("\u00a7e" + resolvedDisplayName + " has no Tier 2 - giving Tier " + tier + " instead.");
+            sender.sendMessage("\u00a7e" + resolvedDisplayName + " has no Tier " + requestedTier + " - giving Tier " + tier + " instead.");
             if ("gold".equals(resolvedGemId)) {
                 sender.sendMessage("\u00a77The Gold Gem's secondary abilities come from the tier of the soul it channels: \u00a7f/bliss goldgem fill <player> <soul> 2\u00a77.");
             }
@@ -684,11 +690,6 @@ TabCompleter {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
             return;
         }
-        String randomGem = this.getRandomEnabledGem();
-        if (randomGem == null) {
-            sender.sendMessage("\u00a7cNo gems are enabled in the config!");
-            return;
-        }
         int tier = 1;
         if (args.length >= 3) {
             try {
@@ -702,6 +703,11 @@ TabCompleter {
                 sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("invalid-tier", new Object[0]));
                 return;
             }
+        }
+        String randomGem = this.plugin.getGemRollManager().roll(target, GemRollEvent.Reason.REROLL, tier, null);
+        if (randomGem == null) {
+            sender.sendMessage("\u00a7cNo gems are enabled in the config!");
+            return;
         }
         this.clearGemsFromInventory(target);
         ItemStack offGem = target.getInventory().getItemInOffHand();
@@ -1882,6 +1888,43 @@ TabCompleter {
         this.plugin.getSoulManager().releaseAllSouls(player);
     }
 
+    private void handleImbue(CommandSender sender) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        ItemStack donor = player.getInventory().getItemInMainHand();
+        String donorId = CustomItemManager.getDonorGemId(donor);
+        if (donorId == null) {
+            player.sendMessage("\u00a7c\u00a7oHold a donor gem in your main hand.");
+            return;
+        }
+        ItemStack gem = player.getInventory().getItemInOffHand();
+        String itemId = CustomItemManager.getIdByItem(gem);
+        if (itemId == null || !this.plugin.getGemManager().isAnyGem(itemId) || GemType.getTierFromOraxenId(itemId) < 3) {
+            player.sendMessage("\u00a7c\u00a7oHold your Tier 3 gem in your off hand.");
+            return;
+        }
+        String gemId = this.plugin.getGemManager().getGemIdFromOffhand(player);
+        if (donorId.equals(gemId)) {
+            player.sendMessage("\u00a7c\u00a7oA gem can't be imbued with itself.");
+            return;
+        }
+        GemImbueEvent event = new GemImbueEvent(player, gem, gemId, donorId, CustomItemManager.getImbuedGemId(gem));
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return;
+        }
+        String donorName = this.plugin.getGemManager().getGemColorCode(donorId) + this.plugin.getGemManager().getGemDisplayName(donorId);
+        CustomItemManager.setImbued(gem, donorId, donorName);
+        player.getInventory().setItemInOffHand(gem);
+        donor.setAmount(donor.getAmount() - 1);
+        player.getInventory().setItemInMainHand(donor.getAmount() > 0 ? donor : null);
+        player.sendMessage("\u00a7d\u00a7l\u2726 IMBUED! \u00a7fYour gem now carries the passives of " + donorName + "\u00a7f.");
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 0.8f);
+        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
+    }
+
     private void handleSoulsInfo(CommandSender sender, String[] args) {
         if (!this.requirePlayer(sender)) {
             return;
@@ -1943,7 +1986,7 @@ TabCompleter {
         this.plugin.getConfigManager().sendFormattedMessage(sender, "smp-started", new Object[0]);
         for (Player online : Bukkit.getOnlinePlayers()) {
             String randomGem;
-            if (this.hasReceivedFirstGem(online) || (randomGem = this.getRandomEnabledGem()) == null) continue;
+            if (this.hasReceivedFirstGem(online) || (randomGem = this.plugin.getGemRollManager().roll(online, GemRollEvent.Reason.FIRST_GEM, 1, null)) == null) continue;
             String finalGem = randomGem;
             Player target = online;
             target.sendMessage("");
@@ -2000,14 +2043,6 @@ TabCompleter {
         catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save first gem status for " + player.getName() + ": " + e.getMessage());
         }
-    }
-
-    private String getRandomEnabledGem() {
-        List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
-        if (enabledGems.isEmpty()) {
-            return null;
-        }
-        return enabledGems.get(new Random().nextInt(enabledGems.size()));
     }
 
     private void handleClearCooldowns(CommandSender sender, String[] args) {
@@ -2104,6 +2139,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss energy <player> <set/add/remove> <amount> \u00a78- Manage energy");
         sender.sendMessage("\u00a77/bliss withdraw \u00a78- Extract energy into bottle");
         sender.sendMessage("\u00a77/bliss info \u00a78- Show your gem info");
+        sender.sendMessage("\u00a77/bliss imbue \u00a78- Imbue a donor gem (main hand) into your Tier 3 gem (off hand)");
         sender.sendMessage("\u00a77/bliss pockets \u00a78- Open personal inventory (Wealth T2)");
         sender.sendMessage("\u00a77/bliss amplify \u00a78- Amplify potion effects (Wealth T2)");
         sender.sendMessage("\u00a77/bliss autosmelt \u00a78- Toggle auto-smelting (Wealth T2)");
@@ -2135,7 +2171,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
+            completions.addAll(Arrays.asList("give", "reroll", "imbue", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("ability")) {
                 return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");

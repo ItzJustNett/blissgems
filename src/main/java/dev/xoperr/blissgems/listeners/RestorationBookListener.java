@@ -22,7 +22,7 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.EnergyState;
 import java.util.HashSet;
-import java.util.List;
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Location;
@@ -71,13 +71,13 @@ implements Listener {
             player.sendMessage("\u00a7c\u00a7oThe Restoration Book only works while your gem is \u00a7c\u00a7lBROKEN\u00a7c\u00a7o.");
             return;
         }
-        List<String> available = this.plugin.getGemManager().getAvailableGemIds();
-        if (available.isEmpty()) {
+        int currentTier = Math.max(1, this.plugin.getGemManager().getGemTier(player));
+        String newGem = this.plugin.getGemRollManager().roll(player, GemRollEvent.Reason.RESTORATION, currentTier, null);
+        if (newGem == null) {
             player.sendMessage("\u00a7c\u00a7oNo gems are available to restore to!");
             return;
         }
-        String newGem = available.get((int)(Math.random() * (double)available.size()));
-        int tier = Math.max(1, this.plugin.getGemManager().getGemTier(player));
+        int tier = Math.min(currentTier, this.plugin.getGemManager().getMaxTier(newGem));
         item.setAmount(item.getAmount() - 1);
         this.activeRituals.add(player.getUniqueId());
         this.clearExistingGems(player);

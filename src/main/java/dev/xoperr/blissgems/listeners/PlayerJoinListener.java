@@ -13,6 +13,7 @@
  */
 package dev.xoperr.blissgems.listeners;
 
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.commands.FixedHeartsCommand;
 import dev.xoperr.blissgems.utils.CustomItemManager;
@@ -20,8 +21,6 @@ import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.OraxenGemFixer;
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
-import java.util.Random;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -34,11 +33,9 @@ import org.bukkit.plugin.Plugin;
 public class PlayerJoinListener
 implements Listener {
     private final BlissGems plugin;
-    private final Random random;
 
     public PlayerJoinListener(BlissGems plugin) {
         this.plugin = plugin;
-        this.random = new Random();
     }
 
     @EventHandler
@@ -64,7 +61,7 @@ implements Listener {
                     }
                 }, 40L);
             } else {
-                String randomGem = this.getRandomEnabledGem();
+                String randomGem = this.plugin.getGemRollManager().roll(player, GemRollEvent.Reason.FIRST_GEM, 1, null);
                 if (randomGem != null) {
                     String finalGem = randomGem;
                     this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
@@ -233,14 +230,6 @@ implements Listener {
         catch (IOException e) {
             this.plugin.getLogger().warning("Failed to save gem-lock-checked for " + player.getName() + ": " + e.getMessage());
         }
-    }
-
-    private String getRandomEnabledGem() {
-        List<String> enabledGems = this.plugin.getGemManager().getAvailableGemIds();
-        if (enabledGems.isEmpty()) {
-            return null;
-        }
-        return enabledGems.get(this.random.nextInt(enabledGems.size()));
     }
 }
 

@@ -146,9 +146,9 @@ public class GemManager {
         if (itemId == null) {
             return false;
         }
-        if (GemType.isGem(itemId)) {
-            GemType type = GemType.fromOraxenId(itemId);
-            return type != null && this.plugin.getConfigManager().isGemEnabled(type);
+        GemType type = GemType.fromOraxenId(itemId);
+        if (type != null) {
+            return this.plugin.getConfigManager().isGemEnabled(type);
         }
         GemRegistryImpl registry = this.plugin.getGemRegistry();
         return registry != null && registry.isRegisteredGem(itemId);
@@ -250,21 +250,62 @@ public class GemManager {
     }
 
     private String getPassiveGemItemId(Player player) {
-        String held = this.getHeldGemItemId(player);
-        if (held != null) {
-            return held;
+        ItemStack item = this.getPassiveGemItem(player);
+        return item != null ? CustomItemManager.getIdByItem(item) : null;
+    }
+
+    private ItemStack getPassiveGemItem(Player player) {
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (this.isAnyGem(CustomItemManager.getIdByItem(offhand))) {
+            return offhand;
+        }
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (this.isAnyGem(CustomItemManager.getIdByItem(mainHand))) {
+            return mainHand;
         }
         if (!this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
             return null;
         }
         for (int slot = 0; slot < 9; ++slot) {
-            String id;
             ItemStack it = player.getInventory().getItem(slot);
-            String string = id = it != null ? CustomItemManager.getIdByItem(it) : null;
-            if (id == null || !this.isAnyGem(id)) continue;
-            return id;
+            if (it == null || !this.isAnyGem(CustomItemManager.getIdByItem(it))) continue;
+            return it;
         }
         return null;
+    }
+
+    /** The gem id imbued into the gem item, or null. */
+    public String getImbuedGemId(ItemStack gemItem) {
+        return CustomItemManager.getImbuedGemId(gemItem);
+    }
+
+    /** The gem id imbued into the gem that currently drives the player's passives, or null. */
+    public String getImbuedGemIdForPassives(Player player) {
+        return CustomItemManager.getImbuedGemId(this.getPassiveGemItem(player));
+    }
+
+    /** Highest tier the gem supports: 2 for built-in gems, the definition's maxTier for registered ones. */
+    public int getMaxTier(String gemId) {
+        if (GemManager.builtInType(gemId) != null) {
+            return 2;
+        }
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        return def != null ? def.getMaxTier() : 2;
+    }
+
+    /**
+     * Builds a donor item for the gem: the Tier 1 look with its own item id, usable only for
+     * imbuing. Returns null if the gem has no Tier 1 item.
+     */
+    public ItemStack createDonorItem(String gemId) {
+        String itemId = gemId + "_gem_t1";
+        ItemStack base = CustomItemManager.getItemById(itemId);
+        if (base == null) {
+            return null;
+        }
+        String name = this.getGemColorCode(gemId) + "\u00a7l" + this.getGemDisplayName(gemId).toUpperCase() + " \u00a7d\u00a7lDONOR";
+        return CustomItemManager.toDonor(base, gemId, name);
     }
 
     public boolean hasGemForPassives(Player player) {
@@ -396,7 +437,7 @@ public class GemManager {
         if (registry != null) {
             List excluded = this.plugin.getConfig().contains("gems.exclude-from-random") ? this.plugin.getConfig().getStringList("gems.exclude-from-random") : List.of("auratus", "heretic", "gold");
             for (GemDefinition def : registry.getAllGems()) {
-                if ("gold".equals(def.getId()) || GemManager.builtInType(def.getId()) != null || ids.contains(def.getId()) || excluded.contains(def.getId())) continue;
+                if ("gold".equals(def.getId()) || def.isMutation() || GemManager.builtInType(def.getId()) != null || ids.contains(def.getId()) || excluded.contains(def.getId())) continue;
                 ids.add(def.getId());
             }
         }
@@ -467,7 +508,7 @@ public class GemManager {
         if (currentId == null) {
             return false;
         }
-        int tier = GemType.getTierFromOraxenId(currentId);
+        int tier = Math.min(GemType.getTierFromOraxenId(currentId), this.getMaxTier(newGemId));
         String newId = newGemId + "_gem_t" + tier;
         ItemStack newGem = CustomItemManager.getItemById(newId, energy = this.plugin.getEnergyManager().getEnergy(player));
         if (newGem == null) {
@@ -525,20 +566,23 @@ public class GemManager {
         if (currentId == null) {
             return false;
         }
-        if (!currentId.equals(gemId + "_gem_t1")) {
+        if (!currentId.startsWith(gemId + "_gem_t")) {
             return false;
         }
+        int currentTier = GemType.getTierFromOraxenId(currentId);
         if (GemManager.builtInType(gemId) == null) {
-            GemDefinition def;
             GemRegistryImpl registry = this.plugin.getGemRegistry();
-            GemDefinition gemDefinition = def = registry != null ? registry.getGem(gemId) : null;
-            if (def == null || def.getMaxTier() < 2) {
+            if (registry == null || registry.getGem(gemId) == null) {
                 return false;
             }
         }
-        if ((newGem = CustomItemManager.getItemById(newId = gemId + "_gem_t2", energy = this.plugin.getEnergyManager().getEnergy(player))) == null) {
+        if (currentTier >= this.getMaxTier(gemId)) {
             return false;
         }
+        if ((newGem = CustomItemManager.getItemById(newId = gemId + "_gem_t" + (currentTier + 1), energy = this.plugin.getEnergyManager().getEnergy(player))) == null) {
+            return false;
+        }
+        CustomItemManager.copyImbue(currentGem, newGem);
         for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item = player.getInventory().getItem(i);
             if (item == null || !item.equals((Object)currentGem)) continue;

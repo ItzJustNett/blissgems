@@ -16,8 +16,11 @@
 package dev.xoperr.blissgems.listeners;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -73,7 +76,7 @@ implements Listener {
         }
         String currentGemId = this.plugin.getGemManager().getGemId(player);
         int currentTier = this.plugin.getGemManager().getGemTier(player);
-        if (currentTier != 1) {
+        if (currentTier >= this.plugin.getGemManager().getMaxTier(currentGemId)) {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-already-tier2", new Object[0]);
             return;
         }
@@ -171,9 +174,31 @@ implements Listener {
             if (this.plugin.getAchievementManager() != null) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.THE_NEXT_LEVEL);
             }
+            if (currentTier + 1 == 3) {
+                this.grantTier3Donor(player, currentGemId);
+            }
         } else {
             player.sendMessage("\u00a7cFailed to upgrade gem!");
         }
     }
-}
 
+    /** Reaching Tier 3 grants one bonus roll, handed out as a donor item for /bliss imbue. */
+    private void grantTier3Donor(Player player, String gemId) {
+        ArrayList<String> exclude = new ArrayList<String>();
+        exclude.add(gemId);
+        GemDefinition def = this.plugin.getGemRegistry() != null ? this.plugin.getGemRegistry().getGem(gemId) : null;
+        if (def != null && def.isMutation()) {
+            exclude.add(def.getMutationOf());
+        }
+        String donorId = this.plugin.getGemRollManager().roll(player, GemRollEvent.Reason.TIER3_BONUS, 1, exclude);
+        ItemStack donor = donorId != null ? this.plugin.getGemManager().createDonorItem(donorId) : null;
+        if (donor == null) {
+            return;
+        }
+        for (ItemStack leftover : player.getInventory().addItem(new ItemStack[]{donor}).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+        String name = this.plugin.getGemManager().getGemColorCode(donorId) + "\u00a7l" + this.plugin.getGemManager().getGemDisplayName(donorId);
+        player.sendMessage("\u00a7d\u00a7l\u00bb TIER 3! \u00a7fYou rolled a donor gem: " + name + "\u00a7f. Hold it in your main hand and your gem in your off hand, then \u00a7d/bliss imbue\u00a7f.");
+    }
+}

@@ -20,11 +20,12 @@ package dev.xoperr.blissgems.managers;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.EnergyState;
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import dev.xoperr.blissgems.utils.GemType;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -633,7 +634,6 @@ implements Listener {
     }
 
     private void handleRerollGem(Player player) {
-        GemType newGem;
         if (!player.hasPermission("blissgems.admin")) {
             player.sendMessage("\u00a7c\u00a7lNo Permission! \u00a77Only admins can reroll gems.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
@@ -645,16 +645,14 @@ implements Listener {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             return;
         }
-        GemType currentGem = this.plugin.getGemManager().getGemType(player);
+        String currentGem = this.plugin.getGemManager().getGemId(player);
         if (currentGem == null) {
             player.sendMessage("\u00a7c\u00a7lNo gem found! \u00a77You need a gem to reroll.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             return;
         }
-        GemType[] allGems = GemType.values();
-        while ((newGem = allGems[new Random().nextInt(allGems.length)]) == currentGem) {
-        }
-        boolean success = this.plugin.getGemManager().replaceGemType(player, newGem);
+        String newGem = this.plugin.getGemRollManager().roll(player, GemRollEvent.Reason.REROLL, this.plugin.getGemManager().getGemTier(player), List.of(currentGem));
+        boolean success = newGem != null && this.plugin.getGemManager().replaceGem(player, newGem);
         if (!success) {
             player.sendMessage("\u00a7c\u00a7lReroll failed! \u00a77Could not replace gem.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
@@ -663,7 +661,7 @@ implements Listener {
         this.plugin.getEnergyManager().setEnergy(player, currentEnergy - 2);
         player.closeInventory();
         player.sendMessage("\u00a7a\u00a7l\u2714 GEM REROLLED!");
-        player.sendMessage("\u00a77New Gem: \u00a7f" + newGem.getDisplayName());
+        player.sendMessage("\u00a77New Gem: \u00a7f" + this.plugin.getGemManager().getGemDisplayName(newGem));
         player.sendMessage("\u00a77Energy: \u00a7c" + (currentEnergy - 2) + " \u00a78(-2)");
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
         player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.2f);

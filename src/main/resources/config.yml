@@ -76,6 +76,23 @@ gems:
     - heretic
     - gold
 
+  # Random rolls first pick a rarity by weight, then a gem of that rarity uniformly.
+  # Rarities with no enabled gems are skipped. Gems default to the rarity their definition
+  # declares (COMMON unless an addon says otherwise); override per gem under `rarity`.
+  rarity-weights:
+    common: 100
+    rare: 40
+    mythic: 8
+    legendary: 2
+  rarity: {}
+  #   death: mythic
+
+  # Chance (0.0-1.0) that a rolled gem mutates into one of its registered mutations.
+  # Mutations never come up in a roll directly.
+  mutation-chance: 0.05
+  mutation-chance-per-gem: {}
+  #   aqua: 0.1
+
   # Gems listed here are left in the death drops instead of being kept and handed back on
   # respawn — losing a fight to someone means losing the gem to them. Use the plain gem id,
   # with no tier suffix. Everything not listed stays soulbound.
@@ -968,3 +985,8 @@ end-sky:
 # METRICS
 # ==========================================
 send-anonymous-metrics: true
+
+# Tier 3 imbuing: /bliss imbue pours a donor gem into a Tier 3 gem.
+imbue:
+  # Tier passed to the imbued gem's passive handler.
+  passive-tier: 1

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Gem rarity.** Random rolls are now weighted: a rarity is picked first (`gems.rarity-weights`, default Common 100 / Rare 40 / Mythic 8 / Legendary 2), then a gem of that rarity. Override a gem's rarity with `gems.rarity.<id>`. All random rolls (first gem, `/bliss reroll`, SMP start, Gem Trader, Restoration Book, GUI reroll) now go through one roller, so the GUI reroll can land on addon gems too.
+- **Mutations.** Addons can register a gem as a mutation of another (`GemDefinition.Builder.mutationOf`). A roll that lands on the base gem mutates with `gems.mutation-chance` (default 0.05, per gem via `gems.mutation-chance-per-gem.<id>`), with a MUTATION! title and a MUTATED lore line.
+- **Tier 3 and imbuing.** Registered gems with `maxTier(3)` upgrade from Tier 2 to Tier 3 with the Gem Upgrader and get one bonus roll as a donor gem. `/bliss imbue` pours the donor (main hand) into the Tier 3 gem (off hand); the gem then also runs the donor's passives at `imbue.passive-tier`. One imbue per gem; the donor is consumed.
+- API: `GemRarity`, `GemDefinition.Builder.rarity/mutationOf/t3CustomModelData/t3DisplayName/t3Lore`, `GemRegistry.getMutationsOf`, `GemRollEvent`, `GemImbueEvent`, `GemRollManager.roll`, `GemManager.getImbuedGemId/getMaxTier/createDonorItem`.
+- `/bliss give` accepts Tier 3 for gems that support it.
+
+### Fixed
+- `GemManager.hasGemInOffhand()` returned false for addon gems.
+
 ## BlissGems 5.0.0
 
 ### Fixed

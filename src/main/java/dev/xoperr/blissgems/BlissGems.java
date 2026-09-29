@@ -79,6 +79,7 @@ import dev.xoperr.blissgems.managers.FlowStateManager;
 import dev.xoperr.blissgems.managers.FluxEnergyManager;
 import dev.xoperr.blissgems.managers.GemLockManager;
 import dev.xoperr.blissgems.managers.GemManager;
+import dev.xoperr.blissgems.managers.GemRollManager;
 import dev.xoperr.blissgems.managers.GemRegistryImpl;
 import dev.xoperr.blissgems.managers.GemRitualManager;
 import dev.xoperr.blissgems.managers.GoldGemManager;
@@ -125,6 +126,7 @@ implements BlissGemsAPI {
     private GemRegistryImpl gemRegistry;
     private EnergyManager energyManager;
     private GemManager gemManager;
+    private GemRollManager gemRollManager;
     private AbilityManager abilityManager;
     private AbilityBossBarManager abilityBossBarManager;
     private AbilityBindingManager abilityBindingManager;
@@ -249,6 +251,7 @@ implements BlissGemsAPI {
         }
         try {
             this.gemManager = new GemManager(this);
+            this.gemRollManager = new GemRollManager(this);
         }
         catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: GemManager ===");
@@ -759,6 +762,11 @@ implements BlissGemsAPI {
     @Override
     public GemManager getGemManager() {
         return this.gemManager;
+    }
+
+    @Override
+    public GemRollManager getGemRollManager() {
+        return this.gemRollManager;
     }
 
     @Override
