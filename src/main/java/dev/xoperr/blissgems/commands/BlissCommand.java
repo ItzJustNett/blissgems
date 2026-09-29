@@ -289,6 +289,10 @@ TabCompleter {
                 this.handlePedestal(sender, args);
                 break;
             }
+            case "deps": {
+                this.handleDeps(sender);
+                break;
+            }
             case "clearcds": {
                 this.handleClearCooldowns(sender, args);
                 break;
@@ -2198,7 +2202,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("ability")) {
                 return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");
@@ -2298,6 +2302,21 @@ TabCompleter {
             return Arrays.asList("1", "2");
         }
         return completions.stream().filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase())).collect(Collectors.toList());
+    }
+
+    /** Lists the optional plugins BlissGems can use and what each one unlocks. Nothing here is required. */
+    private void handleDeps(CommandSender sender) {
+        sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems optional plugins" + org.bukkit.ChatColor.GRAY + " (none are required)");
+        String[][] deps = {
+            {"Citizens", "NPC memories in the Golden Dream (/goldendream memory npc)"},
+            {"WorldGuard", "region flags that block abilities"},
+            {"ProtocolLib", "extra packet effects"},
+        };
+        for (String[] d : deps) {
+            boolean on = org.bukkit.Bukkit.getPluginManager().isPluginEnabled(d[0]);
+            sender.sendMessage((on ? org.bukkit.ChatColor.GREEN + "\u2714 " : org.bukkit.ChatColor.RED + "\u2716 ") + org.bukkit.ChatColor.WHITE + d[0] + org.bukkit.ChatColor.GRAY + " \u2014 " + d[1] + (on ? "" : org.bukkit.ChatColor.DARK_GRAY + " (not installed)"));
+        }
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "Resource pack: models and sounds (bliss:*) for rituals; without it everything still runs, with vanilla looks.");
     }
 }
 

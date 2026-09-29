@@ -176,6 +176,7 @@ implements BlissGemsAPI {
     private PedestalManager pedestalManager;
     private VillagerEventManager villagerEventManager;
     private FragmentCoreRitual fragmentCoreRitual;
+    private dev.xoperr.blissgems.goldevent.GoldenDream goldenDream;
     private Metrics metrics;
 
     public void onEnable() {
@@ -520,6 +521,11 @@ implements BlissGemsAPI {
             this.fragmentCoreRitual = new FragmentCoreRitual(this);
             this.getServer().getPluginManager().registerEvents((Listener)this.fragmentCoreRitual, (Plugin)this);
             this.fragmentCoreRitual.start();
+            this.goldenDream = new dev.xoperr.blissgems.goldevent.GoldenDream(this, this.fragmentCoreRitual);
+            dev.xoperr.blissgems.goldevent.GoldenDreamCommand goldenDreamCommand = new dev.xoperr.blissgems.goldevent.GoldenDreamCommand(this.goldenDream);
+            this.getCommand("goldendream").setExecutor((CommandExecutor)goldenDreamCommand);
+            this.getCommand("goldendream").setTabCompleter((TabCompleter)goldenDreamCommand);
+            this.getCommand("alternate").setExecutor((CommandExecutor)new dev.xoperr.blissgems.goldevent.AlternateCommand(this.goldenDream));
             VillagerEventCommand villagerEventCommand = new VillagerEventCommand(this.villagerEventManager);
             this.getCommand("blissevent").setExecutor((CommandExecutor)villagerEventCommand);
             this.getCommand("blissevent").setTabCompleter((TabCompleter)villagerEventCommand);
@@ -604,6 +610,9 @@ implements BlissGemsAPI {
         }
         if (this.endSkyVisualManager != null) {
             this.endSkyVisualManager.cleanup();
+        }
+        if (this.goldenDream != null) {
+            this.goldenDream.shutdown();
         }
         if (this.fragmentCoreRitual != null) {
             this.fragmentCoreRitual.stop();
@@ -968,6 +977,10 @@ implements BlissGemsAPI {
 
     public PedestalManager getPedestalManager() {
         return this.pedestalManager;
+    }
+
+    public dev.xoperr.blissgems.goldevent.GoldenDream getGoldenDream() {
+        return this.goldenDream;
     }
 
     public VillagerEventManager getVillagerEventManager() {

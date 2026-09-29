@@ -124,7 +124,7 @@ public final class FragmentCoreRitual implements Listener {
     // ---- items ----
 
     private static boolean isCore(ItemStack item) {
-        return item != null && "fragment_core".equals(CustomItemManager.getIdByItem(item));
+        return RitualItems.isFragmentCore(item);
     }
 
     private boolean hasCore(Player p) {
@@ -173,7 +173,7 @@ public final class FragmentCoreRitual implements Listener {
         p.getInventory().setItemInMainHand(null);
         this.owedCore.add(p.getUniqueId());
         this.owedSave();
-        ItemDisplay core = this.spawnDisplay(p.getEyeLocation(), CustomItemManager.getItemById("fragment_core"), 0.85f);
+        ItemDisplay core = this.spawnDisplay(p.getEyeLocation(), RitualItems.fragmentCore(), 0.85f);
         core.setGlowing(true);
         core.setGlowColorOverride(GOLD);
         s.placedCore = core.getUniqueId();
@@ -250,7 +250,7 @@ public final class FragmentCoreRitual implements Listener {
         if (s.center == null || this.display(s.ghost) != null) {
             return;
         }
-        ItemDisplay ghost = this.spawnDisplay(s.center, CustomItemManager.getItemById("fragment_core"), 0.85f);
+        ItemDisplay ghost = this.spawnDisplay(s.center, RitualItems.fragmentCoreGhost(), 0.85f);
         ghost.setGlowing(true);
         ghost.setGlowColorOverride(Color.WHITE);
         ghost.setBrightness(new Display.Brightness(15, 15));
@@ -778,7 +778,7 @@ public final class FragmentCoreRitual implements Listener {
             return;
         }
         if (core) {
-            ItemStack item = CustomItemManager.getItemById("fragment_core");
+            ItemStack item = RitualItems.fragmentCore();
             if (item != null) for (ItemStack left : p.getInventory().addItem(item).values()) p.getWorld().dropItemNaturally(p.getLocation(), left);
         }
         if (gem != null) {
@@ -849,9 +849,8 @@ public final class FragmentCoreRitual implements Listener {
     }
 
     private void spawnFragments(Player p, State s) {
-        ItemStack wire = CustomItemManager.getItemById("wire_fragment");
         for (int i = 0; i < 7; i++) {
-            ItemDisplay d = this.spawnDisplay(p.getEyeLocation(), wire, 0.35f);
+            ItemDisplay d = this.spawnDisplay(p.getEyeLocation(), RitualItems.wireFragment(i + 1), 0.35f);
             d.setGlowing(true);
             d.setGlowColorOverride(GOLD);
             d.setBillboard(Display.Billboard.FIXED);
@@ -1037,7 +1036,7 @@ public final class FragmentCoreRitual implements Listener {
     }
 
     /** A ring of particles flung outward in a plane; tilt &lt; 0 = any orientation, else within that many degrees of flat. */
-    private void angledBurst(World w, Location c, double tilt, int count, double speed, Particle particle) {
+    void angledBurst(World w, Location c, double tilt, int count, double speed, Particle particle) {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         Vector normal;
         if (tilt < 0) {

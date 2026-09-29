@@ -581,6 +581,13 @@ auto-enchant:
 # ==========================================
 # GOLD GEM
 # ==========================================
+golden-dream:
+  # The golden mass tears up terrain around the ritual (a 40-block radius, plus a well under it).
+  # false = it still pulls and eats mobs/items, but leaves blocks alone.
+  mass-destroys-terrain: true
+  # Intruders in the memory hear a whisper (bliss:alternate) near a memory, at most every 20 s.
+  memory-proximity-sound: true
+
 gold:
   summon:
     # true = the Gold Gem can only be summoned by the Fragment Core ritual (hold the core,

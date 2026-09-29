@@ -5,7 +5,7 @@ api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://xoperr.dev
-softdepend: [WorldGuard, ProtocolLib]
+softdepend: [WorldGuard, ProtocolLib, Citizens]
 
 commands:
   bliss:
@@ -24,6 +24,13 @@ commands:
     description: Run the Villager event (disc ritual, lost souls, the last raid)
     usage: /<command> <start|end|phase|compass|villager|give>
     permission: blissgems.admin
+  goldendream:
+    description: Golden Dream event controls (ritual items, thunder, wake, memories, worlds)
+    usage: /<command> <give|thunder|wake|skip|walk|memory|nick|import|reset>
+    permission: blissgems.admin
+  alternate:
+    description: A dream memory lets out the whisper where they stand
+    usage: /<command>
   news:
     description: View the BlissGems server news board, respawn timers, and repair windows
     usage: /<command>
