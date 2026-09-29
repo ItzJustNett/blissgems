@@ -951,6 +951,26 @@ spawn-beacon:
     duration-minutes: 60
 
 # ==========================================
+# SPAWN RESTORATION PEDESTAL
+# ==========================================
+# Set it in-game: stand on the spot, /bliss pedestal set, then /bliss pedestal activate.
+# Repair ritual: drop a Repair Kit at the open pedestal, then throw 5 Energy Bottles into
+#   the beacon -> everyone within 8 blocks gets +1 energy five times, 10 s apart.
+# Restoration ritual: while BROKEN, drop a Restoration Book, throw 5 Energy Bottles, then
+#   stand still on the beacon -> back to Pristine with a freshly rolled gem.
+# Block layout lives in pedestal_layout.yml ("open" and "closed" states).
+pedestal:
+  deposit-cooldown-seconds: 30
+  # Fallback location used only when no pedestal has been set in-game.
+  # /bliss pedestal export prints the values to paste here.
+  fixed:
+    enabled: false
+    world: world
+    x: 0
+    y: 64
+    z: 0
+
+# ==========================================
 # BROKEN MYTHIC RESPAWN
 # ==========================================
 mythic-respawn:

@@ -96,6 +96,8 @@ import dev.xoperr.blissgems.managers.MaceVillagerManager;
 import dev.xoperr.blissgems.managers.EnchantLimiterManager;
 import dev.xoperr.blissgems.managers.MythicWorldEventManager;
 import dev.xoperr.blissgems.managers.SpawnBeaconManager;
+import dev.xoperr.blissgems.pedestal.PedestalListener;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
 import dev.xoperr.blissgems.managers.EndSkyVisualManager;
 import dev.xoperr.blissgems.listeners.MaceVillagerListener;
 import dev.xoperr.blissgems.listeners.EnchantLimiterListener;
@@ -167,6 +169,7 @@ implements BlissGemsAPI {
     private MythicWorldEventManager mythicWorldEventManager;
     private SpawnBeaconManager spawnBeaconManager;
     private EndSkyVisualManager endSkyVisualManager;
+    private PedestalManager pedestalManager;
     private Metrics metrics;
 
     public void onEnable() {
@@ -503,6 +506,9 @@ implements BlissGemsAPI {
             this.enchantLimiterManager = new EnchantLimiterManager(this);
             this.mythicWorldEventManager = new MythicWorldEventManager(this);
             this.endSkyVisualManager = new EndSkyVisualManager(this);
+            this.pedestalManager = new PedestalManager(this);
+            this.getServer().getPluginManager().registerEvents((Listener)new PedestalListener(this, this.pedestalManager), (Plugin)this);
+            this.getServer().getPluginManager().registerEvents((Listener)this.pedestalManager.revive(), (Plugin)this);
         }
         catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: World/Villager/Beacon Managers ===");
@@ -584,6 +590,9 @@ implements BlissGemsAPI {
         }
         if (this.endSkyVisualManager != null) {
             this.endSkyVisualManager.cleanup();
+        }
+        if (this.pedestalManager != null) {
+            this.pedestalManager.shutdown();
         }
         if (this.pluginMessagingManager != null) {
             this.pluginMessagingManager.shutdown();
@@ -935,6 +944,10 @@ implements BlissGemsAPI {
 
     public EndSkyVisualManager getEndSkyVisualManager() {
         return this.endSkyVisualManager;
+    }
+
+    public PedestalManager getPedestalManager() {
+        return this.pedestalManager;
     }
 
     private void registerBuiltInGems() {

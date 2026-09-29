@@ -74,6 +74,9 @@ implements Listener {
         if (itemId == null || !itemId.equals("repair_kit")) {
             return;
         }
+        if (this.plugin.getPedestalManager() != null && this.plugin.getPedestalManager().isNearPedestal(player.getLocation(), 8.0)) {
+            return;
+        }
         new BukkitRunnable(){
 
             public void run() {
@@ -127,6 +130,9 @@ implements Listener {
                     return;
                 }
                 Location itemLoc = item.getLocation();
+                if (RepairKitListener.this.plugin.getPedestalManager() != null && RepairKitListener.this.plugin.getPedestalManager().isNearPedestal(itemLoc, 8.0)) {
+                    return;
+                }
                 Block blockBelow = itemLoc.clone().subtract(0.0, 1.0, 0.0).getBlock();
                 if (blockBelow.getType() == Material.BEACON) {
                     item.remove();

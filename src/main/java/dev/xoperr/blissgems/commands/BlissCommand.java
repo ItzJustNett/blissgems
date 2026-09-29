@@ -51,7 +51,10 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
+import dev.xoperr.blissgems.pedestal.PedestalState;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
@@ -280,6 +283,10 @@ TabCompleter {
             }
             case "smp": {
                 this.handleSmp(sender, args);
+                break;
+            }
+            case "pedestal": {
+                this.handlePedestal(sender, args);
                 break;
             }
             case "clearcds": {
@@ -1926,6 +1933,62 @@ TabCompleter {
         }
     }
 
+    private void handlePedestal(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+        PedestalManager pedestal = this.plugin.getPedestalManager();
+        if (pedestal == null) {
+            sender.sendMessage("\u00a7cThe pedestal system failed to load.");
+            return;
+        }
+        String sub = args.length < 2 ? "" : args[1].toLowerCase();
+        switch (sub) {
+            case "set": {
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage("\u00a7cOnly players can set the pedestal.");
+                    return;
+                }
+                pedestal.setPedestal(((Player)sender).getLocation().clone().add(0.0, -1.0, 0.0));
+                sender.sendMessage(PedestalManager.color("&aPedestal location set (center is one block below you). Run /bliss pedestal activate to build it."));
+                return;
+            }
+            case "activate": {
+                if (!pedestal.activate()) {
+                    sender.sendMessage(PedestalManager.color("&cPedestal location not set. Run /bliss pedestal set first."));
+                    return;
+                }
+                Bukkit.broadcastMessage(PedestalManager.color("&6 The Pedestal Is Now &b&lOpen"));
+                return;
+            }
+            case "deactivate": {
+                pedestal.deactivate();
+                Bukkit.broadcastMessage(PedestalManager.color("&6 The Pedestal Has Closed &c&l"));
+                return;
+            }
+            case "status": {
+                PedestalState st = pedestal.state();
+                Location main = st.mainLoc();
+                sender.sendMessage(PedestalManager.color("&7Location: &f" + (main == null ? "not set" : main.getWorld().getName() + " " + main.getBlockX() + " " + main.getBlockY() + " " + main.getBlockZ())));
+                sender.sendMessage(PedestalManager.color("&7Active: &f" + st.active() + " &7Beacon: &f" + st.beacon() + " &7Ritual: &f" + st.ritual() + " &7Count: &f" + st.count() + "/" + PedestalState.DEPOSITS_REQUIRED + " &7Durability: &f" + st.durability() + "/" + PedestalState.MAX_DURABILITY));
+                return;
+            }
+            case "export": {
+                Location main = pedestal.state().mainLoc();
+                if (main == null) {
+                    sender.sendMessage(PedestalManager.color("&cPedestal location not set."));
+                    return;
+                }
+                sender.sendMessage(PedestalManager.color("&7pedestal.fixed: &fworld: " + main.getWorld().getName() + ", x: " + main.getBlockX() + ", y: " + main.getBlockY() + ", z: " + main.getBlockZ()));
+                return;
+            }
+            default: {
+                sender.sendMessage("\u00a7cUsage: /bliss pedestal <set|activate|deactivate|status|export>");
+            }
+        }
+    }
+
     private void handleSmp(CommandSender sender, String[] args) {
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
@@ -2135,7 +2198,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("ability")) {
                 return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");
@@ -2165,6 +2228,9 @@ TabCompleter {
             }
             if (args[0].equalsIgnoreCase("smp")) {
                 return Arrays.asList("start");
+            }
+            if (args[0].equalsIgnoreCase("pedestal")) {
+                return Arrays.asList("set", "activate", "deactivate", "status", "export");
             }
             if (args[0].equalsIgnoreCase("goldgem")) {
                 return Arrays.asList("fill", "remove", "clear", "list");
