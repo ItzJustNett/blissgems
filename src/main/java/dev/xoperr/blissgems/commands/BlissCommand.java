@@ -293,6 +293,10 @@ TabCompleter {
                 this.handleDeps(sender);
                 break;
             }
+            case "unbounded": {
+                this.handleUnbounded(sender, args);
+                break;
+            }
             case "clearcds": {
                 this.handleClearCooldowns(sender, args);
                 break;
@@ -2222,8 +2226,11 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("unbounded")) {
+                return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            }
             if (args[0].equalsIgnoreCase("ability")) {
                 return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "set", "reset", "list");
             }
@@ -2322,6 +2329,48 @@ TabCompleter {
             return Arrays.asList("1", "2");
         }
         return completions.stream().filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase())).collect(Collectors.toList());
+    }
+
+    /**
+     * /bliss unbounded [player] - Astra's Unbounded without landing a hit: rides the player you are
+     * looking at (or the named one) within range. Same gem, energy, cooldown and trust rules.
+     */
+    private void handleUnbounded(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
+            player.sendMessage("\u00a75\ud83d\udd2e \u00a7cYou need the Astra gem to use Unbounded.");
+            return;
+        }
+        double range = this.plugin.getConfig().getDouble("abilities.astra-unbounded.range", 12.0);
+        Player target = null;
+        if (args.length > 1) {
+            target = Bukkit.getPlayerExact(args[1]);
+            if (target == null || target.getWorld() != player.getWorld() || target.getLocation().distance(player.getLocation()) > range) {
+                player.sendMessage("\u00a75\ud83d\udd2e \u00a7c" + args[1] + " is not within " + (int)range + " blocks.");
+                return;
+            }
+        } else {
+            org.bukkit.util.RayTraceResult hit = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), range, 0.6,
+                e -> e instanceof Player && !e.equals(player) && ((Player)e).getGameMode() != org.bukkit.GameMode.SPECTATOR);
+            if (hit != null) target = (Player)hit.getHitEntity();
+            if (target == null) {
+                player.sendMessage("\u00a75\ud83d\udd2e \u00a7cLook at a player within " + (int)range + " blocks, or name one: \u00a7f/bliss unbounded <player>");
+                return;
+            }
+        }
+        if (target.equals(player)) {
+            return;
+        }
+        if (this.plugin.getGemLockManager() != null && this.plugin.getGemLockManager().isLocked(player)) {
+            player.sendMessage("\u00a76\ua42c \u00a7c\u00a7oYour gem is locked!");
+            return;
+        }
+        if (this.plugin.getAstraUnbounded() != null) {
+            this.plugin.getAstraUnbounded().start(player, target);
+        }
     }
 
     /** Lists the optional plugins BlissGems can use and what each one unlocks. Nothing here is required. */

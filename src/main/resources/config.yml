@@ -395,6 +395,8 @@ abilities:
     duration: 60  # Seconds after the last kill before the bonus fades
 
   # Astra Projection settings (spectator mode scout)
+  astra-unbounded:
+    range: 12.0  # /bliss unbounded reaches the player you look at (or name) within this many blocks
   astra-projection:
     radius: 128  # Maximum distance from origin in blocks (8 chunks)
 
