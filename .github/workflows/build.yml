@@ -32,9 +32,26 @@ jobs:
           path: target/BlissGems-*.jar
           if-no-files-found: error
 
-      - name: Release
+      - name: Release (tag push)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          files: target/BlissGems-*.jar
+          generate_release_notes: true
+
+      # A push to a release branch named bliss/V<version> publishes release v<version>,
+      # creating the tag on that commit (for when tags can't be pushed directly).
+      - name: Release tag from branch
+        id: branchtag
+        if: startsWith(github.ref, 'refs/heads/bliss/V')
+        run: echo "tag=v${GITHUB_REF_NAME#bliss/V}" >> "$GITHUB_OUTPUT"
+
+      - name: Release (release branch)
+        if: startsWith(github.ref, 'refs/heads/bliss/V')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.branchtag.outputs.tag }}
+          name: BlissGems ${{ steps.branchtag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: target/BlissGems-*.jar
           generate_release_notes: true
