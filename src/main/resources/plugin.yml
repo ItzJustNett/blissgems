@@ -20,6 +20,10 @@ commands:
     description: Toggle forcing every player to 10 hearts on join
     usage: /<command> everyone <true|false>
     permission: blissgems.fixedhearts
+  blissevent:
+    description: Run the Villager event (disc ritual, lost souls, the last raid)
+    usage: /<command> <start|end|phase|compass|villager|give>
+    permission: blissgems.admin
   news:
     description: View the BlissGems server news board, respawn timers, and repair windows
     usage: /<command>

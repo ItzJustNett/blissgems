@@ -30,7 +30,7 @@ import org.bukkit.scoreboard.Team;
  * stand on the beacon to be lifted, spun through the gems and restored).
  */
 public final class PedestalManager {
-    private static final Pattern HEX = Pattern.compile("<##([0-9A-Fa-f]{6})>");
+    private static final Pattern HEX = Pattern.compile("<##?([0-9A-Fa-f]{6})>");
     private static final AtomicInteger GEN = new AtomicInteger();
 
     private final BlissGems plugin;

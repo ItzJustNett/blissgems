@@ -98,6 +98,9 @@ import dev.xoperr.blissgems.managers.MythicWorldEventManager;
 import dev.xoperr.blissgems.managers.SpawnBeaconManager;
 import dev.xoperr.blissgems.pedestal.PedestalListener;
 import dev.xoperr.blissgems.pedestal.PedestalManager;
+import dev.xoperr.blissgems.villagerevent.VillagerEventCommand;
+import dev.xoperr.blissgems.villagerevent.VillagerEventListener;
+import dev.xoperr.blissgems.villagerevent.VillagerEventManager;
 import dev.xoperr.blissgems.managers.EndSkyVisualManager;
 import dev.xoperr.blissgems.listeners.MaceVillagerListener;
 import dev.xoperr.blissgems.listeners.EnchantLimiterListener;
@@ -170,6 +173,7 @@ implements BlissGemsAPI {
     private SpawnBeaconManager spawnBeaconManager;
     private EndSkyVisualManager endSkyVisualManager;
     private PedestalManager pedestalManager;
+    private VillagerEventManager villagerEventManager;
     private Metrics metrics;
 
     public void onEnable() {
@@ -509,6 +513,11 @@ implements BlissGemsAPI {
             this.pedestalManager = new PedestalManager(this);
             this.getServer().getPluginManager().registerEvents((Listener)new PedestalListener(this, this.pedestalManager), (Plugin)this);
             this.getServer().getPluginManager().registerEvents((Listener)this.pedestalManager.revive(), (Plugin)this);
+            this.villagerEventManager = new VillagerEventManager(this);
+            this.getServer().getPluginManager().registerEvents((Listener)new VillagerEventListener(this, this.villagerEventManager), (Plugin)this);
+            VillagerEventCommand villagerEventCommand = new VillagerEventCommand(this.villagerEventManager);
+            this.getCommand("blissevent").setExecutor((CommandExecutor)villagerEventCommand);
+            this.getCommand("blissevent").setTabCompleter((TabCompleter)villagerEventCommand);
         }
         catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: World/Villager/Beacon Managers ===");
@@ -590,6 +599,9 @@ implements BlissGemsAPI {
         }
         if (this.endSkyVisualManager != null) {
             this.endSkyVisualManager.cleanup();
+        }
+        if (this.villagerEventManager != null) {
+            this.villagerEventManager.shutdown();
         }
         if (this.pedestalManager != null) {
             this.pedestalManager.shutdown();
@@ -948,6 +960,10 @@ implements BlissGemsAPI {
 
     public PedestalManager getPedestalManager() {
         return this.pedestalManager;
+    }
+
+    public VillagerEventManager getVillagerEventManager() {
+        return this.villagerEventManager;
     }
 
     private void registerBuiltInGems() {

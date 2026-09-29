@@ -971,6 +971,22 @@ pedestal:
     z: 0
 
 # ==========================================
+# VILLAGER EVENT (/blissevent)
+# ==========================================
+# 1) /bliss pedestal set + activate (the disc ritual runs over the pedestal)
+# 2) /blissevent compass set  - stand where the lost village should be
+# 3) /blissevent villager set <1|2|3> next to three villagers you hid around the world
+# 4) /blissevent start
+villager-event:
+  # Custom sounds from your resource pack; missing keys just play nothing.
+  disc-song-key: "bliss:village_clue"
+  # false = the disc spells the village coordinates out in a title instead of playing audio
+  clue-audio: true
+  lost-souls-audio: true
+  # Every raid wave's mob count is multiplied by this (0.05 - 3.0). 1.0 = wave 8 is ~110 raiders.
+  raid-mob-scale: 1.0
+
+# ==========================================
 # BROKEN MYTHIC RESPAWN
 # ==========================================
 mythic-respawn:
