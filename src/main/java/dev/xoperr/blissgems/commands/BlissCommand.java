@@ -1801,7 +1801,7 @@ TabCompleter {
         }
         Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasGemType(player, GemType.FLUX)) {
-            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Charging Station!");
+            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Watt Deposit!");
             return;
         }
         if (this.plugin.getFluxEnergyManager() != null) {

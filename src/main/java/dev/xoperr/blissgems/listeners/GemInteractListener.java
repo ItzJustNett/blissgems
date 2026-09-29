@@ -381,7 +381,7 @@ implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+        if (dev.xoperr.blissgems.managers.FluxEnergyManager.isDeposit(event.getView().getTopInventory())) {
             if (this.plugin.getFluxEnergyManager() != null) {
                 this.plugin.getFluxEnergyManager().onInventoryClick(event);
             }
@@ -712,7 +712,7 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getPlayer();
-        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+        if (dev.xoperr.blissgems.managers.FluxEnergyManager.isDeposit(event.getInventory())) {
             if (this.plugin.getFluxEnergyManager() != null) {
                 this.plugin.getFluxEnergyManager().onInventoryClose(event);
             }

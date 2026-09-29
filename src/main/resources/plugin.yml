@@ -31,6 +31,12 @@ commands:
   alternate:
     description: A dream memory lets out the whisper where they stand
     usage: /<command>
+  startcharging:
+    description: Start moving deposited watts into your Flux gem's beam charge
+    usage: /<command>
+  stopcharging:
+    description: Stop charging your Flux gem
+    usage: /<command>
   news:
     description: View the BlissGems server news board, respawn timers, and repair windows
     usage: /<command>

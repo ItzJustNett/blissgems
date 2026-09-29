@@ -743,6 +743,24 @@ implements BlissGemsAPI {
         this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
         this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
         NewsCommand newsCommand = new NewsCommand(this);
+        for (String name : new String[]{"startcharging", "stopcharging"}) {
+            if (this.getCommand(name) == null) continue;
+            boolean start = name.equals("startcharging");
+            this.getCommand(name).setExecutor((sender, command, label, args) -> {
+                if (!(sender instanceof org.bukkit.entity.Player p)) {
+                    sender.sendMessage("Player only.");
+                    return true;
+                }
+                if (this.fluxEnergyManager != null) this.fluxEnergyManager.setCharging(p, start);
+                return true;
+            });
+        }
+        this.getServer().getPluginManager().registerEvents(new Listener() {
+            @org.bukkit.event.EventHandler
+            public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+                if (BlissGems.this.fluxEnergyManager != null) BlissGems.this.fluxEnergyManager.onJoin(event.getPlayer());
+            }
+        }, (Plugin)this);
         if (this.getCommand("news") != null) {
             this.getCommand("news").setExecutor((CommandExecutor)newsCommand);
         }
