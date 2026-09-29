@@ -486,8 +486,8 @@ abilities:
   damage:
     astra-daggers: 12.0  # 6 hearts (tripled from 4.0)
     fire-fireball: 9.0
-    flux-beam-base: 4.0  # 2 hearts uncharged (scales to 12.0 HP / 6 hearts at 100% charge)
-    flux-beam-max-armor-damage: 100  # Durability damage at 100% charge
+    flux-beam-base: 10.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
+    flux-beam-max-armor-damage: 250  # 2.5x stronger
     flux-shocking: 3.0
     fire-campfire: 2.0  # Damage per second to enemies in range
     fire-meteor-shower: 8.0  # Damage per meteor impact

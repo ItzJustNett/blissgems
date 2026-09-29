@@ -1,5 +1,10 @@
 # Changelog
 
+## BlissGems 5.0.1
+
+### Changed
+- Flux Beam is now ~2.5x stronger: base damage 4 → 10 HP (up to 30 HP at full charge), and max armor durability damage 100 → 250.
+
 ## BlissGems 5.0.0
 
 ### Fixed
