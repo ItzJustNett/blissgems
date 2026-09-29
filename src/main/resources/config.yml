@@ -226,10 +226,31 @@ passives:
       t2: []
   # Tier-specific passive values (tier1 = weaker, tier2 = stronger)
   astra:
+    # PHASING: an attack (melee, arrows, explosions, magic) may pass through you. You then blink
+    # out for phase-ticks: every hit misses, you turn invisible and your gear vanishes for others.
+    phase-cooldown-seconds: 8     # after a phase, no new phase for this long
+    phase-hides-gear: true        # hide armour + held items from other players while phased
+    # SOUL CAPTURE (sneak + hit/right-click a mob): only mobs worn below this share of their health,
+    # and no bigger than the tier's capture-max-health. The gem holds 2 souls.
+    capture-health-fraction: 0.5
+    # SOUL GUARD: a hit that would leave you at trigger-health (HP) or less burns a captured soul
+    # instead - the hit misses, you phase and heal.
+    soul-guard:
+      enabled: true
+      trigger-health: 4.0         # 2 hearts
+      cooldown-seconds: 60
     tier1:
-      phase-chance: 0.05  # 5% chance to phase through attacks
+      phase-chance: 0.05          # 5% of attacks
+      phase-ticks: 15             # 0.75 s intangible
+      soul-guard-heal: 4.0        # HP healed when a soul takes the blow
+      soul-max-bonus: 4.0         # most bonus max HP Soul Absorption can stack (2 hearts)
+      capture-max-health: 30.0    # biggest mob you can bind (zombies, skeletons, spiders...)
     tier2:
-      phase-chance: 0.08  # 8% chance to phase through attacks
+      phase-chance: 0.08          # 8% of attacks
+      phase-ticks: 20             # 1 s intangible
+      soul-guard-heal: 8.0
+      soul-max-bonus: 8.0         # 4 hearts
+      capture-max-health: 100.0   # up to iron golems and ravagers
 
   life:
     tier1:
@@ -365,9 +386,11 @@ abilities:
 
   # Astra Soul Absorption settings (temporary max hearts on kill)
   soul-absorption:
-    mob-kill-hearts: 4.0  # HP added on mob kill (4.0 = 2 hearts)
-    player-kill-hearts: 10.0  # HP added on player kill (10.0 = 5 hearts)
-    duration: 60  # Duration in seconds before the bonus hearts expire
+    # Kills fill one shared pool of bonus max HP (capped per tier: passives.astra.tierN.soul-max-bonus).
+    # Every kill refreshes the timer; when it runs out the whole bonus fades.
+    mob-kill-hearts: 2.0  # HP added on mob kill (2.0 = 1 heart)
+    player-kill-hearts: 6.0  # HP added on player kill (6.0 = 3 hearts)
+    duration: 60  # Seconds after the last kill before the bonus fades
 
   # Astra Projection settings (spectator mode scout)
   astra-projection:

@@ -68,59 +68,108 @@ public class SoulManager {
         this.capturedMobKey = new NamespacedKey((Plugin)plugin, "captured_mob");
     }
 
-    public void absorbSoul(Player player, Entity killedEntity) {
-        boolean isPlayer = killedEntity instanceof Player;
-        double bonusHealth = isPlayer ? this.plugin.getConfig().getDouble("abilities.soul-absorption.player-kill-hearts", 10.0) : this.plugin.getConfig().getDouble("abilities.soul-absorption.mob-kill-hearts", 4.0);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.soul-absorption.duration", 60);
-        AttributeInstance maxHealthAttr = player.getAttribute(Attributes.maxHealth());
-        if (maxHealthAttr == null) {
-            return;
-        }
-        UUID modifierUuid = UUID.randomUUID();
-        NamespacedKey modifierKey = new NamespacedKey((Plugin)this.plugin, "soul-absorb-" + modifierUuid.toString().replace("-", ""));
-        ++this.soulModifierCounter;
-        AttributeModifier modifier = new AttributeModifier(modifierUuid, modifierKey.toString(), bonusHealth, AttributeModifier.Operation.ADD_NUMBER);
-        maxHealthAttr.addModifier(modifier);
-        this.activeSoulModifiers.computeIfAbsent(player.getUniqueId(), k -> new ArrayList()).add(modifierUuid);
-        this.persistModifierUuid(player.getUniqueId(), modifierUuid);
-        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
-            List<UUID> tracked;
-            if (player.isOnline()) {
-                maxHealthAttr.removeModifier(modifier);
-                double newMax = maxHealthAttr.getValue();
-                if (player.getHealth() > newMax) {
-                    player.setHealth(newMax);
-                }
-            }
-            if ((tracked = this.activeSoulModifiers.get(player.getUniqueId())) != null) {
-                tracked.remove(modifierUuid);
-                if (tracked.isEmpty()) {
-                    this.activeSoulModifiers.remove(player.getUniqueId());
-                }
-            }
-            this.unpersistModifierUuid(player.getUniqueId(), modifierUuid);
-        }, (long)durationSeconds * 20L);
-        player.getWorld().spawnParticle(Particle.SOUL, player.getLocation().add(0.0, 1.0, 0.0), 6, 0.5, 0.5, 0.5, 0.05);
-        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, player.getLocation().add(0.0, 1.0, 0.0), 4, 0.5, 0.5, 0.5, 0.0);
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.5f);
-        player.playSound(player.getLocation(), Sound.BLOCK_SOUL_SAND_BREAK, 1.0f, 1.5f);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, durationSeconds * 20, 0, false, true, true));
-        String entityName = isPlayer ? ((Player)killedEntity).getName() : killedEntity.getType().toString().toLowerCase().replace("_", " ");
-        player.sendMessage("\u00a7d\u00a7oAbsorbed soul from " + entityName + "! +" + bonusHealth / 2.0 + " hearts for " + durationSeconds + "s");
+    private final Map<UUID, Double> soulBonus = new HashMap<UUID, Double>();
+    private final Map<UUID, AttributeModifier> soulModifier = new HashMap<UUID, AttributeModifier>();
+    private final Map<UUID, org.bukkit.scheduler.BukkitTask> soulExpiry = new HashMap<UUID, org.bukkit.scheduler.BukkitTask>();
+
+    private int astraTier(Player player) {
+        return Math.max(1, this.plugin.getGemManager().getTierFor(player, dev.xoperr.blissgems.utils.GemType.ASTRA));
     }
 
+    /**
+     * Soul Absorption: kills feed a single, capped pool of bonus max health that fades after the
+     * duration (each kill refreshes it). Mob kills give a little, player kills a lot; the tier sets
+     * the cap, so farming mobs can no longer stack hearts without limit.
+     */
+    public void absorbSoul(Player player, Entity killedEntity) {
+        boolean isPlayer = killedEntity instanceof Player;
+        double gain = isPlayer ? this.plugin.getConfig().getDouble("abilities.soul-absorption.player-kill-hearts", 6.0) : this.plugin.getConfig().getDouble("abilities.soul-absorption.mob-kill-hearts", 2.0);
+        double cap = this.plugin.getConfig().getDouble("passives.astra.tier" + this.astraTier(player) + ".soul-max-bonus", 8.0);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.soul-absorption.duration", 60);
+        AttributeInstance maxHealthAttr = player.getAttribute(Attributes.maxHealth());
+        if (maxHealthAttr == null || gain <= 0.0 || cap <= 0.0) {
+            return;
+        }
+        UUID id = player.getUniqueId();
+        double before = this.soulBonus.getOrDefault(id, 0.0);
+        double total = Math.min(cap, before + gain);
+        if (total > before) {
+            AttributeModifier old = this.soulModifier.remove(id);
+            if (old != null) {
+                maxHealthAttr.removeModifier(old);
+                this.unpersistModifierUuid(id, old.getUniqueId());
+            }
+            UUID modifierUuid = UUID.randomUUID();
+            AttributeModifier modifier = new AttributeModifier(modifierUuid, "soul-absorb-" + modifierUuid.toString().replace("-", ""), total, AttributeModifier.Operation.ADD_NUMBER);
+            maxHealthAttr.addModifier(modifier);
+            this.soulModifier.put(id, modifier);
+            this.soulBonus.put(id, total);
+            this.persistModifierUuid(id, modifierUuid);
+            player.setHealth(Math.min(maxHealthAttr.getValue(), player.getHealth() + (total - before)));
+        }
+        org.bukkit.scheduler.BukkitTask prev = this.soulExpiry.remove(id);
+        if (prev != null) {
+            prev.cancel();
+        }
+        this.soulExpiry.put(id, this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> this.fadeSoulBonus(player), (long)durationSeconds * 20L));
+        player.getWorld().spawnParticle(Particle.SOUL, player.getLocation().add(0.0, 1.0, 0.0), 6, 0.5, 0.5, 0.5, 0.05);
+        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, player.getLocation().add(0.0, 1.0, 0.0), 4, 0.5, 0.5, 0.5, 0.0);
+        player.playSound(player.getLocation(), Sound.BLOCK_SOUL_SAND_BREAK, 1.0f, 1.5f);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 80, 0, false, true, true));
+        player.sendActionBar(dev.xoperr.blissgems.pedestal.PedestalManager.color("&5\u2726 &dSoul absorbed &7(" + fmtHearts(total) + "/" + fmtHearts(cap) + "\u2764 for " + durationSeconds + "s)"));
+    }
+
+    private static String fmtHearts(double hp) {
+        double h = hp / 2.0;
+        return h == Math.floor(h) ? String.valueOf((int)h) : String.valueOf(h);
+    }
+
+    private void fadeSoulBonus(Player player) {
+        UUID id = player.getUniqueId();
+        this.soulExpiry.remove(id);
+        this.soulBonus.remove(id);
+        AttributeModifier modifier = this.soulModifier.remove(id);
+        if (modifier == null) {
+            return;
+        }
+        this.unpersistModifierUuid(id, modifier.getUniqueId());
+        AttributeInstance attr = player.getAttribute(Attributes.maxHealth());
+        if (player.isOnline() && attr != null) {
+            attr.removeModifier(modifier);
+            if (player.getHealth() > attr.getValue()) {
+                player.setHealth(attr.getValue());
+            }
+        }
+    }
+
+    /**
+     * Binds a mob's soul into the gem (2 slots). The mob must be worn down to half health, and its
+     * max health must fit the tier (T1 small mobs, T2 up to golems/ravagers by default).
+     */
     public boolean captureMob(Player player, LivingEntity mob) {
         if (mob instanceof Player) {
             player.sendMessage("\u00a7c\u00a7oCannot capture players!");
             return false;
         }
-        List souls = this.playerSouls.computeIfAbsent(player.getUniqueId(), k -> new ArrayList());
+        List<CapturedMob> souls = this.playerSouls.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<CapturedMob>());
         if (souls.size() >= 2) {
             player.sendMessage("\u00a7c\u00a7oYour gem is full! (Max 2 souls)");
             return false;
         }
         if (!this.isCapturable(mob)) {
             player.sendMessage("\u00a7c\u00a7oThis entity cannot be captured!");
+            return false;
+        }
+        AttributeInstance mobMax = mob.getAttribute(Attributes.maxHealth());
+        double max = mobMax != null ? mobMax.getValue() : mob.getHealth();
+        double limit = this.plugin.getConfig().getDouble("passives.astra.tier" + this.astraTier(player) + ".capture-max-health", 40.0);
+        if (max > limit) {
+            player.sendMessage("\u00a75\ud83d\udd2e \u00a7cThe " + new CapturedMob(mob.getType(), null).getDisplayName() + " is too great to bind.");
+            return false;
+        }
+        double fraction = this.plugin.getConfig().getDouble("passives.astra.capture-health-fraction", 0.5);
+        if (mob.getHealth() > max * fraction) {
+            player.sendMessage("\u00a75\ud83d\udd2e \u00a77Weaken it first \u00a78(below " + (int)Math.round(fraction * 100.0) + "% health)");
             return false;
         }
         CapturedMob capturedMob = new CapturedMob(mob.getType(), mob.getCustomName());
@@ -131,9 +180,18 @@ public class SoulManager {
         mobLoc.getWorld().spawnParticle(Particle.WITCH, mobLoc, 30, 0.5, 0.5, 0.5, 0.0);
         player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1.0f, 2.0f);
         String mobName = capturedMob.getDisplayName();
-        player.sendMessage("\u00a7d\u00a7lSoul Captured! \u00a7d\u00a7oCaptured " + mobName + " (" + souls.size() + "/2)");
+        player.sendMessage("\u00a75\ud83d\udd2e \u00a7dCaptured " + mobName + " soul. \u00a77(" + souls.size() + "/2)");
         this.lastCaptureTimes.put(player.getUniqueId(), System.currentTimeMillis());
         return true;
+    }
+
+    /** Takes the most recently captured soul out of the gem (used by Soul Guard), or null. */
+    public CapturedMob consumeSoul(Player player) {
+        List<CapturedMob> souls = this.playerSouls.get(player.getUniqueId());
+        if (souls == null || souls.isEmpty()) {
+            return null;
+        }
+        return souls.remove(souls.size() - 1);
     }
 
     public void releaseAllSouls(Player player) {
@@ -200,6 +258,12 @@ public class SoulManager {
             player.setHealth(max);
         }
         this.activeSoulModifiers.remove(player.getUniqueId());
+        this.soulBonus.remove(player.getUniqueId());
+        this.soulModifier.remove(player.getUniqueId());
+        org.bukkit.scheduler.BukkitTask expiry = this.soulExpiry.remove(player.getUniqueId());
+        if (expiry != null) {
+            expiry.cancel();
+        }
         this.clearPersistedModifierUuids(player.getUniqueId());
         if (!toRemove.isEmpty()) {
             this.plugin.getLogger().info("[SoulManager] Removed " + toRemove.size() + " stale soul-absorb modifier(s) from " + player.getName());

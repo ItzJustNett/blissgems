@@ -695,6 +695,7 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.AstraPhasingListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);

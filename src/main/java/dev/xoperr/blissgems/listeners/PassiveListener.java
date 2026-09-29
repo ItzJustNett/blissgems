@@ -132,30 +132,6 @@ implements Listener {
     }
 
     @EventHandler
-    public void onEntityDamage(EntityDamageByEntityEvent event) {
-        Entity entity = event.getEntity();
-        if (!(entity instanceof Player)) {
-            return;
-        }
-        Player player = (Player)entity;
-        if (!this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.ASTRA)) {
-            return;
-        }
-        if (!this.canUsePassives(player)) {
-            return;
-        }
-        int tier = this.plugin.getGemManager().getTierFor(player, GemType.ASTRA);
-        double phaseChance = this.plugin.getConfigManager().getPhaseChance(tier);
-        if (Math.random() < phaseChance) {
-            event.setCancelled(true);
-            player.sendMessage("\u00a7d\u00a7oYou phased through the attack!");
-            if (this.plugin.getAchievementManager() != null && player.getHealth() <= event.getDamage()) {
-                this.plugin.getAchievementManager().unlock(player, Achievement.SAVED_BY_THE_DICE);
-            }
-        }
-    }
-
-    @EventHandler
     public void onPlayerDamageEntity(EntityDamageByEntityEvent event) {
         Entity entity = event.getDamager();
         if (!(entity instanceof Player)) {
