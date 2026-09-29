@@ -5,7 +5,7 @@ api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://xoperr.dev
-softdepend: [WorldGuard, ProtocolLib, Citizens]
+softdepend: [WorldGuard, ProtocolLib, Citizens, Geyser-Spigot]
 
 commands:
   bliss:

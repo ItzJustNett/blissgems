@@ -1177,6 +1177,8 @@ public final class FragmentCoreRitual implements Listener {
      * just in front of their eyes, fading out, hidden from everyone else.
      */
     void screenFlash(Player p, int r, int g, int b, int hold, int total) {
+        // Bedrock (via Geyser) can't see display entities: use its camera fade instead
+        if (BedrockBridge.fade(p, r, g, b, 0f, hold / 20f, Math.max(0, total - hold) / 20f)) return;
         UUID id = p.getUniqueId();
         Location eye = p.getEyeLocation();
         TextDisplay td = p.getWorld().spawn(eye.add(eye.getDirection().multiply(0.45)), TextDisplay.class, d -> {

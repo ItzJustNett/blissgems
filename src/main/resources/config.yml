@@ -587,6 +587,26 @@ golden-dream:
   mass-destroys-terrain: true
   # Intruders in the memory hear a whisper (bliss:alternate) near a memory, at most every 20 s.
   memory-proximity-sound: true
+  # The dream's skies, made without any resource pack so Java and Bedrock players both see them.
+  sky:
+    # Installs the "bliss_skies" datapack into the main world (needs one restart the first time).
+    # It turns the vanilla the_void biome's sky, fog and water gold; the dream pocket uses that biome.
+    datapack: true
+    pocket-sky-color: "#F2B84B"
+    pocket-fog-color: "#FFE3A3"
+    pocket-water-color: "#E8B04A"
+    pocket-water-fog-color: "#8A5A10"
+    # Frozen per-player time of day (0-24000). 12600 = golden sunset, 12900 = dusk, 18000 = midnight.
+    golden-hour-time: 12600   # near the ritual and the golden mass
+    memory-time: 12900        # inside the memory world
+    storm-time: 18000         # while the great thunder hangs (with rain)
+    # Bedrock players (through Geyser) also get one of the Bedrock client's built-in fogs.
+    # Any vanilla Bedrock fog id works; leave empty for none.
+    bedrock-fog:
+      golden: "minecraft:fog_mesa"
+      pocket: "minecraft:fog_mesa"
+      memory: "minecraft:fog_basalt_deltas"
+      storm: "minecraft:fog_the_end"
 
 gold:
   summon:

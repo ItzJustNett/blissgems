@@ -41,6 +41,8 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.block.Biome;
+import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
 import org.bukkit.inventory.ItemStack;
@@ -205,7 +207,7 @@ public final class GoldenDreamWorld implements Listener {
         this.pocket.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
         this.pocket.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         this.pocket.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
-        this.pocket.setFullTime(1920870016L);
+        this.pocket.setFullTime(6000L);
         this.pocket.setSpawnLocation(0, 65, 0);
         return this.pocket;
     }
@@ -265,7 +267,7 @@ public final class GoldenDreamWorld implements Listener {
         this.gradedDay.remove(id);
     }
 
-    /** Keeps memory-world players on the shader's "memory" (or "storm") day and sprinkles light motes. */
+    /** Keeps memory-world players under an endless dusk (a night storm while the thunder hangs) and sprinkles light motes. */
     private void grade() {
         if (Bukkit.getCurrentTick() % 20 == 0) this.proximityCue();
         boolean storming = Bukkit.getCurrentTick() < this.stormUntil;
@@ -273,16 +275,14 @@ public final class GoldenDreamWorld implements Listener {
             if (!this.ours(p.getWorld())) {
                 if (this.graded.remove(p.getUniqueId())) {
                     this.gradedDay.remove(p.getUniqueId());
-                    p.resetPlayerTime();
+                    DreamSky.reset(p);
                 }
                 continue;
             }
-            long worldDay = p.getWorld().getFullTime() / 24000L;
-            long day = storming ? SignatureClock.STORM_DAY : SignatureClock.MEMORY_DAY;
-            long key = worldDay * 2 + (storming ? 1 : 0);
+            long key = storming ? 1L : 0L;
             Long last = this.gradedDay.get(p.getUniqueId());
             if (this.graded.add(p.getUniqueId()) || last == null || last != key) {
-                p.setPlayerTime((day - worldDay) * 24000L, true);
+                DreamSky.memory(p, storming);
                 this.gradedDay.put(p.getUniqueId(), key);
             }
             int phase = Bukkit.getCurrentTick() % 5;
@@ -323,11 +323,11 @@ public final class GoldenDreamWorld implements Listener {
     void enter(Player p, long prevOffset, boolean prevRelative, boolean starter) {
         World pocket = this.pocket();
         if (pocket == null) {
-            p.setPlayerTime(prevOffset, prevRelative);
+            DreamSky.restore(p, prevOffset, prevRelative);
             return;
         }
         if (this.intruded(p.getUniqueId())) {
-            p.setPlayerTime(prevOffset, prevRelative);
+            DreamSky.restore(p, prevOffset, prevRelative);
             Location at = this.arrival();
             if (at != null) {
                 p.setVelocity(new Vector());
@@ -367,11 +367,11 @@ public final class GoldenDreamWorld implements Listener {
                     this.cancel();
                     return;
                 }
-                if (s.t <= 30) {
-                    SignatureClock.send(pl, SignatureClock.DREAM_DAY, SignatureClock.DREAM_TOD + (30 - s.t));
-                } else if (!s.clockBack) {
-                    pl.resetPlayerTime();
+                if (s.t == 0) {
+                    DreamSky.pocket(pl);
                     s.clockBack = true;
+                } else if (s.t == 30) {
+                    DreamSky.openEyes(pl);
                 }
                 pocket.spawnParticle(Particle.ASH, pl.getLocation().add(0, 1.5, 0), 4, 12.0, 7.2, 12.0, 0.0, null, true);
                 keepOnWalkway(pl);
@@ -566,7 +566,7 @@ public final class GoldenDreamWorld implements Listener {
             this.unlock(p, s);
         }
         this.graded.remove(p.getUniqueId());
-        p.resetPlayerTime();
+        DreamSky.reset(p);
         try {
             String inv = this.data.getString(k + ".inv");
             if (inv != null) p.getInventory().setContents(decode(inv));
@@ -638,7 +638,7 @@ public final class GoldenDreamWorld implements Listener {
             Player p = Bukkit.getPlayer(s.pid);
             if (p != null) {
                 this.unlock(p, s);
-                p.setPlayerTime(s.prevOffset, s.prevRel);
+                DreamSky.restore(p, s.prevOffset, s.prevRel);
             }
         }
         this.sessions.clear();
@@ -647,7 +647,7 @@ public final class GoldenDreamWorld implements Listener {
         if (this.gradeTask != null) this.gradeTask.cancel();
         this.gradeTask = null;
         this.graded.clear();
-        for (Player p : Bukkit.getOnlinePlayers()) if (p.getWorld() == this.pocket || this.ours(p.getWorld())) p.resetPlayerTime();
+        for (Player p : Bukkit.getOnlinePlayers()) if (p.getWorld() == this.pocket || this.ours(p.getWorld())) DreamSky.reset(p);
     }
 
     // ---- events ----
@@ -660,7 +660,7 @@ public final class GoldenDreamWorld implements Listener {
         boolean frozen = p.getWalkSpeed() == 0.0f && jump != null && jump.getBaseValue() <= 0.0;
         if ((p.getPersistentDataContainer().has(this.locked, PersistentDataType.BYTE) || frozen) && !this.sessions.containsKey(p.getUniqueId())) {
             this.unlockDefaults(p);
-            p.resetPlayerTime();
+            DreamSky.reset(p);
             this.plugin.getLogger().info("Golden Dream: undid a leftover movement lock on " + p.getName());
         }
         if (!p.hasGravity()) {
@@ -712,6 +712,7 @@ public final class GoldenDreamWorld implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         Player p = event.getPlayer();
+        DreamSky.forget(p.getUniqueId());
         this.graded.remove(p.getUniqueId());
         this.gradedDay.remove(p.getUniqueId());
         Session s = this.sessions.remove(p.getUniqueId());
@@ -789,7 +790,7 @@ public final class GoldenDreamWorld implements Listener {
                 if (s != null && s.task != null) s.task.cancel();
                 if (p.getWalkSpeed() == 0.0f) this.unlockDefaults(p);
                 this.graded.remove(p.getUniqueId());
-                p.resetPlayerTime();
+                DreamSky.reset(p);
                 p.teleport(spawn);
                 p.setFallDistance(0);
             }
@@ -912,6 +913,22 @@ public final class GoldenDreamWorld implements Listener {
         @Override public boolean shouldGenerateDecorations() { return false; }
         @Override public boolean shouldGenerateMobs() { return false; }
         @Override public boolean shouldGenerateStructures() { return false; }
+
+        /** All the_void: the bliss_skies datapack paints that biome's sky gold. */
+        @Override
+        public BiomeProvider getDefaultBiomeProvider(WorldInfo info) {
+            return new BiomeProvider() {
+                @Override
+                public Biome getBiome(WorldInfo w, int x, int y, int z) {
+                    return Biome.THE_VOID;
+                }
+
+                @Override
+                public List<Biome> getBiomes(WorldInfo w) {
+                    return List.of(Biome.THE_VOID);
+                }
+            };
+        }
 
         @Override
         public Location getFixedSpawnLocation(World world, Random random) {

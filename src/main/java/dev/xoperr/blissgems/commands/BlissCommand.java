@@ -2309,6 +2309,7 @@ TabCompleter {
         sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems optional plugins" + org.bukkit.ChatColor.GRAY + " (none are required)");
         String[][] deps = {
             {"Citizens", "NPC memories in the Golden Dream (/goldendream memory npc)"},
+            {"Geyser-Spigot", "Bedrock players: dream fog and screen fades (skies/time/weather work without it)"},
             {"WorldGuard", "region flags that block abilities"},
             {"ProtocolLib", "extra packet effects"},
         };

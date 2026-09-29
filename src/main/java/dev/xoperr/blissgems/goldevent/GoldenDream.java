@@ -7,7 +7,8 @@ import org.bukkit.plugin.PluginManager;
 
 /**
  * The Golden Dream event, wired together. Everything works without other plugins; only NPC
- * "memories" (bots standing in for staff) need Citizens, and ask for it when used.
+ * "memories" (bots standing in for staff) need Citizens, and ask for it when used. Geyser, when
+ * present, adds Bedrock fog and screen fades.
  */
 public final class GoldenDream {
     private final BlissGems plugin;
@@ -20,6 +21,8 @@ public final class GoldenDream {
 
     public GoldenDream(BlissGems plugin, FragmentCoreRitual fx) {
         this.plugin = plugin;
+        DreamSky.load(plugin);
+        SkyDatapack.install(plugin);
         this.tabList = new DreamTabList(plugin);
         this.nicks = new NickManager(plugin, this);
         this.roster = new MemoryRoster(plugin, this);

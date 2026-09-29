@@ -323,22 +323,22 @@ final class GoldenDreamMass {
         }
     }
 
-    /** Players within reach see the world through the pack's gold POV tint. */
+    /** Players within reach see a frozen golden-hour sky (and golden fog on Bedrock). */
     private void tickVeils() {
         for (Iterator<UUID> it = this.veiled.iterator(); it.hasNext(); ) {
             UUID id = it.next();
             Player p = Bukkit.getPlayer(id);
             if (p != null && p.isOnline() && p.getWorld() == this.centre.getWorld() && p.getLocation().distanceSquared(this.centre) <= PULL_REACH * PULL_REACH) {
-                SignatureClock.send(p, SignatureClock.POV_DAY, SignatureClock.POV_CODE);
+                DreamSky.golden(p);
                 continue;
             }
             Prev prev = this.clocks.remove(id);
-            if (p != null && prev != null) p.setPlayerTime(prev.offset, prev.relative);
+            if (p != null && prev != null) DreamSky.restore(p, prev.offset, prev.relative);
             it.remove();
         }
     }
 
-    /** Touched players freeze and close their eyes over 70 ticks, then enter the dream. */
+    /** Touched players freeze, go blind (eyes closed) for 70 ticks, then enter the dream. */
     private void tickEyes() {
         for (Iterator<Map.Entry<UUID, Integer>> it = this.eyeK.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<UUID, Integer> e = it.next();
@@ -347,7 +347,8 @@ final class GoldenDreamMass {
                 Prev prev = this.clocks.remove(e.getKey());
                 if (p != null) {
                     p.setGravity(true);
-                    if (prev != null) p.setPlayerTime(prev.offset, prev.relative);
+                    DreamSky.openEyes(p);
+                    if (prev != null) DreamSky.restore(p, prev.offset, prev.relative);
                 }
                 it.remove();
                 continue;
@@ -355,6 +356,7 @@ final class GoldenDreamMass {
             int k = e.getValue();
             if (k == 0) {
                 p.setGravity(false);
+                DreamSky.closeEyes(p, EYE_TICKS + 40);
                 for (Flying f : this.flying) if (f.d.isValid()) p.hideEntity(this.plugin, f.d);
             }
             p.setVelocity(new Vector());
@@ -364,7 +366,6 @@ final class GoldenDreamMass {
                 it.remove();
                 this.owner.world().enter(p, prev != null ? prev.offset : 0L, prev == null || prev.relative, e.getKey().equals(this.trigger));
             } else {
-                SignatureClock.send(p, SignatureClock.EYE_DAY, (p.getWorld().getFullTime() % 24000L) / 64L * 64L + Math.min(63, k));
                 e.setValue(k + 1);
             }
         }
@@ -384,14 +385,15 @@ final class GoldenDreamMass {
             p.setGravity(true);
             if (finished && !p.isDead()) {
                 this.owner.world().enter(p, prev != null ? prev.offset : 0L, prev == null || prev.relative, e.getKey().equals(this.trigger));
-            } else if (prev != null) {
-                p.setPlayerTime(prev.offset, prev.relative);
+            } else {
+                DreamSky.openEyes(p);
+                if (prev != null) DreamSky.restore(p, prev.offset, prev.relative);
             }
         }
         this.eyeK.clear();
         for (Map.Entry<UUID, Prev> e : this.clocks.entrySet()) {
             Player p = Bukkit.getPlayer(e.getKey());
-            if (p != null && p.isOnline()) p.setPlayerTime(e.getValue().offset, e.getValue().relative);
+            if (p != null && p.isOnline()) DreamSky.restore(p, e.getValue().offset, e.getValue().relative);
         }
         this.clocks.clear();
         this.veiled.clear();

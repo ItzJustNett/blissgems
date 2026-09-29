@@ -29,7 +29,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 /**
  * Entry to the Golden Dream: throw all seven numbered Wire Fragments into one pile (within 2.5
  * blocks of each other). They rise and spiral inward for 10 s inside a golden braid while the
- * shower plays, the screen covers, and 10 s later the golden mass forms above the pile.
+ * shower plays under a golden-hour sky, the eyes close, and 10 s later the golden mass forms above the pile.
  */
 public final class GoldenDreamRitual implements Listener {
     private static final int NEEDED = 7;
@@ -128,7 +128,7 @@ public final class GoldenDreamRitual implements Listener {
         this.entryAborts.put(id, () -> {
             for (ItemStack f : frags) w.dropItem(centre, f);
             Player p = Bukkit.getPlayer(id);
-            if (p != null && p.isOnline()) p.setPlayerTime(prevOffset, prevRel);
+            if (p != null && p.isOnline()) DreamSky.restore(p, prevOffset, prevRel);
         });
         new BukkitRunnable() {
             final List<ItemDisplay> shown = new ArrayList<>();
@@ -158,7 +158,7 @@ public final class GoldenDreamRitual implements Listener {
                     this.t++;
                     return;
                 }
-                SignatureClock.send(p, SignatureClock.POV_DAY, SignatureClock.POV_CODE);
+                DreamSky.golden(p);
                 if (this.t % 2 == 0) drawBraid(w, high);
                 if (self.fx != null && --this.timer <= 0) {
                     this.timer = 4;
@@ -206,29 +206,21 @@ public final class GoldenDreamRitual implements Listener {
                 }
             }
 
-            /** 20 ticks of the POV "cover" code, then the eyelids open over 12 ticks. True when done. */
+            /** The eyes close for 32 ticks (blindness / Bedrock fade). True when done. */
             private boolean cover(Player p, int k) {
                 if (k == 0) {
                     for (ItemDisplay d : this.shown) if (d.isValid()) d.remove();
                     this.shown.clear();
+                    DreamSky.closeEyes(p, 32);
                 }
-                if (k < 20) {
-                    SignatureClock.send(p, SignatureClock.POV_DAY, SignatureClock.POV_COVER_CODE);
-                    return false;
-                }
-                int level = (int) Math.round(15.0 * (1.0 - (k - 20) / 12.0));
-                if (level > 0) {
-                    SignatureClock.cover(p, level);
-                    return false;
-                }
-                return true;
+                return k >= 32;
             }
 
             private void release(Player p, boolean aborted) {
                 if (aborted) GoldenDreamRitual.this.entryAborts.remove(id);
                 for (ItemDisplay d : this.shown) if (d.isValid()) d.remove();
                 this.shown.clear();
-                if (p != null && p.isOnline()) p.setPlayerTime(prevOffset, prevRel);
+                if (p != null && p.isOnline()) DreamSky.restore(p, prevOffset, prevRel);
                 if (aborted) GoldenDreamRitual.this.finish(id);
             }
         }.runTaskTimer(this.plugin, 1L, 1L);
