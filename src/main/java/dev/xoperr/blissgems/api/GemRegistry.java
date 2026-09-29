@@ -9,6 +9,7 @@ import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.api.GemPassiveHandler;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public interface GemRegistry {
     public void registerGem(GemDefinition var1);
@@ -34,5 +35,10 @@ public interface GemRegistry {
     public String gemIdFromItemId(String var1);
 
     public int tierFromItemId(String var1);
+
+    /** Registered mutations of the given base gem id. */
+    default public List<GemDefinition> getMutationsOf(String baseGemId) {
+        return this.getAllGems().stream().filter(def -> baseGemId != null && baseGemId.equals(def.getMutationOf())).collect(Collectors.toList());
+    }
 }
 

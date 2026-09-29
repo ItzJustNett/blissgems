@@ -64,8 +64,14 @@ public enum GemType {
         if (oraxenId == null) {
             return 1;
         }
-        if (oraxenId.endsWith("_gem_t2")) {
-            return 2;
+        int idx = oraxenId.lastIndexOf("_gem_t");
+        if (idx >= 0) {
+            try {
+                return Math.max(1, Integer.parseInt(oraxenId.substring(idx + 6)));
+            }
+            catch (NumberFormatException e) {
+                return 1;
+            }
         }
         return 1;
     }

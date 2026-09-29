@@ -35,6 +35,7 @@ package dev.xoperr.blissgems.listeners;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.api.GemDefinition;
+import dev.xoperr.blissgems.api.event.GemRollEvent;
 import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.managers.GemLockManager;
 import dev.xoperr.blissgems.managers.GemRegistryImpl;
@@ -151,7 +152,7 @@ implements Listener {
                 this.handleGemTrader(player, item, event);
             }
         }
-        if (oraxenId.endsWith("_gem_t1") || oraxenId.endsWith("_gem_t2")) {
+        if (GemType.isGem(oraxenId)) {
             this.handleGemAbility(player, oraxenId, event);
         }
     }
@@ -173,7 +174,7 @@ implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
         String id = item != null ? CustomItemManager.getIdByItem(item) : null;
-        boolean heldGem = id != null && (id.endsWith("_gem_t1") || id.endsWith("_gem_t2"));
+        boolean heldGem = GemType.isGem(id);
         boolean bl = offhandGold = this.plugin.getGoldGemManager() != null && this.plugin.getGoldGemManager().isGoldGem(player.getInventory().getItemInOffHand());
         if (!(heldGem || offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
             return;
@@ -220,13 +221,13 @@ implements Listener {
             return;
         }
         String oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
-        if (oraxenId == null || !oraxenId.endsWith("_gem_t1") && !oraxenId.endsWith("_gem_t2")) {
+        if (!GemType.isGem(oraxenId)) {
             oraxenId = CustomItemManager.getIdByItem(player.getInventory().getItemInOffHand());
         }
         if (oraxenId == null) {
             return;
         }
-        int tier = oraxenId.endsWith("_gem_t2") ? 2 : 1;
+        int tier = GemType.getTierFromOraxenId(oraxenId);
         GemType gemType = GemType.fromOraxenId(oraxenId);
         if (gemType != null) {
             switch (gemType) {
@@ -349,13 +350,11 @@ implements Listener {
             return;
         }
         String currentGemId = this.plugin.getGemManager().getGemId(player);
-        ArrayList<String> availableGems = new ArrayList<String>(this.plugin.getGemManager().getAvailableGemIds());
-        availableGems.remove(currentGemId);
-        if (availableGems.isEmpty()) {
+        String newGemId = this.plugin.getGemRollManager().roll(player, GemRollEvent.Reason.TRADER, this.plugin.getGemManager().getGemTier(player), List.of(currentGemId));
+        if (newGemId == null) {
             player.sendMessage(String.valueOf(ChatColor.RED) + "No other gem types available!");
             return;
         }
-        String newGemId = (String)availableGems.get((int)(Math.random() * (double)availableGems.size()));
         if (this.plugin.getGemManager().replaceGem(player, newGemId)) {
             String msg;
             if (traderItem.getAmount() > 1) {

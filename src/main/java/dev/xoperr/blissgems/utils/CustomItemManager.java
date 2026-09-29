@@ -48,6 +48,10 @@ public class CustomItemManager {
     private static NamespacedKey MACE_LIMITED_KEY;
     private static NamespacedKey VILLAGER_SOUL_KEY;
     private static NamespacedKey VILLAGER_DATA_KEY;
+    private static NamespacedKey IMBUED_KEY;
+    private static NamespacedKey DONOR_KEY;
+    public static final String DONOR_ITEM_ID = "gem_donor";
+    public static final String IMBUED_LORE_PREFIX = "\u00a7d\u2726 Imbued: ";
 
     public static void initialize(JavaPlugin plugin) {
         ITEM_ID_KEY = new NamespacedKey((Plugin)plugin, "item_id");
@@ -59,6 +63,8 @@ public class CustomItemManager {
         MACE_LIMITED_KEY = new NamespacedKey((Plugin)plugin, "mace_limited");
         VILLAGER_SOUL_KEY = new NamespacedKey((Plugin)plugin, "villager_soul");
         VILLAGER_DATA_KEY = new NamespacedKey((Plugin)plugin, "villager_data");
+        IMBUED_KEY = new NamespacedKey((Plugin)plugin, "imbued");
+        DONOR_KEY = new NamespacedKey((Plugin)plugin, "donor_gem");
         GemCosmetics.initialize(plugin);
     }
 
@@ -330,7 +336,11 @@ public class CustomItemManager {
         if (GemCosmetics.has(id)) {
             CustomItemManager.applyEnhancedGlint(meta, energy);
         } else {
+            String imbuedLine = CustomItemManager.findImbuedLine(meta);
             CustomItemManager.applyPristinePlusVisuals(meta, data.lore, energy);
+            if (imbuedLine != null && meta.getPersistentDataContainer().has(IMBUED_KEY, PersistentDataType.STRING)) {
+                CustomItemManager.setImbuedLine(meta, imbuedLine);
+            }
         }
         item.setItemMeta(meta);
     }
@@ -421,6 +431,86 @@ public class CustomItemManager {
             return null;
         }
         return (String)item.getItemMeta().getPersistentDataContainer().get(MYTHIC_KEY, PersistentDataType.STRING);
+    }
+
+    /** The gem id imbued into this gem item, or null. */
+    public static String getImbuedGemId(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return null;
+        }
+        return (String)item.getItemMeta().getPersistentDataContainer().get(IMBUED_KEY, PersistentDataType.STRING);
+    }
+
+    /** Stores the imbue on the gem item and replaces any previous "Imbued:" lore line. */
+    public static void setImbued(ItemStack item, String gemId, String displayName) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        meta.getPersistentDataContainer().set(IMBUED_KEY, PersistentDataType.STRING, gemId);
+        CustomItemManager.setImbuedLine(meta, IMBUED_LORE_PREFIX + displayName);
+        item.setItemMeta(meta);
+    }
+
+    /** Copies the imbue (PDC + lore line) from one gem item to another, e.g. across a tier change. */
+    public static void copyImbue(ItemStack from, ItemStack to) {
+        String imbued = CustomItemManager.getImbuedGemId(from);
+        if (imbued == null || to == null) {
+            return;
+        }
+        ItemMeta toMeta = to.getItemMeta();
+        String line = CustomItemManager.findImbuedLine(from.getItemMeta());
+        if (toMeta == null || line == null) {
+            return;
+        }
+        toMeta.getPersistentDataContainer().set(IMBUED_KEY, PersistentDataType.STRING, imbued);
+        CustomItemManager.setImbuedLine(toMeta, line);
+        to.setItemMeta(toMeta);
+    }
+
+    private static String findImbuedLine(ItemMeta meta) {
+        if (meta == null || meta.getLore() == null) {
+            return null;
+        }
+        for (String line : meta.getLore()) {
+            if (!line.startsWith(IMBUED_LORE_PREFIX)) continue;
+            return line;
+        }
+        return null;
+    }
+
+    private static void setImbuedLine(ItemMeta meta, String line) {
+        ArrayList<String> lore = meta.getLore() != null ? new ArrayList<String>(meta.getLore()) : new ArrayList<String>();
+        lore.removeIf(l -> l.startsWith(IMBUED_LORE_PREFIX));
+        lore.add(line);
+        meta.setLore(lore);
+    }
+
+    /** The gem id a donor item carries, or null if the item is not a donor. */
+    public static String getDonorGemId(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || !DONOR_ITEM_ID.equals(CustomItemManager.getIdByItem(item))) {
+            return null;
+        }
+        return (String)item.getItemMeta().getPersistentDataContainer().get(DONOR_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * Turns a freshly built Tier 1 gem item into a donor: it keeps the gem's look but gets its own
+     * item id, so none of the gem logic (activation, passives, soulbinding) picks it up.
+     */
+    public static ItemStack toDonor(ItemStack gemItem, String gemId, String name) {
+        ItemMeta meta = gemItem.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        pdc.set(ITEM_ID_KEY, PersistentDataType.STRING, DONOR_ITEM_ID);
+        pdc.remove(UNDROPPABLE_KEY);
+        pdc.set(DONOR_KEY, PersistentDataType.STRING, gemId);
+        meta.setDisplayName(name);
+        meta.setLore(List.of("\u00a77A donor gem. Its power can be imbued", "\u00a77into a \u00a7dTier 3\u00a77 gem.", "", "\u00a7d/bliss imbue \u00a77with this in your main hand", "\u00a77and your Tier 3 gem in your off hand."));
+        gemItem.setItemMeta(meta);
+        return gemItem;
     }
 
     public static NamespacedKey getVillagerSoulKey() {

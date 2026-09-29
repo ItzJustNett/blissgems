@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 
 public class GemRegistryImpl
 implements GemRegistry {
+    public static final String MUTATED_LORE = "\u00a7b\u00a7lMUTATED";
     private static final Pattern GEM_ITEM_PATTERN = Pattern.compile("^(.+)_gem_t(\\d+)$");
     private final BlissGems plugin;
     private final Logger logger;
@@ -53,13 +54,27 @@ implements GemRegistry {
         if (def.getT1CustomModelData() > 0) {
             String t1Id = def.buildItemId(1);
             String t1Name = def.getT1DisplayName() != null ? def.getT1DisplayName() : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
-            CustomItemManager.registerAddonItem(t1Id, def.getMaterial(), def.getT1CustomModelData(), t1Name, def.getT1Lore());
+            CustomItemManager.registerAddonItem(t1Id, def.getMaterial(), def.getT1CustomModelData(), t1Name, this.withMutationLine(def, def.getT1Lore()));
         }
         if (def.getMaxTier() >= 2 && def.getT2CustomModelData() > 0) {
             String t2Id = def.buildItemId(2);
             String t2Name = def.getT2DisplayName() != null ? def.getT2DisplayName() : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
-            CustomItemManager.registerAddonItem(t2Id, def.getMaterial(), def.getT2CustomModelData(), t2Name, def.getT2Lore());
+            CustomItemManager.registerAddonItem(t2Id, def.getMaterial(), def.getT2CustomModelData(), t2Name, this.withMutationLine(def, def.getT2Lore()));
         }
+        if (def.getMaxTier() >= 3 && def.getT3CustomModelData() > 0) {
+            String t3Id = def.buildItemId(3);
+            String t3Name = def.getT3DisplayName() != null ? def.getT3DisplayName() : def.getColor() + "\u00a7l" + def.getDisplayName().toUpperCase() + " GEM";
+            CustomItemManager.registerAddonItem(t3Id, def.getMaterial(), def.getT3CustomModelData(), t3Name, this.withMutationLine(def, def.getT3Lore()));
+        }
+    }
+
+    private List<String> withMutationLine(GemDefinition def, List<String> lore) {
+        if (!def.isMutation()) {
+            return lore;
+        }
+        ArrayList<String> out = lore != null ? new ArrayList<String>(lore) : new ArrayList<String>();
+        out.add(Math.min(1, out.size()), MUTATED_LORE);
+        return out;
     }
 
     @Override

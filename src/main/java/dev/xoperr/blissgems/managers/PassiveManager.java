@@ -104,7 +104,17 @@ public class PassiveManager {
                 handler.applyPassives(player, tier);
             }
             this.applyConfiguredExtraEffectsById(player, gemId, tier);
+            this.applyImbuedPassives(player, registry);
         }
+    }
+
+    private void applyImbuedPassives(Player player, GemRegistryImpl registry) {
+        String imbuedId = this.plugin.getGemManager().getImbuedGemIdForPassives(player);
+        GemPassiveHandler handler = imbuedId != null ? registry.getPassiveHandler(imbuedId) : null;
+        if (handler == null) {
+            return;
+        }
+        handler.applyPassives(player, this.plugin.getConfig().getInt("imbue.passive-tier", 1));
     }
 
     private void applyConfiguredExtraEffectsById(Player player, String gemId, int tier) {

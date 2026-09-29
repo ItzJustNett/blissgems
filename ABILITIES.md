@@ -10,7 +10,8 @@
 7. [Strength Gem](#strength-gem)
 8. [Wealth Gem](#wealth-gem)
 9. [Passive Effects](#passive-effects)
-10. [Commands](#commands)
+10. [Rarity, Mutations & Tier 3](#rarity-mutations--tier-3)
+11. [Commands](#commands)
 
 ---
 
@@ -206,6 +207,26 @@ All passives require gem in offhand and energy above Ruined threshold (2+).
 
 ---
 
+## Rarity, Mutations & Tier 3
+
+**Rarity.** Every random roll (first gem, reroll, Gem Trader, Restoration Book, Tier 3 bonus)
+first picks a rarity by weight, then a gem of that rarity. Default weights: Common 100, Rare 40,
+Mythic 8, Legendary 2 (`gems.rarity-weights`). A rarity with no enabled gems is skipped.
+
+**Mutations.** A gem can have mutations, stronger versions registered as separate gems
+(for example Tidal for Aqua). A roll that lands on the base gem mutates with
+`gems.mutation-chance` (default 5%). Mutations never come up in a roll directly. A mutated gem
+shows **MUTATED** in its lore and upgrades through the tiers like any other gem.
+
+**Tier 3 & imbuing.** Gems that support it (addon gems with `maxTier(3)`) upgrade from Tier 2 to
+Tier 3 with the Gem Upgrader. Reaching Tier 3 grants one bonus roll, handed out as a **donor
+gem**. A donor does nothing on its own. Hold it in your main hand and your Tier 3 gem in your off
+hand, then run `/bliss imbue`: the donor is consumed and your gem gains its passives
+(`imbue.passive-tier`, default Tier 1). A gem holds one imbue, so a new one replaces the old.
+The built-in eight gems stay at Tier 2 for now.
+
+---
+
 ## Commands
 
 | Command | Gem | Description |
@@ -220,6 +241,7 @@ All passives require gem in offhand and energy above Ruined threshold (2+).
 | `/bliss amplify` | Wealth T2 | Amplify potion effects |
 | `/bliss autosmelt` | Wealth T2 | Toggle auto-smelting |
 | `/bliss toggle_click` | All | Toggle click activation on/off |
+| `/bliss imbue` | Tier 3 | Imbue the donor gem in your main hand into the Tier 3 gem in your off hand |
 
 ---
 
