@@ -583,6 +583,9 @@ auto-enchant:
 # ==========================================
 gold:
   summon:
+    # true = the Gold Gem can only be summoned by the Fragment Core ritual (hold the core,
+    # right-click to seal it); crafting it is blocked. false = the recipe below works too.
+    ritual-only: true
     # Seven Wire Fragments bound by a Fragment Core craft the Gold Gem. Turn this off if the
     # gem should only ever be handed out by staff (/bliss give <player> gold).
     # The shape and ingredients themselves live in recipes.yml.

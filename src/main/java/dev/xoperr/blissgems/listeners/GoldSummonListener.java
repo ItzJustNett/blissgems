@@ -38,6 +38,10 @@ implements Listener {
         return gold != null && this.plugin.getConfig().getBoolean("gold.summon.once-per-server", true) && gold.isSummoned();
     }
 
+    private boolean ritualOnly() {
+        return this.plugin.getConfig().getBoolean("gold.summon.ritual-only", true);
+    }
+
     private boolean isGoldGem(ItemStack item) {
         return item != null && "gold_gem_t1".equals(CustomItemManager.getIdByItem(item));
     }
@@ -47,7 +51,7 @@ implements Listener {
         if (event.getRecipe() == null || !this.isGoldGem(event.getInventory().getResult())) {
             return;
         }
-        if (this.isBlocked()) {
+        if (this.isBlocked() || this.ritualOnly()) {
             event.getInventory().setResult(null);
         }
     }
@@ -55,6 +59,11 @@ implements Listener {
     @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
     public void onCraft(CraftItemEvent event) {
         if (!this.isGoldGem(event.getRecipe().getResult())) {
+            return;
+        }
+        if (this.ritualOnly()) {
+            event.setCancelled(true);
+            event.getWhoClicked().sendMessage("\u00a76The Gold Gem answers only to its ritual \u00a77- hold the Fragment Core and right-click.");
             return;
         }
         if (this.isBlocked()) {

@@ -97,6 +97,7 @@ import dev.xoperr.blissgems.managers.EnchantLimiterManager;
 import dev.xoperr.blissgems.managers.MythicWorldEventManager;
 import dev.xoperr.blissgems.managers.SpawnBeaconManager;
 import dev.xoperr.blissgems.pedestal.PedestalListener;
+import dev.xoperr.blissgems.goldevent.FragmentCoreRitual;
 import dev.xoperr.blissgems.pedestal.PedestalManager;
 import dev.xoperr.blissgems.villagerevent.VillagerEventCommand;
 import dev.xoperr.blissgems.villagerevent.VillagerEventListener;
@@ -174,6 +175,7 @@ implements BlissGemsAPI {
     private EndSkyVisualManager endSkyVisualManager;
     private PedestalManager pedestalManager;
     private VillagerEventManager villagerEventManager;
+    private FragmentCoreRitual fragmentCoreRitual;
     private Metrics metrics;
 
     public void onEnable() {
@@ -515,6 +517,9 @@ implements BlissGemsAPI {
             this.getServer().getPluginManager().registerEvents((Listener)this.pedestalManager.revive(), (Plugin)this);
             this.villagerEventManager = new VillagerEventManager(this);
             this.getServer().getPluginManager().registerEvents((Listener)new VillagerEventListener(this, this.villagerEventManager), (Plugin)this);
+            this.fragmentCoreRitual = new FragmentCoreRitual(this);
+            this.getServer().getPluginManager().registerEvents((Listener)this.fragmentCoreRitual, (Plugin)this);
+            this.fragmentCoreRitual.start();
             VillagerEventCommand villagerEventCommand = new VillagerEventCommand(this.villagerEventManager);
             this.getCommand("blissevent").setExecutor((CommandExecutor)villagerEventCommand);
             this.getCommand("blissevent").setTabCompleter((TabCompleter)villagerEventCommand);
@@ -599,6 +604,9 @@ implements BlissGemsAPI {
         }
         if (this.endSkyVisualManager != null) {
             this.endSkyVisualManager.cleanup();
+        }
+        if (this.fragmentCoreRitual != null) {
+            this.fragmentCoreRitual.stop();
         }
         if (this.villagerEventManager != null) {
             this.villagerEventManager.shutdown();
