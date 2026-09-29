@@ -61,6 +61,11 @@ public class AbilityBindingManager {
             map.entrySet().removeIf(e -> e.getValue() == slot);
             map.put(input, slot);
         }
+        // the old shipped defaults (abilities 3/4 on F, Gold extras on left click) mean an
+        // un-edited pre-2.0 config: use the new click-only defaults instead
+        if (map.get(AbilityBinding.SWAP_HAND) == AbilitySlot.TERTIARY && map.get(AbilityBinding.LEFT_CLICK) == AbilitySlot.QUINARY) {
+            return null;
+        }
         return map.isEmpty() ? null : map;
     }
 
@@ -119,6 +124,9 @@ public class AbilityBindingManager {
         if (!data.contains("ability-bindings")) {
             return this.defaultsFor(player);
         }
+        if (data.getInt("ability-bindings-version", 1) < BINDINGS_VERSION) {
+            return this.migrate(player, data);
+        }
         EnumMap<AbilityBinding, AbilitySlot> map = new EnumMap<AbilityBinding, AbilitySlot>(AbilityBinding.class);
         Map<String, Object> raw = data.getConfigurationSection("ability-bindings").getValues(false);
         for (Map.Entry<String, Object> e : raw.entrySet()) {
@@ -127,6 +135,30 @@ public class AbilityBindingManager {
             if (b == null || s == null) continue;
             map.put(b, s);
         }
+        return map;
+    }
+
+    private static final int BINDINGS_VERSION = 2;
+
+    /**
+     * Version 1 put abilities 3 and 4 on F / Shift+F and the Gold extras on left click. Version 2
+     * moves whatever was on F to hit (left click), frees F, and leaves the Gold extras unbound
+     * (reachable with /bliss ability quinary|senary or by binding them in /bliss ability).
+     */
+    private EnumMap<AbilityBinding, AbilitySlot> migrate(Player player, YamlConfiguration data) {
+        EnumMap<AbilityBinding, AbilitySlot> old = new EnumMap<AbilityBinding, AbilitySlot>(AbilityBinding.class);
+        for (Map.Entry<String, Object> e : data.getConfigurationSection("ability-bindings").getValues(false).entrySet()) {
+            AbilityBinding b = AbilityBinding.fromId(e.getKey());
+            AbilitySlot s = AbilitySlot.fromId(String.valueOf(e.getValue()));
+            if (b != null && s != null) old.put(b, s);
+        }
+        EnumMap<AbilityBinding, AbilitySlot> map = new EnumMap<AbilityBinding, AbilitySlot>(AbilityBinding.class);
+        if (old.containsKey(AbilityBinding.RIGHT_CLICK)) map.put(AbilityBinding.RIGHT_CLICK, old.get(AbilityBinding.RIGHT_CLICK));
+        if (old.containsKey(AbilityBinding.SHIFT_RIGHT_CLICK)) map.put(AbilityBinding.SHIFT_RIGHT_CLICK, old.get(AbilityBinding.SHIFT_RIGHT_CLICK));
+        if (old.containsKey(AbilityBinding.SWAP_HAND)) map.put(AbilityBinding.LEFT_CLICK, old.get(AbilityBinding.SWAP_HAND));
+        if (old.containsKey(AbilityBinding.SHIFT_SWAP_HAND)) map.put(AbilityBinding.SHIFT_LEFT_CLICK, old.get(AbilityBinding.SHIFT_SWAP_HAND));
+        if (map.isEmpty()) map = this.defaultsFor(player);
+        this.save(player.getUniqueId(), map);
         return map;
     }
 
@@ -139,6 +171,7 @@ public class AbilityBindingManager {
             out.put(e.getKey().getId(), e.getValue().getId());
         }
         data.createSection("ability-bindings", out);
+        data.set("ability-bindings-version", BINDINGS_VERSION);
         try {
             data.save(f);
         }
@@ -156,12 +189,11 @@ public class AbilityBindingManager {
     }
 
     static {
+        // hit, shift+hit, right click, shift+right click; F stays a normal swap key unless a player binds it
         DEFAULTS.put(AbilityBinding.RIGHT_CLICK, AbilitySlot.PRIMARY);
         DEFAULTS.put(AbilityBinding.SHIFT_RIGHT_CLICK, AbilitySlot.SECONDARY);
-        DEFAULTS.put(AbilityBinding.SWAP_HAND, AbilitySlot.TERTIARY);
-        DEFAULTS.put(AbilityBinding.SHIFT_SWAP_HAND, AbilitySlot.QUATERNARY);
-        DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.QUINARY);
-        DEFAULTS.put(AbilityBinding.SHIFT_LEFT_CLICK, AbilitySlot.SENARY);
+        DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.TERTIARY);
+        DEFAULTS.put(AbilityBinding.SHIFT_LEFT_CLICK, AbilitySlot.QUATERNARY);
         BEDROCK_DEFAULTS.put(AbilityBinding.RIGHT_CLICK, AbilitySlot.PRIMARY);
         BEDROCK_DEFAULTS.put(AbilityBinding.SHIFT_RIGHT_CLICK, AbilitySlot.SECONDARY);
         BEDROCK_DEFAULTS.put(AbilityBinding.LEFT_CLICK, AbilitySlot.TERTIARY);

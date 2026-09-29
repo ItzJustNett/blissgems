@@ -209,6 +209,47 @@ implements Listener {
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 
+    /**
+     * Hitting something with a gem in the main hand is the "hit" input (the same binding as left
+     * click). Astra's hit on a player is always Unbounded; sneak-hitting a mob with Astra is soul
+     * capture, not an ability.
+     */
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
+    public void onGemHit(org.bukkit.event.entity.EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) {
+            return;
+        }
+        Player player = (Player)event.getDamager();
+        if (event.getCause() != org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+            return;
+        }
+        String id = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (id == null || !id.endsWith("_gem_t1") && !id.endsWith("_gem_t2")) {
+            return;
+        }
+        boolean astra = id.startsWith("astra_gem");
+        if (astra && player.isSneaking() && !(event.getEntity() instanceof Player)) {
+            return;
+        }
+        if (astra && !player.isSneaking() && event.getEntity() instanceof Player) {
+            if (this.gateAbility(player) && this.plugin.getAstraUnbounded() != null) {
+                this.plugin.getAstraUnbounded().start(player, (Player)event.getEntity());
+            }
+            return;
+        }
+        AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, AbilityBinding.leftClick(player.isSneaking())) : null;
+        if (slot == null) {
+            return;
+        }
+        if ((slot == AbilitySlot.QUINARY || slot == AbilitySlot.SENARY) && !"gold_gem_t1".equals(id)) {
+            return;
+        }
+        if (!this.gateAbility(player)) {
+            return;
+        }
+        this.plugin.getBlissCommand().triggerSlot(player, slot);
+    }
+
     private void dispatchBoundAbility(Player player, AbilityBinding input) {
         AbilitySlot slot;
         if (!this.gateAbility(player)) {

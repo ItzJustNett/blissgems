@@ -150,10 +150,10 @@ combat:
 # ==========================================
 # Which input fires which ability slot, for players who have not rebound anything
 # themselves. Players override these for their own account with
-#   /bliss ability                      - show my current bindings
-#   /bliss set_ability <slot> <input>   - rebind one slot
-#   /bliss set_ability <slot> none      - unbind a slot
-#   /bliss set_ability reset            - back to the defaults below
+#   /bliss ability                      - the controls menu (click an ability to change its key)
+#   /bliss ability set <slot> <input>   - rebind one slot (same as /bliss set_ability)
+#   /bliss ability set <slot> none      - unbind a slot
+#   /bliss ability reset                - back to the defaults below
 #
 # Inputs: right_click, shift_right_click, left_click, shift_left_click,
 #         swap_hand (F), shift_swap_hand
@@ -164,19 +164,20 @@ combat:
 # alone - unbound left-click keeps its vanilla behaviour (mining, attacking).
 # Delete this whole section to fall back to the built-in defaults.
 ability-bindings:
+  # Default controls (players change theirs in /bliss ability):
+  #   right click = ability 1, shift + right click = ability 2,
+  #   hit / left click = ability 3, shift + hit / left click = ability 4.
+  # F (swap offhand) is left alone unless a player binds something to it.
+  # Inputs: right_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand
   defaults:
     right_click: primary
     shift_right_click: secondary
-    swap_hand: tertiary
-    shift_swap_hand: quaternary
-    # The Gold Gem's two extra inputs. Left-click is the default because there is no
-    # other key left - set these to "none" if you would rather not spend left-click on
-    # them, and reach those abilities with /bliss ability:quinary / :senary instead.
-    left_click: quinary
-    shift_left_click: senary
+    left_click: tertiary
+    shift_left_click: quaternary
+    # The Gold Gem's two extra abilities (quinary, senary) are unbound by default:
+    # use /bliss ability quinary|senary, or bind them to F in /bliss ability.
 
-  # Bedrock (Floodgate) players cannot use the swap-hand key reliably through Geyser,
-  # so they get all four normal abilities on the click gestures instead.
+  # Bedrock players get the same four click controls.
   bedrock-defaults:
     right_click: primary
     shift_right_click: secondary
@@ -352,6 +353,7 @@ abilities:
     astra-void: 120  # 2 minutes - Dimensional Void
     astra-spook: 10  # Spook sub-ability during projection
     astra-tag: 15  # Tag sub-ability during projection
+    astra-unbounded: 90  # Hit a player with the Astra gem: ride them as a ghost
     fire-fireball: 45
     fire-campfire: 120  # 2 minutes
     fire-crisp: 90  # 1.5 minutes - Evaporate water + scorch terrain
@@ -546,6 +548,8 @@ abilities:
     astra-void: 12  # Dimensional Void suppression duration
     astra-spook: 3  # Spook blindness/nausea duration
     astra-tag: 30  # Tag tracking duration
+    astra-unbounded: 10  # Longest Unbounded ghost-ride (sneak to end early)
+    astra-haunt: 15  # How long Unbounded disables the ridden player's gem
     fire-campfire: 15  # How long campfire lasts
     fire-crisp: 15  # How long Crisp water evaporation lasts
     fire-meteor-shower: 8  # Duration of meteor rain

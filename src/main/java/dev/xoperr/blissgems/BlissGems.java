@@ -152,6 +152,8 @@ implements BlissGemsAPI {
     private CriticalHitManager criticalHitManager;
     private PluginMessagingManager pluginMessagingManager;
     private AstraAbilities astraAbilities;
+    private dev.xoperr.blissgems.abilities.AstraUnbounded astraUnbounded;
+    private dev.xoperr.blissgems.managers.ControlsMenu controlsMenu;
     private FireAbilities fireAbilities;
     private FluxAbilities fluxAbilities;
     private FluxEnergyManager fluxEnergyManager;
@@ -614,6 +616,9 @@ implements BlissGemsAPI {
         if (this.goldenDream != null) {
             this.goldenDream.shutdown();
         }
+        if (this.astraUnbounded != null) {
+            this.astraUnbounded.shutdown();
+        }
         if (this.fragmentCoreRitual != null) {
             this.fragmentCoreRitual.stop();
         }
@@ -696,6 +701,10 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.AstraPhasingListener(this), (Plugin)this);
+        this.astraUnbounded = new dev.xoperr.blissgems.abilities.AstraUnbounded(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.astraUnbounded, (Plugin)this);
+        this.controlsMenu = new dev.xoperr.blissgems.managers.ControlsMenu(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.controlsMenu, (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
@@ -841,6 +850,14 @@ implements BlissGemsAPI {
 
     public GemRitualManager getGemRitualManager() {
         return this.gemRitualManager;
+    }
+
+    public dev.xoperr.blissgems.managers.ControlsMenu getControlsMenu() {
+        return this.controlsMenu;
+    }
+
+    public dev.xoperr.blissgems.abilities.AstraUnbounded getAstraUnbounded() {
+        return this.astraUnbounded;
     }
 
     public AstraAbilities getAstraAbilities() {

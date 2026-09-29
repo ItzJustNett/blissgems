@@ -330,11 +330,31 @@ TabCompleter {
                             this.handleExtraSlot(sender, AbilitySlot.SENARY);
                             return true;
                         }
+                        case "set":
+                        case "bind": {
+                            String[] shifted = new String[Math.max(1, args.length - 1)];
+                            shifted[0] = "set_ability";
+                            for (int i = 2; i < args.length; i++) shifted[i - 1] = args[i];
+                            this.handleSetAbility(sender, shifted);
+                            return true;
+                        }
+                        case "reset": {
+                            this.handleSetAbility(sender, new String[]{"set_ability", "reset"});
+                            return true;
+                        }
+                        case "list": {
+                            this.handleAbilityBindingsList(sender, args);
+                            return true;
+                        }
                         default:
                             break;
                     }
                 }
-                this.handleAbilityBindingsList(sender, args);
+                if (sender instanceof Player && this.plugin.getControlsMenu() != null) {
+                    this.plugin.getControlsMenu().open((Player)sender);
+                } else {
+                    this.handleAbilityBindingsList(sender, args);
+                }
                 break;
             }
             case "primary":
@@ -1577,9 +1597,9 @@ TabCompleter {
             player.sendMessage("\u00a7f\u2022 \u00a77" + ((AbilityBinding)enum_).getId() + " \u00a78- \u00a7f" + ((AbilityBinding)enum_).getDisplayName() + suffix);
         }
         player.sendMessage("");
-        player.sendMessage("\u00a77Change with \u00a7f/bliss set_ability <slot> <input>");
-        player.sendMessage("\u00a77Unbind a slot with \u00a7f/bliss set_ability <slot> none");
-        player.sendMessage("\u00a77Reset defaults with \u00a7f/bliss set_ability reset");
+        player.sendMessage("\u00a77Open the controls menu with \u00a7f/bliss ability");
+        player.sendMessage("\u00a77Change with \u00a7f/bliss ability set <slot> <input>\u00a77, unbind with \u00a7f<slot> none");
+        player.sendMessage("\u00a77Reset defaults with \u00a7f/bliss ability reset");
     }
 
     private void handleSetAbility(CommandSender sender, String[] args) {
@@ -1598,15 +1618,15 @@ TabCompleter {
             return;
         }
         if (args.length < 3) {
-            player.sendMessage("\u00a7cUsage: \u00a7f/bliss set_ability <slot> <input>");
-            player.sendMessage("\u00a77Slots: \u00a7fprimary, secondary, tertiary, quaternary");
+            player.sendMessage("\u00a7cUsage: \u00a7f/bliss ability set <slot> <input>");
+            player.sendMessage("\u00a77Slots: \u00a7fprimary, secondary, tertiary, quaternary, quinary, senary");
             player.sendMessage("\u00a77Inputs: \u00a7fright_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand, none");
             player.sendMessage("\u00a77See current bindings with \u00a7f/bliss ability");
             return;
         }
         AbilitySlot slot = AbilitySlot.fromId(args[1]);
         if (slot == null) {
-            player.sendMessage("\u00a7cUnknown slot: \u00a7f" + args[1] + "\u00a7c. Valid: primary, secondary, tertiary, quaternary.");
+            player.sendMessage("\u00a7cUnknown slot: \u00a7f" + args[1] + "\u00a7c. Valid: primary, secondary, tertiary, quaternary, quinary, senary.");
             return;
         }
         String inputId = args[2];
@@ -2195,7 +2215,7 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss goldgem clear <player> \u00a78- Empty a Gold Gem (Admin)");
         sender.sendMessage("\u00a77/bliss goldgem list <player> \u00a78- List harvested souls (Admin)");
         sender.sendMessage("\u00a77/bliss ability \u00a78- Show your ability keybinds");
-        sender.sendMessage("\u00a77/bliss set_ability <slot> <input> \u00a78- Rebind an ability input");
+        sender.sendMessage("\u00a77/bliss ability \u00a78- Customize your ability controls");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
@@ -2205,7 +2225,7 @@ TabCompleter {
             completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("ability")) {
-                return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");
+                return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "set", "reset", "list");
             }
             if (args[0].equalsIgnoreCase("spawnvillager")) {
                 return Arrays.asList("mace1", "mace2", "mace3", "energy");
