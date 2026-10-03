@@ -769,6 +769,12 @@ implements BlissGemsAPI {
             @org.bukkit.event.EventHandler
             public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
                 if (BlissGems.this.fluxEnergyManager != null) BlissGems.this.fluxEnergyManager.onJoin(event.getPlayer());
+                BlissGems.this.refreshGoldLater(event.getPlayer(), 40L);
+            }
+
+            @org.bukkit.event.EventHandler
+            public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
+                BlissGems.this.refreshGoldLater(event.getPlayer(), 5L);
             }
         }, (Plugin)this);
         if (this.getCommand("news") != null) {
@@ -850,6 +856,15 @@ implements BlissGemsAPI {
 
     public GemRitualManager getGemRitualManager() {
         return this.gemRitualManager;
+    }
+
+    /** Re-skins a carried Gold Gem (its channelled soul, energy lore) a little after join/respawn. */
+    void refreshGoldLater(org.bukkit.entity.Player player, long delay) {
+        this.getServer().getScheduler().runTaskLater((Plugin)this, () -> {
+            if (player.isOnline() && !player.isDead() && this.goldGemManager != null && this.goldGemManager.holdsGoldGem(player)) {
+                this.goldGemManager.refreshGoldItem(player);
+            }
+        }, delay);
     }
 
     public dev.xoperr.blissgems.managers.ControlsMenu getControlsMenu() {

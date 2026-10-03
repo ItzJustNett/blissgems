@@ -409,6 +409,10 @@ TabCompleter {
                 this.handleGoldCycle(sender);
                 break;
             }
+            case "gold": {
+                this.handleGold(sender, args);
+                break;
+            }
             case "goldarmor": 
             case "goldarmour": {
                 this.handleGoldArmorToggle(sender);
@@ -601,6 +605,29 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss goldgem remove <player> <soulType>");
         sender.sendMessage("\u00a77/bliss goldgem clear <player>");
         sender.sendMessage("\u00a77/bliss goldgem list <player>");
+    }
+
+    /** /bliss gold [souls|cycle|beam|armor] - the Gold Gem's own powers, whatever soul it is channelling. */
+    private void handleGold(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null || !gold.holdsGoldGem(player)) {
+            player.sendMessage("\u00a7cYou are not carrying the Gold Gem.");
+            return;
+        }
+        String sub = args.length > 1 ? args[1].toLowerCase() : "souls";
+        switch (sub) {
+            case "cycle", "next" -> this.handleGoldCycle(sender);
+            case "beam" -> {
+                if (!this.blockedByGemLock(player)) this.plugin.getGoldAbilities().onTertiary(player, 1);
+            }
+            case "armor", "armour", "trims" -> this.handleGoldArmorToggle(sender);
+            case "souls", "menu" -> this.plugin.getGoldAbilities().openSoulMenu(player);
+            default -> player.sendMessage("\u00a76/bliss gold \u00a77[souls|cycle|beam|armor] \u00a78- pick the channelled soul, cycle it, fire the Sundering Beam, toggle gold trims");
+        }
     }
 
     private void handleGoldCycle(CommandSender sender) {
@@ -1324,6 +1351,15 @@ TabCompleter {
         }
         Player player = (Player)sender;
         if (this.blockedByGemLock(player)) {
+            return;
+        }
+        GoldGemManager goldMgr = this.plugin.getGoldGemManager();
+        if (goldMgr != null && (goldMgr.isGoldGem(player.getInventory().getItemInMainHand()) || goldMgr.isGoldGem(player.getInventory().getItemInOffHand()))) {
+            if (slot == AbilitySlot.QUINARY) {
+                this.plugin.getGoldAbilities().onTertiary(player, 1);
+            } else {
+                this.plugin.getGoldAbilities().openSoulMenu(player);
+            }
             return;
         }
         String oraxenId = this.findGemInHand(player);
@@ -2226,8 +2262,11 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("gold")) {
+                return Arrays.asList("souls", "cycle", "beam", "armor");
+            }
             if (args[0].equalsIgnoreCase("unbounded")) {
                 return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
             }

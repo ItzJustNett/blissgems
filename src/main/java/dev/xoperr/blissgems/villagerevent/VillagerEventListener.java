@@ -167,10 +167,19 @@ public final class VillagerEventListener implements Listener {
     /** A leftover event villager outside an event is removed instead of opening its trades. */
     @EventHandler
     public void onLeakedVillagerInteract(PlayerInteractEntityEvent event) {
-        if (!this.state.isEventRunning() && event.getRightClicked() instanceof Villager v && v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
-            event.setCancelled(true);
-            v.remove();
+        if (this.state.isEventRunning() || !(event.getRightClicked() instanceof Villager v) || !v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
+            return;
         }
+        // villagers set up with /blissevent villager set wait for the event: no trading, but they stay
+        event.setCancelled(true);
+        for (int id = 1; id <= 3; id++) {
+            if (v.getUniqueId().equals(this.state.villagerUuid(id))) {
+                event.getPlayer().sendMessage(PedestalManager.color("&7This villager is waiting for the event to start."));
+                return;
+            }
+        }
+        // an event villager nobody owns any more (left over from an old event) is cleaned up
+        v.remove();
     }
 
     // ---- soul tracking ----

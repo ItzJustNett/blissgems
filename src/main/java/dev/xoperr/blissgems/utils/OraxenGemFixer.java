@@ -51,7 +51,7 @@ public final class OraxenGemFixer {
         if (id == null) {
             return null;
         }
-        if (!GemCosmetics.has(id)) {
+        if (!GemCosmetics.has(id) || CustomItemManager.isGoldSkinned(item)) {
             return null;
         }
         int energy = GemType.isGem(id) ? plugin.getEnergyManager().getEnergy(player) : -1;

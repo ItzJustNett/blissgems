@@ -155,7 +155,9 @@ public class GemManager {
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
-        if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type) || this.hasHarvestedSoul(player, type)) {
+        // the Gold Gem now IS its channelled soul's gem (gold skin), so only the real item counts;
+        // other harvested souls no longer leak their passives in
+        if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
             return true;
         }
         if (this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
@@ -460,6 +462,10 @@ public class GemManager {
             return false;
         }
         ItemStack currentGem = this.findGemInInventory(player);
+        if (CustomItemManager.isGoldSkinned(currentGem)) {
+            player.sendMessage("\u00a76The Gold Gem's soul can only be changed with /bliss gold.");
+            return false;
+        }
         if (currentGem == null) {
             return false;
         }
@@ -518,6 +524,10 @@ public class GemManager {
             return false;
         }
         ItemStack currentGem = this.findGemInInventory(player);
+        if (CustomItemManager.isGoldSkinned(currentGem)) {
+            player.sendMessage("\u00a76The Gold Gem's soul can only be changed with /bliss gold.");
+            return false;
+        }
         if (currentGem == null) {
             return false;
         }

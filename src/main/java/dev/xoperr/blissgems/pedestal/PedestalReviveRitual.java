@@ -98,6 +98,18 @@ public final class PedestalReviveRitual implements Listener {
         }
     }
 
+    /** Undoes what an interrupted ritual left on a player who logged out mid-ritual. */
+    @EventHandler
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+        Player p = event.getPlayer();
+        if (this.state.revivalLocked(p.getUniqueId())) return;
+        if (p.isInvulnerable() && (p.getGameMode() == org.bukkit.GameMode.SURVIVAL || p.getGameMode() == org.bukkit.GameMode.ADVENTURE)) {
+            p.setInvulnerable(false);
+            this.plugin.getLogger().info("Pedestal: cleared a stuck invulnerable flag on " + p.getName());
+        }
+        if (!p.hasGravity()) p.setGravity(true);
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onLockedDamage(EntityDamageEvent event) {
         if (event.getEntity() instanceof Player p && this.state.revivalLocked(p.getUniqueId())) {
@@ -156,8 +168,9 @@ public final class PedestalReviveRitual implements Listener {
     }
 
     private void engageLock(Player player, UUID id) {
+        // damage is cancelled by onLockedDamage while locked; never set the persistent
+        // invulnerable flag (it stuck forever when a player left mid-ritual)
         this.state.setRevivalLocked(id, true);
-        player.setInvulnerable(true);
         this.beginAnimation(player, this.state.mainLoc().add(0.5, -3.0, 0.5));
     }
 
@@ -374,7 +387,6 @@ public final class PedestalReviveRitual implements Listener {
         Player player = Bukkit.getPlayer(id);
         if (player != null) {
             player.setGravity(true);
-            player.setInvulnerable(false);
             PedestalManager.clearGemGlow(player);
         }
         this.state.removeBeam();
@@ -497,7 +509,6 @@ public final class PedestalReviveRitual implements Listener {
             self.state.setRevivingPlayer(null);
             self.state.resetCount();
             this.player.setGravity(true);
-            this.player.setInvulnerable(false);
             // blast everyone else away from the pedestal
             Location stand = self.state.standLoc();
             if (stand != null) {

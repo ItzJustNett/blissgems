@@ -62,6 +62,25 @@ public class CustomItemManager {
         GemCosmetics.initialize(plugin);
     }
 
+    /** A normal gem item wearing the Gold Gem's skin (it carries a gold instance id but a soul gem's id). */
+    public static boolean isGoldSkinned(ItemStack item) {
+        String id = CustomItemManager.getIdByItem(item);
+        return id != null && !"gold_gem_t1".equals(id) && CustomItemManager.getGoldInstanceId(item) != null;
+    }
+
+    /** Stamps a specific gold instance id on an item (used when re-skinning the Gold Gem). */
+    public static void setGoldInstanceId(ItemStack item, UUID id) {
+        if (GOLD_INSTANCE_KEY == null || item == null || id == null) {
+            return;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        meta.getPersistentDataContainer().set(GOLD_INSTANCE_KEY, PersistentDataType.STRING, id.toString());
+        item.setItemMeta(meta);
+    }
+
     public static UUID getGoldInstanceId(ItemStack item) {
         if (GOLD_INSTANCE_KEY == null || item == null) {
             return null;
@@ -314,7 +333,7 @@ public class CustomItemManager {
         if (id == null || !GemType.isGem(id)) {
             return;
         }
-        if (id.startsWith("gold_gem")) {
+        if (id.startsWith("gold_gem") || CustomItemManager.isGoldSkinned(item)) {
             return;
         }
         CustomItemData data = ITEM_REGISTRY.get(id);

@@ -120,7 +120,8 @@ public final class PedestalListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
-        if (!PedestalState.near(player.getLocation(), this.state.mainLoc(), 8.0)) {
+        Location main = this.state.mainLoc();
+        if (main == null || !PedestalState.near(player.getLocation(), main, 16.0)) {
             return;
         }
         Item drop = event.getItemDrop();
@@ -128,12 +129,52 @@ public final class PedestalListener implements Listener {
         if (id == null) {
             return;
         }
-        boolean close = PedestalState.near(player.getLocation(), this.state.mainLoc(), 5.0);
         switch (id) {
-            case REPAIR_KIT -> { if (close) this.startRepair(player, drop); }
-            case RESTORATION -> { if (close) this.startRestoration(player, drop); }
+            case REPAIR_KIT, RESTORATION -> this.trackRitualThrow(player, drop, id);
             case ENERGY -> this.trackEnergyThrow(player, drop);
             default -> { }
+        }
+    }
+
+    /**
+     * A Repair Kit or Restoration Book starts its ritual when it lands on the pedestal (or is
+     * dropped while standing on it). Anything else gets told why nothing happened.
+     */
+    private void trackRitualThrow(Player player, Item item, String id) {
+        Location main = this.state.mainLoc();
+        Location target = main.clone().add(0.5, 0.5, 0.5);
+        if (PedestalState.near(player.getLocation(), main, 3.0)) {
+            this.startFromItem(player, item, id);
+            return;
+        }
+        new BukkitRunnable() {
+            int ticks;
+
+            @Override
+            public void run() {
+                if (item.isDead() || !item.isValid()) {
+                    this.cancel();
+                    return;
+                }
+                Location at = item.getLocation();
+                if (at.getWorld().equals(target.getWorld()) && at.distanceSquared(target) <= 6.25) {
+                    this.cancel();
+                    PedestalListener.this.startFromItem(player, item, id);
+                    return;
+                }
+                if (++this.ticks >= 100) {
+                    this.cancel();
+                    player.sendMessage(PedestalManager.color("&7Throw it &fonto the pedestal &7(or drop it while standing on it) to start the ritual."));
+                }
+            }
+        }.runTaskTimer(this.plugin, 1L, 1L);
+    }
+
+    private void startFromItem(Player player, Item item, String id) {
+        if (REPAIR_KIT.equals(id)) {
+            this.startRepair(player, item);
+        } else {
+            this.startRestoration(player, item);
         }
     }
 
@@ -185,9 +226,10 @@ public final class PedestalListener implements Listener {
         this.state.resetCount();
         this.state.setDepositCooldown(0);
         this.state.setDurability(PedestalState.MAX_DURABILITY);
-        takeOne(item);
         Location main = this.state.mainLoc();
-        main.getWorld().playSound(main, Sound.BLOCK_BEACON_ACTIVATE, 30.0f, 1.0f);
+        PedestalStartEffect.play(this.plugin, item, main, org.bukkit.Color.fromRGB(120, 255, 170), false);
+        takeOne(item);
+        player.sendTitle(PedestalManager.color("&a&lRepair Ritual"), PedestalManager.color("&7Throw &f" + PedestalState.DEPOSITS_REQUIRED + " Energy Bottles &7onto the pedestal"), 10, 70, 20);
         this.plugin.getServer().broadcastMessage(PedestalManager.color("&d" + player.getName() + " has started a repair ritual!"));
     }
 
@@ -204,10 +246,11 @@ public final class PedestalListener implements Listener {
         this.state.setRevivingPlayer(player.getUniqueId());
         this.state.resetCount();
         this.state.setDurability(PedestalState.MAX_DURABILITY);
-        takeOne(item);
         Location main = this.state.mainLoc();
+        PedestalStartEffect.play(this.plugin, item, main, org.bukkit.Color.fromRGB(170, 70, 255), true);
+        takeOne(item);
         PedestalReviveRitual.forceStormAndThunder(main.getWorld());
-        main.getWorld().playSound(main, Sound.BLOCK_BEACON_ACTIVATE, 30.0f, 1.0f);
+        player.sendTitle(PedestalManager.color("&5&lRestoration Ritual"), PedestalManager.color("&7Throw &f" + PedestalState.DEPOSITS_REQUIRED + " Energy Bottles &7onto the pedestal"), 10, 70, 20);
         this.plugin.getServer().broadcastMessage(PedestalManager.color("&d" + player.getName() + " has started a restoration ritual!"));
     }
 

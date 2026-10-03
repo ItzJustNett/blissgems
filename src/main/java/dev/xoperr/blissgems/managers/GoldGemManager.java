@@ -42,6 +42,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.Material;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -125,8 +127,9 @@ public class GoldGemManager {
         return this.isGoldGem(player.getInventory().getItemInMainHand());
     }
 
+    /** The dormant Gold Gem, or any gem wearing the Gold Gem's skin (its channelled soul). */
     public boolean isGoldGem(ItemStack item) {
-        return item != null && GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item));
+        return item != null && (GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item)) || CustomItemManager.isGoldSkinned(item));
     }
 
     public Map<String, Harvest> getHarvested(UUID playerId) {
@@ -162,6 +165,7 @@ public class GoldGemManager {
         }
         this.active.put(player.getUniqueId(), gemId);
         this.save(player.getUniqueId());
+        this.refreshGoldItem(player);
         return true;
     }
 
@@ -177,6 +181,7 @@ public class GoldGemManager {
         String next = (String)order.get((index + 1) % order.size());
         this.active.put(playerId, next);
         this.save(playerId);
+        this.refreshGoldItem(player);
         return next;
     }
 
@@ -327,38 +332,71 @@ public class GoldGemManager {
         return new Harvest(gemId, tier, owner);
     }
 
-    private void refreshGoldItem(Player player) {
-        Map<String, Harvest> souls = this.getHarvested(player.getUniqueId());
-        for (int slot = 0; slot < player.getInventory().getSize(); ++slot) {
-            this.refreshGoldStack(player.getInventory().getItem(slot), souls);
+    /**
+     * Re-skins the Gold Gem. With a channelled soul it becomes that soul's ordinary gem (same id,
+     * tier, abilities and passives - every normal gem code path just works) wearing the gold look;
+     * with no soul it is the dormant Gold Gem. The gold instance id rides along either way.
+     */
+    public void refreshGoldItem(Player player) {
+        PlayerInventory inv = player.getInventory();
+        for (int slot = 0; slot < inv.getSize(); ++slot) {
+            ItemStack item = inv.getItem(slot);
+            if (!this.isGoldGem(item)) continue;
+            ItemStack fresh = this.buildGoldItem(player, item);
+            if (fresh != null) inv.setItem(slot, fresh);
         }
-        this.refreshGoldStack(player.getInventory().getItemInOffHand(), souls);
+        ItemStack off = inv.getItemInOffHand();
+        if (this.isGoldGem(off)) {
+            ItemStack fresh = this.buildGoldItem(player, off);
+            if (fresh != null) inv.setItemInOffHand(fresh);
+        }
+        this.plugin.getGemManager().updateActiveGem(player);
     }
 
-    private void refreshGoldStack(ItemStack item, Map<String, Harvest> souls) {
-        if (!this.isGoldGem(item)) {
-            return;
+    private ItemStack buildGoldItem(Player player, ItemStack current) {
+        UUID instance = CustomItemManager.getGoldInstanceId(current);
+        Map<String, Harvest> souls = this.harvested.getOrDefault(player.getUniqueId(), Map.of());
+        String active = this.active.get(player.getUniqueId());
+        Harvest soul = active != null ? souls.get(active) : null;
+        ItemStack base = soul != null
+            ? CustomItemManager.getItemById(soul.gemId() + "_gem_t" + soul.tier(), this.plugin.getEnergyManager().getEnergy(player))
+            : CustomItemManager.getItemById(GOLD_ITEM_ID);
+        if (base == null) {
+            return null;
         }
-        ItemMeta meta = item.getItemMeta();
+        ItemStack item = new ItemStack(Material.PRISMARINE_CRYSTALS);
+        ItemMeta meta = base.getItemMeta();
         if (meta == null) {
-            return;
+            return null;
         }
         ArrayList<String> lore = new ArrayList<>();
-        lore.add("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE");
+        if (soul != null) {
+            meta.setDisplayName("\u00a76\u00a7lGOLD GEM \u00a78\u00bb " + this.plugin.getGemManager().getGemColorCode(soul.gemId()) + "\u00a7l"
+                + this.plugin.getGemManager().getGemDisplayName(soul.gemId()) + " \u00a78(T" + soul.tier() + ")");
+            if (meta.getLore() != null) lore.addAll(meta.getLore());
+            lore.add("");
+        } else {
+            lore.add("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE");
+        }
         lore.add(this.stateLine(souls.size()));
-        lore.add("");
         lore.add("\u00a76\ud83c\udf1f \u00a76\u00a7lHARVESTED SOULS");
         if (souls.isEmpty()) {
             lore.add("\u00a78- the gem is silent -");
         } else {
             lore.add(this.colourBar(souls.keySet()));
-            for (Map.Entry<String, Harvest> soul : souls.entrySet()) {
-                lore.add(this.plugin.getGemManager().getGemColorCode(soul.getKey()) + "- " + this.plugin.getGemManager().getGemDisplayName(soul.getKey()) + " \u00a78(T" + soul.getValue().tier() + ")");
+            for (Map.Entry<String, Harvest> e : souls.entrySet()) {
+                lore.add(this.plugin.getGemManager().getGemColorCode(e.getKey()) + "- " + this.plugin.getGemManager().getGemDisplayName(e.getKey())
+                    + " \u00a78(T" + e.getValue().tier() + ")" + (e.getKey().equals(active) ? " \u00a7a\u25c0" : ""));
             }
         }
+        lore.add("\u00a77/bliss gold \u00a78- switch soul, Sundering Beam");
         meta.setLore(lore);
-        meta.setCustomModelData(Integer.valueOf(1009 + Math.min(souls.size(), 8)));
+        meta.setCustomModelData(Integer.valueOf(BASE_MODEL_DATA + Math.min(souls.size(), 8)));
         item.setItemMeta(meta);
+        item.setAmount(1);
+        if (instance != null) CustomItemManager.setGoldInstanceId(item, instance);
+        else CustomItemManager.ensureGoldInstanceId(item);
+        return item;
     }
 
     private String colourBar(Iterable<String> gemIds) {
