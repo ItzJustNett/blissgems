@@ -2420,7 +2420,7 @@ TabCompleter {
     /** Where to get the optional BlissGems shaderpack and how to install it. */
     private void handleShaders(CommandSender sender) {
         String url = this.plugin.getConfig().getString("golden-dream.sky.shaderpack-url",
-            "https://github.com/ItzJustNett/blissgems/releases/download/shaders-latest/BlissGems-Shaders.zip");
+            "https://github.com/ItzJustNett/blissgems/releases/latest/download/BlissGems-Shaders.zip");
         sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems shaderpack" + org.bukkit.ChatColor.GRAY + " (optional, Java + Iris or OptiFine)");
         sender.sendMessage(org.bukkit.ChatColor.GRAY + "GoldenDome in the golden dream, GloomHaze in the memory world, plain Minecraft everywhere else.");
         net.md_5.bungee.api.chat.TextComponent link = new net.md_5.bungee.api.chat.TextComponent(org.bukkit.ChatColor.AQUA + "" + org.bukkit.ChatColor.UNDERLINE + "Download BlissGems-Shaders.zip");
