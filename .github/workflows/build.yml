@@ -25,6 +25,17 @@ jobs:
       - name: Build
         run: mvn -B package -DskipTests
 
+      # The BlissGems shaderpack (shaderpack/BlissGems): zipped with shaders/ at the root,
+      # the layout Iris and OptiFine expect.
+      - name: Zip shaderpack
+        run: cd shaderpack/BlissGems && zip -qr ../../target/BlissGems-Shaders.zip shaders
+
+      - name: Upload shaderpack
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlissGems-Shaders-${{ github.sha }}
+          path: target/BlissGems-Shaders.zip
+
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
@@ -36,7 +47,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: target/BlissGems-*.jar
+          files: |
+            target/BlissGems-*.jar
+            target/BlissGems-Shaders.zip
           generate_release_notes: true
 
       # A push to a release branch named bliss/V<version> publishes release v<version>,
@@ -53,5 +66,22 @@ jobs:
           tag_name: ${{ steps.branchtag.outputs.tag }}
           name: BlissGems ${{ steps.branchtag.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          files: target/BlissGems-*.jar
+          files: |
+            target/BlissGems-*.jar
+            target/BlissGems-Shaders.zip
           generate_release_notes: true
+
+      # Every push refreshes the public shaderpack download:
+      # https://github.com/<repo>/releases/download/shaders-latest/BlissGems-Shaders.zip
+      - name: Publish latest shaderpack
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: shaders-latest
+          name: BlissGems Shaderpack (latest)
+          body: |
+            The BlissGems shaderpack (GoldenDome + GloomHaze), rebuilt on every push.
+            Put BlissGems-Shaders.zip in .minecraft/shaderpacks and select it (Iris or OptiFine).
+            It only changes the picture when the BlissGems server signals the golden dream or the memory world.
+          make_latest: false
+          files: target/BlissGems-Shaders.zip

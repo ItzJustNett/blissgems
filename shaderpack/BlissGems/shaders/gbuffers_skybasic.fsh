@@ -1,0 +1,33 @@
+#version 330 compatibility
+
+uniform int renderStage;
+uniform float viewHeight;
+uniform float viewWidth;
+uniform mat4 gbufferModelView;
+uniform mat4 gbufferProjectionInverse;
+uniform vec3 fogColor;
+uniform vec3 skyColor;
+
+in vec4 glcolor;
+
+/* RENDERTARGETS: 0 */
+layout(location = 0) out vec4 color;
+
+float fogify(float x, float w) {
+    return w / (x * x + w);
+}
+
+vec3 calcSkyColor(vec3 pos) {
+    float upDot = dot(pos, gbufferModelView[1].xyz);
+    return mix(skyColor, fogColor, fogify(max(upDot, 0.0), 0.25));
+}
+
+void main() {
+    if (renderStage == MC_RENDER_STAGE_STARS) {
+        color = glcolor;
+    } else {
+        vec4 pos = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
+        pos = gbufferProjectionInverse * pos;
+        color = vec4(calcSkyColor(normalize(pos.xyz)), 1.0);
+    }
+}

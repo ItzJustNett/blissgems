@@ -293,6 +293,11 @@ TabCompleter {
                 this.handleDeps(sender);
                 break;
             }
+            case "shaders":
+            case "shader": {
+                this.handleShaders(sender);
+                break;
+            }
             case "unbounded": {
                 this.handleUnbounded(sender, args);
                 break;
@@ -2262,7 +2267,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("gold")) {
                 return Arrays.asList("souls", "cycle", "beam", "armor");
@@ -2410,6 +2415,18 @@ TabCompleter {
         if (this.plugin.getAstraUnbounded() != null) {
             this.plugin.getAstraUnbounded().start(player, target);
         }
+    }
+
+    /** Where to get the optional BlissGems shaderpack and how to install it. */
+    private void handleShaders(CommandSender sender) {
+        String url = this.plugin.getConfig().getString("golden-dream.sky.shaderpack-url",
+            "https://github.com/ItzJustNett/blissgems/releases/download/shaders-latest/BlissGems-Shaders.zip");
+        sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems shaderpack" + org.bukkit.ChatColor.GRAY + " (optional, Java + Iris or OptiFine)");
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "GoldenDome in the golden dream, GloomHaze in the memory world, plain Minecraft everywhere else.");
+        net.md_5.bungee.api.chat.TextComponent link = new net.md_5.bungee.api.chat.TextComponent(org.bukkit.ChatColor.AQUA + "" + org.bukkit.ChatColor.UNDERLINE + "Download BlissGems-Shaders.zip");
+        link.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, url));
+        sender.spigot().sendMessage(link);
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "Put the zip in " + org.bukkit.ChatColor.WHITE + ".minecraft/shaderpacks" + org.bukkit.ChatColor.GRAY + ", then pick " + org.bukkit.ChatColor.WHITE + "BlissGems-Shaders" + org.bukkit.ChatColor.GRAY + " in Video Settings > Shader Packs.");
     }
 
     /** Lists the optional plugins BlissGems can use and what each one unlocks. Nothing here is required. */

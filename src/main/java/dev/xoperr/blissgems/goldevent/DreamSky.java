@@ -20,6 +20,19 @@ public final class DreamSky {
     private static long goldenTime = 12600L;
     private static long memoryTime = 12900L;
     private static long stormTime = 18000L;
+    /**
+     * Shaderpack signals: the BlissGems shaderpack (Iris/OptiFine) reads the client's day number
+     * (worldDay). On these days it draws GoldenDome / GloomHaze; on any normal day it changes nothing.
+     * Without the shaderpack the only difference is the moon phase.
+     */
+    public static final long DOME_DAY = 80036L;
+    public static final long GLOOM_DAY = 80037L;
+    public static final long STORM_DAY = 80038L;
+    private static boolean signals = true;
+
+    private static long at(long day, long timeOfDay) {
+        return signals ? day * 24000L + timeOfDay : timeOfDay;
+    }
     private static String pocketFog = "minecraft:fog_mesa";
     private static String goldenFog = "minecraft:fog_mesa";
     private static String memoryFog = "minecraft:fog_basalt_deltas";
@@ -47,6 +60,7 @@ public final class DreamSky {
         ConfigurationSection c = plugin.getConfig().getConfigurationSection("golden-dream.sky");
         if (c == null) return;
         goldenTime = c.getLong("golden-hour-time", goldenTime);
+        signals = c.getBoolean("shader-signals", true);
         memoryTime = c.getLong("memory-time", memoryTime);
         stormTime = c.getLong("storm-time", stormTime);
         pocketFog = c.getString("bedrock-fog.pocket", pocketFog);
@@ -57,13 +71,13 @@ public final class DreamSky {
 
     /** Near the ritual / the golden mass: a frozen golden-hour sky. */
     public static void golden(Player p) {
-        p.setPlayerTime(goldenTime, false);
+        p.setPlayerTime(at(DOME_DAY, goldenTime), false);
         setFog(p, goldenFog);
     }
 
     /** The pocket walkway (its gold colour on Java comes from the datapack). */
     public static void pocket(Player p) {
-        p.resetPlayerTime();
+        p.setPlayerTime(at(DOME_DAY, 6000L), false);
         p.setPlayerWeather(WeatherType.CLEAR);
         setFog(p, pocketFog);
     }
@@ -71,11 +85,11 @@ public final class DreamSky {
     /** The memory world: an endless dusk, or a night storm while the great thunder hangs. */
     public static void memory(Player p, boolean storm) {
         if (storm) {
-            p.setPlayerTime(stormTime, false);
+            p.setPlayerTime(at(STORM_DAY, stormTime), false);
             p.setPlayerWeather(WeatherType.DOWNFALL);
             setFog(p, stormFog);
         } else {
-            p.setPlayerTime(memoryTime, false);
+            p.setPlayerTime(at(GLOOM_DAY, memoryTime), false);
             p.setPlayerWeather(WeatherType.CLEAR);
             setFog(p, memoryFog);
         }

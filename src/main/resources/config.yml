@@ -633,6 +633,12 @@ golden-dream:
     pocket-fog-color: "#FFE3A3"
     pocket-water-color: "#E8B04A"
     pocket-water-fog-color: "#8A5A10"
+    # The BlissGems shaderpack (Iris/OptiFine, optional, each player installs it once - /bliss shaders)
+    # turns GoldenDome on in the golden dream / ritual and GloomHaze on in the memory world. The
+    # plugin signals it through the client's day number; everywhere else the pack shows plain
+    # Minecraft. false = never signal (the pack then never changes anything).
+    shader-signals: true
+    shaderpack-url: "https://github.com/ItzJustNett/blissgems/releases/download/shaders-latest/BlissGems-Shaders.zip"
     # Frozen per-player time of day (0-24000). 12600 = golden sunset, 12900 = dusk, 18000 = midnight.
     golden-hour-time: 12600   # near the ritual and the golden mass
     memory-time: 12900        # inside the memory world
