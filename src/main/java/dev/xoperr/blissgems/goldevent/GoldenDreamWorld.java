@@ -220,16 +220,20 @@ public final class GoldenDreamWorld implements Listener {
         return f.isDirectory() && (new File(f, "level.dat").isFile() || new File(f, "region").isDirectory());
     }
 
-    /** "import" (default): the memory is only ever the map in /goldendream_import. "copy-main": no map there? copy the main world. */
+    /**
+     * Where a missing goldenworld comes from (an existing goldenworld folder is always used as-is,
+     * and a map in /goldendream_import always wins): "generate" (default, like the original plugin) -
+     * a new world; "copy-main" - a copy of the main world; "import" - only ever the import map.
+     */
     private String memorySource() {
-        return this.plugin.getConfig().getString("golden-dream.memory-world", "import").toLowerCase(java.util.Locale.ROOT);
+        return this.plugin.getConfig().getString("golden-dream.memory-world", "generate").toLowerCase(java.util.Locale.ROOT);
     }
 
-    /** True once a memory world exists or can be made. The dream never falls back to random terrain. */
+    /** True once a memory world exists or can be made. */
     public boolean memoryAvailable() {
         File container = Bukkit.getWorldContainer();
         return Bukkit.getWorld(WORLD) != null || isWorldFolder(new File(container, WORLD)) || isWorldFolder(new File(container, IMPORT_FOLDER))
-            || "copy-main".equals(this.memorySource());
+            || !"import".equals(this.memorySource());
     }
 
     /** Builds goldenworld from the import folder (or a copy of the main world). False when there is nothing to build from. */
@@ -251,6 +255,9 @@ public final class GoldenDreamWorld implements Listener {
                 }
                 return true;
             }
+            if ("generate".equals(this.memorySource())) {
+                return true; // WorldCreator makes a fresh world, exactly like the original plugin
+            }
             if ("copy-main".equals(this.memorySource())) {
                 World main = Bukkit.getWorlds().get(0);
                 main.save();
@@ -263,7 +270,7 @@ public final class GoldenDreamWorld implements Listener {
             return false;
         }
         this.plugin.getLogger().warning("Golden Dream: there is no memory world. Put the map's world folder at /" + IMPORT_FOLDER
-            + " (next to the server jar) or set golden-dream.memory-world: copy-main. The dream will not start until then.");
+            + " (next to the server jar), or set golden-dream.memory-world to generate or copy-main. The dream will not start until then.");
         return false;
     }
 

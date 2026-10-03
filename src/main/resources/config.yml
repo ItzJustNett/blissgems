@@ -616,13 +616,14 @@ golden-dream:
   mass-destroys-terrain: true
   # Intruders in the memory hear a whisper (bliss:alternate) near a memory, at most every 20 s.
   memory-proximity-sound: true
-  # Where the memory world (goldenworld) comes from. It is NEVER random terrain:
-  #   import    - the map you put at /goldendream_import (a world folder next to the server jar).
-  #               A singleplayer save's nether/end (DIM-1, DIM1) come along. Until it is there,
-  #               the fragment ritual refuses to start.
-  #   copy-main - no map in /goldendream_import? use a copy of the main world instead.
-  # Already have a wrong goldenworld? /goldendream reset confirm rebuilds it from the map.
-  memory-world: import
+  # Where the memory world (goldenworld) comes from when it doesn't exist yet. An existing
+  # goldenworld folder is always used as-is, and a map put at /goldendream_import (a world folder
+  # next to the server jar) always wins - a singleplayer save's nether/end come along.
+  #   generate  - a brand-new world, like the original plugin (default)
+  #   copy-main - a copy of the main world
+  #   import    - only the /goldendream_import map; without it the fragment ritual won't start
+  # To swap the memory for a map later: put it at /goldendream_import, then /goldendream reset confirm.
+  memory-world: generate
   # The dream's skies, made without any resource pack so Java and Bedrock players both see them.
   sky:
     # Installs the "bliss_skies" datapack into the main world (needs one restart the first time).

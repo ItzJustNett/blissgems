@@ -81,7 +81,7 @@ public final class GoldenDreamRitual implements Listener {
         if (!this.dream.world().memoryAvailable()) {
             p.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&6The fragments stay silent \u2014 the dream has no memory to show yet."));
             if (p.hasPermission("blissgems.admin")) {
-                p.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&7Put the map's world folder at &f/" + GoldenDreamWorld.IMPORT_FOLDER + " &7(next to the server jar), or set &fgolden-dream.memory-world: copy-main&7."));
+                p.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&7Put the map's world folder at &f/" + GoldenDreamWorld.IMPORT_FOLDER + " &7(next to the server jar), or set &fgolden-dream.memory-world: generate&7."));
             }
             return;
         }
