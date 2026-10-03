@@ -78,6 +78,13 @@ public final class GoldenDreamRitual implements Listener {
         if (GoldenDreamWorld.isDreamWorld(at.getWorld())) return;
         List<Item> pile = this.collect(p, at);
         if (pile.size() < NEEDED) return;
+        if (!this.dream.world().memoryAvailable()) {
+            p.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&6The fragments stay silent \u2014 the dream has no memory to show yet."));
+            if (p.hasPermission("blissgems.admin")) {
+                p.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&7Put the map's world folder at &f/" + GoldenDreamWorld.IMPORT_FOLDER + " &7(next to the server jar), or set &fgolden-dream.memory-world: copy-main&7."));
+            }
+            return;
+        }
         Location c = centre(pile);
         for (Item i : pile) if (i.getLocation().distanceSquared(c) > PILE_R * PILE_R) return;
         this.begin(p, c, pile);

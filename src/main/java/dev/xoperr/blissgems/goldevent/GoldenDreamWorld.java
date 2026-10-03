@@ -216,8 +216,80 @@ public final class GoldenDreamWorld implements Listener {
         return this.overworld != null && this.nether != null && this.end != null;
     }
 
+    private static boolean isWorldFolder(File f) {
+        return f.isDirectory() && (new File(f, "level.dat").isFile() || new File(f, "region").isDirectory());
+    }
+
+    /** "import" (default): the memory is only ever the map in /goldendream_import. "copy-main": no map there? copy the main world. */
+    private String memorySource() {
+        return this.plugin.getConfig().getString("golden-dream.memory-world", "import").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** True once a memory world exists or can be made. The dream never falls back to random terrain. */
+    public boolean memoryAvailable() {
+        File container = Bukkit.getWorldContainer();
+        return Bukkit.getWorld(WORLD) != null || isWorldFolder(new File(container, WORLD)) || isWorldFolder(new File(container, IMPORT_FOLDER))
+            || "copy-main".equals(this.memorySource());
+    }
+
+    /** Builds goldenworld from the import folder (or a copy of the main world). False when there is nothing to build from. */
+    private boolean prepareMemory() {
+        File container = Bukkit.getWorldContainer();
+        File src = new File(container, IMPORT_FOLDER);
+        try {
+            if (isWorldFolder(src)) {
+                this.plugin.getLogger().info("Golden Dream: building the memory world from /" + IMPORT_FOLDER + " ...");
+                copyWorld(src, new File(container, WORLD));
+                // a singleplayer save keeps its nether and end inside: use them too
+                if (new File(src, "DIM-1").isDirectory() && !new File(container, NETHER).exists()) {
+                    copyWorld(new File(src, "DIM-1"), new File(new File(container, NETHER), "DIM-1"));
+                    java.nio.file.Files.copy(new File(src, "level.dat").toPath(), new File(container, NETHER + "/level.dat").toPath());
+                }
+                if (new File(src, "DIM1").isDirectory() && !new File(container, END).exists()) {
+                    copyWorld(new File(src, "DIM1"), new File(new File(container, END), "DIM1"));
+                    java.nio.file.Files.copy(new File(src, "level.dat").toPath(), new File(container, END + "/level.dat").toPath());
+                }
+                return true;
+            }
+            if ("copy-main".equals(this.memorySource())) {
+                World main = Bukkit.getWorlds().get(0);
+                main.save();
+                this.plugin.getLogger().info("Golden Dream: building the memory world as a copy of '" + main.getName() + "' ...");
+                copyWorld(main.getWorldFolder(), new File(container, WORLD));
+                return true;
+            }
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Golden Dream: could not build the memory world: " + e.getMessage());
+            return false;
+        }
+        this.plugin.getLogger().warning("Golden Dream: there is no memory world. Put the map's world folder at /" + IMPORT_FOLDER
+            + " (next to the server jar) or set golden-dream.memory-world: copy-main. The dream will not start until then.");
+        return false;
+    }
+
+    /** Copies a world folder, leaving out the lock, the uid and per-player files. */
+    private static void copyWorld(File from, File to) throws IOException {
+        java.util.Set<String> skip = java.util.Set.of("session.lock", "uid.dat", "playerdata", "stats", "advancements", "datapacks");
+        Path root = from.toPath();
+        try (Stream<Path> walk = Files.walk(root)) {
+            for (Path src : (Iterable<Path>) walk::iterator) {
+                Path rel = root.relativize(src);
+                if (rel.getNameCount() > 0 && skip.contains(rel.getName(0).toString())) continue;
+                Path dst = to.toPath().resolve(rel.toString());
+                if (Files.isDirectory(src)) Files.createDirectories(dst);
+                else Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
     World worldSet() {
-        if (this.overworld == null) this.overworld = this.load(WORLD, World.Environment.NORMAL);
+        if (this.overworld == null) {
+            this.overworld = Bukkit.getWorld(WORLD);
+            if (this.overworld == null) {
+                if (!isWorldFolder(new File(Bukkit.getWorldContainer(), WORLD)) && !this.prepareMemory()) return null;
+                this.overworld = this.load(WORLD, World.Environment.NORMAL);
+            }
+        }
         if (this.nether == null) this.nether = this.load(NETHER, World.Environment.NETHER);
         if (this.end == null) this.end = this.load(END, World.Environment.THE_END);
         if (this.gradeTask == null && this.overworld != null) this.gradeTask = Bukkit.getScheduler().runTaskTimer(this.plugin, this::grade, 1L, 1L);
@@ -853,9 +925,7 @@ public final class GoldenDreamWorld implements Listener {
         this.overworld = null;
         File dst = new File(Bukkit.getWorldContainer(), WORLD);
         try {
-            copyTree(src.toPath(), dst.toPath());
-            new File(dst, "uid.dat").delete();
-            new File(dst, "session.lock").delete();
+            copyWorld(src, dst);
         } catch (IOException e) {
             if (sender != null) sender.sendMessage(dev.xoperr.blissgems.pedestal.PedestalManager.color("&cImport copy failed: &f" + e.getMessage()));
             return false;
@@ -882,16 +952,6 @@ public final class GoldenDreamWorld implements Listener {
             return false;
         }
         return !dir.exists();
-    }
-
-    private static void copyTree(Path from, Path to) throws IOException {
-        try (Stream<Path> walk = Files.walk(from)) {
-            for (Path src : (Iterable<Path>) walk::iterator) {
-                Path dst = to.resolve(from.relativize(src).toString());
-                if (Files.isDirectory(src)) Files.createDirectories(dst);
-                else Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
     }
 
     // ---- types ----
