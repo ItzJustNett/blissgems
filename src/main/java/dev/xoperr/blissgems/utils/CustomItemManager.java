@@ -410,21 +410,11 @@ public class CustomItemManager {
         CustomItemManager.applyEnhancedGlint(meta, energy);
     }
 
-    /** e.g. "Energy ◆◆◆◆◆◆◇◇◇◇ Pristine +1". */
+    /** The level line under the gem's tagline, in the gem's own style: "(Pristine)", "(Cracked)", "(Pristine +2)". */
     public static Component energyLine(int energy) {
         EnergyState state = EnergyState.fromEnergy(energy);
-        int pips = Math.max(0, Math.min(10, energy));
-        String color = state.getDisplayName().substring(0, 2);
-        StringBuilder sb = new StringBuilder("§7Energy ");
-        sb.append(color);
-        for (int i = 0; i < 10; i++) {
-            if (i == pips) {
-                sb.append("§8");
-            }
-            sb.append(i < pips ? '◆' : '◇');
-        }
-        sb.append(' ').append(state.getDisplayName());
-        return CustomItemManager.legacy(sb.toString());
+        String color = state == EnergyState.PRISTINE ? "\u00a7a" : state.getDisplayName().substring(0, 2);
+        return CustomItemManager.legacy(color + "\u00a7o(" + state.getName() + ")");
     }
 
     private static Component legacy(String text) {
