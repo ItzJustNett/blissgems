@@ -64,6 +64,14 @@ gems:
   # given to entities, moved by hoppers, or lost in any other way
   prevent-drop: true
 
+  # Anti-dupe: every gem gets a unique id bound to its owner. Copies made with ghost items or
+  # client mods share that id and are deleted (a second copy, or a copy on another player while
+  # the owner still holds the original). Checked on join/respawn/world change/pickup/inventory
+  # close and every check-interval-ticks.
+  anti-dupe:
+    enabled: true
+    check-interval-ticks: 40
+
   # When a player holding a Tier 2 gem dies, drop a Gem Upgrader at their death spot.
   # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
   drop-upgrader-on-tier2-death: false

@@ -580,6 +580,9 @@ implements BlissGemsAPI {
     }
 
     public void onDisable() {
+        if (this.gemIntegrity != null) {
+            this.gemIntegrity.save();
+        }
         if (this.particleManager != null) {
             this.particleManager.cleanup();
         }
@@ -692,11 +695,16 @@ implements BlissGemsAPI {
         }
     }
 
+    private dev.xoperr.blissgems.listeners.GemIntegrityListener gemIntegrity;
+
     private void registerListeners() {
         PlayerDeathListener deathListener = new PlayerDeathListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)deathListener, (Plugin)this);
         this.getServer().getScheduler().runTask((Plugin)this, deathListener::validateDroppableOnDeathConfig);
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
+        this.gemIntegrity = new dev.xoperr.blissgems.listeners.GemIntegrityListener(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.gemIntegrity, (Plugin)this);
+        this.gemIntegrity.start();
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
