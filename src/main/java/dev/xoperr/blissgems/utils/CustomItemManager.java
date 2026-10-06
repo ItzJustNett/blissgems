@@ -45,6 +45,8 @@ public class CustomItemManager {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
     private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
     private static final Map<String, CustomItemData> ITEM_REGISTRY = new HashMap<String, CustomItemData>();
+    /** Materials used by soul gems; lets hot inventory scans skip other items without reading their meta. */
+    private static final java.util.Set<Material> GEM_MATERIALS = java.util.EnumSet.noneOf(Material.class);
     private static NamespacedKey ITEM_ID_KEY;
     private static NamespacedKey UNDROPPABLE_KEY;
     private static NamespacedKey OWNER_KEY;
@@ -171,6 +173,9 @@ public class CustomItemManager {
 
     private static void registerItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
         ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
+        if (id.contains("_gem_t")) {
+            GEM_MATERIALS.add(material);
+        }
     }
 
     public static void registerAddonItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
@@ -179,6 +184,14 @@ public class CustomItemManager {
             return;
         }
         ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
+        if (id.contains("_gem_t")) {
+            GEM_MATERIALS.add(material);
+        }
+    }
+
+    /** Cheap pre-check (no item meta read): could this item be a soul gem? */
+    public static boolean mayBeGem(ItemStack item) {
+        return item != null && GEM_MATERIALS.contains(item.getType());
     }
 
     public static String getIdByItem(ItemStack item) {
@@ -332,7 +345,7 @@ public class CustomItemManager {
     }
 
     public static void updateGemTexture(ItemStack item, int energy) {
-        if (item == null || !item.hasItemMeta()) {
+        if (!CustomItemManager.mayBeGem(item) || !item.hasItemMeta()) {
             return;
         }
         String id = CustomItemManager.getIdByItem(item);

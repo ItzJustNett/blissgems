@@ -46,7 +46,8 @@ public final class RitualItems {
     }
 
     public static boolean isWireFragment(ItemStack item) {
-        return wireFragmentNumber(item) > 0 || (item != null && "wire_fragment".equals(CustomItemManager.getIdByItem(item)));
+        if (item == null || (item.getType() != WIRE_FRAGMENT_MATERIAL && item.getType() != Material.LIGHTNING_ROD)) return false;
+        return wireFragmentNumber(item) > 0 || "wire_fragment".equals(CustomItemManager.getIdByItem(item));
     }
 
     public static ItemStack fragmentCore() {
@@ -63,11 +64,11 @@ public final class RitualItems {
 
     /** The new core, or the older "fragment_core" custom item from before the event existed. */
     public static boolean isFragmentCore(ItemStack item) {
-        if (item == null) return false;
-        if (item.getType() == FRAGMENT_CORE_MATERIAL && item.hasItemMeta()) {
-            Byte b = item.getItemMeta().getPersistentDataContainer().get(KEY_FRAGMENT_CORE, PersistentDataType.BYTE);
-            if (b != null && b == 1) return true;
-        }
+        // Both the core and the legacy "fragment_core" item are nether stars: skip everything else before
+        // touching item meta (this runs for every slot of every player each scan).
+        if (item == null || item.getType() != FRAGMENT_CORE_MATERIAL || !item.hasItemMeta()) return false;
+        Byte b = item.getItemMeta().getPersistentDataContainer().get(KEY_FRAGMENT_CORE, PersistentDataType.BYTE);
+        if (b != null && b == 1) return true;
         return "fragment_core".equals(CustomItemManager.getIdByItem(item));
     }
 

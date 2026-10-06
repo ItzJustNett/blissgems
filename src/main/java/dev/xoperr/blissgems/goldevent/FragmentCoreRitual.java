@@ -128,6 +128,8 @@ public final class FragmentCoreRitual implements Listener {
     }
 
     private boolean hasCore(Player p) {
+        // contains(Material) only compares item types, so players without a nether star cost almost nothing.
+        if (!p.getInventory().contains(RitualItems.FRAGMENT_CORE_MATERIAL)) return false;
         for (ItemStack i : p.getInventory().getContents()) if (isCore(i)) return true;
         return false;
     }

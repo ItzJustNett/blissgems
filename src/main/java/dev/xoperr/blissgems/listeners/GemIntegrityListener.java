@@ -130,7 +130,7 @@ public class GemIntegrityListener implements Listener {
     }
 
     private boolean isSoulGem(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
+        if (!CustomItemManager.mayBeGem(item) || !item.hasItemMeta()) {
             return false;
         }
         String id = CustomItemManager.getIdByItem(item);
