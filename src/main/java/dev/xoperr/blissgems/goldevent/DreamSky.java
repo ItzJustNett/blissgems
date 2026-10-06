@@ -88,9 +88,9 @@ public final class DreamSky {
         setFog(p, goldenFog);
     }
 
-    /** The pocket walkway: GoldenDome shader (its gold colour on Java also comes from the datapack). */
+    /** The pocket walkway: shaders off (real clock, no signal day); the gold sky there comes from the datapack. */
     public static void pocket(Player p) {
-        p.setPlayerTime(at(DOME_DAY, 6000L), false);
+        p.resetPlayerTime();
         p.setPlayerWeather(WeatherType.CLEAR);
         setFog(p, pocketFog);
     }
