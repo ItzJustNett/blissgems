@@ -54,7 +54,12 @@ public final class OraxenGemFixer {
         if (!GemCosmetics.has(id) || CustomItemManager.isGoldSkinned(item)) {
             return null;
         }
-        int energy = GemType.isGem(id) ? plugin.getEnergyManager().getEnergy(player) : -1;
+        if (GemType.isGem(id)) {
+            // Gems are restyled in place (keeps owner/charges lines); never swapped for a fresh copy.
+            CustomItemManager.updateGemTexture(item, plugin.getEnergyManager().getEnergy(player));
+            return null;
+        }
+        int energy = -1;
         ItemStack fresh = CustomItemManager.getItemById(id, energy);
         if (fresh == null) {
             return null;

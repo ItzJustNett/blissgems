@@ -66,6 +66,10 @@ public class GemManager {
         } else {
             this.activeGems.remove(player.getUniqueId());
         }
+        // Keep the energy line on gem tooltips current (writes only when the text actually changed).
+        if (foundGem != null) {
+            this.updateGemTextures(player);
+        }
     }
 
     public ActiveGem getActiveGem(Player player) {
