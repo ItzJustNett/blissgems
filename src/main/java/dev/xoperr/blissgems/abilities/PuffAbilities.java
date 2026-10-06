@@ -237,7 +237,7 @@ implements GemAbilityHandler {
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-        double radius = this.plugin.getConfig().getDouble("abilities.puff-group-bash.radius", 10.0);
+        double radius = this.plugin.getConfig().getDouble("abilities.puff-group-bash.radius", 6.0);
         double knockback = this.plugin.getConfig().getDouble("abilities.puff-group-bash.knockback", 2.5);
         int hitCount = 0;
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {

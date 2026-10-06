@@ -439,7 +439,7 @@ implements Listener {
         if (hitEntity == null || !(hitEntity instanceof LivingEntity)) {
             return;
         }
-        double chance = this.plugin.getConfig().getDouble("gems.passives.flux.shocking-chance", 0.15);
+        double chance = this.plugin.getConfig().getDouble("passives.flux.shocking-chance", 0.15);
         if (Math.random() > chance) {
             return;
         }
@@ -619,7 +619,7 @@ implements Listener {
         if (!this.canUsePassives(player)) {
             return;
         }
-        double reduction = this.plugin.getConfig().getDouble("gems.passives.flux.charged-creeper-reduction", 1.0);
+        double reduction = this.plugin.getConfig().getDouble("passives.flux.charged-creeper-reduction", 1.0);
         event.setDamage(event.getDamage() * (1.0 - reduction));
         Particle.DustOptions cyan = new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.2f);
         player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 50, 0.5, 0.5, 0.5, 0.0, (Object)cyan, true);
@@ -831,7 +831,7 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getDamager();
-        double attackFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.attack-fail-chance", 0.50);
+        double attackFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.attack-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), attackFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
@@ -842,7 +842,7 @@ implements Listener {
     @EventHandler
     public void onUnfortunateBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        double blockPlaceFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-place-fail-chance", 0.50);
+        double blockPlaceFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-place-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockPlaceFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
@@ -853,7 +853,7 @@ implements Listener {
     @EventHandler
     public void onUnfortunateEat(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
-        double eatFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.eat-fail-chance", 0.50);
+        double eatFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.eat-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), eatFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
@@ -864,7 +864,7 @@ implements Listener {
     @EventHandler
     public void onUnfortunateBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        double blockBreakFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-break-fail-chance", 0.50);
+        double blockBreakFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.block-break-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), blockBreakFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
@@ -878,7 +878,7 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getEntity();
-        double bowFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.bow-fail-chance", 0.50);
+        double bowFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.bow-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), bowFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.4f, 1.0f);
@@ -892,7 +892,7 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getEntity();
-        double totemFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.totem-fail-chance", 0.50);
+        double totemFailChance = this.plugin.getConfig().getDouble("passives.unfortunate.totem-fail-chance", 0.25);
         if (WealthAbilities.shouldUnfortunateFail(player.getUniqueId(), totemFailChance)) {
             event.setCancelled(true);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 1.0f, 0.8f);

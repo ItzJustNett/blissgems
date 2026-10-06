@@ -84,7 +84,7 @@ public class RegionManager {
     }
 
     public String getDisabledMessage() {
-        return this.plugin.getConfig().getString("worldguard.disabled-message", "&cGem abilities are disabled in this region!");
+        return this.plugin.getConfig().getString("worldguard.disabled-message", "&c&lGem abilities are disabled in this region!");
     }
 
     public boolean isWorldGuardEnabled() {

@@ -334,7 +334,7 @@ implements GemAbilityHandler {
                     if (!(entity instanceof LivingEntity)) continue;
                     LivingEntity target = (LivingEntity)entity;
                     if (entity == player || entity instanceof Player && (!player.canSee(tp = (Player)entity) || AstraAbilities.this.plugin.getTrustedPlayersManager().isTrusted(player, tp))) continue;
-                    double armorPiercing = AstraAbilities.this.plugin.getConfig().getDouble("abilities.astra-daggers.armor-piercing", 0.0);
+                    double armorPiercing = AstraAbilities.this.plugin.getConfig().getDouble("abilities.astra-daggers.armor-piercing", 0.35);
                     if (armorPiercing > 0.0 && target instanceof Player) {
                         double reducedDamage = damage * (1.0 - armorPiercing);
                         double pierceDamage = damage * armorPiercing;
@@ -574,7 +574,7 @@ implements GemAbilityHandler {
         UUID uuid = player.getUniqueId();
         Location center = player.getLocation().clone();
         final double radius = this.plugin.getConfig().getDouble("abilities.astra-void.radius", 10.0);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-void", 8);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.astra-void", 12);
         final int duration = durationSeconds * 20;
         this.voidActivePlayers.add(uuid);
         ParticleUtils.drawDome(center, ParticleUtils.ASTRA_PURPLE, 1.2f, radius);

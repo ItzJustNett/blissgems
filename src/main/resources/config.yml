@@ -266,6 +266,8 @@ passives:
       undead-damage-multiplier: 3.0  # 3x damage to undead
       saturation-multiplier: 2.0  # 2x saturation gain
       golden-apple-absorption-level: 1  # Absorption II (4 hearts)
+    absorption-scan-radius: 5  # Radius scanned for the Life absorption passive
+    max-absorption-hearts: 20  # Cap on absorption from the Life passive
 
   flux:
     shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
@@ -276,6 +278,7 @@ passives:
     tier2:
       shocking-arrow-damage: 3.0  # Electric arrow damage
       flow-state-speed-boost: 0.2  # Additional speed boost in flow state
+    max-flow-speed-level: 0  # Highest Speed level Flow State can give (0 = Speed I)
 
   puff:
     tier1:
@@ -351,8 +354,6 @@ abilities:
     astra-projection: 120  # 2 minutes (set when projection ends)
     astra-drift: 60  # Dimensional Drift (set when drift ends)
     astra-void: 120  # 2 minutes - Dimensional Void
-    astra-spook: 10  # Spook sub-ability during projection
-    astra-tag: 15  # Tag sub-ability during projection
     astra-unbounded: 90  # Hit a player with the Astra gem: ride them as a ghost
     fire-fireball: 45
     fire-campfire: 120  # 2 minutes
@@ -385,6 +386,9 @@ abilities:
     wealth-unfortunate: 150
     wealth-rich-rush: 540  # 9 minutes
     wealth-amplification: 300  # 5 minutes
+    gold-beam: 10  # Gold Gem Sundering Beam
+    puff-updraft: 10  # Puff Updraft
+    strength-chad: 10  # Chad Strength
 
   # Astra Soul Absorption settings (temporary max hearts on kill)
   soul-absorption:
@@ -401,8 +405,6 @@ abilities:
     radius: 128  # Maximum distance from origin in blocks (8 chunks)
 
   # Astra Spook settings
-  astra-spook:
-    radius: 8.0  # Spook AoE radius in blocks
 
   # Astra Dimensional Void settings
   astra-void:
@@ -414,6 +416,7 @@ abilities:
     food-amount: 1  # Food level restored per second
     radius: 4.0  # Radius of effect in blocks
     burn-duration: 3  # Seconds enemies burn
+    range: 15.0  # How far away you can place the campfire
 
   # Fire Crisp settings
   fire-crisp:
@@ -442,6 +445,7 @@ abilities:
   # Strength Nullify settings
   strength-nullify:
     range: 20  # Raycast range in blocks
+    duration: 8  # Seconds Nullify keeps effects stripped
 
   # Strength Frailer settings
   strength-frailer:
@@ -457,6 +461,8 @@ abilities:
   strength-chad:
     hit-threshold: 4  # Every Nth hit triggers bonus damage
     bonus-damage: 4.0  # Bonus damage in HP (2 hearts)
+    duration: 10  # Seconds Chad Strength lasts
+    empowered-hits: 4  # Empowered hits per activation
 
   # Fire Charged Fireball settings
   fire-fireball:
@@ -501,6 +507,11 @@ abilities:
     range: 30  # Max travel distance in blocks
     armor-piercing: 0.35  # Percentage of damage that ignores armor (0.0 = 0%, 1.0 = 100% true damage)
     glowing-duration-ticks: 60  # Duration in ticks target glows upon hit (20 ticks = 1 second)
+    hover-distance: 1.6  # How far in front of you the daggers hover before being thrown
+    hover-timeout-ticks: 600  # Unthrown daggers disappear after this many ticks
+    model-data: 12350  # Custom model data of the dagger model
+    model-scale: 1.4  # Size of the dagger model
+    model-yaw-offset: 180.0  # Rotation fix for the dagger model
 
   # Speed Storm / Blood Storm settings
   speed-storm:
@@ -515,41 +526,30 @@ abilities:
     fire-fireball: 9.0
     flux-beam-base: 10.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
     flux-beam-max-armor-damage: 250  # 2.5x stronger
-    flux-shocking: 3.0
     fire-campfire: 2.0  # Damage per second to enemies in range
     fire-meteor-shower: 8.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 4.0
     blur: 2.5  # Damage per lightning strike (5 strikes by default)
-    strength-chad-bonus: 4.0  # Chad Strength bonus damage on every 4th hit (2 hearts)
 
     # ==========================================
     # MYTHIC & SPECIAL DAMAGE CONFIGS
     # ==========================================
     # Auratus Chain Strike Damage
-    auratus-chain: 8.0  # Damage dealt by Auratus chain lightning to chained targets
 
     # Blood Saws Damage & Vulnerability
-    blood-saws: 6.0  # Base damage dealt by Blood Saws per strike
-    blood-saws-vulnerability-multiplier: 1.25  # Damage multiplier taken while Blood Saws are active (makes user easier to kill)
 
     # Hemorrhage Damage
-    hemorrhage: 3.0  # Bleed damage per tick to afflicted enemies
-    hemorrhage-interval-ticks: 20  # How often hemorrhage damage applies
 
     # Spore Damage
-    spore: 2.5  # Poisonous spore cloud damage per tick
 
     # Speed Storm / Blood Storm Damage
-    speed-storm-damage: 2.0  # Damage to caught enemies
 
   # Ability durations (in seconds)
   durations:
     astra-projection: 10  # Spectator mode scout duration
     astra-drift: 15  # Dimensional Drift invisibility duration
     astra-void: 12  # Dimensional Void suppression duration
-    astra-spook: 3  # Spook blindness/nausea duration
-    astra-tag: 30  # Tag tracking duration
     astra-unbounded: 10  # Longest Unbounded ghost-ride (sneak to end early)
     astra-haunt: 15  # How long Unbounded disables the ridden player's gem
     fire-campfire: 15  # How long campfire lasts
@@ -571,11 +571,32 @@ abilities:
     wealth-amplification: 45
     wealth-item-lock: 10
     terminal-velocity: 10  # Terminal Velocity Speed III + Haste II duration
-    adrenaline-rush: 6  # Duration of speed boost + instant attacks
+    speed-storm: 10  # Seconds a Speed Storm lasts
+    flux-kinetic-burst: 10  # Kinetic Burst
 
   # Adrenaline Rush settings
-  adrenaline-rush:
-    duration: 6  # Duration in seconds (balanced for PvP)
+  astra-drift:
+    power: 2.8  # Forward launch strength
+    lift: 0.35  # Upward launch
+    invisibility: 3  # Seconds of invisibility
+    fall-immunity: 6  # Seconds of fall damage immunity
+  auratus-gemlock:
+    range: 20  # Range of the Auratus gem lock
+    duration: 10  # Seconds the target's gem stays locked
+  flux-charging:
+    max-watts: 2000000  # Most watts a Flux gem can store
+    charge-per-tick: 0.667  # Beam charge (%) moved from watts per tick while charging
+    beam-max-charge: 200.0  # Highest beam charge (%), above 100 is overcharge
+  life-drainer:
+    steal-hp: 4.0  # HP stolen instantly by Heart Drainer
+  puff-dash:
+    power: 3.2  # Forward power of the dash
+    vertical: 0.18  # Upward push of the dash
+  puff-updraft:
+    radius: 6.0  # Radius of the updraft
+    launch-velocity: 3.2  # How hard the updraft launches
+  speed-4th:
+    range: 20  # Range of Speed's 4th ability
     # Speed level scales with player energy (0-10)
     # Attack speed is set to instant (no cooldown) for the duration
 
@@ -716,6 +737,7 @@ upgrader:
   sound: ENTITY_PLAYER_LEVELUP
   sound-volume: 1.0
   sound-pitch: 1.5
+  charges: 3  # Charges on a Gem Upgrader
 
 # ==========================================
 # TRADER SYSTEM
@@ -805,6 +827,7 @@ revive-beacon:
   revive-health: 10.0  # Half health by default
   # Single use (beacon is consumed after first revival)
   single-use: true
+  restore-energy: 3  # Energy restored by a Revive Beacon
 
 # ==========================================
 # MESSAGES
@@ -1077,3 +1100,5 @@ end-sky:
 # METRICS
 # ==========================================
 send-anonymous-metrics: true
+pvp:
+  drop-head-on-kill: true  # Drop the victim's head on a player kill

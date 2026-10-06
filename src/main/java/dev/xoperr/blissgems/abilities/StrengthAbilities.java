@@ -151,7 +151,7 @@ implements GemAbilityHandler {
         } else {
             this.chadHitsRemaining.put(id, remaining);
         }
-        return this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 7.0);
+        return this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 4.0);
     }
 
     public void nullify(Player player) {

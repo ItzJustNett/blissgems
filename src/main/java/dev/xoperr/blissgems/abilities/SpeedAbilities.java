@@ -357,7 +357,7 @@ implements GemAbilityHandler {
             return;
         }
         final double damage = this.plugin.getConfigManager().getAbilityDamage("blur");
-        final double knockbackPower = this.plugin.getConfig().getDouble("abilities.blur.knockback", 1.5);
+        final double knockbackPower = this.plugin.getConfig().getDouble("abilities.blur.knockback", 0.4);
         final Location strikeLoc = player.getTargetBlock(null, 20).getLocation().add(0.5, 1.0, 0.5);
         strikeLoc.getWorld().strikeLightningEffect(strikeLoc);
         final Particle.DustOptions strikeDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.5f);
@@ -444,7 +444,7 @@ implements GemAbilityHandler {
         UUID uuid = player.getUniqueId();
         int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.speed-storm", 10);
         final int duration = durationSeconds * 20;
-        final double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 8.0);
+        final double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 6.0);
         this.speedStormActivePlayers.add(uuid);
         Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.0f);
         player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.5f);
@@ -478,6 +478,8 @@ implements GemAbilityHandler {
                         }
                         int slowLevel = SpeedAbilities.this.plugin.getConfig().getInt("abilities.speed-storm.enemy-slowness-level", 3);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, true));
+                        double stormDamage = SpeedAbilities.this.plugin.getConfig().getDouble("abilities.speed-storm.damage", 2.0);
+                        if (stormDamage > 0.0) target.damage(stormDamage, (Entity)player);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
                     }
                 }
@@ -527,7 +529,7 @@ implements GemAbilityHandler {
             task.cancel();
         }
         this.plugin.getAbilityManager().endAbilityDuration(player, "speed-storm");
-        double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 8.0);
+        double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 6.0);
         if (player.isOnline()) {
             for (Entity entity : player.getLocation().getWorld().getNearbyEntities(player.getLocation(), radius + 5.0, radius + 5.0, radius + 5.0)) {
                 UUID targetId;

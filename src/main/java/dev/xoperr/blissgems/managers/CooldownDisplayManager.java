@@ -341,7 +341,7 @@ public class CooldownDisplayManager {
             int blurCharges = this.plugin.getSpeedAbilities().getBlurCharges(player.getUniqueId());
             display.append(ability1Icon).append(" ");
             if (blurCharges > 0) {
-                int maxCharges = this.plugin.getConfig().getInt("abilities.blur.strikes", 3);
+                int maxCharges = this.plugin.getConfig().getInt("abilities.blur.strikes", 5);
                 display.append("\u00a7e(").append(blurCharges).append("/").append(maxCharges).append(")");
             } else {
                 display.append(this.readyOrSeconds(player, abilities.get(0)[0]));

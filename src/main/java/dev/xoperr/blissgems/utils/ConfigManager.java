@@ -116,7 +116,7 @@ public class ConfigManager {
     }
 
     public int getStartingEnergy() {
-        return this.config.getInt("energy.starting-energy", 5);
+        return this.config.getInt("energy.starting-energy", 10);
     }
 
     public int getRuinedThreshold() {
@@ -357,6 +357,37 @@ public class ConfigManager {
 
     public String getUpgradeSound() {
         return this.config.getString("upgrader.sound", "ENTITY_PLAYER_LEVELUP");
+    }
+
+    /**
+     * Plays the particle/sound configured under <section>.particle, .particle-count and .sound
+     * (names as in the Bukkit Particle/Sound lists); falls back to the given defaults when unset
+     * or misspelled.
+     */
+    public void playConfiguredEffect(org.bukkit.entity.Player player, String section, org.bukkit.Particle defaultParticle, int defaultCount, org.bukkit.Sound defaultSound) {
+        org.bukkit.Particle particle = defaultParticle;
+        String particleName = this.config.getString(section + ".particle");
+        if (particleName != null) {
+            try {
+                particle = org.bukkit.Particle.valueOf(particleName.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                this.plugin.getLogger().warning(section + ".particle: unknown particle '" + particleName + "'");
+            }
+        }
+        org.bukkit.Sound sound = defaultSound;
+        String soundName = this.config.getString(section + ".sound");
+        if (soundName != null) {
+            try {
+                sound = org.bukkit.Sound.valueOf(soundName.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                this.plugin.getLogger().warning(section + ".sound: unknown sound '" + soundName + "'");
+            }
+        }
+        int count = this.config.getInt(section + ".particle-count", defaultCount);
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        if (count > 0 && particle.getDataType() == Void.class) {
+            player.spawnParticle(particle, player.getLocation().add(0.0, 1.0, 0.0), count, 0.5, 0.5, 0.5);
+        }
     }
 
     public int getTraderCooldown() {

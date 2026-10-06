@@ -359,9 +359,8 @@ implements Listener {
         } else {
             player.getInventory().setItemInMainHand(null);
         }
-        if (this.plugin.getConfigManager().isEnergyBottleDropEnabled()) {
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-            player.spawnParticle(Particle.HEART, player.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
+        if (this.plugin.getConfig().getBoolean("energy-bottle.play-effects", true)) {
+            this.plugin.getConfigManager().playConfiguredEffect(player, "energy-bottle", Particle.HEART, 20, Sound.ENTITY_EXPERIENCE_ORB_PICKUP);
         }
         if ((msg = this.plugin.getConfigManager().getFormattedMessage("energy-bottle-consumed", new Object[0])) != null && !msg.isEmpty()) {
             player.sendMessage(msg);
@@ -409,8 +408,7 @@ implements Listener {
                 this.plugin.getAchievementManager().unlock(player, Achievement.TIME_FOR_A_CHANGE);
             }
             if (this.plugin.getConfigManager().shouldPlayTradeEffects()) {
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                player.spawnParticle(Particle.PORTAL, player.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+                this.plugin.getConfigManager().playConfiguredEffect(player, "trader", Particle.PORTAL, 30, Sound.ENTITY_ENDERMAN_TELEPORT);
             }
             if ((msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId))) != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
