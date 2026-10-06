@@ -22,8 +22,9 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build
-        run: mvn -B package -DskipTests
+      # Builds the jar and runs the tests (config wiring checks); a failing test fails the build
+      - name: Build and test
+        run: mvn -B package
 
       # The BlissGems shaderpack (shaderpack/BlissGems): zipped with shaders/ at the root,
       # the layout Iris and OptiFine expect.
