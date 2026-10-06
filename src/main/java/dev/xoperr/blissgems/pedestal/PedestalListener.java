@@ -223,6 +223,7 @@ public final class PedestalListener implements Listener {
             return;
         }
         this.state.setRitual(PedestalState.Ritual.REPAIR);
+        this.state.setRevivingPlayer(player.getUniqueId()); // the repair's energy goes to whoever started it
         this.state.resetCount();
         this.state.setDepositCooldown(0);
         this.state.setDurability(PedestalState.MAX_DURABILITY);

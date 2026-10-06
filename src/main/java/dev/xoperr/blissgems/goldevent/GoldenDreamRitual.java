@@ -37,6 +37,10 @@ public final class GoldenDreamRitual implements Listener {
     private static final double SCAN_R = 6.0;
     private static final long SETTLE_TICKS = 12L;
     private static final int SPIRAL_TICKS = 200;
+    /** The first 2 s after the fragments go off: the sky glitches before the dome fades in. */
+    private static final int GLITCH_TICKS = 40;
+    /** How much bigger the ritual's bursts are than the original (the "explosion"). */
+    private static final double BURST_SCALE = 3.0;
     private static final double SPIRAL_SPEED = 0.1;
     private static final double BRAID_R = 4.0;
     private static final double BRAID_AMP = 0.7;
@@ -160,12 +164,19 @@ public final class GoldenDreamRitual implements Listener {
                     if (this.cover(p, this.t - SPIRAL_TICKS)) {
                         this.release(p, false);
                         this.cancel();
-                        new GoldenDreamMass(self.plugin, self, high.clone(), id).schedule(200L);
+                        new GoldenDreamMass(self.plugin, self, high.clone(), id, prevOffset, prevRel).schedule(200L);
                     }
                     this.t++;
                     return;
                 }
-                DreamSky.golden(p);
+                if (this.t < GLITCH_TICKS) {
+                    // the sky glitches, flickering more and more, before the dome comes
+                    if (ThreadLocalRandom.current().nextDouble() < 0.35 + 0.6 * this.t / (double) GLITCH_TICKS) DreamSky.glitch(p);
+                    else p.setPlayerTime(prevOffset, prevRel);
+                } else {
+                    DreamSky.domeFade(p, (this.t - GLITCH_TICKS) / (double) (SPIRAL_TICKS - GLITCH_TICKS));
+                }
+                if (this.t == 0) explode(w, low);
                 if (this.t % 2 == 0) drawBraid(w, high);
                 if (self.fx != null && --this.timer <= 0) {
                     this.timer = 4;
@@ -188,9 +199,9 @@ public final class GoldenDreamRitual implements Listener {
                 for (int b = 0; b < CLIP_BEATS.length; b++) {
                     if (CLIP_BEATS[b] != this.t) continue;
                     boolean big = CLIP_BIG[b];
-                    double speed = big ? 2.4 : 1.44;
-                    int points = big ? 40 : 28;
-                    w.spawnParticle(Particle.END_ROD, low, big ? 26 : 14, 0.4, 0.4, 0.4, 0.06);
+                    double speed = (big ? 2.4 : 1.44) * BURST_SCALE;
+                    int points = (int) ((big ? 40 : 28) * 1.5);
+                    w.spawnParticle(Particle.END_ROD, low, (int) ((big ? 26 : 14) * BURST_SCALE), 0.4 * BURST_SCALE, 0.4 * BURST_SCALE, 0.4 * BURST_SCALE, 0.06 * BURST_SCALE);
                     for (int i = 0; i < points; i++) {
                         double a = Math.PI * 2 * i / points;
                         w.spawnParticle(Particle.POOF, low.getX(), low.getY(), low.getZ(), 0, Math.cos(a), 0.0, Math.sin(a), speed, null, true);
@@ -219,6 +230,7 @@ public final class GoldenDreamRitual implements Listener {
                     for (ItemDisplay d : this.shown) if (d.isValid()) d.remove();
                     this.shown.clear();
                     DreamSky.closeEyes(p, 32);
+                    DreamSky.domeFade(p, 1.0);
                 }
                 return k >= 32;
             }
@@ -227,10 +239,31 @@ public final class GoldenDreamRitual implements Listener {
                 if (aborted) GoldenDreamRitual.this.entryAborts.remove(id);
                 for (ItemDisplay d : this.shown) if (d.isValid()) d.remove();
                 this.shown.clear();
-                if (p != null && p.isOnline()) DreamSky.restore(p, prevOffset, prevRel);
+                // on success the dome stays up: the golden mass takes the sky over and restores it
+                if (aborted && p != null && p.isOnline()) DreamSky.restore(p, prevOffset, prevRel);
                 if (aborted) GoldenDreamRitual.this.finish(id);
             }
         }.runTaskTimer(this.plugin, 1L, 1L);
+    }
+
+    /** The fragments going off: a blast three times the size of the ritual's old bursts. */
+    private static void explode(World w, Location at) {
+        ThreadLocalRandom r = ThreadLocalRandom.current();
+        w.spawnParticle(Particle.EXPLOSION_EMITTER, at, 3, 1.5, 1.0, 1.5, 0.0, null, true);
+        for (int i = 0; i < 8; i++) {
+            w.spawnParticle(Particle.EXPLOSION_EMITTER, at.clone().add(r.nextDouble(-4.5, 4.5), r.nextDouble(-0.5, 3.0), r.nextDouble(-4.5, 4.5)), 1, 0, 0, 0, 0, null, true);
+        }
+        if (Particle.FLASH.getDataType() == org.bukkit.Color.class) w.spawnParticle(Particle.FLASH, at, 6, 1.0, 1.0, 1.0, 0, org.bukkit.Color.WHITE, true);
+        else w.spawnParticle(Particle.FLASH, at, 6, 1.0, 1.0, 1.0, 0, null, true);
+        Particle.DustOptions gold = new Particle.DustOptions(GoldenDreamMass.HOLDER_GOLD, 2.0f);
+        for (int i = 0; i < 120; i++) {
+            double a = Math.PI * 2 * i / 120;
+            w.spawnParticle(Particle.POOF, at.getX(), at.getY(), at.getZ(), 0, Math.cos(a), 0.05, Math.sin(a), 2.4 * BURST_SCALE, null, true);
+            w.spawnParticle(Particle.DUST, at.getX() + Math.cos(a) * 9.0, at.getY(), at.getZ() + Math.sin(a) * 9.0, 2, 0.1, 0.1, 0.1, 0, gold, true);
+        }
+        w.spawnParticle(Particle.END_ROD, at, 160, 1.2, 1.2, 1.2, 0.6, null, true);
+        w.playSound(at, Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.MASTER, 4.0f, 0.55f);
+        w.playSound(at, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.MASTER, 3.0f, 0.7f);
     }
 
     private static void drawBraid(World w, Location c) {

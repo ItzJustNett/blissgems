@@ -28,6 +28,7 @@ public final class DreamSky {
     public static final long DOME_DAY = 80036L;
     public static final long GLOOM_DAY = 80037L;
     public static final long STORM_DAY = 80038L;
+    public static final long GLITCH_DAY = 80039L;
     private static boolean signals = true;
 
     private static long at(long day, long timeOfDay) {
@@ -75,9 +76,21 @@ public final class DreamSky {
         setFog(p, goldenFog);
     }
 
-    /** The pocket walkway (its gold colour on Java comes from the datapack). */
+    /** Sky glitch (the shaderpack's glitch mode): the moment the fragments go off. */
+    public static void glitch(Player p) {
+        if (signals) p.setPlayerTime(GLITCH_DAY * 24000L + 6000L, false);
+    }
+
+    /** GoldenDome fading in: f 0..1 (the shaderpack reads the time of day 0..1000 as the fade). */
+    public static void domeFade(Player p, double f) {
+        long tod = Math.round(Math.max(0.0, Math.min(1.0, f)) * 1000.0);
+        p.setPlayerTime(at(DOME_DAY, tod), false);
+        setFog(p, goldenFog);
+    }
+
+    /** The pocket walkway: no shader there, just the datapack's golden sky. */
     public static void pocket(Player p) {
-        p.setPlayerTime(at(DOME_DAY, 6000L), false);
+        p.resetPlayerTime();
         p.setPlayerWeather(WeatherType.CLEAR);
         setFog(p, pocketFog);
     }

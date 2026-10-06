@@ -113,8 +113,13 @@ public final class PedestalManager {
                 }
                 world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, 40.0f, 1.6f);
                 drawHappyRings(center);
+                // Only the player who started the repair gets the energy back. Giving +1 to everyone
+                // nearby turned 5 deposited bottles into 5 x (players) energy - a dupe.
+                boolean everyone = this.plugin.getConfig().getBoolean("pedestal.repair-energy-to-everyone", false);
+                java.util.UUID owner = this.state.revivingPlayer();
                 for (Player player : world.getPlayers()) {
                     if (player.getLocation().distanceSquared(center) > 64.0) continue;
+                    if (!everyone && !player.getUniqueId().equals(owner)) continue;
                     int energy = this.plugin.getEnergyManager().getEnergy(player);
                     if (energy <= 0 || energy >= max) continue;
                     this.plugin.getEnergyManager().setEnergy(player, energy + 1);

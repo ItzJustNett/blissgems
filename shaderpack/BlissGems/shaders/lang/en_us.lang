@@ -21,3 +21,4 @@ option.ANIM_SPEED=Animation speed
 option.WORLD_WARMTH=World warmth
 option.DOME_SATURATION=Saturation
 option.SPARKLES=Sparkles
+option.GLITCH_STRENGTH=Glitch strength

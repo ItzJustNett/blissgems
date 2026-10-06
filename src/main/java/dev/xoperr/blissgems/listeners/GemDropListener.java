@@ -37,8 +37,12 @@ implements Listener {
         String itemId = CustomItemManager.getIdByItem(droppedItem);
         if ("flux_gem_t1".equals(itemId) || "flux_gem_t2".equals(itemId)) {
             event.setCancelled(true);
+            // open next tick: opening an inventory inside the (cancelled) drop event desyncs the
+            // client and can leave ghost items
             if (this.plugin.getFluxEnergyManager() != null) {
-                this.plugin.getFluxEnergyManager().openChargingStation(player);
+                this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+                    if (player.isOnline() && !player.isDead()) this.plugin.getFluxEnergyManager().openChargingStation(player);
+                });
             }
             return;
         }

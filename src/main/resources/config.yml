@@ -1065,6 +1065,7 @@ pedestal:
     x: 0
     y: 64
     z: 0
+  repair-energy-to-everyone: false  # true = every player within 8 blocks gets the repair's energy (lets groups duplicate energy)
 
 # ==========================================
 # VILLAGER EVENT (/blissevent)

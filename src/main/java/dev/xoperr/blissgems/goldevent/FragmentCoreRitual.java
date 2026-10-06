@@ -216,10 +216,14 @@ public final class FragmentCoreRitual implements Listener {
             if (inHand && !s.holding) {
                 s.holding = true;
                 s.center = p.getLocation().add(0, 1.9, 0);
-                this.pushBack(p);
-                List<Player> audience = this.audience(p.getLocation());
-                this.pushFx(p, audience);
-                for (Player a : audience) a.playSound(a.getLocation(), "bliss:goldgem_core_hold", SoundCategory.MASTER, 1.0f, 1.0f);
+                // the shove and burst only the first time the core is raised, not on every hotbar swap
+                if (!s.announced) {
+                    s.announced = true;
+                    this.pushBack(p);
+                    List<Player> audience = this.audience(p.getLocation());
+                    this.pushFx(p, audience);
+                    for (Player a : audience) a.playSound(a.getLocation(), "bliss:goldgem_core_hold", SoundCategory.MASTER, 1.0f, 1.0f);
+                }
                 this.ensureGhost(s);
             } else if (!inHand && s.holding) {
                 s.holding = false;
@@ -1251,6 +1255,7 @@ public final class FragmentCoreRitual implements Listener {
         UUID placedCore;
         UUID goldGem;
         boolean holding;
+        boolean announced;
         boolean sealed;
         boolean climaxed;
         boolean finale;

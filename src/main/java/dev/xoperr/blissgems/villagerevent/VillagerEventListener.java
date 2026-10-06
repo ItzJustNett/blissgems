@@ -164,22 +164,45 @@ public final class VillagerEventListener implements Listener {
         }
     }
 
-    /** A leftover event villager outside an event is removed instead of opening its trades. */
-    @EventHandler
-    public void onLeakedVillagerInteract(PlayerInteractEntityEvent event) {
-        if (this.state.isEventRunning() || !(event.getRightClicked() instanceof Villager v) || !v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
+    private boolean isRegisteredVillager(Villager v) {
+        for (int id = 1; id <= 3; id++) if (v.getUniqueId().equals(this.state.villagerUuid(id))) return true;
+        return false;
+    }
+
+    /**
+     * Event villagers only trade in phase 3 (the Last Raid). Before that, right-clicking them does
+     * nothing but say so. A tagged villager nobody owns any more (left over from an old event) is
+     * cleaned up when no event is running.
+     */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onEventVillagerInteract(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Villager v)) {
             return;
         }
-        // villagers set up with /blissevent villager set wait for the event: no trading, but they stay
-        event.setCancelled(true);
-        for (int id = 1; id <= 3; id++) {
-            if (v.getUniqueId().equals(this.state.villagerUuid(id))) {
-                event.getPlayer().sendMessage(PedestalManager.color("&7This villager is waiting for the event to start."));
-                return;
-            }
+        boolean registered = this.isRegisteredVillager(v);
+        if (!registered && !v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
+            return;
         }
-        // an event villager nobody owns any more (left over from an old event) is cleaned up
-        v.remove();
+        if (this.state.isFinalActive() && registered) {
+            return;
+        }
+        event.setCancelled(true);
+        if (registered) {
+            event.getPlayer().sendMessage(PedestalManager.color("&7This villager won't trade until &6the Last Raid &7(phase 3)."));
+        } else if (!this.state.isEventRunning()) {
+            v.remove();
+        }
+    }
+
+    /** Backup: no trade window from an event villager before phase 3, however it was opened. */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onEarlyMerchantOpen(InventoryOpenEvent event) {
+        if (this.state.isFinalActive() || !(event.getInventory() instanceof MerchantInventory inv) || !(inv.getMerchant() instanceof Villager v)) {
+            return;
+        }
+        if (this.isRegisteredVillager(v) || v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
+            event.setCancelled(true);
+        }
     }
 
     // ---- soul tracking ----

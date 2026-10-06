@@ -3,7 +3,8 @@
 // BlissGems — GloomHaze + GoldenDome в одному паку.
 // Звичайний світ лишається звичайним. Ефект вмикає сервер (плагін BlissGems):
 // він ставить гравцю «сигнальний» день (worldDay), і пак сам обирає вигляд:
-//   день 80036 -> GoldenDome (золота стежка сну, ритуал і золота маса)
+//   день 80039 -> глітч неба (мить після вибуху фрагментів)
+//   день 80036 -> GoldenDome (ритуал і золота маса); час доби 0..1000 = плавна поява купола
 //   день 80037 -> GloomHaze (світ пам'яті)
 //   день 80038 -> GloomHaze під час бурі (великого грому)
 // FORCE_MODE: 0 = слухати сервер, 1 = завжди GoldenDome, 2 = завжди GloomHaze (для тестів у соло).
@@ -34,6 +35,8 @@
 #define SIGNAL_DOME 80036
 #define SIGNAL_GLOOM 80037
 #define SIGNAL_STORM 80038
+#define SIGNAL_GLITCH 80039
+#define GLITCH_STRENGTH 1.0    // [0.0 0.5 1.0 1.5]
 
 uniform sampler2D colortex0;
 uniform sampler2D depthtex0;
@@ -49,6 +52,7 @@ uniform float rainStrength;
 uniform int isEyeInWater;
 uniform ivec2 eyeBrightnessSmooth;
 uniform int worldDay;
+uniform int worldTime;
 
 in vec2 texcoord;
 
@@ -222,8 +226,36 @@ vec3 goldenDome(vec3 color, float depth, float viewDist) {
     return color / (1.0 + max(color - 1.0, 0.0));
 }
 
+// ================= Глітч неба =================
+vec3 skyGlitch(vec2 uv) {
+    float t = frameTimeCounter;
+    float slice = floor(t * 18.0);
+    // горизонтальні розриви: смуги, зсунуті вбік
+    float band = floor(uv.y * 34.0);
+    float tear = step(0.82, hash(vec2(band, slice))) * (hash(vec2(slice, band)) - 0.5) * 0.12 * GLITCH_STRENGTH;
+    vec2 p = vec2(fract(uv.x + tear), uv.y);
+    // розщеплення кольорів
+    float split = 0.012 * GLITCH_STRENGTH * (0.5 + hash(vec2(slice, 7.0)));
+    vec3 c;
+    c.r = texture(colortex0, p + vec2(split, 0.0)).r;
+    c.g = texture(colortex0, p).g;
+    c.b = texture(colortex0, p - vec2(split, 0.0)).b;
+    // золоті «бітові» блоки і миготіння
+    vec2 cell = floor(uv * vec2(24.0, 14.0));
+    float block = step(0.93, hash(cell + slice));
+    c = mix(c, vec3(1.0, 0.78, 0.25) * (0.6 + 0.6 * hash(cell * 1.7 + slice)), block * 0.85 * GLITCH_STRENGTH);
+    float flicker = 0.85 + 0.3 * hash(vec2(slice, 3.0));
+    float scan = 0.92 + 0.08 * sin(uv.y * viewHeight * 1.5);
+    return c * flicker * scan;
+}
+
 void main() {
     vec3 color = texture(colortex0, texcoord).rgb;
+
+    if (FORCE_MODE == 0 && worldDay == SIGNAL_GLITCH) {
+        outColor = vec4(clamp(skyGlitch(texcoord), 0.0, 1.0), 1.0);
+        return;
+    }
 
     int mode = FORCE_MODE;
     if (mode == 0) {
@@ -242,6 +274,13 @@ void main() {
     viewPos.xyz /= viewPos.w;
     float dist = length(viewPos.xyz);
 
-    color = mode == 1 ? goldenDome(color, depth, dist) : gloomHaze(color, depth, dist);
+    if (mode == 1) {
+        // плавна поява: сервер піднімає час доби від 0 до 1000 (FORCE_MODE = завжди повністю)
+        float fade = FORCE_MODE == 1 ? 1.0 : clamp(float(worldTime % 24000) / 1000.0, 0.0, 1.0);
+        fade = fade * fade * (3.0 - 2.0 * fade);
+        color = mix(color, goldenDome(color, depth, dist), fade);
+    } else {
+        color = gloomHaze(color, depth, dist);
+    }
     outColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }

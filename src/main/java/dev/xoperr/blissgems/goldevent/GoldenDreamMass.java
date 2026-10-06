@@ -79,8 +79,10 @@ final class GoldenDreamMass {
     private int breakSoundTick = -1;
     private int breakSounds;
 
-    GoldenDreamMass(BlissGems plugin, GoldenDreamRitual owner, Location at, UUID trigger) {
+    GoldenDreamMass(BlissGems plugin, GoldenDreamRitual owner, Location at, UUID trigger, long triggerOffset, boolean triggerRelative) {
         this.plugin = plugin;
+        // the ritual leaves the trigger's sky on the dome; remember their real time for afterwards
+        this.clocks.put(trigger, new Prev(triggerOffset, triggerRelative));
         this.owner = owner;
         this.centre = at.clone().add(0, 4.0, 0);
         this.trigger = trigger;

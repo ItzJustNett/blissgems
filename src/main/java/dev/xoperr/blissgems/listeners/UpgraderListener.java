@@ -94,62 +94,39 @@ implements Listener {
             return;
         }
         if (this.plugin.getGemManager().upgradeGem(player, currentGemId)) {
-            boolean upgraderInOffHand;
-            ItemStack mainHand = player.getInventory().getItemInMainHand();
-            ItemStack offHand = player.getInventory().getItemInOffHand();
-            boolean upgraderInMainHand = mainHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(mainHand));
-            boolean bl = upgraderInOffHand = offHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(offHand));
+            // Always act on the exact upgrader that was used (event.getItem() is that stack), never
+            // on "whatever is in the hand now": swapping hotbar slots mid-use used to skip the
+            // consume and leave an infinite upgrader.
             currentCharges--;
             if (currentCharges <= 0) {
-                if (item.getAmount() > 1) {
-                    item.setAmount(item.getAmount() - 1);
-                } else if (upgraderInMainHand) {
-                    player.getInventory().setItemInMainHand(null);
-                } else if (upgraderInOffHand) {
-                    player.getInventory().setItemInOffHand(null);
-                }
-                player.sendMessage("§eUpgrader used all charges and was consumed.");
+                item.setAmount(item.getAmount() - 1);
+                player.sendMessage("\u00a7eUpgrader used all charges and was consumed.");
             } else {
-                if (meta != null) {
-                    java.util.List<String> lore = meta.getLore() != null ? new java.util.ArrayList<>(meta.getLore()) : new java.util.ArrayList<>();
+                ItemStack used = item.clone();
+                used.setAmount(1);
+                ItemMeta um = used.getItemMeta();
+                if (um != null) {
+                    java.util.List<String> lore = um.getLore() != null ? new java.util.ArrayList<>(um.getLore()) : new java.util.ArrayList<>();
                     boolean found = false;
                     for (int i = 0; i < lore.size(); i++) {
-                        String stripped = org.bukkit.ChatColor.stripColor(lore.get(i));
-                        if (stripped.startsWith("Charges: ")) {
-                            lore.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
+                        if (org.bukkit.ChatColor.stripColor(lore.get(i)).startsWith("Charges: ")) {
+                            lore.set(i, "\u00a77Charges: \u00a7e" + currentCharges + "\u00a77/\u00a7e" + charges);
                             found = true;
                             break;
                         }
                     }
-                    if (!found) {
-                        lore.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                    }
-                    meta.setLore(lore);
-                    item.setItemMeta(meta);
+                    if (!found) lore.add("\u00a77Charges: \u00a7e" + currentCharges + "\u00a77/\u00a7e" + charges);
+                    um.setLore(lore);
+                    used.setItemMeta(um);
                 }
-                if (item.getAmount() > 1) {
+                if (item.getAmount() <= 1) {
+                    // single upgrader: update it in place
+                    item.setItemMeta(used.getItemMeta());
+                } else {
+                    // a stack: take one off it and hand back that one with its new charge count
                     item.setAmount(item.getAmount() - 1);
-                    ItemStack updated = item.clone();
-                    updated.setAmount(1);
-                    if (updated.getItemMeta() != null) {
-                        ItemMeta um = updated.getItemMeta();
-                        java.util.List<String> ul = um.getLore() != null ? new java.util.ArrayList<>(um.getLore()) : new java.util.ArrayList<>();
-                        boolean uf = false;
-                        for (int i = 0; i < ul.size(); i++) {
-                            if (org.bukkit.ChatColor.stripColor(ul.get(i)).startsWith("Charges: ")) {
-                                ul.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                                uf = true;
-                                break;
-                            }
-                        }
-                        if (!uf) ul.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                        um.setLore(ul);
-                        updated.setItemMeta(um);
-                    }
-                    if (upgraderInMainHand) {
-                        player.getInventory().setItemInMainHand(updated);
-                    } else if (upgraderInOffHand) {
-                        player.getInventory().setItemInOffHand(updated);
+                    for (ItemStack left : player.getInventory().addItem(used).values()) {
+                        player.getWorld().dropItemNaturally(player.getLocation(), left);
                     }
                 }
             }
