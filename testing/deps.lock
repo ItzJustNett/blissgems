@@ -34,8 +34,6 @@
     }
   },
   "resourcePack": {
-    "zip": "BlissGems Resourcepack V5.6.zip",
-    "sha256": "be579cb209e9267627644ab3bab618cb328c334b035e5fb0d7ebd7bd143f4e51",
-    "overlayRepoDir": "resourcepack"
+    "inRepo": "resourcepack"
   }
 }

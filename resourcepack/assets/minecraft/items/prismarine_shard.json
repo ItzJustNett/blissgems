@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 4004,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/gem_fragment"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/prismarine_shard"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "pack": {
+    "description": "BlissGems Resourcepack V5.9",
+    "pack_format": 34,
+    "supported_formats": {
+      "min_inclusive": 34,
+      "max_inclusive": 88
+    },
+    "min_format": 34,
+    "max_format": 88
+  }
+}

@@ -4,7 +4,7 @@ files laid over it, plus a 1.21.1 compatibility layer. The bot client is 1.21.1,
 assets/minecraft/items/*.json (1.21.4+ item definitions), so every custom_model_data
 range_dispatch there is also written as a 1.21.1 model with predicate overrides.
 
-usage: build_pack.py <base.zip> <repo resourcepack dir> <out.zip>
+usage: build_pack.py <base.zip | -> <repo resourcepack dir> <out.zip>   ("-": no base, the dir is the whole pack)
 """
 import json
 import os
@@ -13,10 +13,11 @@ import zipfile
 
 base_zip, overlay_dir, out_zip = sys.argv[1:4]
 files = {}
-with zipfile.ZipFile(base_zip) as z:
-    for name in z.namelist():
-        if not name.endswith("/"):
-            files[name] = z.read(name)
+if base_zip != "-":
+    with zipfile.ZipFile(base_zip) as z:
+        for name in z.namelist():
+            if not name.endswith("/"):
+                files[name] = z.read(name)
 if os.path.isdir(overlay_dir):
     for root, _, names in os.walk(overlay_dir):
         for n in names:

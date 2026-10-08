@@ -57,10 +57,6 @@ lock = {
         "fabricApi": modrinth("fabric-api", "fabric", CLIENT_MC, file_name="fabric-api.jar"),
         "aukcontrol": aukcontrol(),
     },
-    "resourcePack": {
-        "zip": "BlissGems Resourcepack V5.6.zip",
-        "sha256": hashlib.sha256(open(os.path.expanduser("~/Downloads/BlissGems Resourcepack V5.6.zip"), "rb").read()).hexdigest(),
-        "overlayRepoDir": "resourcepack",
-    },
+    "resourcePack": {"inRepo": "resourcepack"},
 }
 print(json.dumps(lock, indent=2))

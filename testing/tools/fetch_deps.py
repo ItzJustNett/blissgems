@@ -58,13 +58,5 @@ if have != auk["commit"]:
     subprocess.run(["git", "-C", src_dir, "checkout", "-q", "FETCH_HEAD"], check=True)
     print("  auk-control mod source at", auk["commit"][:10])
 
-# resource pack: the shipped zip, with the repo's resourcepack/ files laid over it
-rp = lock["resourcePack"]
-pack_src = os.environ.get("BLISS_PACK", os.path.expanduser("~/Downloads/" + rp["zip"]))
-if not os.path.exists(pack_src):
-    sys.exit(f"resource pack not found: {pack_src} (set BLISS_PACK)")
-if sha256(pack_src) != rp["sha256"]:
-    sys.exit(f"resource pack {pack_src} does not match deps.lock (run ./deps.sh --update after changing it)")
-os.makedirs(os.path.join(cache, "pack"), exist_ok=True)
-shutil.copyfile(pack_src, os.path.join(cache, "pack", "base.zip"))
+# resource pack: resourcepack/ in the repo is the whole pack (built into the container's pack there)
 print("Dependencies ready.")

@@ -43,9 +43,9 @@ mkdir -p "$OUT/surefire" && cp "$W"/src/target/surefire-reports/*.txt "$OUT/sure
 PLUGIN_JAR="$(ls "$W"/src/target/BlissGems-*.jar | grep -v original | head -1)"
 log "built $(basename "$PLUGIN_JAR")"
 
-# --- 2. resource pack (shipped zip + repo overlay + 1.21.1 layer), served on localhost ---
+# --- 2. resource pack (resourcepack/ + a 1.21.1 layer for the bot client), served on localhost ---
 mkdir -p "$W/pack/rp"
-python3 /repo/testing/tools/build_pack.py /cache/pack/base.zip /repo/resourcepack "$W/pack/rp/pack.zip" | tee -a "$OUT/container.log"
+python3 /repo/testing/tools/build_pack.py - /repo/resourcepack "$W/pack/rp/pack.zip" | tee -a "$OUT/container.log"
 PACK_SHA1="$(sha1sum "$W/pack/rp/pack.zip" | cut -d' ' -f1)"
 (cd "$W/pack" && python3 -m http.server "$PACK_PORT" --bind 127.0.0.1 >/dev/null 2>&1 &)
 
