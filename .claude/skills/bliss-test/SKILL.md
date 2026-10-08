@@ -26,7 +26,7 @@ Run it in the background; a full run takes about 20-30 minutes. It:
 - builds the plugin with `mvn package` - the unit tests (config wiring: every config key is used,
   every value the code reads is in config.yml, defaults match) run here, and a failure stops the run;
 - starts Paper and two bot clients (`Tester`, and `.Victim` with a Bedrock-style name) in the
-  container and runs the in-game suites: `items`, `abilities`, `abilities-config`,
+  container and runs the in-game suites: `items`, `menu`, `abilities`, `abilities-config`,
   `abilities-tier`, `passives`, `passives-config`, `regressions`;
 - writes `testing/results/` (report.html, results.json, screenshots, server and bot logs).
 

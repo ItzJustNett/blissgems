@@ -1,0 +1,17 @@
+{
+  "providers": [
+    {
+      "type": "space",
+      "advances": {
+        "": -7
+      }
+    },
+    {
+      "type": "bitmap",
+      "file": "bliss:font/menu_banner.png",
+      "height": 55,
+      "ascent": 54,
+      "chars": [""]
+    }
+  ]
+}

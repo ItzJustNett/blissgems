@@ -59,6 +59,10 @@ class Bot:
     def items(self):
         return self._call("/items")["items"]
 
+    def items_full(self):
+        """{"items": [...player inventory...], "screen": [...open container...], "screenTitle": "..."}"""
+        return self._call("/items")
+
     def messages(self, since=None):
         r = self._call(f"/messages?since={self.msg_seq if since is None else since}")
         return r["messages"]
@@ -100,8 +104,11 @@ class Bot:
     def close_screen(self):
         self._call("/screen/close", {})
 
-    def hover(self, slot):
-        return self._call("/hover", {"slot": slot}, raw=True)
+    def hover(self, slot, container=False):
+        return self._call("/hover", {"slot": slot, "container": container}, raw=True)
+
+    def click(self, slot, container=True, right=False):
+        self._call("/click", {"slot": slot, "container": container, "right": right})
 
     def screenshot(self):
         return self._call("/screenshot", {}, raw=True)

@@ -701,6 +701,8 @@ implements BlissGemsAPI {
         PlayerDeathListener deathListener = new PlayerDeathListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)deathListener, (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.GemCraftingGuard(), (Plugin)this);
+        this.gemMenu = new dev.xoperr.blissgems.managers.GemMenu(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.gemMenu, (Plugin)this);
         this.getServer().getScheduler().runTask((Plugin)this, deathListener::validateDroppableOnDeathConfig);
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
         this.gemIntegrity = new dev.xoperr.blissgems.listeners.GemIntegrityListener(this);
@@ -906,6 +908,12 @@ implements BlissGemsAPI {
 
     public SpeedAbilities getSpeedAbilities() {
         return this.speedAbilities;
+    }
+
+    private dev.xoperr.blissgems.managers.GemMenu gemMenu;
+
+    public dev.xoperr.blissgems.managers.GemMenu getGemMenu() {
+        return this.gemMenu;
     }
 
     public StrengthAbilities getStrengthAbilities() {

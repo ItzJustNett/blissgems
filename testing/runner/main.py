@@ -8,7 +8,7 @@ import sys
 import time
 
 from . import harness, report
-from . import suite_abilities, suite_items, suite_passives, suite_regressions  # noqa: F401 (register tests)
+from . import suite_abilities, suite_items, suite_menu, suite_passives, suite_regressions  # noqa: F401 (register tests)
 from .bot import Bot
 from .rcon import Rcon
 from .world import World

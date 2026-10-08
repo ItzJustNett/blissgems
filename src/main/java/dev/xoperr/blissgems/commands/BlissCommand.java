@@ -141,7 +141,7 @@ TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             if (sender instanceof Player) {
-                this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
+                this.plugin.getGemMenu().open((Player)sender);
             } else {
                 this.sendHelp(sender);
             }
@@ -398,6 +398,17 @@ TabCompleter {
             case "viewer":
             case "gemviewer":
             case "gui":
+            case "admin": {
+                // the old dashboard (players, gems, settings, energy, config) - admins only
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage("\u00a7cOnly players can open the admin panel!");
+                } else if (!sender.hasPermission("blissgems.admin")) {
+                    this.plugin.getConfigManager().sendFormattedMessage(sender, "no-permission", new Object[0]);
+                } else {
+                    this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
+                }
+                break;
+            }
             case "menu": {
                 if (sender instanceof Player) {
                     this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
@@ -2310,7 +2321,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "cooldowns", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
+            completions.addAll(Arrays.asList("admin", "give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "cooldowns", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("gold")) {
                 return Arrays.asList("souls", "cycle", "beam", "armor");
