@@ -1,0 +1,54 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 4001,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/energy_bottle"
+        }
+      },
+      {
+        "threshold": 4002,
+        "model": {
+          "type": "model",
+          "model": "item/nether_star"
+        }
+      },
+      {
+        "threshold": 4007,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/fragment_core"
+        }
+      },
+      {
+        "threshold": 4008,
+        "model": {
+          "type": "model",
+          "model": "item/nether_star"
+        }
+      },
+      {
+        "threshold": 7000,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/fragment_core"
+        }
+      },
+      {
+        "threshold": 7002,
+        "model": {
+          "type": "model",
+          "model": "item/nether_star"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/nether_star"
+    }
+  }
+}

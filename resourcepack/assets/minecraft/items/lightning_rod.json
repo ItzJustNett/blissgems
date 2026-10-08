@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 4006,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_1"
+        }
+      },
+      {
+        "threshold": 4007,
+        "model": {
+          "type": "model",
+          "model": "item/lightning_rod"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/lightning_rod"
+    }
+  }
+}

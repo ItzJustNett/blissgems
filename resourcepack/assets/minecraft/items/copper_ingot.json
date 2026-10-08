@@ -1,0 +1,68 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 7001,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_1"
+        }
+      },
+      {
+        "threshold": 7002,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_2"
+        }
+      },
+      {
+        "threshold": 7003,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_3"
+        }
+      },
+      {
+        "threshold": 7004,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_4"
+        }
+      },
+      {
+        "threshold": 7005,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_5"
+        }
+      },
+      {
+        "threshold": 7006,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_6"
+        }
+      },
+      {
+        "threshold": 7007,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wire_fragment_7"
+        }
+      },
+      {
+        "threshold": 7008,
+        "model": {
+          "type": "model",
+          "model": "item/copper_ingot"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/copper_ingot"
+    }
+  }
+}
