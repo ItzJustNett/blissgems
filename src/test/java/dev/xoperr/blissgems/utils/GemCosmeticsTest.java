@@ -29,7 +29,7 @@ class GemCosmeticsTest {
                 String id = type.getId() + "_gem_t" + tier;
                 ConfigurationSection sec = items.getConfigurationSection(id);
                 assertNotNull(sec, "missing cosmetics for " + id);
-                assertTrue(PLAIN.serialize(mm.deserialize(sec.getString("name"))).contains("GEM"), id);
+                assertTrue(PLAIN.serialize(mm.deserialize(sec.getString("name"))).contains("ɢᴇᴍ"), id);
                 for (String line : sec.getStringList("lore")) {
                     String plain = PLAIN.serialize(mm.deserialize(line));
                     assertFalse(plain.contains("<") || plain.contains("§"), id + " has a broken line: " + line);
@@ -41,8 +41,8 @@ class GemCosmeticsTest {
 
     @Test
     void energyLineShowsTheActualLevel() {
-        assertEquals("Energy ◆◆◆◇◇◇◇◇◇◇ Cracked", PLAIN.serialize(CustomItemManager.energyLine(3)));
-        assertEquals("Energy ◆◆◆◆◆◆◆◆◆◆ Pristine +5", PLAIN.serialize(CustomItemManager.energyLine(10)));
-        assertEquals("Energy ◇◇◇◇◇◇◇◇◇◇ BROKEN", PLAIN.serialize(CustomItemManager.energyLine(0)));
+        assertEquals("(Cracked)", PLAIN.serialize(CustomItemManager.energyLine(3)));
+        assertEquals("(Pristine +5)", PLAIN.serialize(CustomItemManager.energyLine(10)));
+        assertEquals("(Broken)", PLAIN.serialize(CustomItemManager.energyLine(0)));
     }
 }
