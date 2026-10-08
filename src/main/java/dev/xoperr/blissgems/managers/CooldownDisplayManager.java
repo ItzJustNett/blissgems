@@ -276,7 +276,17 @@ public class CooldownDisplayManager {
             display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
             if (tier == 2) {
                 String ability2Icon = this.getAbilityIcon(gemType, 1);
-                display.append("  \u00a75(\u2726)  ");
+                String driftStatus = abilities.size() > 2 ? this.formatCompactStatus(player, abilities.get(2)[0]) : "\u2022";
+                String voidStatus = abilities.size() > 3 ? this.formatCompactStatus(player, abilities.get(3)[0]) : "\u2022";
+                if (!"\u2022".equals(driftStatus) && !"\u2022".equals(voidStatus)) {
+                    display.append(" \u00a75(").append(driftStatus).append("\u00a77|").append(voidStatus).append(") ");
+                } else if (!"\u2022".equals(driftStatus)) {
+                    display.append(" \u00a75(").append(driftStatus).append(") ");
+                } else if (!"\u2022".equals(voidStatus)) {
+                    display.append(" \u00a75(").append(voidStatus).append(") ");
+                } else {
+                    display.append("  \u00a75(\u2726)  ");
+                }
                 display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
             }
             return display.toString();

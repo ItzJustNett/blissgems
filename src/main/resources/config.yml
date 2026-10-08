@@ -276,6 +276,7 @@ passives:
       golden-apple-absorption-level: 1  # Absorption II (4 hearts)
     absorption-scan-radius: 5  # Radius scanned for the Life absorption passive
     max-absorption-hearts: 20  # Cap on absorption from the Life passive
+    absorption-regen-seconds: 30  # Life absorption shield comes back this long after it breaks
 
   flux:
     shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun

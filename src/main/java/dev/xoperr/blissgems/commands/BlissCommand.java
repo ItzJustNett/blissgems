@@ -1623,6 +1623,7 @@ TabCompleter {
             return;
         }
         EnumMap<AbilityBinding, AbilitySlot> map = mgr.getAll(player);
+        EnumMap<AbilityBinding, AbilitySlot> defaults = mgr.getDefaults(player);
         player.sendMessage("\u00a7d\u00a7l\u26a1 Your Ability Bindings");
         for (AbilitySlot abilitySlot : AbilitySlot.values()) {
             AbilityBinding boundInput = null;
@@ -1632,7 +1633,14 @@ TabCompleter {
                 break;
             }
             String inputLabel = boundInput != null ? "\u00a7f" + boundInput.getDisplayName() : "\u00a78unbound";
-            player.sendMessage("\u00a77" + abilitySlot.getDisplayName() + " \u00a78\u2192 " + inputLabel);
+            AbilityBinding defaultInput = null;
+            for (Map.Entry<AbilityBinding, AbilitySlot> e : defaults.entrySet()) {
+                if (e.getValue() != abilitySlot) continue;
+                defaultInput = e.getKey();
+                break;
+            }
+            String defaultLabel = defaultInput != null ? defaultInput.getDisplayName() : "unbound";
+            player.sendMessage("\u00a77" + abilitySlot.getDisplayName() + " \u00a78\u2192 " + inputLabel + " \u00a78(default: \u00a77" + defaultLabel + "\u00a78)");
         }
         player.sendMessage("");
         player.sendMessage("\u00a7d\u00a7l\u26a1 Available Inputs");

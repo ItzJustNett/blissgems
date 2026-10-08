@@ -70,6 +70,7 @@ public final class ControlsMenu implements Listener {
             "",
             "&8F only does gem things if you bind it here.")));
         EnumMap<AbilityBinding, AbilitySlot> map = this.plugin.getAbilityBindingManager().getAll(p);
+        EnumMap<AbilityBinding, AbilitySlot> defaults = this.plugin.getAbilityBindingManager().getDefaults(p);
         List<String> names = this.abilityNames(p);
         AbilitySlot[] slots = AbilitySlot.values();
         for (int i = 0; i < slots.length && i < SLOT_POS.length; i++) {
@@ -77,15 +78,23 @@ public final class ControlsMenu implements Listener {
             AbilityBinding key = keyFor(map, slot);
             String ability = i < names.size() ? names.get(i) : (i >= 4 ? "Gold extra " + (i - 3) : slot.getDisplayName());
             List<String> lore = new ArrayList<>();
+            AbilityBinding defKey = keyFor(defaults, slot);
             lore.add("&7Key: " + (key != null ? "&f" + key.getDisplayName() : "&8unbound"));
+            lore.add("&7Default: " + (defKey != null ? "&f" + defKey.getDisplayName() : "&8unbound"));
             if (i >= 4) lore.add("&8Gold Gem only (its harvested soul's powers)");
             lore.add("");
             lore.add("&eLeft-click &7to change key");
             lore.add("&eRight-click &7to unbind");
             inv.setItem(SLOT_POS[i], item(SLOT_ICON[i], "&d" + ability + " &8(" + slot.getDisplayName() + ")", lore));
         }
-        inv.setItem(RESET_POS, item(Material.BARRIER, "&cReset to defaults", List.of(
-            "&7Right click, Shift + Right click,", "&7Hit, Shift + Hit")));
+        List<String> resetLore = new ArrayList<>();
+        for (int i = 0; i < slots.length; i++) {
+            AbilityBinding defKey = keyFor(defaults, slots[i]);
+            if (defKey == null) continue;
+            String ability = i < names.size() ? names.get(i) : slots[i].getDisplayName();
+            resetLore.add("&f" + defKey.getDisplayName() + " &8\u2192 &7" + ability);
+        }
+        inv.setItem(RESET_POS, item(Material.BARRIER, "&cReset to defaults", resetLore));
     }
 
     /** Names of the held gem's abilities, in slot order, when the gem registered them. */

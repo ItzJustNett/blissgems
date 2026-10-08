@@ -94,6 +94,11 @@ public class AbilityBindingManager {
         this.save(player.getUniqueId(), map);
     }
 
+    /** The bindings /bliss ability reset would give this player (config or built-in, Java or Bedrock). */
+    public EnumMap<AbilityBinding, AbilitySlot> getDefaults(Player player) {
+        return this.defaultsFor(player);
+    }
+
     public void resetToDefaults(Player player) {
         EnumMap<AbilityBinding, AbilitySlot> map = this.defaultsFor(player);
         this.cache.put(player.getUniqueId(), map);

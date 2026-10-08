@@ -19,6 +19,7 @@ import dev.xoperr.blissgems.utils.GemType;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -31,6 +32,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 public class PassiveManager {
     private final BlissGems plugin;
+    private final Map<UUID, Long> lastLifeHeal = new HashMap<UUID, Long>();
+    private final Map<UUID, Long> lastLifeAbsorption = new HashMap<UUID, Long>();
 
     public PassiveManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -177,14 +180,28 @@ public class PassiveManager {
         }
         player.removePotionEffect(PotionEffectType.WITHER);
         int tier = this.plugin.getGemManager().getTierFromOffhand(player);
-        double healAmount = this.plugin.getConfigManager().getLifeHealAmount(tier);
-        double currentHealth = player.getHealth();
-        double maxHealth = player.getMaxHealth();
-        if (currentHealth < maxHealth) {
-            player.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+        long now = System.currentTimeMillis();
+        UUID id = player.getUniqueId();
+        // heal-amount is in hearts, once every heal-interval ticks (not every passive tick)
+        long healIntervalMs = this.plugin.getConfigManager().getLifeHealInterval(tier) * 50L;
+        if (now - this.lastLifeHeal.getOrDefault(id, 0L) >= healIntervalMs) {
+            this.lastLifeHeal.put(id, now);
+            double healAmount = this.plugin.getConfigManager().getLifeHealAmount(tier) * 2.0;
+            double currentHealth = player.getHealth();
+            double maxHealth = player.getMaxHealth();
+            if (currentHealth < maxHealth) {
+                player.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+            }
         }
         int absorptionBase = this.plugin.getConfig().getInt("passives.life.tier" + tier + ".absorption-per-block", 0);
-        if (absorptionBase > 0) {
+        // Only grant a fresh shield once the old one is fully gone and the regen cooldown has passed.
+        // Re-applying every passive tick refilled the absorption each second and made Life unkillable.
+        long absorptionCooldownMs = this.plugin.getConfig().getLong("passives.life.absorption-regen-seconds", 30L) * 1000L;
+        if (player.getAbsorptionAmount() > 0.0) {
+            this.lastLifeAbsorption.put(id, now); // cooldown counts from when the shield breaks
+        }
+        boolean shieldReady = player.getAbsorptionAmount() <= 0.0 && now - this.lastLifeAbsorption.getOrDefault(id, 0L) >= absorptionCooldownMs;
+        if (absorptionBase > 0 && shieldReady) {
             int radius = this.plugin.getConfig().getInt("passives.life.absorption-scan-radius", 5);
             Map<Material, Integer> blockCounts = new HashMap<Material, Integer>();
             Location loc = player.getLocation();
@@ -199,15 +216,14 @@ public class PassiveManager {
                     }
                 }
             }
-            int totalAbsorption = 0;
-            for (int count : blockCounts.values()) {
-                totalAbsorption += absorptionBase * count;
-            }
+            // One step per distinct nearby block type; counting every block always hit the cap.
+            int totalAbsorption = absorptionBase * blockCounts.size();
             int maxAbsorption = this.plugin.getConfig().getInt("passives.life.max-absorption-hearts", 20);
             totalAbsorption = Math.min(totalAbsorption, maxAbsorption);
             if (totalAbsorption > 0) {
-                int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
-                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, interval + 10, Math.max(0, totalAbsorption / 2 - 1), true, false), true);
+                int durationTicks = 60 * 20;
+                player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, durationTicks, Math.max(0, totalAbsorption / 2 - 1), true, false));
+                this.lastLifeAbsorption.put(id, now);
             }
         }
     }
