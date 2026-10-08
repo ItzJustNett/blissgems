@@ -374,8 +374,8 @@ public class CustomItemManager {
     }
 
     /**
-     * Name and lore of a soul gem: cosmetics.yml text (or the legacy text), a live energy line under the
-     * first lore line, and any Owner/Charges lines the item already carried.
+     * Name and lore of a soul gem: cosmetics.yml text (or the legacy text), a live level line above the
+     * lore, and any Owner/Charges lines the item already carried.
      */
     private static void renderGem(ItemMeta meta, String id, CustomItemData data, int energy) {
         List<Component> kept = new ArrayList<>();
@@ -400,7 +400,7 @@ public class CustomItemManager {
             }
         }
         if (energy >= 0) {
-            lore.add(Math.min(1, lore.size()), CustomItemManager.energyLine(energy));
+            lore.add(0, CustomItemManager.energyLine(energy));
         }
         if (!kept.isEmpty()) {
             lore.add(Component.empty());
@@ -410,11 +410,11 @@ public class CustomItemManager {
         CustomItemManager.applyEnhancedGlint(meta, energy);
     }
 
-    /** The level line under the gem's tagline, in the gem's own style: "(Pristine)", "(Cracked)", "(Pristine +2)". */
+    /** The level line at the top of a gem's lore, as the Oraxen text had it: " (Pristine)", " (Cracked)", " (Pristine +2)". */
     public static Component energyLine(int energy) {
         EnergyState state = EnergyState.fromEnergy(energy);
-        String color = state == EnergyState.PRISTINE ? "\u00a7a" : state.getDisplayName().substring(0, 2);
-        return CustomItemManager.legacy(color + "\u00a7o(" + state.getName() + ")");
+        String color = state == EnergyState.PRISTINE ? "\u00a7b" : state.getDisplayName().substring(0, 2);
+        return CustomItemManager.legacy(" \u00a7f(" + color + state.getName() + "\u00a7f)");
     }
 
     private static Component legacy(String text) {
