@@ -423,7 +423,43 @@ public class ConfigManager {
     }
 
     public String getMessage(String key) {
-        return this.config.getString("messages." + key, "").replace("&", "\u00a7");
+        return ConfigManager.renderMessage(this.config.getString("messages." + key, ""));
+    }
+
+    private static final net.kyori.adventure.text.minimessage.MiniMessage MINI = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage();
+    private static final net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer SECTION_HEX =
+        net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.builder().character('\u00a7').hexColors().useUnusualXRepeatedCharacterHexFormat().build();
+    private static final String LEGACY_TAGS = "0black 1dark_blue 2dark_green 3dark_aqua 4dark_red 5dark_purple 6gold 7gray 8dark_gray 9blue agreen baqua cred dlight_purple eyellow fwhite kobfuscated lbold mstrikethrough nunderlined oitalic rreset";
+
+    /**
+     * Messages may use MiniMessage (gradients: {@code <gradient:#C77DFF:#4CC9F0>text</gradient>}),
+     * the old {@code &} colour codes, or both. Returned as a section-sign string with hex colours,
+     * which sendMessage(String) shows as written.
+     */
+    static String renderMessage(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        if (raw.indexOf('<') < 0) {
+            return raw.replace("&", "\u00a7");
+        }
+        StringBuilder mm = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '&' && i + 1 < raw.length()) {
+                char code = Character.toLowerCase(raw.charAt(i + 1));
+                int at = LEGACY_TAGS.indexOf(" " + code) + 1;
+                if (LEGACY_TAGS.charAt(0) == code) at = 0;
+                if (at >= 0 && (at == 0 || LEGACY_TAGS.charAt(at - 1) == ' ')) {
+                    int end = LEGACY_TAGS.indexOf(' ', at);
+                    mm.append('<').append(LEGACY_TAGS, at + 1, end < 0 ? LEGACY_TAGS.length() : end).append('>');
+                    i++;
+                    continue;
+                }
+            }
+            mm.append(c);
+        }
+        return SECTION_HEX.serialize(MINI.deserialize(mm.toString()));
     }
 
     public String getPrefix() {
