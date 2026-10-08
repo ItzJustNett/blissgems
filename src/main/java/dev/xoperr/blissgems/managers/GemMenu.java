@@ -4,7 +4,6 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.goldevent.RitualItems;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.util.List;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -24,13 +23,15 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 /**
- * /bliss - the gem catalogue, a normal 3-row chest with the BLISS banner (resource pack font
- * bliss:menu) above it:
+ * /bliss - the gem catalogue, a 4-row chest with the BLISS banner above it (glyph U+E200 in the
+ * pack's default font, the way Oraxen draws GUI images, so it shows on every client):
  * <pre>
- *  T1 T1 T1 T1 [GOLD] T2 T2 T2 T2
- *  T1 T1 T1 T1 [glas] T2 T2 T2 T2
- *  .  .  .  [AURATUS][MORE][HERETIC] .  .  .
+ *  T1 T1 | .     GOLD   .     | T2 T2
+ *  T1 T1 | .     .      .     | T2 T2
+ *  T1 T1 | AURATUS .  HERETIC | T2 T2
+ *  T1 T1 | .   MORE GEMS  .   | T2 T2
  * </pre>
+ * ("|" = blue glass)
  * Every gem is drawn at its top Pristine look. The Gold Gem opens the Gold Gem page (the dormant gem,
  * Wire Fragments 1-7 and the Fragment Core). Auratus and Heretic come from the BlissMythics addon;
  * without it, clicking them links its download. The glowing diamond block between them links the
@@ -40,19 +41,20 @@ import org.bukkit.inventory.meta.ItemMeta;
 public final class GemMenu implements Listener {
     public static final String MYTHICS_URL = "https://modrinth.com/plugin/auratus-hertic-addon";
     public static final String EXPANSION_URL = "https://modrinth.com/plugin/blissgems-expansion";
-    /** Banner glyph, after a -7 px space so it lines up with the chest's left edge. */
-    private static final Component BANNER = Component.text("\ue201\ue200")
-        .font(Key.key("bliss", "menu")).color(NamedTextColor.WHITE);
+    /** The banner: two half glyphs (the font atlas fits 256 px), see the pack's minecraft/font/default.json. */
+    private static final Component BANNER = Component.text("\ue201\ue200\ue203\ue202").color(NamedTextColor.WHITE);
     private static final String[] GEMS = {"astra", "fire", "flux", "life", "puff", "speed", "strength", "wealth"};
     /** The full-colour look; lower energy draws the paler, cracked textures. */
     private static final int SHOW_ENERGY = 10;
-    private static final int[] LEFT = {0, 1, 2, 3, 9, 10, 11, 12};
-    private static final int[] RIGHT = {5, 6, 7, 8, 14, 15, 16, 17};
+    /** Tier 1: the two left columns, top to bottom (astra fire / flux life / puff speed / strength wealth). */
+    private static final int[] LEFT = {0, 1, 9, 10, 18, 19, 27, 28};
+    /** Tier 2: the two right columns, same order. */
+    private static final int[] RIGHT = {7, 8, 16, 17, 25, 26, 34, 35};
+    private static final int[] DIVIDER = {2, 11, 20, 29, 6, 15, 24, 33};
     private static final int GOLD = 4;
-    private static final int[] DIVIDER = {13};
-    private static final int MORE_GEMS = 22;
     private static final int AURATUS = 21;
     private static final int HERETIC = 23;
+    private static final int MORE_GEMS = 31;
     private static final int BACK = 18;
     private final BlissGems plugin;
 
@@ -78,7 +80,7 @@ public final class GemMenu implements Listener {
 
     public void open(Player player) {
         Holder holder = new Holder(Page.GEMS);
-        holder.inv = Bukkit.createInventory(holder, 27, BANNER);
+        holder.inv = Bukkit.createInventory(holder, 36, BANNER);
         for (int i = 0; i < GEMS.length; i++) {
             if (!this.plugin.getConfig().getBoolean("gems.enabled." + GEMS[i], true)) continue;
             holder.inv.setItem(LEFT[i], showcase(CustomItemManager.getItemById(GEMS[i] + "_gem_t1", SHOW_ENERGY)));
@@ -189,7 +191,7 @@ public final class GemMenu implements Listener {
     public void onClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder() instanceof Holder holder)) return;
         event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player) || event.getRawSlot() >= 27) return;
+        if (!(event.getWhoClicked() instanceof Player player) || event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
         int slot = event.getRawSlot();
         if (holder.page == Page.GEMS) {
             if (slot == GOLD) {
