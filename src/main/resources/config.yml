@@ -16,9 +16,10 @@ disable-optional-messages: true
 # so a new version is downloaded into plugins/update/ and applied on the next restart.
 auto-update:
   enabled: true
-  # Your Modrinth project slug or id (REQUIRED). Find it in the project URL:
-  # modrinth.com/plugin/<slug>. Leave empty to disable the check.
-  modrinth-project: ""
+  # Modrinth project the updates come from (modrinth.com/plugin/<slug>). Empty = the official
+  # BlissGems project. The newest release is downloaded into plugins/update/ and applied on the
+  # next restart. Set enabled: false to turn updates off.
+  modrinth-project: "bliss-smp-plugin"
   # true = only log that an update exists, never download it automatically.
   notify-only: false
 

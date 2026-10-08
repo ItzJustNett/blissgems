@@ -22,6 +22,8 @@ import org.bukkit.plugin.Plugin;
 
 public class UpdateChecker {
     private static final String VERSIONS_URL = "https://api.modrinth.com/v2/project/%s/version";
+    /** modrinth.com/plugin/bliss-smp-plugin - used when auto-update.modrinth-project is empty. */
+    public static final String DEFAULT_PROJECT = "bliss-smp-plugin";
     private final BlissGems plugin;
 
     public UpdateChecker(BlissGems plugin) {
@@ -32,26 +34,20 @@ public class UpdateChecker {
         if (!this.plugin.getConfig().getBoolean("auto-update.enabled", true)) {
             return;
         }
-        String slug = this.plugin.getConfig().getString("auto-update.modrinth-project", "").trim();
+        String slug = this.plugin.getConfig().getString("auto-update.modrinth-project", DEFAULT_PROJECT).trim();
         if (slug.isEmpty()) {
-            this.plugin.getLogger().info("[AutoUpdate] Set auto-update.modrinth-project in config.yml to enable update checks.");
-            return;
+            slug = DEFAULT_PROJECT;
         }
+        final String project = slug;
         boolean notifyOnly = this.plugin.getConfig().getBoolean("auto-update.notify-only", false);
-        this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin)this.plugin, () -> this.run(slug, notifyOnly));
+        this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin)this.plugin, () -> this.run(project, notifyOnly));
     }
 
     private void run(String slug, boolean notifyOnly) {
         try {
             String current;
             JsonArray versions = this.fetchJson(String.format(VERSIONS_URL, slug)).getAsJsonArray();
-            JsonObject latest = null;
-            for (JsonElement el : versions) {
-                JsonObject v = el.getAsJsonObject();
-                if (!this.targetsBukkit(v)) continue;
-                latest = v;
-                break;
-            }
+            JsonObject latest = UpdateChecker.pickLatest(versions);
             if (latest == null) {
                 this.plugin.getLogger().warning("[AutoUpdate] No Paper/Spigot/Bukkit version found on Modrinth for '" + slug + "'.");
                 return;
@@ -70,14 +66,30 @@ public class UpdateChecker {
                 this.plugin.getLogger().warning("[AutoUpdate] Latest version has no downloadable file.");
                 return;
             }
-            this.downloadToUpdateFolder(file.get("url").getAsString(), remote);
+            String sha512 = file.has("hashes") && file.getAsJsonObject("hashes").has("sha512")
+                ? file.getAsJsonObject("hashes").get("sha512").getAsString() : null;
+            this.downloadToUpdateFolder(file.get("url").getAsString(), remote, sha512);
         }
         catch (Exception ex) {
             this.plugin.getLogger().warning("[AutoUpdate] Update check failed: " + ex.getMessage());
         }
     }
 
-    private boolean targetsBukkit(JsonObject version) {
+    /** The highest-numbered full release for a Bukkit-family loader (Modrinth's order is by date). */
+    static JsonObject pickLatest(JsonArray versions) {
+        JsonObject best = null;
+        for (JsonElement el : versions) {
+            JsonObject v = el.getAsJsonObject();
+            if (!targetsBukkit(v)) continue;
+            if (v.has("version_type") && !"release".equals(v.get("version_type").getAsString())) continue;
+            if (best == null || compareVersions(v.get("version_number").getAsString(), best.get("version_number").getAsString()) > 0) {
+                best = v;
+            }
+        }
+        return best;
+    }
+
+    private static boolean targetsBukkit(JsonObject version) {
         JsonArray loaders = version.getAsJsonArray("loaders");
         if (loaders == null) {
             return false;
@@ -109,7 +121,7 @@ public class UpdateChecker {
         return files.get(0).getAsJsonObject();
     }
 
-    private void downloadToUpdateFolder(String url, String version) throws Exception {
+    private void downloadToUpdateFolder(String url, String version, String sha512) throws Exception {
         File runningJar = this.plugin.getPluginFile();
         File updateDir = new File(this.plugin.getDataFolder().getParentFile(), this.plugin.getServer().getUpdateFolder());
         if (!updateDir.exists() && !updateDir.mkdirs()) {
@@ -117,15 +129,25 @@ public class UpdateChecker {
             return;
         }
         File dest = new File(updateDir, runningJar.getName());
+        File part = new File(updateDir, runningJar.getName() + ".part");
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-512");
         HttpURLConnection conn = this.open(url);
         try (InputStream in = conn.getInputStream();
-             FileOutputStream out = new FileOutputStream(dest);){
+             FileOutputStream out = new FileOutputStream(part);){
             int read;
             byte[] buffer = new byte[8192];
             while ((read = in.read(buffer)) != -1) {
                 out.write(buffer, 0, read);
+                digest.update(buffer, 0, read);
             }
         }
+        // a half-downloaded or tampered jar must never be what the server loads on restart
+        if (sha512 != null && !java.util.HexFormat.of().formatHex(digest.digest()).equalsIgnoreCase(sha512)) {
+            part.delete();
+            this.plugin.getLogger().warning("[AutoUpdate] Download of " + version + " did not match Modrinth's checksum; discarded.");
+            return;
+        }
+        java.nio.file.Files.move(part.toPath(), dest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         this.plugin.getLogger().info("[AutoUpdate] Downloaded " + version + " to " + this.plugin.getServer().getUpdateFolder() + "/" + dest.getName() + " \u2014 it will be applied on the next server restart.");
     }
 
@@ -149,7 +171,7 @@ public class UpdateChecker {
         return conn;
     }
 
-    private int compareVersions(String a, String b) {
+    static int compareVersions(String a, String b) {
         String[] pa = a.replaceAll("[^0-9.]", "").split("\\.");
         String[] pb = b.replaceAll("[^0-9.]", "").split("\\.");
         int len = Math.max(pa.length, pb.length);
