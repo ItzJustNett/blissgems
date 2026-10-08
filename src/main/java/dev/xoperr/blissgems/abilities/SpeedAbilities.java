@@ -23,6 +23,7 @@ package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.utils.TrueDamage;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import dev.xoperr.blissgems.utils.PlayerCloneNPC;
 import java.util.HashMap;
@@ -159,9 +160,7 @@ implements GemAbilityHandler {
         world.playSound(behind, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.4f);
 
         // 3 hearts true damage bypassing armor
-        double currentHp = target.getHealth();
-        double newHp = Math.max(0.0, currentHp - 6.0);
-        target.setHealth(newHp);
+        TrueDamage.apply(target, 6.0, player);
         target.playHurtAnimation(player.getLocation().getYaw());
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0f, 1.0f);
 

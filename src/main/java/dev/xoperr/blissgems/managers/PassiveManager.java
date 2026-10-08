@@ -155,7 +155,7 @@ public class PassiveManager {
     }
 
     private void applyFirePassives(Player player) {
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
         if (this.plugin.getConfigManager().isFireResistanceEnabled(tier)) {
             int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
             player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, interval + 10, 0, true, false), true);
@@ -176,7 +176,7 @@ public class PassiveManager {
             return;
         }
         player.removePotionEffect(PotionEffectType.WITHER);
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
         double healAmount = this.plugin.getConfigManager().getLifeHealAmount(tier);
         double currentHealth = player.getHealth();
         double maxHealth = player.getMaxHealth();
@@ -216,7 +216,7 @@ public class PassiveManager {
     }
 
     private void applySpeedPassives(Player player) {
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
         int speedLevel = this.plugin.getConfigManager().getSpeedLevel(tier);
         int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
         int duration = interval + 10;
@@ -225,7 +225,7 @@ public class PassiveManager {
     }
 
     private void applyStrengthPassives(Player player) {
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
         int strengthLevel = this.plugin.getConfigManager().getStrengthLevel(tier);
         int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
         int duration = interval + 10;
@@ -237,7 +237,7 @@ public class PassiveManager {
     }
 
     private void applyWealthPassives(Player player) {
-        int tier = this.plugin.getGemManager().getTierFromOffhand(player);
+        int tier = this.plugin.getGemManager().getTierForPassives(player);
         int luckLevel = this.plugin.getConfigManager().getLuckLevel(tier);
         int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();
         int duration = interval + 10;
