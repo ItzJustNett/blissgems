@@ -595,6 +595,7 @@ public class GemManager {
     }
 
     public void updateGemTextures(Player player) {
+        CustomItemManager.migrateGemMaterials(player.getInventory());
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;

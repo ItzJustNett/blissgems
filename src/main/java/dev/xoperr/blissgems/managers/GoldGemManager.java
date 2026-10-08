@@ -364,7 +364,7 @@ public class GoldGemManager {
         if (base == null) {
             return null;
         }
-        ItemStack item = new ItemStack(Material.PRISMARINE_CRYSTALS);
+        ItemStack item = new ItemStack(CustomItemManager.GEM_MATERIAL);
         ItemMeta meta = base.getItemMeta();
         if (meta == null) {
             return null;

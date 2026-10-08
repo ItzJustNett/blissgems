@@ -700,6 +700,7 @@ implements BlissGemsAPI {
     private void registerListeners() {
         PlayerDeathListener deathListener = new PlayerDeathListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)deathListener, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.GemCraftingGuard(), (Plugin)this);
         this.getServer().getScheduler().runTask((Plugin)this, deathListener::validateDroppableOnDeathConfig);
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
         this.gemIntegrity = new dev.xoperr.blissgems.listeners.GemIntegrityListener(this);
@@ -1051,7 +1052,7 @@ implements BlissGemsAPI {
             GemDefinition def = new GemDefinition.Builder(type.getId()).displayName(type.getDisplayName()).description(type.getDescription()).color(type.getColor()).plugin("BlissGems").maxTier(2).build();
             this.gemRegistry.registerGem(def);
         }
-        this.gemRegistry.registerGem(new GemDefinition.Builder("gold").displayName("Gold").description("Watch the lines of reality fray as eight souls become one").color("\u00a76").plugin("BlissGems").maxTier(1).material(Material.PRISMARINE_CRYSTALS).t1CustomModelData(1009).build());
+        this.gemRegistry.registerGem(new GemDefinition.Builder("gold").displayName("Gold").description("Watch the lines of reality fray as eight souls become one").color("\u00a76").plugin("BlissGems").maxTier(1).material(CustomItemManager.GEM_MATERIAL).t1CustomModelData(1009).build());
         if (this.astraAbilities != null) {
             this.gemRegistry.registerAbilities("astra", this.astraAbilities);
         }

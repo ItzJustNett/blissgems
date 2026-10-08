@@ -48,6 +48,13 @@ implements Listener {
             this.plugin.getGoldGemManager().load(player.getUniqueId());
             this.plugin.getGoldGemManager().deliverPendingGems(player);
         }
+        // gems from before the nautilus-shell switch become nautilus shells (Bedrock can hold those off hand)
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            int moved;
+            if (player.isOnline() && (moved = CustomItemManager.migrateGemMaterials(player.getInventory())) > 0) {
+                this.plugin.getLogger().info("Moved " + moved + " gem(s) of " + player.getName() + " to nautilus shells");
+            }
+        }, 5L);
         if (OraxenGemFixer.isFixOnJoinEnabled(this.plugin)) {
             this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
                 int fixed;
