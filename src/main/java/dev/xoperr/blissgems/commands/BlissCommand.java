@@ -302,6 +302,10 @@ TabCompleter {
                 this.handleUnbounded(sender, args);
                 break;
             }
+            case "cooldowns": {
+                this.handleListCooldowns(sender, args);
+                break;
+            }
             case "clearcds": {
                 this.handleClearCooldowns(sender, args);
                 break;
@@ -2150,6 +2154,37 @@ TabCompleter {
         return enabledGems.get(new Random().nextInt(enabledGems.size()));
     }
 
+    /** /bliss cooldowns <player>: one line per running cooldown and active ability, in whole seconds left. */
+    private void handleListCooldowns(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("\u00a7cUsage: /bliss cooldowns <player>");
+            return;
+        }
+        Player target = Bukkit.getPlayer((String)args[1]);
+        if (target == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+        long now = System.currentTimeMillis();
+        java.util.TreeMap<String, String> lines = new java.util.TreeMap<>();
+        for (Map.Entry<String, Long> e : this.plugin.getAbilityManager().getCooldownsFor(target.getUniqueId()).entrySet()) {
+            long left = (long)Math.ceil((e.getValue() - now) / 1000.0);
+            if (left > 0) lines.put(e.getKey(), "cooldown " + left);
+        }
+        for (Map.Entry<String, Long> e : this.plugin.getAbilityManager().getActiveAbilitiesFor(target.getUniqueId()).entrySet()) {
+            long left = (long)Math.ceil((e.getValue() - now) / 1000.0);
+            if (left > 0) lines.merge(e.getKey(), "active " + left, (a, b) -> a + " " + b);
+        }
+        sender.sendMessage("\u00a7d" + target.getName() + " \u00a77cooldowns: \u00a7f" + lines.size());
+        for (Map.Entry<String, String> e : lines.entrySet()) {
+            sender.sendMessage("\u00a77" + e.getKey() + " \u00a7f" + e.getValue());
+        }
+    }
+
     private void handleClearCooldowns(CommandSender sender, String[] args) {
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
@@ -2275,7 +2310,7 @@ TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
+            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "cooldowns", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("gold")) {
                 return Arrays.asList("souls", "cycle", "beam", "armor");

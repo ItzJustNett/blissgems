@@ -279,6 +279,15 @@ public class AbilityManager {
         }
     }
 
+    /** Cooldown expiry times (epoch ms) per ability key, for /bliss cooldowns. */
+    public Map<String, Long> getCooldownsFor(UUID uuid) {
+        Map<String, Long> cds = this.cooldowns.get(uuid);
+        if (cds == null) {
+            return java.util.Collections.emptyMap();
+        }
+        return new HashMap<>(cds);
+    }
+
     public Map<String, Long> getActiveAbilitiesFor(UUID uuid) {
         Map<String, Long> active = this.activeAbilities.get(uuid);
         if (active == null) {

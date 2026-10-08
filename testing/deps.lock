@@ -1,0 +1,41 @@
+{
+  "mcVersion": "1.21.11",
+  "clientMcVersion": "1.21.1",
+  "server": {
+    "paper": {
+      "name": "paper-1.21.11-132.jar",
+      "url": "https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar",
+      "sha256": "5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba",
+      "version": "1.21.11-132"
+    },
+    "viaversion": {
+      "name": "ViaVersion.jar",
+      "url": "https://cdn.modrinth.com/data/P1OZGk5p/versions/5WgnasGG/ViaVersion-5.12.1.jar",
+      "sha256": "551265afd892e78bb869162e08b4fdd151c518e245fce60af36b0603ad695d76",
+      "version": "5.12.1"
+    },
+    "viabackwards": {
+      "name": "ViaBackwards.jar",
+      "url": "https://cdn.modrinth.com/data/NpvuJQoq/versions/dWw67APC/ViaBackwards-5.12.1.jar",
+      "sha256": "dd72f7a459cbf1ea7862781dac92ed0ba738aa3cb3b7955e716ba379889d612a",
+      "version": "5.12.1"
+    }
+  },
+  "client": {
+    "fabricApi": {
+      "name": "fabric-api.jar",
+      "url": "https://cdn.modrinth.com/data/P7dR8mSH/versions/Mys3P7lK/fabric-api-0.116.17%2B1.21.1.jar",
+      "sha256": "79ac44b40780acbd884b34c50be1e39af682847e5f5cb3b1fddeeaa768dce800",
+      "version": "0.116.17+1.21.1"
+    },
+    "aukcontrol": {
+      "repo": "https://github.com/ItzJustNett/auk-control-fabric-mod",
+      "commit": "e003b3fb2f84fbb7f32df17bfa9255bb7e98caae"
+    }
+  },
+  "resourcePack": {
+    "zip": "BlissGems Resourcepack V5.6.zip",
+    "sha256": "be579cb209e9267627644ab3bab618cb328c334b035e5fb0d7ebd7bd143f4e51",
+    "overlayRepoDir": "resourcepack"
+  }
+}

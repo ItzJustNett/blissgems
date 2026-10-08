@@ -44,6 +44,12 @@ jobs:
           path: target/BlissGems-*.jar
           if-no-files-found: error
 
+      # Releases only ship builds that passed the local test suite (testing/run-all.sh), the
+      # visual review and the player check, with no code change since (testing/tested.json).
+      - name: Check the build was tested
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/bliss/V')
+        run: python3 testing/tools/check_tested.py .
+
       - name: Release (tag push)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

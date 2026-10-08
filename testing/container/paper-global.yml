@@ -1,0 +1,3 @@
+# Lets the bot join as ".Victim" (a Bedrock-style name, as Floodgate gives Bedrock players).
+unsupported-settings:
+  perform-username-validation: false
