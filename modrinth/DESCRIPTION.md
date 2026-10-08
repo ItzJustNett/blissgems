@@ -95,6 +95,12 @@ Every cooldown, damage value and duration lives in `config.yml`.
 
 ---
 
+<div align="center">
+<a href="https://modrinth.com/plugin/tessera-plugin"><img src="https://raw.githubusercontent.com/ItzJustNett/blissgems/refs/heads/bliss/V5.1.5/modrinth/images/banner_tessera.png" width="100%"></a>
+</div>
+
+---
+
 ### Credits
 
 Gem designs and item text are based on **BlissPlugin by Blood**, used with his permission, which itself builds on the original **Bliss SMP Skript by rar**.
