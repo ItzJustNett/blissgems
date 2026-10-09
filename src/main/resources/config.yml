@@ -14,6 +14,9 @@ disable-optional-messages: true
 # ==========================================
 # On startup, check Modrinth for a newer build. A running jar can't be swapped live,
 # so a new version is downloaded into plugins/update/ and applied on the next restart.
+# Default-value updates already applied to this config (managed by the plugin, leave as is).
+config-migrations: []
+
 auto-update:
   enabled: true
   # Modrinth project the updates come from (modrinth.com/plugin/<slug>). Empty = the official
@@ -280,13 +283,13 @@ passives:
     absorption-regen-seconds: 30  # Life absorption shield comes back this long after it breaks
 
   flux:
-    shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
+    shocking-chance: 0.25  # 15% chance to trigger shocking arrow stun
     charged-creeper-reduction: 1.0  # 1.0 = full immunity, 0.5 = 50% reduction
     tier1:
       shocking-arrow-damage: 2.0  # Electric arrow damage
       flow-state-speed-boost: 0.15  # Additional speed boost in flow state
     tier2:
-      shocking-arrow-damage: 3.0  # Electric arrow damage
+      shocking-arrow-damage: 4.0  # Electric arrow damage
       flow-state-speed-boost: 0.2  # Additional speed boost in flow state
     max-flow-speed-level: 0  # Highest Speed level Flow State can give (0 = Speed I)
 
@@ -365,12 +368,12 @@ abilities:
     astra-drift: 60  # Dimensional Drift (set when drift ends)
     astra-void: 120  # 2 minutes - Dimensional Void
     astra-unbounded: 90  # Hit a player with the Astra gem: ride them as a ghost
-    fire-fireball: 45
-    fire-campfire: 120  # 2 minutes
-    fire-crisp: 90  # 1.5 minutes - Evaporate water + scorch terrain
-    fire-meteor-shower: 120  # 2 minutes - Rain fire on target area
+    fire-fireball: 35
+    fire-campfire: 90  # 2 minutes
+    fire-crisp: 60  # 1.5 minutes - Evaporate water + scorch terrain
+    fire-meteor-shower: 90  # 2 minutes - Rain fire on target area
     flux-ground: 30
-    flux-beam: 240  # 4 minutes - Very powerful armor-piercing attack (combined with stun can one-shot)
+    flux-beam: 150  # 4 minutes - Very powerful armor-piercing attack (combined with stun can one-shot)
     flux-conduction: 3  # Copper teleport cooldown
     flux-flashbang: 45  # Flashbang AOE blindness
     flux-kinetic-burst: 30  # Radial knockback
@@ -384,9 +387,9 @@ abilities:
     puff-launch: 15  # Launch-on-hit passive (Puff gem in main hand)
     speed-blur: 45
     speed-sedative: 60
-    speed-storm: 135  # 2.25 minutes (tripled from 45)
-    speed-terminal: 60  # Terminal Velocity cooldown
-    speed-gale-clouds: 60  # Gale Clouds (Quaternary)
+    speed-storm: 90  # 2.25 minutes (tripled from 45)
+    speed-terminal: 50  # Terminal Velocity cooldown
+    speed-gale-clouds: 45  # Gale Clouds (Quaternary)
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
     strength-nullify: 120
     strength-frailer: 120
@@ -422,9 +425,9 @@ abilities:
 
   # Fire Campfire settings
   fire-campfire:
-    heal-amount: 0.4  # Health restored per second
+    heal-amount: 1.0  # Health restored per second
     food-amount: 1  # Food level restored per second
-    radius: 4.0  # Radius of effect in blocks
+    radius: 5.0  # Radius of effect in blocks
     burn-duration: 3  # Seconds enemies burn
     range: 15.0  # How far away you can place the campfire
 
@@ -449,8 +452,8 @@ abilities:
 
   # Flux Kinetic Burst settings
   flux-kinetic-burst:
-    radius: 5.0  # AoE radius of the knockback burst
-    knockback: 2.0  # Knockback power multiplier
+    radius: 6.0  # AoE radius of the knockback burst
+    knockback: 2.6  # Knockback power multiplier
 
   # Strength Nullify settings
   strength-nullify:
@@ -528,19 +531,19 @@ abilities:
     radius: 6.0  # Field radius in blocks
     ally-buff-duration: 45  # Duration of Speed and Haste buff to allies
     enemy-slowness-level: 3  # Slowness applied to enemies
-    damage: 2.0  # Damage per pulse to enemies caught in the storm
+    damage: 3.0  # Damage per pulse to enemies caught in the storm
 
   # Ability damage values
   damage:
     astra-daggers: 5.0  # 2.5 hearts per dagger (5 daggers a volley)
     fire-fireball: 9.0
-    flux-beam-base: 10.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
+    flux-beam-base: 14.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
     flux-beam-max-armor-damage: 250  # 2.5x stronger
-    fire-campfire: 2.0  # Damage per second to enemies in range
-    fire-meteor-shower: 8.0  # Damage per meteor impact
+    fire-campfire: 3.0  # Damage per second to enemies in range
+    fire-meteor-shower: 10.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
     puff-dash: 4.0
-    blur: 2.5  # Damage per lightning strike (5 strikes by default)
+    blur: 3.5  # Damage per lightning strike (5 strikes by default)
 
     # ==========================================
     # MYTHIC & SPECIAL DAMAGE CONFIGS
@@ -563,11 +566,11 @@ abilities:
     astra-unbounded: 10  # Longest Unbounded ghost-ride (sneak to end early)
     astra-haunt: 15  # How long Unbounded disables the ridden player's gem
     fire-campfire: 15  # How long campfire lasts
-    fire-crisp: 15  # How long Crisp water evaporation lasts
-    fire-meteor-shower: 8  # Duration of meteor rain
-    flux-ground-freeze: 3
+    fire-crisp: 20  # How long Crisp water evaporation lasts
+    fire-meteor-shower: 10  # Duration of meteor rain
+    flux-ground-freeze: 4
     flux-shocking-stun: 1  # Shocking arrow stun duration in seconds
-    flux-flashbang: 5  # Flashbang blindness/nausea duration in seconds
+    flux-flashbang: 6  # Flashbang blindness/nausea duration in seconds
     life-drainer: 20
     life-circle: 10
     life-vitality-vortex: 15
@@ -580,8 +583,8 @@ abilities:
     wealth-rich-rush: 120
     wealth-amplification: 45
     wealth-item-lock: 10
-    terminal-velocity: 10  # Terminal Velocity Speed III + Haste II duration
-    speed-storm: 10  # Seconds a Speed Storm lasts
+    terminal-velocity: 15  # Terminal Velocity Speed III + Haste II duration
+    speed-storm: 12  # Seconds a Speed Storm lasts
     flux-kinetic-burst: 10  # Kinetic Burst
 
   # Adrenaline Rush settings

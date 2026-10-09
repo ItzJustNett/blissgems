@@ -354,10 +354,10 @@ implements GemAbilityHandler {
         final Location campfireLocation = targetBlock.getLocation().clone();
         World campfireWorld = campfireLocation.getWorld();
         this.activeCampfires.put(uuid, campfireLocation);
-        final double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 4.0);
-        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 2.0);
+        final double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 5.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 3.0);
         final int burnDuration = this.plugin.getConfig().getInt("abilities.fire-campfire.burn-duration", 3);
-        final double healAmount = this.plugin.getConfig().getDouble("abilities.fire-campfire.heal-amount", 0.4);
+        final double healAmount = this.plugin.getConfig().getDouble("abilities.fire-campfire.heal-amount", 1.0);
         final int foodAmount = this.plugin.getConfig().getInt("abilities.fire-campfire.food-amount", 1);
         final int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 15) * 20;
         player.playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 1.0f, 1.0f);
@@ -476,7 +476,7 @@ implements GemAbilityHandler {
         final UUID uuid = player.getUniqueId();
         Location center = player.getLocation().clone();
         final int radius = this.plugin.getConfig().getInt("abilities.fire-crisp.radius", 10);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-crisp", 15);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-crisp", 20);
         final int duration = durationSeconds * 20;
         this.crispActivePlayers.add(uuid);
         player.playSound(center, Sound.BLOCK_LAVA_AMBIENT, 1.5f, 0.5f);
@@ -611,10 +611,10 @@ implements GemAbilityHandler {
             player.sendMessage("\u00a7c\u00a7oNo valid target area found!");
             return;
         }
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-meteor-shower", 8);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-meteor-shower", 10);
         final int duration = durationSeconds * 20;
         final double aoeRadius = this.plugin.getConfig().getDouble("abilities.fire-meteor-shower.radius", 8.0);
-        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 8.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 10.0);
         final int meteorInterval = this.plugin.getConfig().getInt("abilities.fire-meteor-shower.interval-ticks", 10);
         this.meteorShowersActive.add(uuid);
         player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.3f);

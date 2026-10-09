@@ -439,7 +439,7 @@ implements Listener {
         if (hitEntity == null || !(hitEntity instanceof LivingEntity)) {
             return;
         }
-        double chance = this.plugin.getConfig().getDouble("passives.flux.shocking-chance", 0.15);
+        double chance = this.plugin.getConfig().getDouble("passives.flux.shocking-chance", 0.25);
         if (Math.random() > chance) {
             return;
         }

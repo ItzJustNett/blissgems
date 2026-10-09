@@ -174,7 +174,7 @@ implements GemAbilityHandler {
                 return;
             }
         }
-        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.flux-beam-base", 10.0);
+        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.flux-beam-base", 14.0);
         double damageMultiplier = 1.0 + charge / 50.0;
         double finalDamage = baseDamage * damageMultiplier;
         int maxArmorDamage = this.plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 250);
@@ -341,7 +341,7 @@ implements GemAbilityHandler {
                 return;
             }
         }
-        int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 3);
+        int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 4);
         int stunDuration = stunDurationSeconds * 20;
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 3, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 1, false, true));
@@ -451,8 +451,8 @@ implements GemAbilityHandler {
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-        double radius = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.radius", 5.0);
-        double knockbackPower = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.knockback", 2.0);
+        double radius = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.radius", 6.0);
+        double knockbackPower = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.knockback", 2.6);
         Location center = player.getLocation();
         int affectedCount = 0;
         for (Entity entity : player.getWorld().getNearbyEntities(center, radius, radius, radius)) {

@@ -17,6 +17,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import org.bukkit.command.CommandSender;
@@ -32,6 +33,31 @@ public class ConfigManager {
         this.plugin = plugin;
         this.reload();
         this.autoRepairConfig();
+        this.runMigrations();
+    }
+
+    /** One-time default changes for existing configs (ConfigMigrations); values an admin set stay. */
+    private void runMigrations() {
+        File configFile = new File(this.plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            return;
+        }
+        YamlConfiguration user = YamlConfiguration.loadConfiguration(configFile);
+        List<String> before = new java.util.ArrayList<>(user.getStringList(ConfigMigrations.KEY));
+        List<String> changed = ConfigMigrations.apply(user);
+        if (before.equals(user.getStringList(ConfigMigrations.KEY))) {
+            return;
+        }
+        try {
+            user.save(configFile);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Could not save config.yml after migrations: " + e.getMessage());
+            return;
+        }
+        if (!changed.isEmpty()) {
+            this.plugin.getLogger().info("Updated " + changed.size() + " default value(s) in config.yml (new balance): " + String.join(", ", changed));
+        }
+        this.reload();
     }
 
     public void reload() {
@@ -225,7 +251,7 @@ public class ConfigManager {
 
     public double getShockingArrowDamage(int tier) {
         String path = "passives.flux.tier" + tier + ".shocking-arrow-damage";
-        return this.config.getDouble(path, tier == 1 ? 2.0 : 3.0);
+        return this.config.getDouble(path, tier == 1 ? 2.0 : 4.0);
     }
 
     public double getFlowStateSpeedBoost(int tier) {

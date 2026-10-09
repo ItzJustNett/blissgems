@@ -442,7 +442,7 @@ implements GemAbilityHandler {
             return;
         }
         UUID uuid = player.getUniqueId();
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.speed-storm", 10);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.speed-storm", 12);
         final int duration = durationSeconds * 20;
         final double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 6.0);
         this.speedStormActivePlayers.add(uuid);
@@ -478,7 +478,7 @@ implements GemAbilityHandler {
                         }
                         int slowLevel = SpeedAbilities.this.plugin.getConfig().getInt("abilities.speed-storm.enemy-slowness-level", 3);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, true));
-                        double stormDamage = SpeedAbilities.this.plugin.getConfig().getDouble("abilities.speed-storm.damage", 2.0);
+                        double stormDamage = SpeedAbilities.this.plugin.getConfig().getDouble("abilities.speed-storm.damage", 3.0);
                         if (stormDamage > 0.0) target.damage(stormDamage, (Entity)player);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
                     }
@@ -556,7 +556,7 @@ implements GemAbilityHandler {
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
-        int duration = this.plugin.getConfig().getInt("abilities.durations.terminal-velocity", 10) * 20;
+        int duration = this.plugin.getConfig().getInt("abilities.durations.terminal-velocity", 15) * 20;
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, 2, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, duration, 4, false, true));
         Particle.DustOptions yellowDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.0f);
