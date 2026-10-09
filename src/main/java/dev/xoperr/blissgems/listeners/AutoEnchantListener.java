@@ -39,8 +39,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -132,6 +135,26 @@ implements Listener {
     }
 
     @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        // gear stashed in a chest/shulker/ender chest while amplified would keep the boosted levels
+        if (event.getView().getTopInventory().getType() == InventoryType.CRAFTING) {
+            return;
+        }
+        for (ItemStack item : event.getView().getTopInventory().getContents()) {
+            WealthAbilities.stripAmplifyEnchants(item);
+        }
+    }
+
+    @EventHandler(priority=EventPriority.HIGHEST, ignoreCancelled=true)
+    public void onItemSpawn(ItemSpawnEvent event) {
+        // death drops and anything else that lands on the ground lose the boost
+        ItemStack item = event.getEntity().getItemStack();
+        if (WealthAbilities.stripAmplifyEnchants(item)) {
+            event.getEntity().setItemStack(item);
+        }
+    }
+
+    @EventHandler
     public void onPlayerSwapHand(PlayerSwapHandItemsEvent event) {
         this.scheduleRefresh(event.getPlayer());
     }
@@ -149,6 +172,11 @@ implements Listener {
     }
 
     private void refreshAutoEnchants(Player player) {
+        // amplified gear only stays amplified in the inventory of the player who cast it
+        WealthAbilities wealth = this.plugin.getWealthAbilities();
+        if (wealth == null || !wealth.isAmplified(player.getUniqueId())) {
+            this.stripAllAmplifyEnchants(player);
+        }
         int heldSlot = player.getInventory().getHeldItemSlot();
         for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item;

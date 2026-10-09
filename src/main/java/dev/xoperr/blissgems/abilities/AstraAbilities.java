@@ -338,8 +338,13 @@ implements GemAbilityHandler {
                     if (armorPiercing > 0.0 && target instanceof Player) {
                         double reducedDamage = damage * (1.0 - armorPiercing);
                         double pierceDamage = damage * armorPiercing;
+                        // pierce only when the hit itself lands: during hurt-invulnerability the vanilla
+                        // damage is ignored, and stacking pierce from every dagger ignored it too
+                        boolean landed = target.getNoDamageTicks() <= target.getMaximumNoDamageTicks() / 2;
                         target.damage(reducedDamage, (Entity)player);
-                        ((Player)target).setHealth(Math.max(0.0, ((Player)target).getHealth() - pierceDamage));
+                        if (landed && !target.isDead()) {
+                            ((Player)target).setHealth(Math.max(0.0, ((Player)target).getHealth() - pierceDamage));
+                        }
                     } else {
                         target.damage(damage, (Entity)player);
                     }

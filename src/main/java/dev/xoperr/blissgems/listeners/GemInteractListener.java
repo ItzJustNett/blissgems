@@ -342,6 +342,10 @@ implements Listener {
         event.setCancelled(true);
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
         int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
+        if (currentEnergy <= 0) {
+            player.sendMessage("\u00a7c\u00a7oYour gem is \u00a7c\u00a7lBROKEN\u00a7c\u00a7o! Only a Restoration Ritual can reforge it.");
+            return;
+        }
         if (currentEnergy >= maxEnergy) {
             String msg2 = this.plugin.getConfigManager().getFormattedMessage("energy-already-max", new Object[0]);
             if (msg2 == null || msg2.isEmpty()) {

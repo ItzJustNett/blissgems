@@ -111,3 +111,68 @@ def controls_match_handlers(ctx):
             if not (c == h or (c and h and (c.lower() in h.lower() or h.lower() in c.lower()))):
                 wrong.append(f"{g} {slot}: controls fire {c}, the gem handler says {h}")
     check(not wrong, "; ".join(wrong))
+
+
+def _lore_line(items, starts):
+    for it in items:
+        for line in it.get("tooltip", []):
+            if line.strip().startswith(starts):
+                return line.strip()
+    return None
+
+
+@test("regressions", "upgrader-charges-go-down")
+def upgrader_charges(ctx):
+    """'Charges: 2/3' was never parsed, so an Upgrader never went below 2 charges (infinite upgrades)."""
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    w.give_gem(ctx.tester, "fire", 1)
+    w.give_item(ctx.tester, "gem_upgrader")
+    time.sleep(0.5)
+    slot = next(it["slot"] for it in ctx.tester.items() if "upgrad" in it["name"].lower())
+    seen = []
+    for _ in range(2):
+        ctx.tester.select(slot)
+        ctx.tester.press("use")
+        time.sleep(1.2)
+        seen.append(_lore_line(ctx.tester.items(), "Charges:"))
+        w.give_gem(ctx.tester, "fire", 1)   # back to Tier 1 for the next upgrade
+    ctx.note(f"charges after each use: {seen}")
+    max_charges = w.get_config("upgrader.charges")
+    want = [f"Charges: {max_charges - 1}/{max_charges}", f"Charges: {max_charges - 2}/{max_charges}"] if max_charges and max_charges > 2 else None
+    if want:
+        check(seen == want, f"expected {want}, got {seen}")
+
+
+@test("regressions", "energy-bottle-does-not-revive-a-broken-gem")
+def bottle_broken(ctx):
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    w.give_gem(ctx.tester, "fire", 2)
+    w.cmd(f"bliss energy {ctx.tester.name} set 0")
+    w.give_item(ctx.tester, "energy_bottle")
+    time.sleep(0.5)
+    slot = next(it["slot"] for it in ctx.tester.items() if "minecraft:ghast_tear" == it["id"])
+    ctx.tester.mark()
+    ctx.tester.select(slot)
+    ctx.tester.press("use")
+    time.sleep(1.0)
+    level = next((it["tooltip"][1].strip() for it in ctx.tester.items() if it["id"] == "minecraft:nautilus_shell"), None)
+    ctx.note(f"gem level line after the bottle: {level!r}; chat {ctx.tester.chat_since_mark()[-2:]}")
+    check(level is not None and "Broken" in level, f"a Broken gem was revived by an Energy Bottle (level now {level!r})")
+
+
+@test("regressions", "passives-use-the-tier-of-a-hotbar-gem")
+def hotbar_tier(ctx):
+    """Strength T2 in the hotbar (not held) gave Strength I: the passive read the tier from the off hand only."""
+    w = ctx.world
+    # T1 and T2 ship with the same level; make T2 different so the test can tell them apart
+    w.set_config({"passives.strength.tier2.strength-level": 2})
+    w.reset_player(ctx.tester)
+    w.give_gem(ctx.tester, "strength", 2)
+    ctx.tester.select(4)   # the gem stays in hotbar slot 0, not in hand
+    time.sleep(3.0)
+    eff = ctx.tester.effects().get("minecraft:strength")
+    ctx.note(f"strength effect: {eff}; tier2 strength-level set to 2 for this test")
+    check(eff is not None, "no Strength at all from a T2 Strength gem in the hotbar")
+    check(eff["amplifier"] == 2, f"Strength amplifier {eff['amplifier']} from a T2 gem in the hotbar, expected 2 (tier2 level)")
