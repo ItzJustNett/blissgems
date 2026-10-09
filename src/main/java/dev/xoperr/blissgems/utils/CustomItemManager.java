@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -374,8 +376,8 @@ public class CustomItemManager {
     }
 
     /**
-     * Name and lore of a soul gem: cosmetics.yml text (or the legacy text), a live energy line under the
-     * first lore line, and any Owner/Charges lines the item already carried.
+     * Name and lore of a soul gem: a live energy line right under the name, then the cosmetics.yml text
+     * (or the legacy text), and any Owner/Charges lines the item already carried.
      */
     private static void renderGem(ItemMeta meta, String id, CustomItemData data, int energy) {
         List<Component> kept = new ArrayList<>();
@@ -400,7 +402,7 @@ public class CustomItemManager {
             }
         }
         if (energy >= 0) {
-            lore.add(Math.min(1, lore.size()), CustomItemManager.energyLine(energy));
+            lore.add(0, CustomItemManager.energyLine(energy));
         }
         if (!kept.isEmpty()) {
             lore.add(Component.empty());
@@ -410,21 +412,23 @@ public class CustomItemManager {
         CustomItemManager.applyEnhancedGlint(meta, energy);
     }
 
-    /** e.g. "Energy ◆◆◆◆◆◆◇◇◇◇ Pristine +1". */
+    /** e.g. "(Pristine)" or "(Pristine +2)", in BlissPlugin's state colours. */
     public static Component energyLine(int energy) {
         EnergyState state = EnergyState.fromEnergy(energy);
-        int pips = Math.max(0, Math.min(10, energy));
-        String color = state.getDisplayName().substring(0, 2);
-        StringBuilder sb = new StringBuilder("§7Energy ");
-        sb.append(color);
-        for (int i = 0; i < 10; i++) {
-            if (i == pips) {
-                sb.append("§8");
-            }
-            sb.append(i < pips ? '◆' : '◇');
+        String hex = switch (state) {
+            case BROKEN -> "#FFFFFF";
+            case RUINED -> "#FF1111";
+            case SHATTERED -> "#FFC929";
+            case CRACKED -> "#7958DB";
+            case SCRATCHED -> "#57FF8F";
+            default -> "#57FFC7";
+        };
+        Component name = Component.text(state.getName(), TextColor.fromHexString(hex));
+        if (state == EnergyState.BROKEN) {
+            name = name.decorate(TextDecoration.BOLD);
         }
-        sb.append(' ').append(state.getDisplayName());
-        return CustomItemManager.legacy(sb.toString());
+        return Component.text("(", NamedTextColor.WHITE).append(name).append(Component.text(")", NamedTextColor.WHITE))
+            .decoration(TextDecoration.ITALIC, false);
     }
 
     private static Component legacy(String text) {

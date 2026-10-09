@@ -10,6 +10,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.RayTraceResult;
 
 /** /blissevent start|end|phase|compass|villager|give */
 public final class VillagerEventCommand implements TabExecutor {
@@ -110,16 +111,39 @@ public final class VillagerEventCommand implements TabExecutor {
                 + (v != null && v.isValid() ? "" : " &7(the villager itself isn't loaded; the rows refresh when it is)")));
             return;
         }
+        // The villager under the crosshair wins; otherwise the closest one within a few blocks
         Villager target = null;
-        for (Entity e : player.getNearbyEntities(10, 10, 10)) {
-            if (e instanceof Villager v) {
-                target = v;
-                break;
+        RayTraceResult hit = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 6.0, 0.3, e -> e instanceof Villager);
+        if (hit != null && hit.getHitEntity() instanceof Villager v) {
+            target = v;
+        } else {
+            double best = Double.MAX_VALUE;
+            for (Entity e : player.getNearbyEntities(3, 3, 3)) {
+                double d;
+                if (e instanceof Villager v && (d = v.getLocation().distanceSquared(player.getLocation())) < best) {
+                    best = d;
+                    target = v;
+                }
             }
         }
         if (target == null) {
-            sender.sendMessage(PedestalManager.color("&cNo villager found within 10 blocks."));
+            sender.sendMessage(PedestalManager.color("&cLook at a villager (or stand within 3 blocks of one)."));
             return;
+        }
+        // Release whatever villager held this slot before, and the target's old slot, so no
+        // tagged-but-unregistered villager is left behind
+        for (int other = 1; other <= 3; other++) {
+            Villager prev = state.getVillager(other);
+            if (other == id && prev != null && !prev.equals(target)) {
+                prev.removeScoreboardTag(VillagerEventItems.EVENT_TAG);
+                prev.customName(null);
+                prev.setCustomNameVisible(false);
+                prev.setRecipes(new ArrayList<>());
+                state.clearVillager(other);
+            } else if (other != id && target.getUniqueId().equals(state.villagerUuid(other))) {
+                state.clearVillager(other);
+                state.setVillagerAlive(other, false);
+            }
         }
         target.setInvulnerable(false);
         this.manager.items().dressVillager(target, id);
@@ -164,7 +188,7 @@ public final class VillagerEventCommand implements TabExecutor {
             "&e end &7End the event",
             "&e phase <1|2|3> &7Jump straight to a phase",
             "&e compass set &7Point the event compass here",
-            "&e villager set <1|2|3> &7Make the nearest villager a village's villager",
+            "&e villager set <1|2|3> &7Make the villager you look at a village's villager",
             "&e villager restock <1|2|3> &7Put its one-time trades back on sale",
             "&e give <token|disc|soul <1|2|3>> &7Hand out event items"};
         for (String l : lines) sender.sendMessage(PedestalManager.color(l));
