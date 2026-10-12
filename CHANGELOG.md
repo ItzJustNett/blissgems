@@ -1,5 +1,38 @@
 # Changelog
 
+## BlissGems 5.1.7
+
+**Resource pack:** https://github.com/ItzJustNett/blissgems/releases/download/resourcepack-latest/BlissGems-Resourcepack.zip (updated on every change - get the new one, the old pack has no textures for the new items or the menu banner).
+
+### Balance
+- **Fire:** Fireball cooldown 45 → 35 s. Cozy Campfire 3 damage/s (was 2), radius 5 (was 4), heals 1 HP/s (was 0.4), cooldown 90 s (was 120). Crisp cooldown 60 s (was 90), lasts 20 s (was 15). Meteor Shower 10 damage (was 8), cooldown 90 s (was 120), lasts 10 s (was 8).
+- **Flux:** Flux Beam cooldown 150 s (was 240), base damage 14 (was 10). Ground stuns 4 s (was 3). Flashbang 6 s (was 5). Kinetic Burst knockback 2.6 (was 2.0), radius 6 (was 5). Shocking arrows 25% chance (was 15%), Tier 2 damage 4 (was 3).
+- **Speed:** Speed Storm cooldown 90 s (was 135), 3 damage (was 2), lasts 12 s (was 10). Blur 3.5 damage per strike (was 2.5). Terminal Velocity lasts 15 s (was 10), cooldown 50 s (was 60). 4th ability cooldown 45 s (was 60).
+- Existing servers get these new values automatically on startup, except values an admin changed themselves.
+
+### Added
+- **New /bliss menu:** the BLISS banner on top, Tier 1 gems on the left, Tier 2 on the right, the Gold Gem in the middle (click it: the Gold Gem, all 7 Wire Fragments and the Fragment Core), Auratus and Heretic (links the addon when it isn't installed) and a link to more gems. The old admin panel is /bliss admin.
+- **Gems are now nautilus shells** so Bedrock players can hold them in the off hand. Old gems convert automatically when a player joins.
+- Gem names and descriptions use the original Bliss design again, with the gem's real energy level ("(Pristine)", "(Cracked)", ...) on top.
+- Chat messages use colour gradients (MiniMessage in config.yml messages; old & colour codes still work).
+- Textures for Wire Fragments 1-7 and the Fragment Core.
+- Auto-update from Modrinth (auto-update in config.yml).
+- /bliss cooldowns <player> for admins.
+
+### Fixed
+- Life Gem made players nearly unkillable: its absorption shield refilled every second. It now comes back 30 s after it breaks (passives.life.absorption-regen-seconds).
+- Gem Upgraders never went below 2 charges (infinite upgrades).
+- Energy Bottles could revive a Broken gem.
+- Passives used the wrong tier for gems in the hotbar (a Tier 2 Strength gem gave Strength I).
+- Astra daggers' armour piercing stacked through hit invulnerability.
+- Wealth Amplify: boosted enchants (e.g. Protection V) stayed on gear put in a chest, dropped or lost on death.
+- Fragment Core and Villager Soul showed the Energy Bottle texture.
+- Dimensional Drift's cooldown wasn't shown in the action bar.
+- Ability boss bars are now only for Bedrock players.
+- /blissevent villager set picks the villager you look at.
+- /bliss ability shows the default keybinds.
+- A gem can't be used to craft (nautilus shells make conduits).
+
 ## BlissGems 5.0.1
 
 ### Changed
