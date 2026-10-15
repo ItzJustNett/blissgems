@@ -44,6 +44,24 @@ def fill(ctx, ids):
     return expected
 
 
+def _norm(field, value):
+    """The client lists an item's attribute modifiers ("When on Head:" ...) in no fixed order."""
+    if field != "tooltip" or not value:
+        return value
+    out, block = [], None
+    for line in value + [""]:
+        if block is not None and line.strip():
+            block.append(line)
+            continue
+        if block is not None:
+            out += sorted(block)
+            block = None
+        out.append(line)
+        if line.startswith("When "):
+            block = []
+    return out[:-1]
+
+
 @test("items", "inventory-and-tooltips")
 def inventory_and_tooltips(ctx):
     ids = all_item_ids()
@@ -95,7 +113,7 @@ def inventory_and_tooltips(ctx):
                 problems.append(f"{item_id}: in the goldens but not given / not shown")
                 continue
             for field in ("base", "customModelData", "name", "tooltip"):
-                if have.get(field) != want.get(field):
+                if _norm(field, have.get(field)) != _norm(field, want.get(field)):
                     problems.append(f"{item_id}: {field} changed\n    was: {want.get(field)}\n    now: {have.get(field)}")
         for item_id in current:
             if item_id not in golden:

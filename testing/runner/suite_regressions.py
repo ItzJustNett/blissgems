@@ -121,27 +121,36 @@ def _lore_line(items, starts):
     return None
 
 
-@test("regressions", "upgrader-charges-go-down")
-def upgrader_charges(ctx):
-    """'Charges: 2/3' was never parsed, so an Upgrader never went below 2 charges (infinite upgrades)."""
+@test("regressions", "upgrader-is-consumed")
+def upgrader_consumed(ctx):
+    """An Upgrader is single use: it used to keep charges, so one upgrader upgraded several gems."""
     w = ctx.world
     w.reset_player(ctx.tester)
     w.give_gem(ctx.tester, "fire", 1)
     w.give_item(ctx.tester, "gem_upgrader")
     time.sleep(0.5)
     slot = next(it["slot"] for it in ctx.tester.items() if "upgrad" in it["name"].lower())
-    seen = []
-    for _ in range(2):
-        ctx.tester.select(slot)
-        ctx.tester.press("use")
-        time.sleep(1.2)
-        seen.append(_lore_line(ctx.tester.items(), "Charges:"))
-        w.give_gem(ctx.tester, "fire", 1)   # back to Tier 1 for the next upgrade
-    ctx.note(f"charges after each use: {seen}")
-    max_charges = w.get_config("upgrader.charges")
-    want = [f"Charges: {max_charges - 1}/{max_charges}", f"Charges: {max_charges - 2}/{max_charges}"] if max_charges and max_charges > 2 else None
-    if want:
-        check(seen == want, f"expected {want}, got {seen}")
+    ctx.tester.select(slot)
+    ctx.tester.press("use")
+    time.sleep(1.2)
+    items = ctx.tester.items()
+    ctx.note(f"after the upgrade: {[(i['slot'], i['name'], i.get('customModelData')) for i in items]}")
+    check(any((i.get("customModelData") or 0) // 1000 == 2 for i in items), "the gem was not upgraded to Tier 2")
+    check(not any("upgrad" in i["name"].lower() for i in items), "the upgrader is still in the inventory")
+
+
+@test("regressions", "tier2-death-reverts-to-tier1")
+def tier2_death(ctx):
+    """Dying with a Tier 2 gem kept it Tier 2 while the upgrader dropped - a free upgrader per death."""
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    w.give_gem(ctx.tester, "fire", 2)
+    w.cmd(f"kill {ctx.tester.name}")
+    time.sleep(3.0)
+    items = ctx.tester.items()
+    ctx.note(f"after respawn: {[(i['slot'], i['name'], i.get('customModelData')) for i in items]}")
+    check(any((i.get("customModelData") or 0) // 1000 == 1 for i in items), "the gem did not come back as Tier 1")
+    check(not any((i.get("customModelData") or 0) // 1000 == 2 for i in items), "the gem is still Tier 2 after death")
 
 
 @test("regressions", "energy-bottle-does-not-revive-a-broken-gem")

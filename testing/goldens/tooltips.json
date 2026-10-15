@@ -1,0 +1,709 @@
+{
+ "mace_1": {
+  "base": "minecraft:mace",
+  "customModelData": 6001,
+  "name": "Heavy Mace",
+  "tooltip": [
+   "Heavy Mace",
+   "A perfectly balanced battle mace.",
+   "",
+   "✔ Fully Enchantable",
+   "Part of the original triad.",
+   "Owner: Tester",
+   "",
+   "When in Main Hand:",
+   " 6 Attack Damage",
+   " 0.6 Attack Speed"
+  ]
+ },
+ "mace_limited": {
+  "base": "minecraft:mace",
+  "customModelData": 6002,
+  "name": "Tempered Mace",
+  "tooltip": [
+   "Tempered Mace",
+   "A heavy, restricted battle mace.",
+   "",
+   "✖ Density max level II",
+   "✖ Wind Burst & Breach Restricted",
+   "⚡ 60s Combat Cooldown",
+   "Owner: Tester",
+   "",
+   "When in Main Hand:",
+   " 6 Attack Damage",
+   " 0.6 Attack Speed"
+  ]
+ },
+ "mace_3": {
+  "base": "minecraft:mace",
+  "customModelData": 6003,
+  "name": "Overcharged Mace",
+  "tooltip": [
+   "Overcharged Mace",
+   "Surging with raw kinetic force.",
+   "",
+   "✦ High Impact Triad Weapon",
+   "Owner: Tester",
+   "",
+   "When in Main Hand:",
+   " 6 Attack Damage",
+   " 0.6 Attack Speed"
+  ]
+ },
+ "netherite_helmet_mythic": {
+  "base": "minecraft:netherite_helmet",
+  "customModelData": 7001,
+  "name": "Mythic Netherite Helmet",
+  "tooltip": [
+   "Mythic Netherite Helmet",
+   "Protection III",
+   "Respiration III",
+   "Aqua Affinity",
+   "Unbreaking III",
+   "Mending",
+   "Forged with ancient durability.",
+   "",
+   "✦ Protection III",
+   "✦ Maxed Secondary Enchants",
+   "✦ Double Durability (814 Max)",
+   "Owner: Tester",
+   "",
+   "When on Head:",
+   "+3 Armor",
+   "+3 Armor Toughness",
+   "+1 Knockback Resistance",
+   "+3 Oxygen Bonus",
+   "+400% Submerged Mining Speed"
+  ]
+ },
+ "netherite_chestplate_mythic": {
+  "base": "minecraft:netherite_chestplate",
+  "customModelData": 7002,
+  "name": "Mythic Netherite Chestplate",
+  "tooltip": [
+   "Mythic Netherite Chestplate",
+   "Protection III",
+   "Unbreaking III",
+   "Mending",
+   "Forged with ancient durability.",
+   "",
+   "✦ Protection III",
+   "✦ Maxed Secondary Enchants",
+   "✦ Double Durability (1184 Max)",
+   "Owner: Tester",
+   "",
+   "When on Body:",
+   "+8 Armor",
+   "+3 Armor Toughness",
+   "+1 Knockback Resistance"
+  ]
+ },
+ "netherite_leggings_mythic": {
+  "base": "minecraft:netherite_leggings",
+  "customModelData": 7003,
+  "name": "Mythic Netherite Leggings",
+  "tooltip": [
+   "Mythic Netherite Leggings",
+   "Protection III",
+   "Swift Sneak III",
+   "Unbreaking III",
+   "Mending",
+   "Forged with ancient durability.",
+   "",
+   "✦ Protection III",
+   "✦ Maxed Secondary Enchants",
+   "✦ Double Durability (1110 Max)",
+   "Owner: Tester",
+   "",
+   "When on Legs:",
+   "+6 Armor",
+   "+3 Armor Toughness",
+   "+1 Knockback Resistance",
+   "+0.45 Sneaking Speed"
+  ]
+ },
+ "netherite_boots_mythic": {
+  "base": "minecraft:netherite_boots",
+  "customModelData": 7004,
+  "name": "Mythic Netherite Boots",
+  "tooltip": [
+   "Mythic Netherite Boots",
+   "Protection III",
+   "Feather Falling IV",
+   "Soul Speed III",
+   "Depth Strider III",
+   "Unbreaking III",
+   "Mending",
+   "Forged with ancient durability.",
+   "",
+   "✦ Protection III",
+   "✦ Maxed Secondary Enchants",
+   "✦ Double Durability (962 Max)",
+   "Owner: Tester",
+   "",
+   "When on Feet:",
+   "+3 Armor",
+   "+3 Armor Toughness",
+   "+1 Knockback Resistance",
+   "+1 Water Movement Efficiency"
+  ]
+ },
+ "player_tracker": {
+  "base": "minecraft:compass",
+  "customModelData": 8001,
+  "name": "Player Tracker",
+  "tooltip": [
+   "Player Tracker",
+   "Points towards the nearest player.",
+   "",
+   "Trade with the Energy Games Villager",
+   "for raw Energy."
+  ]
+ },
+ "villager_soul": {
+  "base": "minecraft:nether_star",
+  "customModelData": 8002,
+  "name": "Villager Soul",
+  "tooltip": [
+   "Villager Soul",
+   "An essence encapsulating a merchant.",
+   "",
+   "Shift + Right-Click block to release.",
+   "Preserves all trade history and limits."
+  ]
+ },
+ "astra_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1021,
+  "name": "astra  gem",
+  "tooltip": [
+   "astra  gem",
+   " (Pristine)",
+   "manage the tides of the cosmos",
+   "",
+   "ꐹ passives",
+   "- Phasing",
+   "- Soul Healing",
+   "- Soul Capture",
+   "",
+   "ꐹ ability",
+   "- Dimensional Drift",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "fire_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1022,
+  "name": "fire  gem",
+  "tooltip": [
+   "fire  gem",
+   " (Pristine)",
+   "manipulate fire",
+   "",
+   "ꐹ passives",
+   "- Fire Resistance",
+   "- Auto Smelt",
+   "- Flamstrike",
+   "- Flameshot",
+   "",
+   "ꐹ ability",
+   "- Crisp",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "flux_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1023,
+  "name": "flux  gem",
+  "tooltip": [
+   "flux  gem",
+   " (Pristine)",
+   "everythg is a fluctuation",
+   "",
+   "ꐹ passives",
+   "- Flow state",
+   "- Shocking chance",
+   "- Conduction",
+   "- Tireless",
+   "",
+   "ꐹ ability",
+   "- Static Burst",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "life_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1024,
+  "name": "life  gem",
+  "tooltip": [
+   "life  gem",
+   " (Pristine)",
+   "controls the balance of life",
+   "",
+   "ꐹ passives",
+   "- Green Thumb",
+   "- Radiant Fist",
+   "- Bonus Saturation",
+   "- Bonus Absorption",
+   "- Enchants Unbreaking",
+   "- Wither Immune",
+   "",
+   "ꐹ ability",
+   "- Vitality Vortex",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "puff_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1025,
+  "name": "puff  gem",
+  "tooltip": [
+   "puff  gem",
+   " (Pristine)",
+   "be the biggest bird",
+   "",
+   "ꐹ passives",
+   "- Fall Damage Immunity",
+   "- Sculk Silence",
+   "- Enchants Power",
+   "- Enchants Punch",
+   "- Enchants Feather Falling",
+   "- Crop Tramp-less",
+   "",
+   "ꐹ ability",
+   "- Double Jump",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "speed_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1026,
+  "name": "speed  gem",
+  "tooltip": [
+   "speed  gem",
+   " (Pristine)",
+   "watch the world around you turn into a blur",
+   "",
+   "ꐹ passives",
+   "- Speed",
+   "- Dolphins Grace",
+   "- Enchant Efficiency",
+   "- Enchant Soul Speed",
+   "",
+   "ꐹ ability",
+   "- Thunder Step",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "strength_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1027,
+  "name": "strength  gem",
+  "tooltip": [
+   "strength  gem",
+   " (Pristine)",
+   "have a strength of a army",
+   "",
+   "ꐹ passives",
+   "- Strength",
+   "- Enchant Sharpness",
+   "",
+   "ꐹ ability",
+   "- Shadow Stalker",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "wealth_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1028,
+  "name": "wealth  gem",
+  "tooltip": [
+   "wealth  gem",
+   " (Pristine)",
+   "fuel a empire",
+   "",
+   "ꐹ passives",
+   "- Hero of the Village",
+   "- Luck",
+   "- Enchants Mending",
+   "- Enchants Fortune",
+   "- Enchants Loosting",
+   "- Bonus Ores",
+   "- Extra EXP",
+   "- Durability chip",
+   "- Double Debris",
+   "",
+   "ꐹ ability",
+   "- Pockets",
+   "",
+   "ꐹ powers",
+   "Unknown"
+  ]
+ },
+ "gold_gem_t1": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 1009,
+  "name": "GOLD GEM",
+  "tooltip": [
+   "GOLD GEM",
+   "WATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE",
+   "(Dormant)",
+   "",
+   "🌟 PASSIVES",
+   "- unstable power",
+   "- harvested souls",
+   "- soulbound vessel",
+   "- fraying lines",
+   "",
+   "🌟 ABILITY",
+   "- sundering beam",
+   "",
+   "🌟 POWERS",
+   "- channelled soul",
+   "- repurposing",
+   "",
+   "- awakening",
+   "- eight as one"
+  ]
+ },
+ "astra_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2021,
+  "name": "astra  gem",
+  "tooltip": [
+   "astra  gem",
+   " (Pristine)",
+   "manage the tides of the cosmos",
+   "",
+   "ꐺ passives",
+   "- Phasing",
+   "- Soul Healing",
+   "- Soul Capture",
+   "",
+   "ꐺ ability",
+   "- Dimensional Drift",
+   "",
+   "ꐺ powers",
+   "- ꐟ daggers ꐱ",
+   "- ꐟ unbounded ꐩ",
+   "",
+   "- ꐠ astral  projection ꐱ",
+   "- ꐠ astral  void ꐩ"
+  ]
+ },
+ "fire_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2022,
+  "name": "fire  gem",
+  "tooltip": [
+   "fire  gem",
+   " (Pristine)",
+   "manipulate fire",
+   "",
+   "ꐺ passives",
+   "- Fire Resistance",
+   "- Auto Smelt",
+   "- Flamstrike",
+   "- Flameshot",
+   "",
+   "ꐺ ability",
+   "- Crisp",
+   "",
+   "ꐺ powers",
+   "- ꐥ fireball ꐱ",
+   "- ꐥ meteor shower ꐩ",
+   "",
+   "- ꐦ cozy Camfire"
+  ]
+ },
+ "flux_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2023,
+  "name": "flux  gem",
+  "tooltip": [
+   "flux  gem",
+   " (Pristine)",
+   "everythg is a fluctuation",
+   "",
+   "ꐺ passives",
+   "- Flow state",
+   "- Shocking chance",
+   "- Conduction",
+   "- Tireless",
+   "- Charged",
+   "",
+   "ꐺ ability",
+   "- Static Burst",
+   "",
+   "ꐺ powers",
+   "- ꐧ energy beam ꐱ",
+   "- ꐧ ground ꐩ",
+   "",
+   "- ꐨ kinetic overdrive ꐩ"
+  ]
+ },
+ "life_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2024,
+  "name": "life  gem",
+  "tooltip": [
+   "life  gem",
+   " (Pristine)",
+   "controls the balance of life",
+   "",
+   "ꐺ passives",
+   "- Green Thumb",
+   "- Radiant Fist",
+   "- Bonus Saturation",
+   "- Bonus Absorption",
+   "- Enchants Unbreaking",
+   "- Wither Immune",
+   "",
+   "ꐺ ability",
+   "- Vitality Vortex",
+   "",
+   "ꐺ powers",
+   "- ꐪ heart drainer ꐱ",
+   "- ꐪ heartlock ꐩ",
+   "",
+   "- ꐫ circle of life ꐱ",
+   "- ꐫ circle of life ꐩ"
+  ]
+ },
+ "puff_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2025,
+  "name": "puff  gem",
+  "tooltip": [
+   "puff  gem",
+   " (Pristine)",
+   "be the biggest bird",
+   "",
+   "ꐺ passives",
+   "- Fall Damage Immunity",
+   "- Sculk Silence",
+   "- Enchants Power",
+   "- Enchants Punch",
+   "- Enchants Feather Falling",
+   "- Crop Tramp-less",
+   "",
+   "ꐺ ability",
+   "- Double Jump",
+   "",
+   "ꐺ powers",
+   "- ꐰ breezy bash ꐱ",
+   "- ꐰ breezy bash ꐩ",
+   "",
+   "- ꐯ dash"
+  ]
+ },
+ "speed_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2026,
+  "name": "speed  gem",
+  "tooltip": [
+   "speed  gem",
+   " (Pristine)",
+   "watch the world around you turn into a blur",
+   "",
+   "ꐺ passives",
+   "- Speed",
+   "- Dolphins Grace",
+   "- Enchant Efficiency",
+   "- Enchant Soul Speed",
+   "",
+   "ꐺ ability",
+   "- Thunder Step",
+   "",
+   "ꐺ powers",
+   "- ꐳ blur",
+   "",
+   "- ꐲ speedy storm ꐱ",
+   "- ꐲ speedy storm ꐩ"
+  ]
+ },
+ "strength_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2027,
+  "name": "strength  gem",
+  "tooltip": [
+   "strength  gem",
+   " (Pristine)",
+   "have a strength of a army",
+   "",
+   "ꐺ passives",
+   "- Strength",
+   "- Enchant Sharpness",
+   "",
+   "ꐺ ability",
+   "- Shadow Stalker",
+   "",
+   "ꐺ powers",
+   "- ꐵ frailer ꐱ",
+   "- ꐵ nullify ꐩ",
+   "",
+   "- ꐷ chad strength ꐱ",
+   "- ꐷ chad strength ꐩ"
+  ]
+ },
+ "wealth_gem_t2": {
+  "base": "minecraft:nautilus_shell",
+  "customModelData": 2028,
+  "name": "wealth  gem",
+  "tooltip": [
+   "wealth  gem",
+   " (Pristine)",
+   "fuel a empire",
+   "",
+   "ꐺ passives",
+   "- Hero of the Village",
+   "- Luck",
+   "- Enchants Mending",
+   "- Enchants Fortune",
+   "- Enchants Loosting",
+   "- Bonus Ores",
+   "- Extra EXP",
+   "- Durability chip",
+   "- Double Debris",
+   "",
+   "ꐺ ability",
+   "- Pockets",
+   "- Amplification",
+   "- Rich Rush",
+   "",
+   "ꐺ powers",
+   "- ꐻ unfortunate",
+   "- ꐻ item lock"
+  ]
+ },
+ "gem_upgrader": {
+  "base": "minecraft:enchanted_book",
+  "customModelData": 3001,
+  "name": "upgrader",
+  "tooltip": [
+   "upgrader",
+   "right  click  to  upgrade  your  gem",
+   "",
+   "warning!  upgrader  will  drop  on  death",
+   "Owner: Tester"
+  ]
+ },
+ "prismatic_edge": {
+  "base": "minecraft:netherite_sword",
+  "customModelData": 5001,
+  "name": "Prismatic Edge",
+  "tooltip": [
+   "Prismatic Edge",
+   "Sharpness VII",
+   "Unbreaking III",
+   "Mending",
+   "A blade holding the light of every gem.",
+   "",
+   "Sneak + Left Click to fire a prismatic beam",
+   "that freezes whoever it strikes.",
+   "",
+   "Land 5 hits in a row and every hit",
+   "after that crits - until you are struck.",
+   "Owner: Tester",
+   "",
+   "When in Main Hand:",
+   " 8 Attack Damage",
+   " 1.6 Attack Speed"
+  ]
+ },
+ "restoration_book": {
+  "base": "minecraft:enchanted_book",
+  "customModelData": 3002,
+  "name": "restoration  item",
+  "tooltip": [
+   "restoration  item",
+   "Owner: Tester"
+  ]
+ },
+ "energy_bottle": {
+  "base": "minecraft:ghast_tear",
+  "customModelData": 4001,
+  "name": "bottled energy",
+  "tooltip": [
+   "bottled energy"
+  ]
+ },
+ "gem_trader": {
+  "base": "minecraft:emerald",
+  "customModelData": 4002,
+  "name": "trader",
+  "tooltip": [
+   "trader",
+   "right  click  to  change  your  gem  type",
+   "you  will  recieve  a  random  gem  of  your  tier",
+   "",
+   "warning!  using  this  will  lose  your  current  gem"
+  ]
+ },
+ "repair_kit": {
+  "base": "minecraft:beacon",
+  "customModelData": 4003,
+  "name": "repair  item",
+  "tooltip": [
+   "repair  item"
+  ]
+ },
+ "gem_fragment": {
+  "base": "minecraft:prismarine_shard",
+  "customModelData": 4004,
+  "name": "gem  fragment",
+  "tooltip": [
+   "gem  fragment",
+   "A shard of shattered gem energy"
+  ]
+ },
+ "wire_fragment": {
+  "base": "minecraft:lightning_rod",
+  "customModelData": 4006,
+  "name": "Wire Fragment",
+  "tooltip": [
+   "Wire Fragment",
+   "A strand torn from the lines of reality.",
+   "",
+   "Seven of these and a Fragment Core",
+   "summon the Gold Gem."
+  ]
+ },
+ "fragment_core": {
+  "base": "minecraft:nether_star",
+  "customModelData": 4007,
+  "name": "Fragment Core",
+  "tooltip": [
+   "Fragment Core",
+   "What was left behind after the Golden Dream.",
+   "",
+   "Binds seven Wire Fragments into one."
+  ]
+ },
+ "revive_beacon": {
+  "base": "minecraft:beacon",
+  "customModelData": 4005,
+  "name": "Revive Beacon",
+  "tooltip": [
+   "Revive Beacon",
+   "A powerful beacon that can revive players",
+   "from the brink of death.",
+   "",
+   "Right-click to activate"
+  ]
+ }
+}
