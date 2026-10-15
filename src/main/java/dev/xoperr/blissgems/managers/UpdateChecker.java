@@ -38,6 +38,11 @@ public class UpdateChecker {
         if (slug.isEmpty()) {
             slug = DEFAULT_PROJECT;
         }
+        // Accept a full link (https://modrinth.com/plugin/<slug>) as well as a bare slug.
+        if (slug.endsWith("/")) {
+            slug = slug.substring(0, slug.length() - 1);
+        }
+        slug = slug.substring(slug.lastIndexOf('/') + 1);
         final String project = slug;
         boolean notifyOnly = this.plugin.getConfig().getBoolean("auto-update.notify-only", false);
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin)this.plugin, () -> this.run(project, notifyOnly));

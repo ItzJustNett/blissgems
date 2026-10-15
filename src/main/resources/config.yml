@@ -19,10 +19,10 @@ config-migrations: []
 
 auto-update:
   enabled: true
-  # Modrinth project the updates come from (modrinth.com/plugin/<slug>). Empty = the official
+  # Modrinth project the updates come from: a link or just the slug. Empty = the official
   # BlissGems project. The newest release is downloaded into plugins/update/ and applied on the
   # next restart. Set enabled: false to turn updates off.
-  modrinth-project: "bliss-smp-plugin"
+  modrinth-project: "https://modrinth.com/plugin/bliss-smp-plugin"
   # true = only log that an update exists, never download it automatically.
   notify-only: false
 

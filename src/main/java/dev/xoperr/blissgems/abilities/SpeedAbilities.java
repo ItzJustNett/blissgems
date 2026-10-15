@@ -53,6 +53,7 @@ implements GemAbilityHandler {
     private final BlissGems plugin;
     private final Set<UUID> speedStormActivePlayers = new HashSet<UUID>();
     private final Map<UUID, BukkitTask> speedStormTasks = new HashMap<UUID, BukkitTask>();
+    private final Map<UUID, Set<UUID>> speedStormVictims = new HashMap<UUID, Set<UUID>>();
     private static final Set<UUID> frozenPlayers = new HashSet<UUID>();
     private static final long CLONE_WINDUP_TICKS = 5L;
     private static final long CLONE_LIFETIME_TICKS = 20L;
@@ -478,6 +479,8 @@ implements GemAbilityHandler {
                         }
                         int slowLevel = SpeedAbilities.this.plugin.getConfig().getInt("abilities.speed-storm.enemy-slowness-level", 3);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, true));
+                        SpeedAbilities.freezePlayer(target.getUniqueId());
+                        SpeedAbilities.this.speedStormVictims.computeIfAbsent(player.getUniqueId(), k -> new HashSet<UUID>()).add(target.getUniqueId());
                         double stormDamage = SpeedAbilities.this.plugin.getConfig().getDouble("abilities.speed-storm.damage", 3.0);
                         if (stormDamage > 0.0) target.damage(stormDamage, (Entity)player);
                         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 1, false, true));
@@ -530,22 +533,26 @@ implements GemAbilityHandler {
         }
         this.plugin.getAbilityManager().endAbilityDuration(player, "speed-storm");
         double radius = this.plugin.getConfig().getDouble("abilities.speed-storm.radius", 6.0);
-        if (player.isOnline()) {
-            for (Entity entity : player.getLocation().getWorld().getNearbyEntities(player.getLocation(), radius + 5.0, radius + 5.0, radius + 5.0)) {
-                UUID targetId;
-                Player target;
-                if (!(entity instanceof Player) || (target = (Player)entity).equals((Object)player) || !SpeedAbilities.isPlayerFrozen(targetId = target.getUniqueId())) continue;
+        // Release everyone this storm froze, wherever they are now (died, teleported, logged out).
+        Set<UUID> victims = this.speedStormVictims.remove(uuid);
+        if (victims != null) {
+            for (UUID targetId : victims) {
+                Player target = this.plugin.getServer().getPlayer(targetId);
                 boolean stillInOtherField = false;
                 for (UUID stormOwner : this.speedStormActivePlayers) {
                     Player owner = this.plugin.getServer().getPlayer(stormOwner);
-                    if (owner == null || !owner.isOnline() || owner.equals((Object)player) || !(target.getLocation().distance(owner.getLocation()) <= radius)) continue;
+                    if (target == null || owner == null || !owner.isOnline() || owner.getWorld() != target.getWorld() || !(target.getLocation().distance(owner.getLocation()) <= radius)) continue;
                     stillInOtherField = true;
                     break;
                 }
                 if (stillInOtherField) continue;
                 SpeedAbilities.unfreezePlayer(targetId);
-                target.sendMessage("\u00a7e\u00a7oYou are no longer frozen.");
+                if (target != null) {
+                    target.sendMessage("\u00a7e\u00a7oYou are no longer frozen.");
+                }
             }
+        }
+        if (player.isOnline()) {
             player.sendMessage("\u00a7e\u00a7oSpeed Storm faded.");
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.6f, 1.5f);
         }
@@ -591,6 +598,10 @@ implements GemAbilityHandler {
         }
         if (this.speedStormActivePlayers.remove(playerId) && (p = this.plugin.getServer().getPlayer(playerId)) != null) {
             this.plugin.getAbilityManager().endAbilityDuration(p, "speed-storm");
+        }
+        Set<UUID> victims = this.speedStormVictims.remove(playerId);
+        if (victims != null) {
+            victims.forEach(SpeedAbilities::unfreezePlayer);
         }
         this.blurCharges.remove(playerId);
         BukkitTask blurExpiry = this.blurExpiryTasks.remove(playerId);
