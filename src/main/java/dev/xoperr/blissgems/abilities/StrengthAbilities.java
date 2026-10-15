@@ -280,6 +280,11 @@ implements GemAbilityHandler {
             return;
         }
         ItemStack heldItem = player.getInventory().getItemInMainHand();
+        // The gem fires from the main hand, so a player head in the off hand counts too.
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (offHand != null && offHand.getType() == Material.PLAYER_HEAD) {
+            heldItem = offHand;
+        }
         if (heldItem == null || heldItem.getType() == Material.AIR) {
             player.sendMessage("\u00a7c\u00a7oHold a player head or an item owned by your target!");
             return;

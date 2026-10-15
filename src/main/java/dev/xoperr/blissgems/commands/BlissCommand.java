@@ -1600,7 +1600,7 @@ TabCompleter {
                     break;
                 }
                 case SPEED: {
-                    this.plugin.getSpeedAbilities().galeClouds(player);
+                    this.plugin.getSpeedAbilities().lightningBackstab(player);
                     break;
                 }
                 case STRENGTH: {
