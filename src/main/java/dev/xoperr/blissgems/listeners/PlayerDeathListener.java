@@ -114,7 +114,7 @@ implements Listener {
     }
 
     private void handleUpgraderChargeLoss(Player player) {
-        int maxCharges = this.plugin.getConfig().getInt("upgrader.charges", 3);
+        int maxCharges = this.plugin.getConfig().getInt("upgrader.charges", 1);
         boolean foundUpgrader = false;
         for (int i = 0; i < player.getInventory().getSize(); ++i) {
             ItemStack item = player.getInventory().getItem(i);

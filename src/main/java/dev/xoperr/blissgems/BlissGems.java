@@ -716,7 +716,7 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new RepairKitListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new RepairKitListener(), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new ReviveBeaconListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new KillTrackingListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new TeleportListener(this), (Plugin)this);
@@ -725,7 +725,7 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new RitualCleanupListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new BrokenGemDamageListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new GaleCloudListener(this), (Plugin)this);
-        this.getServer().getPluginManager().registerEvents((Listener)new RestorationBookListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new RestorationBookListener(), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PrismaticEdgeListener(this), (Plugin)this);
         if (this.goldAbilities != null) {
             this.getServer().getPluginManager().registerEvents((Listener)this.goldAbilities, (Plugin)this);

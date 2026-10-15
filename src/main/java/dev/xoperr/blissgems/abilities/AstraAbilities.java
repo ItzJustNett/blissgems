@@ -37,6 +37,7 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
+import dev.xoperr.blissgems.utils.TrueDamage;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -338,8 +339,13 @@ implements GemAbilityHandler {
                     if (armorPiercing > 0.0 && target instanceof Player) {
                         double reducedDamage = damage * (1.0 - armorPiercing);
                         double pierceDamage = damage * armorPiercing;
+                        // Pierce only when the hit itself lands — during hurt-invulnerability the
+                        // vanilla damage is ignored, and stacking pierce from every dagger ignored it too
+                        boolean landed = target.getNoDamageTicks() <= target.getMaximumNoDamageTicks() / 2;
                         target.damage(reducedDamage, (Entity)player);
-                        ((Player)target).setHealth(Math.max(0.0, ((Player)target).getHealth() - pierceDamage));
+                        if (landed && !target.isDead()) {
+                            TrueDamage.apply(target, pierceDamage, player);
+                        }
                     } else {
                         target.damage(damage, (Entity)player);
                     }

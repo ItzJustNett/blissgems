@@ -171,8 +171,7 @@ public final class VillagerEventListener implements Listener {
 
     /**
      * Event villagers only trade in phase 3 (the Last Raid). Before that, right-clicking them does
-     * nothing but say so. A tagged villager nobody owns any more (left over from an old event) is
-     * cleaned up when no event is running.
+     * nothing but say so — including a tagged villager nobody owns any more.
      */
     @EventHandler(priority = EventPriority.LOW)
     public void onEventVillagerInteract(PlayerInteractEntityEvent event) {
@@ -187,11 +186,7 @@ public final class VillagerEventListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        if (registered) {
-            event.getPlayer().sendMessage(PedestalManager.color("&7This villager won't trade until &6the Last Raid &7(phase 3)."));
-        } else if (!this.state.isEventRunning()) {
-            v.remove();
-        }
+        event.getPlayer().sendMessage(PedestalManager.color("&7This villager won't trade until &6the Last Raid &7(phase 3)."));
     }
 
     /** Backup: no trade window from an event villager before phase 3, however it was opened. */

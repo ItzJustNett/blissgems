@@ -77,14 +77,16 @@ implements Listener {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-already-tier2", new Object[0]);
             return;
         }
-        int charges = this.plugin.getConfig().getInt("upgrader.charges", 3);
+        int charges = this.plugin.getConfig().getInt("upgrader.charges", 1);
         ItemMeta meta = item.getItemMeta();
         int currentCharges = charges;
         if (meta != null && meta.hasLore() && meta.getLore() != null) {
             for (String line : meta.getLore()) {
                 String stripped = org.bukkit.ChatColor.stripColor(line);
                 if (stripped.startsWith("Charges: ")) {
-                    try { currentCharges = Integer.parseInt(stripped.substring(9).trim()); } catch (Exception ignored) {}
+                    // the line reads "Charges: 2/3" — parse only the part before the slash
+                    String count = stripped.substring(9).split("/")[0].trim();
+                    try { currentCharges = Integer.parseInt(count); } catch (Exception ignored) {}
                     break;
                 }
             }

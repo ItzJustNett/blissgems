@@ -411,6 +411,10 @@ implements GemAbilityHandler {
         return modified;
     }
 
+    public boolean isAmplified(UUID uuid) {
+        return this.amplifiedPlayers.contains(uuid);
+    }
+
     public static boolean hasAmplifyEnchants(ItemStack item) {
         if (item == null || !item.hasItemMeta()) {
             return false;

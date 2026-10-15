@@ -745,7 +745,7 @@ upgrader:
   sound: ENTITY_PLAYER_LEVELUP
   sound-volume: 1.0
   sound-pitch: 1.5
-  charges: 3  # Charges on a Gem Upgrader
+  charges: 1  # Charges on a Gem Upgrader (1 = single use)
 
 # ==========================================
 # TRADER SYSTEM
@@ -788,25 +788,9 @@ prismatic-edge:
     crit-multiplier: 1.5  # Damage multiplier while in the crit state
 
 # ==========================================
-# RESTORATION RITUAL (Restoration Book)
-# ==========================================
-restoration:
-  # Announce the ritual to the whole server
-  broadcast: true
-  # Storm build-up before the main animation (ticks, 20 = 1 second)
-  build-up-ticks: 120
-  # Take over the weather for the ritual, restoring it afterwards
-  control-weather: true
-  # Radius of the closing shockwave that throws witnesses back
-  witness-radius: 12.0
-  witness-launch-power: 1.4
-
-# ==========================================
 # REPAIR KIT / PEDESTAL
 # ==========================================
 repair-kit:
-  # Announce Repair Rituals to the whole server
-  broadcast: true
   # Energy restored per second
   energy-per-second: 1
   # Maximum total energy a kit can restore
