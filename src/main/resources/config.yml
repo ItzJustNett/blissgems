@@ -77,7 +77,7 @@ gems:
     check-interval-ticks: 40
 
   # When a player holding a Tier 2 gem dies, drop a Gem Upgrader at their death spot.
-  # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
+  # Dying always reverts the gem to Tier 1, so this hands the upgrade to the killer.
   drop-upgrader-on-tier2-death: false
 
   # Gems that must NOT appear in the random starter pool for new players.
@@ -750,7 +750,6 @@ upgrader:
   sound: ENTITY_PLAYER_LEVELUP
   sound-volume: 1.0
   sound-pitch: 1.5
-  charges: 3  # Charges on a Gem Upgrader
 
 # ==========================================
 # TRADER SYSTEM

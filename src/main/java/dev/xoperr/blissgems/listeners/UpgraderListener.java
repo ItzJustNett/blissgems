@@ -31,7 +31,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public class UpgraderListener
 implements Listener {
@@ -77,61 +76,11 @@ implements Listener {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-already-tier2", new Object[0]);
             return;
         }
-        int charges = this.plugin.getConfig().getInt("upgrader.charges", 3);
-        ItemMeta meta = item.getItemMeta();
-        int currentCharges = charges;
-        if (meta != null && meta.hasLore() && meta.getLore() != null) {
-            for (String line : meta.getLore()) {
-                String stripped = org.bukkit.ChatColor.stripColor(line);
-                if (stripped.startsWith("Charges: ")) {
-                    // the line reads "Charges: 2/3" - parse only the part before the slash
-                    String count = stripped.substring(9).split("/")[0].trim();
-                    try { currentCharges = Integer.parseInt(count); } catch (Exception ignored) {}
-                    break;
-                }
-            }
-        }
-        if (currentCharges <= 0) {
-            player.sendMessage("§cThis upgrader has no charges left!");
-            return;
-        }
         if (this.plugin.getGemManager().upgradeGem(player, currentGemId)) {
             // Always act on the exact upgrader that was used (event.getItem() is that stack), never
             // on "whatever is in the hand now": swapping hotbar slots mid-use used to skip the
             // consume and leave an infinite upgrader.
-            currentCharges--;
-            if (currentCharges <= 0) {
-                item.setAmount(item.getAmount() - 1);
-                player.sendMessage("\u00a7eUpgrader used all charges and was consumed.");
-            } else {
-                ItemStack used = item.clone();
-                used.setAmount(1);
-                ItemMeta um = used.getItemMeta();
-                if (um != null) {
-                    java.util.List<String> lore = um.getLore() != null ? new java.util.ArrayList<>(um.getLore()) : new java.util.ArrayList<>();
-                    boolean found = false;
-                    for (int i = 0; i < lore.size(); i++) {
-                        if (org.bukkit.ChatColor.stripColor(lore.get(i)).startsWith("Charges: ")) {
-                            lore.set(i, "\u00a77Charges: \u00a7e" + currentCharges + "\u00a77/\u00a7e" + charges);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) lore.add("\u00a77Charges: \u00a7e" + currentCharges + "\u00a77/\u00a7e" + charges);
-                    um.setLore(lore);
-                    used.setItemMeta(um);
-                }
-                if (item.getAmount() <= 1) {
-                    // single upgrader: update it in place
-                    item.setItemMeta(used.getItemMeta());
-                } else {
-                    // a stack: take one off it and hand back that one with its new charge count
-                    item.setAmount(item.getAmount() - 1);
-                    for (ItemStack left : player.getInventory().addItem(used).values()) {
-                        player.getWorld().dropItemNaturally(player.getLocation(), left);
-                    }
-                }
-            }
+            item.setAmount(item.getAmount() - 1);
             if (this.plugin.getConfigManager().shouldPlayUpgradeEffects()) {
                 try {
                     String soundName = this.plugin.getConfigManager().getUpgradeSound();
