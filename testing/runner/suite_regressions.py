@@ -161,6 +161,7 @@ def shadow_stalker_keeps_gem(ctx):
     w = ctx.world
     w.reset_player(ctx.tester)
     w.give_gem(ctx.tester, "strength", 2)
+    ctx.tester.select(0)
     w.cmd(f"item replace entity {ctx.tester.name} weapon.offhand with minecraft:player_head"
           f"[profile={{name:\"{ctx.victim.name}\",id:[I;{offline_uuid_ints(ctx.victim.name)}]}}]")
     time.sleep(0.5)
