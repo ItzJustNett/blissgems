@@ -309,8 +309,17 @@ implements GemAbilityHandler {
             player.sendMessage("\u00a7c\u00a7oTarget player is not online!");
             return;
         }
+        // Consume from the hand the head/item was actually taken from, never the gem in the other hand.
+        boolean fromOffHand = heldItem == offHand;
         if (heldItem.getAmount() > 1) {
             heldItem.setAmount(heldItem.getAmount() - 1);
+            if (fromOffHand) {
+                player.getInventory().setItemInOffHand(heldItem);
+            } else {
+                player.getInventory().setItemInMainHand(heldItem);
+            }
+        } else if (fromOffHand) {
+            player.getInventory().setItemInOffHand(null);
         } else {
             player.getInventory().setItemInMainHand(null);
         }

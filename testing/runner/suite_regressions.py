@@ -153,6 +153,28 @@ def tier2_death(ctx):
     check(not any((i.get("customModelData") or 0) // 1000 == 2 for i in items), "the gem is still Tier 2 after death")
 
 
+@test("regressions", "shadow-stalker-keeps-the-gem")
+def shadow_stalker_keeps_gem(ctx):
+    """With the victim's head in the off hand, Shadow Stalker deleted the gem in the main hand
+    and left the head, so the head could be used again and again."""
+    from .suite_abilities import offline_uuid_ints
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    w.give_gem(ctx.tester, "strength", 2)
+    w.cmd(f"item replace entity {ctx.tester.name} weapon.offhand with minecraft:player_head"
+          f"[profile={{name:\"{ctx.victim.name}\",id:[I;{offline_uuid_ints(ctx.victim.name)}]}}]")
+    time.sleep(0.5)
+    ctx.tester.mark()
+    ctx.tester.press("attack")
+    time.sleep(1.5)
+    lines = ctx.tester.chat_since_mark()
+    held = ctx.tester.state().get("mainHand")
+    ctx.note(f"main hand after Shadow Stalker: {held}; chat: {lines[:4]}")
+    check(any("Now tracking" in l for l in lines), f"Shadow Stalker did not start: {lines[:4]}")
+    check(held == "minecraft:nautilus_shell", f"the gem left the main hand (holding {held})")
+    check(not any(i["id"] == "minecraft:player_head" for i in ctx.tester.items()), "the head was not used up")
+
+
 @test("regressions", "energy-bottle-does-not-revive-a-broken-gem")
 def bottle_broken(ctx):
     w = ctx.world

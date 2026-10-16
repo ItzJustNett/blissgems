@@ -121,10 +121,12 @@ implements Listener {
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().harvestOnDeath(event);
         }
+        Player victim = event.getEntity();
+        // Gems that do drop (prevent-drop off, droppable-on-death) fall as Tier 1 as well.
+        event.getDrops().replaceAll(item -> this.toTier1(item, victim));
         if (!this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
             return;
         }
-        Player victim = event.getEntity();
         ArrayList<ItemStack> gemsToSave = new ArrayList<ItemStack>();
         List droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death") ? this.plugin.getConfig().getStringList("gems.droppable-on-death") : List.of();
         event.getDrops().removeIf(item -> {
@@ -138,22 +140,19 @@ implements Listener {
             return false;
         });
         if (!gemsToSave.isEmpty()) {
-            // A death rolls the gem back to Tier 1 - the upgrader has to be earned again.
-            for (int i = 0; i < gemsToSave.size(); i++) {
-                ItemStack gem = gemsToSave.get(i);
-                String id = CustomItemManager.getIdByItem(gem);
-                if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem)) {
-                    continue;
-                }
-                ItemStack t1 = CustomItemManager.getItemById(id.substring(0, id.length() - 2) + "1",
-                        this.plugin.getEnergyManager().getEnergy(victim));
-                if (t1 != null) {
-                    gemsToSave.set(i, t1);
-                }
-            }
             this.savedGems.put(victim.getUniqueId(), gemsToSave);
             this.saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }
+    }
+
+    private ItemStack toTier1(ItemStack gem, Player owner) {
+        String id = CustomItemManager.getIdByItem(gem);
+        if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem)) {
+            return gem;
+        }
+        ItemStack t1 = CustomItemManager.getItemById(id.substring(0, id.length() - 2) + "1",
+                this.plugin.getEnergyManager().getEnergy(owner));
+        return t1 != null ? t1 : gem;
     }
 
     private boolean isDroppableOnDeath(ItemStack item, List<String> droppableGems) {
