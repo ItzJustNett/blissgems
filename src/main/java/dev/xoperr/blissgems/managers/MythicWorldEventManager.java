@@ -141,7 +141,7 @@ public class MythicWorldEventManager {
 
         // Broadcast to all online players
         String alert = ChatColor.translateAlternateColorCodes('&',
-                "&4&l[MYTHIC SHATTERED] &c" + name + " &7has been destroyed! It will reform somewhere in the 10k x 10k world border in " + timerDays + " days.");
+                "&4&l[MYTHIC SHATTERED] &c" + name + " &7has been destroyed! It will reform somewhere in the world border in " + timerDays + " days.");
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(alert);
             p.playSound(p.getLocation(), Sound.ENTITY_WITHER_DEATH, 1.0f, 0.6f);
@@ -164,8 +164,9 @@ public class MythicWorldEventManager {
                 World world = Bukkit.getWorlds().get(0);
                 if (world == null) continue;
 
-                int x = ThreadLocalRandom.current().nextInt(-5000, 5001);
-                int z = ThreadLocalRandom.current().nextInt(-5000, 5001);
+                int half = Math.max(1, plugin.getConfig().getInt("mythic-respawn.world-border-size", 10000) / 2);
+                int x = ThreadLocalRandom.current().nextInt(-half, half + 1);
+                int z = ThreadLocalRandom.current().nextInt(-half, half + 1);
                 int y = world.getHighestBlockYAt(x, z);
 
                 Block block = world.getBlockAt(x, y + 1, z);

@@ -175,7 +175,7 @@ implements GemAbilityHandler {
                 }
                 ++this.ticksElapsed;
                 int currentCharge = FireAbilities.this.chargingPlayers.getOrDefault(uuid, 0);
-                int chargeDurationTicks = Math.max(1, FireAbilities.this.plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", 300));
+                int chargeDurationTicks = Math.max(1, FireAbilities.this.plugin.getConfig().getInt("abilities.fire-fireball.charge-duration-ticks", 200));
                 if (!this.decaying) {
                     newCharge = Math.min(this.ticksElapsed * 100 / chargeDurationTicks, 100);
                     if (newCharge >= 100) {
@@ -355,11 +355,13 @@ implements GemAbilityHandler {
         World campfireWorld = campfireLocation.getWorld();
         this.activeCampfires.put(uuid, campfireLocation);
         final double radius = this.plugin.getConfig().getDouble("abilities.fire-campfire.radius", 5.0);
-        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 2.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-campfire", 3.0);
         final int burnDuration = this.plugin.getConfig().getInt("abilities.fire-campfire.burn-duration", 3);
-        final int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60) * 20;
+        final double healAmount = this.plugin.getConfig().getDouble("abilities.fire-campfire.heal-amount", 1.0);
+        final int foodAmount = this.plugin.getConfig().getInt("abilities.fire-campfire.food-amount", 1);
+        final int duration = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 15) * 20;
         player.playSound(campfireLocation, Sound.BLOCK_CAMPFIRE_CRACKLE, 1.0f, 1.0f);
-        player.sendMessage("\u00a76\u00a7oPlaced Campfire! Heals you and burns enemies for 1 minute.");
+        player.sendMessage("\u00a76\u00a7oPlaced Campfire! Heals you and burns enemies for " + duration / 20 + "s.");
         BukkitTask campfireTask = new BukkitRunnable(){
             int ticksElapsed = 0;
 
@@ -384,7 +386,10 @@ implements GemAbilityHandler {
                     for (Entity entity : campfireLocation.getWorld().getNearbyEntities(campfireLocation, radius, radius, radius)) {
                         Player nearby;
                         if (!(entity instanceof Player) || !(nearby = (Player)entity).equals((Object)player) && !FireAbilities.this.plugin.getTrustedPlayersManager().isTrusted(player, nearby)) continue;
-                        nearby.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 40, 3));
+                        // heal-amount HP and food-amount hunger per second (abilities.fire-campfire)
+                        double max = nearby.getAttribute(dev.xoperr.blissgems.utils.Attributes.maxHealth()).getValue();
+                        if (!nearby.isDead()) nearby.setHealth(Math.min(max, nearby.getHealth() + healAmount));
+                        nearby.setFoodLevel(Math.min(20, nearby.getFoodLevel() + foodAmount));
                     }
                     for (Entity entity : campfireLocation.getWorld().getNearbyEntities(campfireLocation, radius, radius, radius)) {
                         if (!(entity instanceof LivingEntity) || entity == player) continue;
@@ -418,7 +423,7 @@ implements GemAbilityHandler {
             }
         }.runTaskTimer((Plugin)this.plugin, 0L, 1L);
         this.campfireTasks.put(uuid, campfireTask);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 60);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-campfire", 15);
         this.plugin.getAbilityManager().useAbilityWithDuration(player, abilityKey, durationSeconds);
     }
 
@@ -471,7 +476,7 @@ implements GemAbilityHandler {
         final UUID uuid = player.getUniqueId();
         Location center = player.getLocation().clone();
         final int radius = this.plugin.getConfig().getInt("abilities.fire-crisp.radius", 10);
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-crisp", 15);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-crisp", 20);
         final int duration = durationSeconds * 20;
         this.crispActivePlayers.add(uuid);
         player.playSound(center, Sound.BLOCK_LAVA_AMBIENT, 1.5f, 0.5f);
@@ -606,10 +611,10 @@ implements GemAbilityHandler {
             player.sendMessage("\u00a7c\u00a7oNo valid target area found!");
             return;
         }
-        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-meteor-shower", 8);
+        int durationSeconds = this.plugin.getConfig().getInt("abilities.durations.fire-meteor-shower", 10);
         final int duration = durationSeconds * 20;
         final double aoeRadius = this.plugin.getConfig().getDouble("abilities.fire-meteor-shower.radius", 8.0);
-        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 5.0);
+        final double damage = this.plugin.getConfig().getDouble("abilities.damage.fire-meteor-shower", 10.0);
         final int meteorInterval = this.plugin.getConfig().getInt("abilities.fire-meteor-shower.interval-ticks", 10);
         this.meteorShowersActive.add(uuid);
         player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.3f);

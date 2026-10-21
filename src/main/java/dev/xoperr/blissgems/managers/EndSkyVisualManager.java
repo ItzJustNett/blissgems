@@ -55,9 +55,9 @@ public class EndSkyVisualManager {
                         endSkyBossBar.addPlayer(player);
                     }
 
-                    // Ambient sky visual particles
+                    // Ambient sky visual particles (end-sky.green-black-gradient)
                     Location eyeLoc = player.getEyeLocation();
-                    for (int i = 0; i < 15; i++) {
+                    for (int i = 0; i < (plugin.getConfig().getBoolean("end-sky.green-black-gradient", true) ? 15 : 0); i++) {
                         double ox = ThreadLocalRandom.current().nextDouble(-15, 15);
                         double oy = ThreadLocalRandom.current().nextDouble(5, 20); // Sky level
                         double oz = ThreadLocalRandom.current().nextDouble(-15, 15);

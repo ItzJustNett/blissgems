@@ -151,7 +151,7 @@ implements GemAbilityHandler {
         } else {
             this.chadHitsRemaining.put(id, remaining);
         }
-        return this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 7.0);
+        return this.plugin.getConfig().getDouble("abilities.strength-chad.bonus-damage", 4.0);
     }
 
     public void nullify(Player player) {
@@ -280,6 +280,11 @@ implements GemAbilityHandler {
             return;
         }
         ItemStack heldItem = player.getInventory().getItemInMainHand();
+        // The gem fires from the main hand, so a player head in the off hand counts too.
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (offHand != null && offHand.getType() == Material.PLAYER_HEAD) {
+            heldItem = offHand;
+        }
         if (heldItem == null || heldItem.getType() == Material.AIR) {
             player.sendMessage("\u00a7c\u00a7oHold a player head or an item owned by your target!");
             return;
@@ -304,8 +309,17 @@ implements GemAbilityHandler {
             player.sendMessage("\u00a7c\u00a7oTarget player is not online!");
             return;
         }
+        // Consume from the hand the head/item was actually taken from, never the gem in the other hand.
+        boolean fromOffHand = heldItem == offHand;
         if (heldItem.getAmount() > 1) {
             heldItem.setAmount(heldItem.getAmount() - 1);
+            if (fromOffHand) {
+                player.getInventory().setItemInOffHand(heldItem);
+            } else {
+                player.getInventory().setItemInMainHand(heldItem);
+            }
+        } else if (fromOffHand) {
+            player.getInventory().setItemInOffHand(null);
         } else {
             player.getInventory().setItemInMainHand(null);
         }

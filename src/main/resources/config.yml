@@ -14,11 +14,15 @@ disable-optional-messages: true
 # ==========================================
 # On startup, check Modrinth for a newer build. A running jar can't be swapped live,
 # so a new version is downloaded into plugins/update/ and applied on the next restart.
+# Default-value updates already applied to this config (managed by the plugin, leave as is).
+config-migrations: []
+
 auto-update:
   enabled: true
-  # Your Modrinth project slug or id (REQUIRED). Find it in the project URL:
-  # modrinth.com/plugin/<slug>. Leave empty to disable the check.
-  modrinth-project: ""
+  # Modrinth project the updates come from: a link or just the slug. Empty = the official
+  # BlissGems project. The newest release is downloaded into plugins/update/ and applied on the
+  # next restart. Set enabled: false to turn updates off.
+  modrinth-project: "https://modrinth.com/plugin/bliss-smp-plugin"
   # true = only log that an update exists, never download it automatically.
   notify-only: false
 
@@ -64,8 +68,16 @@ gems:
   # given to entities, moved by hoppers, or lost in any other way
   prevent-drop: true
 
+  # Anti-dupe: every gem gets a unique id bound to its owner. Copies made with ghost items or
+  # client mods share that id and are deleted (a second copy, or a copy on another player while
+  # the owner still holds the original). Checked on join/respawn/world change/pickup/inventory
+  # close and every check-interval-ticks.
+  anti-dupe:
+    enabled: true
+    check-interval-ticks: 40
+
   # When a player holding a Tier 2 gem dies, drop a Gem Upgrader at their death spot.
-  # The gem itself stays Tier 2 — this mints a new upgrader on every Tier 2 death.
+  # Dying always reverts the gem to Tier 1, so this hands the upgrade to the killer.
   drop-upgrader-on-tier2-death: false
 
   # Gems that must NOT appear in the random starter pool for new players.
@@ -150,10 +162,10 @@ combat:
 # ==========================================
 # Which input fires which ability slot, for players who have not rebound anything
 # themselves. Players override these for their own account with
-#   /bliss ability                      - show my current bindings
-#   /bliss set_ability <slot> <input>   - rebind one slot
-#   /bliss set_ability <slot> none      - unbind a slot
-#   /bliss set_ability reset            - back to the defaults below
+#   /bliss ability                      - the controls menu (click an ability to change its key)
+#   /bliss ability set <slot> <input>   - rebind one slot (same as /bliss set_ability)
+#   /bliss ability set <slot> none      - unbind a slot
+#   /bliss ability reset                - back to the defaults below
 #
 # Inputs: right_click, shift_right_click, left_click, shift_left_click,
 #         swap_hand (F), shift_swap_hand
@@ -164,19 +176,20 @@ combat:
 # alone - unbound left-click keeps its vanilla behaviour (mining, attacking).
 # Delete this whole section to fall back to the built-in defaults.
 ability-bindings:
+  # Default controls (players change theirs in /bliss ability):
+  #   right click = ability 1, shift + right click = ability 2,
+  #   hit / left click = ability 3, shift + hit / left click = ability 4.
+  # F (swap offhand) is left alone unless a player binds something to it.
+  # Inputs: right_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand
   defaults:
     right_click: primary
     shift_right_click: secondary
-    swap_hand: tertiary
-    shift_swap_hand: quaternary
-    # The Gold Gem's two extra inputs. Left-click is the default because there is no
-    # other key left - set these to "none" if you would rather not spend left-click on
-    # them, and reach those abilities with /bliss ability:quinary / :senary instead.
-    left_click: quinary
-    shift_left_click: senary
+    left_click: tertiary
+    shift_left_click: quaternary
+    # The Gold Gem's two extra abilities (quinary, senary) are unbound by default:
+    # use /bliss ability quinary|senary, or bind them to F in /bliss ability.
 
-  # Bedrock (Floodgate) players cannot use the swap-hand key reliably through Geyser,
-  # so they get all four normal abilities on the click gestures instead.
+  # Bedrock players get the same four click controls.
   bedrock-defaults:
     right_click: primary
     shift_right_click: secondary
@@ -226,10 +239,31 @@ passives:
       t2: []
   # Tier-specific passive values (tier1 = weaker, tier2 = stronger)
   astra:
+    # PHASING: an attack (melee, arrows, explosions, magic) may pass through you. You then blink
+    # out for phase-ticks: every hit misses, you turn invisible and your gear vanishes for others.
+    phase-cooldown-seconds: 8     # after a phase, no new phase for this long
+    phase-hides-gear: true        # hide armour + held items from other players while phased
+    # SOUL CAPTURE (sneak + hit/right-click a mob): only mobs worn below this share of their health,
+    # and no bigger than the tier's capture-max-health. The gem holds 2 souls.
+    capture-health-fraction: 0.5
+    # SOUL GUARD: a hit that would leave you at trigger-health (HP) or less burns a captured soul
+    # instead - the hit misses, you phase and heal.
+    soul-guard:
+      enabled: true
+      trigger-health: 4.0         # 2 hearts
+      cooldown-seconds: 60
     tier1:
-      phase-chance: 0.10  # 10% chance to phase through attacks
+      phase-chance: 0.05          # 5% of attacks
+      phase-ticks: 15             # 0.75 s intangible
+      soul-guard-heal: 4.0        # HP healed when a soul takes the blow
+      soul-max-bonus: 4.0         # most bonus max HP Soul Absorption can stack (2 hearts)
+      capture-max-health: 30.0    # biggest mob you can bind (zombies, skeletons, spiders...)
     tier2:
-      phase-chance: 0.15  # 15% chance to phase through attacks
+      phase-chance: 0.08          # 8% of attacks
+      phase-ticks: 20             # 1 s intangible
+      soul-guard-heal: 8.0
+      soul-max-bonus: 8.0         # 4 hearts
+      capture-max-health: 100.0   # up to iron golems and ravagers
 
   life:
     tier1:
@@ -244,16 +278,20 @@ passives:
       undead-damage-multiplier: 3.0  # 3x damage to undead
       saturation-multiplier: 2.0  # 2x saturation gain
       golden-apple-absorption-level: 1  # Absorption II (4 hearts)
+    absorption-scan-radius: 5  # Radius scanned for the Life absorption passive
+    max-absorption-hearts: 20  # Cap on absorption from the Life passive
+    absorption-regen-seconds: 30  # Life absorption shield comes back this long after it breaks
 
   flux:
-    shocking-chance: 0.15  # 15% chance to trigger shocking arrow stun
+    shocking-chance: 0.25  # 15% chance to trigger shocking arrow stun
     charged-creeper-reduction: 1.0  # 1.0 = full immunity, 0.5 = 50% reduction
     tier1:
       shocking-arrow-damage: 2.0  # Electric arrow damage
       flow-state-speed-boost: 0.15  # Additional speed boost in flow state
     tier2:
-      shocking-arrow-damage: 3.0  # Electric arrow damage
+      shocking-arrow-damage: 4.0  # Electric arrow damage
       flow-state-speed-boost: 0.2  # Additional speed boost in flow state
+    max-flow-speed-level: 0  # Highest Speed level Flow State can give (0 = Speed I)
 
   puff:
     tier1:
@@ -280,18 +318,18 @@ passives:
   speed:
     tier1:
       soul-sand-immunity: true
-      speed-level: 1  # Speed II
+      speed-level: 0  # Speed I
     tier2:
       soul-sand-immunity: true
-      speed-level: 2  # Speed III
+      speed-level: 1  # Speed II
 
   strength:
     tier1:
       strength-level: 0  # Strength I
-      bloodthorns-max-bonus-damage: 7.0  # Max bonus damage (3.5 hearts) at lowest HP
+      bloodthorns-max-bonus-damage: 4.0  # Max bonus damage (2 hearts) at lowest HP
     tier2:
-      strength-level: 1  # Strength II
-      bloodthorns-max-bonus-damage: 10.0  # Max bonus damage (5 hearts) at lowest HP
+      strength-level: 0  # Strength I (T2's edge is the bigger Bloodthorns + abilities)
+      bloodthorns-max-bonus-damage: 6.0  # Max bonus damage (3 hearts) at lowest HP
 
   wealth:
     tier1:
@@ -309,12 +347,12 @@ passives:
 
   # Unfortunate ability chances (0.0 = never fail, 1.0 = always fail)
   unfortunate:
-    attack-fail-chance: 0.50  # 50% chance attacks fail
-    block-break-fail-chance: 0.50  # 50% chance block breaking fails
-    block-place-fail-chance: 0.50  # 50% chance block placing fails
-    eat-fail-chance: 0.50  # 50% chance eating fails
-    bow-fail-chance: 0.50  # 50% chance bow shooting fails
-    totem-fail-chance: 0.50  # 50% chance totem of undying fails to pop
+    attack-fail-chance: 0.25  # 25% chance attacks fail
+    block-break-fail-chance: 0.25  # 25% chance block breaking fails
+    block-place-fail-chance: 0.25  # 25% chance block placing fails
+    eat-fail-chance: 0.25  # 25% chance eating fails
+    bow-fail-chance: 0.25  # 25% chance bow shooting fails
+    totem-fail-chance: 0.25  # 25% chance totem of undying fails to pop
 
 # ==========================================
 # ABILITIES
@@ -325,57 +363,61 @@ abilities:
 
   # Specific ability cooldowns (in seconds)
   cooldowns:
-    astra-daggers: 45
-    astra-projection: 60  # 1 minute (set when projection ends)
-    astra-drift: 90  # Dimensional Drift (set when drift ends)
+    astra-daggers: 75
+    astra-projection: 120  # 2 minutes (set when projection ends)
+    astra-drift: 60  # Dimensional Drift (set when drift ends)
     astra-void: 120  # 2 minutes - Dimensional Void
-    astra-spook: 10  # Spook sub-ability during projection
-    astra-tag: 15  # Tag sub-ability during projection
-    fire-fireball: 10
-    fire-campfire: 60  # 1 minute
-    fire-crisp: 90  # 1.5 minutes - Evaporate water + scorch terrain
-    fire-meteor-shower: 120  # 2 minutes - Rain fire on target area
-    flux-ground: 45
-    flux-beam: 240  # 4 minutes - Very powerful armor-piercing attack (combined with stun can one-shot)
+    astra-unbounded: 90  # Hit a player with the Astra gem: ride them as a ghost
+    fire-fireball: 35
+    fire-campfire: 90  # 2 minutes
+    fire-crisp: 60  # 1.5 minutes - Evaporate water + scorch terrain
+    fire-meteor-shower: 90  # 2 minutes - Rain fire on target area
+    flux-ground: 30
+    flux-beam: 150  # 4 minutes - Very powerful armor-piercing attack (combined with stun can one-shot)
     flux-conduction: 3  # Copper teleport cooldown
     flux-flashbang: 45  # Flashbang AOE blindness
     flux-kinetic-burst: 30  # Radial knockback
     life-drainer: 60
-    life-circle-of-life: 60
+    life-circle-of-life: 120
     life-vitality-vortex: 45
-    life-heart-lock: 60
-    puff-dash: 5
-    puff-breezy-bash: 10
-    puff-group-bash: 30
+    life-heart-lock: 75
+    puff-dash: 12
+    puff-breezy-bash: 45
+    puff-group-bash: 60
     puff-launch: 15  # Launch-on-hit passive (Puff gem in main hand)
-    speed-blur: 15
+    speed-blur: 45
     speed-sedative: 60
-    speed-storm: 135  # 2.25 minutes (tripled from 45)
-    speed-terminal: 60  # Terminal Velocity cooldown
-    speed-gale-clouds: 60  # Gale Clouds (Quaternary)
+    speed-storm: 90  # 2.25 minutes (tripled from 45)
+    speed-terminal: 50  # Terminal Velocity cooldown
+    speed-gale-clouds: 45  # Gale Clouds (Quaternary)
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
-    strength-nullify: 60
-    strength-frailer: 45
-    strength-shadow-stalker: 120
+    strength-nullify: 120
+    strength-frailer: 120
+    strength-shadow-stalker: 180
     wealth-pockets: 0  # No cooldown for opening
-    wealth-item-lock: 45
-    wealth-unfortunate: 90
+    wealth-item-lock: 90
+    wealth-unfortunate: 150
     wealth-rich-rush: 540  # 9 minutes
-    wealth-amplification: 180  # 3 minutes
+    wealth-amplification: 300  # 5 minutes
+    gold-beam: 10  # Gold Gem Sundering Beam
+    puff-updraft: 10  # Puff Updraft
+    strength-chad: 10  # Chad Strength
 
   # Astra Soul Absorption settings (temporary max hearts on kill)
   soul-absorption:
-    mob-kill-hearts: 4.0  # HP added on mob kill (4.0 = 2 hearts)
-    player-kill-hearts: 10.0  # HP added on player kill (10.0 = 5 hearts)
-    duration: 60  # Duration in seconds before the bonus hearts expire
+    # Kills fill one shared pool of bonus max HP (capped per tier: passives.astra.tierN.soul-max-bonus).
+    # Every kill refreshes the timer; when it runs out the whole bonus fades.
+    mob-kill-hearts: 2.0  # HP added on mob kill (2.0 = 1 heart)
+    player-kill-hearts: 6.0  # HP added on player kill (6.0 = 3 hearts)
+    duration: 60  # Seconds after the last kill before the bonus fades
 
   # Astra Projection settings (spectator mode scout)
+  astra-unbounded:
+    range: 12.0  # /bliss unbounded reaches the player you look at (or name) within this many blocks
   astra-projection:
     radius: 128  # Maximum distance from origin in blocks (8 chunks)
 
   # Astra Spook settings
-  astra-spook:
-    radius: 8.0  # Spook AoE radius in blocks
 
   # Astra Dimensional Void settings
   astra-void:
@@ -383,10 +425,11 @@ abilities:
 
   # Fire Campfire settings
   fire-campfire:
-    heal-amount: 0.4  # Health restored per second
+    heal-amount: 1.0  # Health restored per second
     food-amount: 1  # Food level restored per second
-    radius: 4.0  # Radius of effect in blocks
+    radius: 5.0  # Radius of effect in blocks
     burn-duration: 3  # Seconds enemies burn
+    range: 15.0  # How far away you can place the campfire
 
   # Fire Crisp settings
   fire-crisp:
@@ -410,11 +453,12 @@ abilities:
   # Flux Kinetic Burst settings
   flux-kinetic-burst:
     radius: 6.0  # AoE radius of the knockback burst
-    knockback: 2.5  # Knockback power multiplier
+    knockback: 2.6  # Knockback power multiplier
 
   # Strength Nullify settings
   strength-nullify:
     range: 20  # Raycast range in blocks
+    duration: 8  # Seconds Nullify keeps effects stripped
 
   # Strength Frailer settings
   strength-frailer:
@@ -430,6 +474,8 @@ abilities:
   strength-chad:
     hit-threshold: 4  # Every Nth hit triggers bonus damage
     bonus-damage: 4.0  # Bonus damage in HP (2 hearts)
+    duration: 10  # Seconds Chad Strength lasts
+    empowered-hits: 4  # Empowered hits per activation
 
   # Fire Charged Fireball settings
   fire-fireball:
@@ -439,12 +485,12 @@ abilities:
 
   # Puff Group Breezy Bash settings
   puff-group-bash:
-    radius: 10.0
+    radius: 6.0
     knockback: 2.5
 
   # Life Circle of Life settings
   life-circle:
-    radius: 8.0
+    radius: 6.0
     max-health-increase: 4.0  # +2 hearts for trusted/self
     max-health-decrease: 4.0  # -2 hearts for untrusted
 
@@ -474,61 +520,57 @@ abilities:
     range: 30  # Max travel distance in blocks
     armor-piercing: 0.35  # Percentage of damage that ignores armor (0.0 = 0%, 1.0 = 100% true damage)
     glowing-duration-ticks: 60  # Duration in ticks target glows upon hit (20 ticks = 1 second)
+    hover-distance: 1.6  # How far in front of you the daggers hover before being thrown
+    hover-timeout-ticks: 600  # Unthrown daggers disappear after this many ticks
+    model-data: 12350  # Custom model data of the dagger model
+    model-scale: 1.4  # Size of the dagger model
+    model-yaw-offset: 180.0  # Rotation fix for the dagger model
 
   # Speed Storm / Blood Storm settings
   speed-storm:
-    radius: 8.0  # Field radius in blocks
+    radius: 6.0  # Field radius in blocks
     ally-buff-duration: 45  # Duration of Speed and Haste buff to allies
     enemy-slowness-level: 3  # Slowness applied to enemies
-    damage: 2.0  # Damage per pulse to enemies caught in the storm
+    damage: 3.0  # Damage per pulse to enemies caught in the storm
 
   # Ability damage values
   damage:
-    astra-daggers: 12.0  # 6 hearts (tripled from 4.0)
+    astra-daggers: 5.0  # 2.5 hearts per dagger (5 daggers a volley)
     fire-fireball: 9.0
-    flux-beam-base: 10.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
+    flux-beam-base: 14.0  # 2.5x stronger (5 hearts uncharged, up to 15 at 100%)
     flux-beam-max-armor-damage: 250  # 2.5x stronger
-    flux-shocking: 3.0
-    fire-campfire: 2.0  # Damage per second to enemies in range
-    fire-meteor-shower: 8.0  # Damage per meteor impact
+    fire-campfire: 3.0  # Damage per second to enemies in range
+    fire-meteor-shower: 10.0  # Damage per meteor impact
     life-drainer: 4.0  # Total over 20 seconds
-    puff-dash: 2.0
-    blur: 4.0  # Damage per lightning strike (5 strikes by default)
-    strength-chad-bonus: 4.0  # Chad Strength bonus damage on every 4th hit (2 hearts)
+    puff-dash: 4.0
+    blur: 3.5  # Damage per lightning strike (5 strikes by default)
 
     # ==========================================
     # MYTHIC & SPECIAL DAMAGE CONFIGS
     # ==========================================
     # Auratus Chain Strike Damage
-    auratus-chain: 8.0  # Damage dealt by Auratus chain lightning to chained targets
 
     # Blood Saws Damage & Vulnerability
-    blood-saws: 6.0  # Base damage dealt by Blood Saws per strike
-    blood-saws-vulnerability-multiplier: 1.25  # Damage multiplier taken while Blood Saws are active (makes user easier to kill)
 
     # Hemorrhage Damage
-    hemorrhage: 3.0  # Bleed damage per tick to afflicted enemies
-    hemorrhage-interval-ticks: 20  # How often hemorrhage damage applies
 
     # Spore Damage
-    spore: 2.5  # Poisonous spore cloud damage per tick
 
     # Speed Storm / Blood Storm Damage
-    speed-storm-damage: 2.0  # Damage to caught enemies
 
   # Ability durations (in seconds)
   durations:
     astra-projection: 10  # Spectator mode scout duration
     astra-drift: 15  # Dimensional Drift invisibility duration
     astra-void: 12  # Dimensional Void suppression duration
-    astra-spook: 3  # Spook blindness/nausea duration
-    astra-tag: 30  # Tag tracking duration
+    astra-unbounded: 10  # Longest Unbounded ghost-ride (sneak to end early)
+    astra-haunt: 15  # How long Unbounded disables the ridden player's gem
     fire-campfire: 15  # How long campfire lasts
-    fire-crisp: 15  # How long Crisp water evaporation lasts
-    fire-meteor-shower: 8  # Duration of meteor rain
-    flux-ground-freeze: 3
+    fire-crisp: 20  # How long Crisp water evaporation lasts
+    fire-meteor-shower: 10  # Duration of meteor rain
+    flux-ground-freeze: 4
     flux-shocking-stun: 1  # Shocking arrow stun duration in seconds
-    flux-flashbang: 5  # Flashbang blindness/nausea duration in seconds
+    flux-flashbang: 6  # Flashbang blindness/nausea duration in seconds
     life-drainer: 20
     life-circle: 10
     life-vitality-vortex: 15
@@ -541,12 +583,33 @@ abilities:
     wealth-rich-rush: 120
     wealth-amplification: 45
     wealth-item-lock: 10
-    terminal-velocity: 10  # Terminal Velocity Speed III + Haste II duration
-    adrenaline-rush: 6  # Duration of speed boost + instant attacks
+    terminal-velocity: 15  # Terminal Velocity Speed III + Haste II duration
+    speed-storm: 12  # Seconds a Speed Storm lasts
+    flux-kinetic-burst: 10  # Kinetic Burst
 
   # Adrenaline Rush settings
-  adrenaline-rush:
-    duration: 6  # Duration in seconds (balanced for PvP)
+  astra-drift:
+    power: 2.8  # Forward launch strength
+    lift: 0.35  # Upward launch
+    invisibility: 3  # Seconds of invisibility
+    fall-immunity: 6  # Seconds of fall damage immunity
+  auratus-gemlock:
+    range: 20  # Range of the Auratus gem lock
+    duration: 10  # Seconds the target's gem stays locked
+  flux-charging:
+    max-watts: 2000000  # Most watts a Flux gem can store
+    charge-per-tick: 0.667  # Beam charge (%) moved from watts per tick while charging
+    beam-max-charge: 200.0  # Highest beam charge (%), above 100 is overcharge
+  life-drainer:
+    steal-hp: 4.0  # HP stolen instantly by Heart Drainer
+  puff-dash:
+    power: 3.2  # Forward power of the dash
+    vertical: 0.18  # Upward push of the dash
+  puff-updraft:
+    radius: 6.0  # Radius of the updraft
+    launch-velocity: 3.2  # How hard the updraft launches
+  speed-4th:
+    range: 20  # Range of Speed's 4th ability
     # Speed level scales with player energy (0-10)
     # Attack speed is set to instant (no cooldown) for the duration
 
@@ -581,8 +644,52 @@ auto-enchant:
 # ==========================================
 # GOLD GEM
 # ==========================================
+golden-dream:
+  # The golden mass tears up terrain around the ritual (a 40-block radius, plus a well under it).
+  # false = it still pulls and eats mobs/items, but leaves blocks alone.
+  mass-destroys-terrain: true
+  # Intruders in the memory hear a whisper (bliss:alternate) near a memory, at most every 20 s.
+  memory-proximity-sound: true
+  # Where the memory world (goldenworld) comes from when it doesn't exist yet. An existing
+  # goldenworld folder is always used as-is, and a map put at /goldendream_import (a world folder
+  # next to the server jar) always wins - a singleplayer save's nether/end come along.
+  #   generate  - a brand-new world, like the original plugin (default)
+  #   copy-main - a copy of the main world
+  #   import    - only the /goldendream_import map; without it the fragment ritual won't start
+  # To swap the memory for a map later: put it at /goldendream_import, then /goldendream reset confirm.
+  memory-world: generate
+  # The dream's skies, made without any resource pack so Java and Bedrock players both see them.
+  sky:
+    # Installs the "bliss_skies" datapack into the main world (needs one restart the first time).
+    # It turns the vanilla the_void biome's sky, fog and water gold; the dream pocket uses that biome.
+    datapack: true
+    pocket-sky-color: "#F2B84B"
+    pocket-fog-color: "#FFE3A3"
+    pocket-water-color: "#E8B04A"
+    pocket-water-fog-color: "#8A5A10"
+    # The BlissGems shaderpack (Iris/OptiFine, optional, each player installs it once - /bliss shaders)
+    # turns GoldenDome on in the golden dream / ritual and GloomHaze on in the memory world. The
+    # plugin signals it through the client's day number; everywhere else the pack shows plain
+    # Minecraft. false = never signal (the pack then never changes anything).
+    shader-signals: true
+    shaderpack-url: "https://github.com/ItzJustNett/blissgems/releases/latest/download/BlissGems-Shaders.zip"
+    # Frozen per-player time of day (0-24000). 12600 = golden sunset, 12900 = dusk, 18000 = midnight.
+    golden-hour-time: 12600   # near the ritual and the golden mass
+    memory-time: 12900        # inside the memory world
+    storm-time: 18000         # while the great thunder hangs (with rain)
+    # Bedrock players (through Geyser) also get one of the Bedrock client's built-in fogs.
+    # Any vanilla Bedrock fog id works; leave empty for none.
+    bedrock-fog:
+      golden: "minecraft:fog_mesa"
+      pocket: "minecraft:fog_mesa"
+      memory: "minecraft:fog_basalt_deltas"
+      storm: "minecraft:fog_the_end"
+
 gold:
   summon:
+    # true = the Gold Gem can only be summoned by the Fragment Core ritual (hold the core,
+    # right-click to seal it); crafting it is blocked. false = the recipe below works too.
+    ritual-only: true
     # Seven Wire Fragments bound by a Fragment Core craft the Gold Gem. Turn this off if the
     # gem should only ever be handed out by staff (/bliss give <player> gold).
     # The shape and ingredients themselves live in recipes.yml.
@@ -732,191 +839,192 @@ revive-beacon:
   revive-health: 10.0  # Half health by default
   # Single use (beacon is consumed after first revival)
   single-use: true
+  restore-energy: 3  # Energy restored by a Revive Beacon
 
 # ==========================================
 # MESSAGES
 # ==========================================
 messages:
-  prefix: "&5&lBlissGems &8»&r"
-  no-permission: "&cYou don't have permission to use this command!"
-  player-not-found: "&cPlayer not found!"
-  invalid-gem-type: "&cInvalid gem type!"
-  invalid-tier: "&cInvalid tier! Use 1 or 2."
-  gem-given: "&aGave {player} a {gem} (Tier {tier})!"
-  energy-set: "&aSet {player}'s energy to {amount}!"
-  energy-added: "&aAdded {amount} energy to {player}!"
-  energy-removed: "&aRemoved {amount} energy from {player}!"
-  no-gem: "&cYou don't have a gem equipped!"
-  gold-soul-repurposed: "&6&oThe soul of {player} was repurposed."
-  gold-soul-harvested: "&6&oYou harvested the {gem} soul! &7({count}/8 awakened)"
-  gold-soul-selected: "&6&oThe Gold Gem now channels {gem}."
-  gold-no-soul: "&c&oThe Gold Gem is dormant, harvest a soul first."
-  gold-soul-too-weak: "&c&oThe {gem} soul was taken at Tier 1, it has no second power to give."
-  gold-progress-reset: "&c&oYour Gold Gem went dark. Every harvested soul is lost."
-  gold-awakened: "&6&lThe Gold Gem in {player}'s hands has awakened. Eight souls are one."
-  gold-gem-broken: "&c&oYour Gold Gem shattered on death. Restore it with a Restoration Book."
-  gold-soul-returned: "&a&oYour gem was torn back out of {player}'s Gold Gem. The {gem} is yours again."
-  gold-summoned: "&6&lThe Gold Gem has been summoned by {player}. There will not be another."
-  gold-already-summoned: "&c&oThe Gold Gem has already been summoned. There is only ever one."
-  gold-beam-charging: "&6&oThe beam is gathering..."
-  gold-beam-cooldown: "&6Sundering Beam &7on cooldown: &c{seconds}s"
-  gold-beam-cancelled: "&7&oYou let the beam disperse."
-  gold-beam-broken: "&c&oThe beam shatters, you were hit while charging!"
-  gold-beam-missed: "&7&oThe beam tore through empty air."
-  cannot-drop-gem: "&c&lYou cannot drop your gem!"
-  energy-withdrawn: "&aWithdrawn 1 energy into a bottle!"
-  not-enough-energy: "&cNot enough energy to withdraw!"
-  config-reloaded: "&aConfiguration reloaded!"
-  gem-info: "&aGem: &f{gem} &7(Tier {tier}) &8| &aEnergy: &f{energy}/10 &8| &aState: &f{state}"
-  no-active-gem: "&cYou don't have an active gem!"
-  upgrade-success: "&aGem upgraded to Tier 2!"
-  upgrade-wrong-type: "&cThis upgrader doesn't match your gem type!"
-  upgrade-already-tier2: "&cYour gem is already Tier 2!"
-  trade-success: "&aGem traded to {gem}!"
-  trade-cooldown: "&cPlease wait {seconds} seconds before trading again!"
-  ability-cooldown: "&cAbility on cooldown! Wait {seconds} seconds."
-  ability-no-energy: "&cNot enough energy to use this ability!"
-  passives-disabled: "&cYour gem is too damaged! Passives are disabled."
-  ability-activated: "&aAbility activated: {ability}"
-  first-gem-received: "&aWelcome to the server! You received your first gem: &f{gem}"
-  already-have-gem: "&cYou already have a gem! You can only have one gem at a time."
-  projection-boundary: "&cYou've reached the projection boundary!"
-  projection-ended: "&dAstral Projection ended. You've returned to your body."
-  projection-blocked: "&dPath blocked! Astral Projection needs 5 clear blocks ahead."
-  click-activation-disabled: "&cClick activation is disabled! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
-  ban-enabled: "&aBan-on-zero-energy has been &aenabled&a! Players who reach 0 energy will be banned."
-  ban-disabled: "&cBan-on-zero-energy has been &cdisabled&c."
-  energy-zero-banned: "&4&lYou have been banned for reaching 0 energy! Your gem is completely broken."
+  prefix: "<gradient:#C77DFF:#4CC9F0><bold>BlissGems</bold></gradient> <dark_gray>»</dark_gray>"
+  no-permission: "<gradient:#FF5F6D:#FFC371>You don't have permission to use this command!</gradient>"
+  player-not-found: "<gradient:#FF5F6D:#FFC371>Player not found!</gradient>"
+  invalid-gem-type: "<gradient:#FF5F6D:#FFC371>Invalid gem type!</gradient>"
+  invalid-tier: "<gradient:#FF5F6D:#FFC371>Invalid tier! Use 1 or 2.</gradient>"
+  gem-given: "<gradient:#56F39A:#3ACBE8>Gave {player} a {gem} (Tier {tier})!</gradient>"
+  energy-set: "<gradient:#56F39A:#3ACBE8>Set {player}'s energy to {amount}!</gradient>"
+  energy-added: "<gradient:#56F39A:#3ACBE8>Added {amount} energy to {player}!</gradient>"
+  energy-removed: "<gradient:#56F39A:#3ACBE8>Removed {amount} energy from {player}!</gradient>"
+  no-gem: "<gradient:#FF5F6D:#FFC371>You don't have a gem equipped!</gradient>"
+  gold-soul-repurposed: "<gradient:#F7971E:#FFD200><italic>The soul of {player} was repurposed.</italic></gradient>"
+  gold-soul-harvested: "<gradient:#F7971E:#FFD200><italic>You harvested the {gem} soul! </italic></gradient>&7({count}/8 awakened)"
+  gold-soul-selected: "<gradient:#F7971E:#FFD200><italic>The Gold Gem now channels {gem}.</italic></gradient>"
+  gold-no-soul: "<gradient:#FF5F6D:#FFC371><italic>The Gold Gem is dormant, harvest a soul first.</italic></gradient>"
+  gold-soul-too-weak: "<gradient:#FF5F6D:#FFC371><italic>The {gem} soul was taken at Tier 1, it has no second power to give.</italic></gradient>"
+  gold-progress-reset: "<gradient:#FF5F6D:#FFC371><italic>Your Gold Gem went dark. Every harvested soul is lost.</italic></gradient>"
+  gold-awakened: "<gradient:#F7971E:#FFD200><bold>The Gold Gem in {player}'s hands has awakened. Eight souls are one.</bold></gradient>"
+  gold-gem-broken: "<gradient:#FF5F6D:#FFC371><italic>Your Gold Gem shattered on death. Restore it with a Restoration Book.</italic></gradient>"
+  gold-soul-returned: "<gradient:#56F39A:#3ACBE8><italic>Your gem was torn back out of {player}'s Gold Gem. The {gem} is yours again.</italic></gradient>"
+  gold-summoned: "<gradient:#F7971E:#FFD200><bold>The Gold Gem has been summoned by {player}. There will not be another.</bold></gradient>"
+  gold-already-summoned: "<gradient:#FF5F6D:#FFC371><italic>The Gold Gem has already been summoned. There is only ever one.</italic></gradient>"
+  gold-beam-charging: "<gradient:#F7971E:#FFD200><italic>The beam is gathering...</italic></gradient>"
+  gold-beam-cooldown: "<gradient:#F7971E:#FFD200>Sundering Beam </gradient>&7on cooldown: &c{seconds}s"
+  gold-beam-cancelled: "<gradient:#BDC3C7:#ECF0F1><italic>You let the beam disperse.</italic></gradient>"
+  gold-beam-broken: "<gradient:#FF5F6D:#FFC371><italic>The beam shatters, you were hit while charging!</italic></gradient>"
+  gold-beam-missed: "<gradient:#BDC3C7:#ECF0F1><italic>The beam tore through empty air.</italic></gradient>"
+  cannot-drop-gem: "<gradient:#FF5F6D:#FFC371><bold>You cannot drop your gem!</bold></gradient>"
+  energy-withdrawn: "<gradient:#56F39A:#3ACBE8>Withdrawn 1 energy into a bottle!</gradient>"
+  not-enough-energy: "<gradient:#FF5F6D:#FFC371>Not enough energy to withdraw!</gradient>"
+  config-reloaded: "<gradient:#56F39A:#3ACBE8>Configuration reloaded!</gradient>"
+  gem-info: "<gradient:#56F39A:#3ACBE8>Gem: </gradient>&f{gem} &7(Tier {tier}) &8| &aEnergy: &f{energy}/10 &8| &aState: &f{state}"
+  no-active-gem: "<gradient:#FF5F6D:#FFC371>You don't have an active gem!</gradient>"
+  upgrade-success: "<gradient:#56F39A:#3ACBE8>Gem upgraded to Tier 2!</gradient>"
+  upgrade-wrong-type: "<gradient:#FF5F6D:#FFC371>This upgrader doesn't match your gem type!</gradient>"
+  upgrade-already-tier2: "<gradient:#FF5F6D:#FFC371>Your gem is already Tier 2!</gradient>"
+  trade-success: "<gradient:#56F39A:#3ACBE8>Gem traded to {gem}!</gradient>"
+  trade-cooldown: "<gradient:#FF5F6D:#FFC371>Please wait {seconds} seconds before trading again!</gradient>"
+  ability-cooldown: "<gradient:#FF5F6D:#FFC371>Ability on cooldown! Wait {seconds} seconds.</gradient>"
+  ability-no-energy: "<gradient:#FF5F6D:#FFC371>Not enough energy to use this ability!</gradient>"
+  passives-disabled: "<gradient:#FF5F6D:#FFC371>Your gem is too damaged! Passives are disabled.</gradient>"
+  ability-activated: "<gradient:#56F39A:#3ACBE8>Ability activated: {ability}</gradient>"
+  first-gem-received: "<gradient:#56F39A:#3ACBE8>Welcome to the server! You received your first gem: </gradient>&f{gem}"
+  already-have-gem: "<gradient:#FF5F6D:#FFC371>You already have a gem! You can only have one gem at a time.</gradient>"
+  projection-boundary: "<gradient:#FF5F6D:#FFC371>You've reached the projection boundary!</gradient>"
+  projection-ended: "<gradient:#E0AAFF:#FF85C0>Astral Projection ended. You've returned to your body.</gradient>"
+  projection-blocked: "<gradient:#E0AAFF:#FF85C0>Path blocked! Astral Projection needs 5 clear blocks ahead.</gradient>"
+  click-activation-disabled: "<gradient:#FF5F6D:#FFC371>Click activation is disabled! Use /bliss ability:main or /bliss ability:secondary to activate abilities.</gradient>"
+  ban-enabled: "<gradient:#56F39A:#3ACBE8>Ban-on-zero-energy has been </gradient>&aenabled&a! Players who reach 0 energy will be banned."
+  ban-disabled: "<gradient:#FF5F6D:#FFC371>Ban-on-zero-energy has been </gradient>&cdisabled&c."
+  energy-zero-banned: "<gradient:#C0392B:#FF5F6D><bold>You have been banned for reaching 0 energy! Your gem is completely broken.</bold></gradient>"
 
   # Gem Protection Messages
-  cannot-store-gem-container: "&c&lYou cannot store gems in containers!"
-  cannot-store-gem-bundle: "&c&lYou cannot store gems in bundles!"
-  cannot-place-gem-itemframe: "&c&lYou cannot place your gem in item frames!"
-  cannot-move-gem-full-inventory: "&c&lYou cannot move your gem when inventory is full! Clear a space first."
-  cannot-swap-gem-full-inventory: "&c&lYou cannot swap items with your gem when inventory is full!"
-  cannot-move-gem-to-container: "&c&lYou cannot move gems to other containers!"
-  inventory-full-with-gem: "&c&lYour inventory is full! Cannot move items while carrying a gem."
-  gem-forced-into-inventory: "&e&lYour gem was forced into inventory. A non-gem item was dropped."
-  gem-forced-into-hotbar: "&c&lYour gem was forced into your hotbar!"
-  cannot-use-gem-in-composter: "&c&lYou cannot use your gem in a composter!"
+  cannot-store-gem-container: "<gradient:#FF5F6D:#FFC371><bold>You cannot store gems in containers!</bold></gradient>"
+  cannot-store-gem-bundle: "<gradient:#FF5F6D:#FFC371><bold>You cannot store gems in bundles!</bold></gradient>"
+  cannot-place-gem-itemframe: "<gradient:#FF5F6D:#FFC371><bold>You cannot place your gem in item frames!</bold></gradient>"
+  cannot-move-gem-full-inventory: "<gradient:#FF5F6D:#FFC371><bold>You cannot move your gem when inventory is full! Clear a space first.</bold></gradient>"
+  cannot-swap-gem-full-inventory: "<gradient:#FF5F6D:#FFC371><bold>You cannot swap items with your gem when inventory is full!</bold></gradient>"
+  cannot-move-gem-to-container: "<gradient:#FF5F6D:#FFC371><bold>You cannot move gems to other containers!</bold></gradient>"
+  inventory-full-with-gem: "<gradient:#FF5F6D:#FFC371><bold>Your inventory is full! Cannot move items while carrying a gem.</bold></gradient>"
+  gem-forced-into-inventory: "<gradient:#FFE259:#FFA751><bold>Your gem was forced into inventory. A non-gem item was dropped.</bold></gradient>"
+  gem-forced-into-hotbar: "<gradient:#FF5F6D:#FFC371><bold>Your gem was forced into your hotbar!</bold></gradient>"
+  cannot-use-gem-in-composter: "<gradient:#FF5F6D:#FFC371><bold>You cannot use your gem in a composter!</bold></gradient>"
 
   # Trust System Messages
-  cannot-trust-self: "&cYou already trust yourself!"
-  player-trusted: "&aYou now trust &l{player}&r&a! Your gem abilities will not harm them."
-  player-untrusted: "&cYou no longer trust &l{player}&r&c! Your gem abilities can now harm them."
-  player-not-trusted: "&cYou were not trusting {player}!"
+  cannot-trust-self: "<gradient:#FF5F6D:#FFC371>You already trust yourself!</gradient>"
+  player-trusted: "<gradient:#56F39A:#3ACBE8>You now trust </gradient>&l{player}&r&a! Your gem abilities will not harm them."
+  player-untrusted: "<gradient:#FF5F6D:#FFC371>You no longer trust </gradient>&l{player}&r&c! Your gem abilities can now harm them."
+  player-not-trusted: "<gradient:#FF5F6D:#FFC371>You were not trusting {player}!</gradient>"
   no-trusted-players: "&7You have no trusted players. Use &b/bliss trust <player>&7 to add someone."
-  trusted-players-header: "&5&lTrusted Players ({count}):"
+  trusted-players-header: "<gradient:#9D4EDD:#E0AAFF><bold>Trusted Players ({count}):</bold></gradient>"
   trusted-player-entry: "&8 - &b{player} {status}"
-  cannot-harm-trusted: "&c&lYou cannot stun {player} because they are trusted!"
+  cannot-harm-trusted: "<gradient:#FF5F6D:#FFC371><bold>You cannot stun {player} because they are trusted!</bold></gradient>"
 
   # Click Activation Messages
-  click-activation-enabled: "&aClick activation &l&aENABLED&r&a! You can now use right-click to activate abilities."
-  click-activation-disabled: "&cClick activation &l&cDISABLED&r&c! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
+  click-activation-enabled: "<gradient:#56F39A:#3ACBE8>Click activation </gradient>&l&aENABLED&r&a! You can now use right-click to activate abilities."
+  click-activation-disabled: "<gradient:#FF5F6D:#FFC371>Click activation </gradient>&l&cDISABLED&r&c! Use /bliss ability:main or /bliss ability:secondary to activate abilities."
 
   # Command Messages
-  must-hold-gem: "&c§lYou must be holding a gem to use this command!"
-  requires-tier2: "&cSecondary abilities require Tier 2 gem!"
-  requires-tier2-ability: "&c&oThis ability requires Tier 2!"
+  must-hold-gem: "<gradient:#FF5F6D:#FFC371>§lYou must be holding a gem to use this command!</gradient>"
+  requires-tier2: "<gradient:#FF5F6D:#FFC371>Secondary abilities require Tier 2 gem!</gradient>"
+  requires-tier2-ability: "<gradient:#FF5F6D:#FFC371><italic>This ability requires Tier 2!</italic></gradient>"
 
   # Wealth Gem Messages
-  requires-wealth-gem-pockets: "&cYou need a Wealth gem to use Pockets!"
-  requires-wealth-t2-pockets: "&cPockets requires Tier 2 Wealth gem!"
-  requires-wealth-gem-amplify: "&cYou need a Wealth gem to use Amplification!"
-  requires-wealth-t2-amplify: "&cAmplification requires Tier 2 Wealth gem!"
-  requires-wealth-t2-autosmelt: "&c&lYou need Wealth Gem Tier 2 to use auto-smelt!"
-  autosmelt-enabled: "&a&lAuto-Smelt enabled! Ores will now be automatically smelted when mined."
-  autosmelt-disabled: "&c&lAuto-Smelt disabled!"
+  requires-wealth-gem-pockets: "<gradient:#FF5F6D:#FFC371>You need a Wealth gem to use Pockets!</gradient>"
+  requires-wealth-t2-pockets: "<gradient:#FF5F6D:#FFC371>Pockets requires Tier 2 Wealth gem!</gradient>"
+  requires-wealth-gem-amplify: "<gradient:#FF5F6D:#FFC371>You need a Wealth gem to use Amplification!</gradient>"
+  requires-wealth-t2-amplify: "<gradient:#FF5F6D:#FFC371>Amplification requires Tier 2 Wealth gem!</gradient>"
+  requires-wealth-t2-autosmelt: "<gradient:#FF5F6D:#FFC371><bold>You need Wealth Gem Tier 2 to use auto-smelt!</bold></gradient>"
+  autosmelt-enabled: "<gradient:#56F39A:#3ACBE8><bold>Auto-Smelt enabled! Ores will now be automatically smelted when mined.</bold></gradient>"
+  autosmelt-disabled: "<gradient:#FF5F6D:#FFC371><bold>Auto-Smelt disabled!</bold></gradient>"
 
   # Energy Display Messages
-  energy-info-header: "&5&lBlissGems &8»"
-  energy-info-line1: "&7Energy: {energyBar} &f{energy}/10"
-  energy-info-line2: "&7State: {state}"
-  energy-bottle-failed: "&cFailed to create energy bottle!"
+  energy-info-header: "<gradient:#9D4EDD:#E0AAFF><bold>BlissGems </bold></gradient>&8»"
+  energy-info-line1: "<gradient:#BDC3C7:#ECF0F1>Energy: {energyBar} </gradient>&f{energy}/10"
+  energy-info-line2: "<gradient:#BDC3C7:#ECF0F1>State: {state}</gradient>"
+  energy-bottle-failed: "<gradient:#FF5F6D:#FFC371>Failed to create energy bottle!</gradient>"
 
   # Passive Effect Messages
-  phased-attack: "&d&oYou phased through the attack!"
-  enemy-launched: "&b&oYou've been launched into the sky!"
-  launched-enemy: "&b&oYou launched {player} into the sky!"
-  slam-down: "&c&oYou're being slammed down!"
-  double-jump: "&b&oDouble jump!"
-  shocking-arrow-hit: "&b&oShocking Arrow hit!"
-  life-gem-golden-apple: "&a&oLife Gem enhanced your golden apple!"
+  phased-attack: "<gradient:#E0AAFF:#FF85C0><italic>You phased through the attack!</italic></gradient>"
+  enemy-launched: "<gradient:#4CC9F0:#A0E7FF><italic>You've been launched into the sky!</italic></gradient>"
+  launched-enemy: "<gradient:#4CC9F0:#A0E7FF><italic>You launched {player} into the sky!</italic></gradient>"
+  slam-down: "<gradient:#FF5F6D:#FFC371><italic>You're being slammed down!</italic></gradient>"
+  double-jump: "<gradient:#4CC9F0:#A0E7FF><italic>Double jump!</italic></gradient>"
+  shocking-arrow-hit: "<gradient:#4CC9F0:#A0E7FF><italic>Shocking Arrow hit!</italic></gradient>"
+  life-gem-golden-apple: "<gradient:#56F39A:#3ACBE8><italic>Life Gem enhanced your golden apple!</italic></gradient>"
 
   # Stun Messages
-  cannot-use-while-stunned: "&c&lYou cannot use {item} while stunned!"
-  can-only-eat-golden-apple-stunned: "&c&lYou can only eat golden apples while stunned!"
-  player-grounded: "&c&lYou have been grounded for {duration} seconds! You cannot move or jump!"
-  grounded-target: "&b⚡ &oGrounded {target} for {duration} seconds!"
+  cannot-use-while-stunned: "<gradient:#FF5F6D:#FFC371><bold>You cannot use {item} while stunned!</bold></gradient>"
+  can-only-eat-golden-apple-stunned: "<gradient:#FF5F6D:#FFC371><bold>You can only eat golden apples while stunned!</bold></gradient>"
+  player-grounded: "<gradient:#FF5F6D:#FFC371><bold>You have been grounded for {duration} seconds! You cannot move or jump!</bold></gradient>"
+  grounded-target: "<gradient:#4CC9F0:#A0E7FF>⚡ </gradient>&oGrounded {target} for {duration} seconds!"
 
   # Repair Kit Messages
-  repair-kit-usage: "&d&oTo use the Repair Kit, drop it on top of a Beacon to create a Pedestal!"
-  repair-kit-usage-info: "&d&oThe Pedestal will restore energy to all nearby players."
-  pedestal-created: "&d&l✦ &d&oPedestal created! It will restore energy to nearby players."
-  pedestal-created-nearby: "&d&o{player} created a Repair Kit Pedestal nearby!"
-  pedestal-creation-failed: "&c&oCouldn't create pedestal at this location!"
-  pedestal-activated: "&d&l✦ &d&oRepair Kit Pedestal activated!"
-  pedestal-exhausted: "&d&oThe Repair Kit has been exhausted!"
+  repair-kit-usage: "<gradient:#E0AAFF:#FF85C0><italic>To use the Repair Kit, drop it on top of a Beacon to create a Pedestal!</italic></gradient>"
+  repair-kit-usage-info: "<gradient:#E0AAFF:#FF85C0><italic>The Pedestal will restore energy to all nearby players.</italic></gradient>"
+  pedestal-created: "<gradient:#E0AAFF:#FF85C0><bold>✦ </bold></gradient>&d&oPedestal created! It will restore energy to nearby players."
+  pedestal-created-nearby: "<gradient:#E0AAFF:#FF85C0><italic>{player} created a Repair Kit Pedestal nearby!</italic></gradient>"
+  pedestal-creation-failed: "<gradient:#FF5F6D:#FFC371><italic>Couldn't create pedestal at this location!</italic></gradient>"
+  pedestal-activated: "<gradient:#E0AAFF:#FF85C0><bold>✦ </bold></gradient>&d&oRepair Kit Pedestal activated!"
+  pedestal-exhausted: "<gradient:#E0AAFF:#FF85C0><italic>The Repair Kit has been exhausted!</italic></gradient>"
 
   # Revive Beacon Messages
-  revive-beacon-activated: "&e&lRevive Beacon activated!"
-  revive-beacon-duration: "&7Duration: &f{duration}"
-  revive-beacon-range: "&7Range: &f{range} blocks"
-  revive-beacon-info: "&7If you die within range, you'll be revived!"
-  revived-by-beacon: "&a&l✦ You have been revived by your Revive Beacon!"
-  revive-beacon-expired: "&c&lYour Revive Beacon has expired!"
+  revive-beacon-activated: "<gradient:#FFE259:#FFA751><bold>Revive Beacon activated!</bold></gradient>"
+  revive-beacon-duration: "<gradient:#BDC3C7:#ECF0F1>Duration: </gradient>&f{duration}"
+  revive-beacon-range: "<gradient:#BDC3C7:#ECF0F1>Range: </gradient>&f{range} blocks"
+  revive-beacon-info: "<gradient:#BDC3C7:#ECF0F1>If you die within range, you'll be revived!</gradient>"
+  revived-by-beacon: "<gradient:#56F39A:#3ACBE8><bold>✦ You have been revived by your Revive Beacon!</bold></gradient>"
+  revive-beacon-expired: "<gradient:#FF5F6D:#FFC371><bold>Your Revive Beacon has expired!</bold></gradient>"
 
   # Soul System Messages
-  soul-absorbed: "&d&oAbsorbed soul from {entity}! +{hearts} hearts for {duration}s"
-  cannot-capture-players: "&c&oCannot capture players!"
-  soul-capacity-full: "&c&oYour gem is full! (Max {max} souls)"
-  entity-cannot-capture: "&c&oThis entity cannot be captured!"
-  soul-captured: "&d&lSoul Captured! &d&oCaptured {mob} ({count}/{max})"
-  no-souls-captured: "&c&oNo souls captured!"
-  souls-released: "&d&lReleased {count} captured soul(s)!"
+  soul-absorbed: "<gradient:#E0AAFF:#FF85C0><italic>Absorbed soul from {entity}! +{hearts} hearts for {duration}s</italic></gradient>"
+  cannot-capture-players: "<gradient:#FF5F6D:#FFC371><italic>Cannot capture players!</italic></gradient>"
+  soul-capacity-full: "<gradient:#FF5F6D:#FFC371><italic>Your gem is full! (Max {max} souls)</italic></gradient>"
+  entity-cannot-capture: "<gradient:#FF5F6D:#FFC371><italic>This entity cannot be captured!</italic></gradient>"
+  soul-captured: "<gradient:#E0AAFF:#FF85C0><bold>Soul Captured! </bold></gradient>&d&oCaptured {mob} ({count}/{max})"
+  no-souls-captured: "<gradient:#FF5F6D:#FFC371><italic>No souls captured!</italic></gradient>"
+  souls-released: "<gradient:#E0AAFF:#FF85C0><bold>Released {count} captured soul(s)!</bold></gradient>"
 
   # Critical Hit Messages
-  charged-attack: "&c&l⚔ CHARGED ATTACK! &c2x Damage!"
-  crit-progress: "&e&l⚡ &e{remaining} more crit for CHARGED ATTACK!"
+  charged-attack: "<gradient:#FF5F6D:#FFC371><bold>⚔ CHARGED ATTACK! </bold></gradient>&c2x Damage!"
+  crit-progress: "<gradient:#FFE259:#FFA751><bold>⚡ </bold></gradient>&e{remaining} more crit for CHARGED ATTACK!"
 
   # Flow State Messages
-  max-flow-state: "&b&l⚡ MAX FLOW STATE!"
+  max-flow-state: "<gradient:#4CC9F0:#A0E7FF><bold>⚡ MAX FLOW STATE!</bold></gradient>"
 
   # Ability Specific Messages
-  no-target-found: "&cNo target found!"
-  fireball-charging: "&6&oCharging fireball... Right-click again to fire!"
-  fireball-fully-charged: "&6&lFully charged! &eRight-click to fire!"
-  fireball-not-enough-charge: "&c&oNot enough charge!"
-  fireball-fired: "&6&oFired at {charge}% power!"
-  campfire-cannot-place: "&c&oCannot place campfire here!"
-  campfire-placed: "&6&oPlaced Campfire! Heals you and burns enemies for 1 minute."
-  campfire-destroyed: "&6&oCampfire was destroyed!"
-  campfire-expired: "&6&oCampfire expired!"
-  flux-beam-charging: "&b⚡ &oCharging Flux Beam... Right-click again to fire!"
-  flux-beam-fully-charged: "&b⚡&l Fully charged! &eRight-click to fire!"
-  flux-beam-fired: "&b⚡ &oFired Flux Beam at {charge}% power! (&c{damage} HP&o)"
-  armor-restored: "&a&lRestored {player}'s armor! (+{durability} durability)"
-  sloth-sedative-info: "&e&oSloth's Sedative slows all nearby enemies with Slowness IV!"
+  no-target-found: "<gradient:#FF5F6D:#FFC371>No target found!</gradient>"
+  fireball-charging: "<gradient:#F7971E:#FFD200><italic>Charging fireball... Right-click again to fire!</italic></gradient>"
+  fireball-fully-charged: "<gradient:#F7971E:#FFD200><bold>Fully charged! </bold></gradient>&eRight-click to fire!"
+  fireball-not-enough-charge: "<gradient:#FF5F6D:#FFC371><italic>Not enough charge!</italic></gradient>"
+  fireball-fired: "<gradient:#F7971E:#FFD200><italic>Fired at {charge}% power!</italic></gradient>"
+  campfire-cannot-place: "<gradient:#FF5F6D:#FFC371><italic>Cannot place campfire here!</italic></gradient>"
+  campfire-placed: "<gradient:#F7971E:#FFD200><italic>Placed Campfire! Heals you and burns enemies for 1 minute.</italic></gradient>"
+  campfire-destroyed: "<gradient:#F7971E:#FFD200><italic>Campfire was destroyed!</italic></gradient>"
+  campfire-expired: "<gradient:#F7971E:#FFD200><italic>Campfire expired!</italic></gradient>"
+  flux-beam-charging: "<gradient:#4CC9F0:#A0E7FF>⚡ </gradient>&oCharging Flux Beam... Right-click again to fire!"
+  flux-beam-fully-charged: "<gradient:#4CC9F0:#A0E7FF>⚡</gradient>&l Fully charged! &eRight-click to fire!"
+  flux-beam-fired: "<gradient:#4CC9F0:#A0E7FF>⚡ </gradient>&oFired Flux Beam at {charge}% power! (&c{damage} HP&o)"
+  armor-restored: "<gradient:#56F39A:#3ACBE8><bold>Restored {player}'s armor! (+{durability} durability)</bold></gradient>"
+  sloth-sedative-info: "<gradient:#FFE259:#FFA751><italic>Sloth's Sedative slows all nearby enemies with Slowness IV!</italic></gradient>"
   sloth-sedative-hit: "{message} &7(Slowed {count} enemies!)"
-  speed-storm-info: "&a&oSpeed Storm grants you Speed VI for 10 seconds!"
-  durability-chip-info: "&6&lDurability Chip &7(Passive: extra armor damage per hit)"
-  unfortunate-afflicted: "&c&oYou've been afflicted with Unfortunate! Actions disabled for {duration}s!"
-  unfortunate-blocked: "&c&oYou can't do that while Unfortunate!"
-  item-locked: "&c&oYour {item} has been locked for {duration}s!"
-  item-locked-blocked: "&c&oThis item is locked!"
-  double-debris: "&a&oDouble Debris! Extra netherite scrap!"
-  wealth-no-target: "&e&oNo target found! &7(Aim at a player to use Unfortunate)"
-  wealth-no-player: "&cNo player target found!"
+  speed-storm-info: "<gradient:#56F39A:#3ACBE8><italic>Speed Storm grants you Speed VI for 10 seconds!</italic></gradient>"
+  durability-chip-info: "<gradient:#F7971E:#FFD200><bold>Durability Chip </bold></gradient>&7(Passive: extra armor damage per hit)"
+  unfortunate-afflicted: "<gradient:#FF5F6D:#FFC371><italic>You've been afflicted with Unfortunate! Actions disabled for {duration}s!</italic></gradient>"
+  unfortunate-blocked: "<gradient:#FF5F6D:#FFC371><italic>You can't do that while Unfortunate!</italic></gradient>"
+  item-locked: "<gradient:#FF5F6D:#FFC371><italic>Your {item} has been locked for {duration}s!</italic></gradient>"
+  item-locked-blocked: "<gradient:#FF5F6D:#FFC371><italic>This item is locked!</italic></gradient>"
+  double-debris: "<gradient:#56F39A:#3ACBE8><italic>Double Debris! Extra netherite scrap!</italic></gradient>"
+  wealth-no-target: "<gradient:#FFE259:#FFA751><italic>No target found! </italic></gradient>&7(Aim at a player to use Unfortunate)"
+  wealth-no-player: "<gradient:#FF5F6D:#FFC371>No player target found!</gradient>"
   bloodthorns-hit: "{message} &7({count} targets hit!)"
-  shift-for-secondary: "&e&oShift + use ability or right-click for secondary ability!"
-  no-gem-types-available: "&cNo other gem types available!"
-  trade-failed: "&cFailed to trade gem!"
-  upgrade-failed: "&cFailed to upgrade gem!"
+  shift-for-secondary: "<gradient:#FFE259:#FFA751><italic>Shift + use ability or right-click for secondary ability!</italic></gradient>"
+  no-gem-types-available: "<gradient:#FF5F6D:#FFC371>No other gem types available!</gradient>"
+  trade-failed: "<gradient:#FF5F6D:#FFC371>Failed to trade gem!</gradient>"
+  upgrade-failed: "<gradient:#FF5F6D:#FFC371>Failed to upgrade gem!</gradient>"
 
   # SMP Start Messages
-  smp-already-started: "&cSMP has already started!"
-  smp-started: "&a&lSMP Started! All online players are receiving their gems!"
-  smp-not-started: "&cThe SMP hasn't started yet! Gems will be given when an admin runs /bliss smp start."
+  smp-already-started: "<gradient:#FF5F6D:#FFC371>SMP has already started!</gradient>"
+  smp-started: "<gradient:#56F39A:#3ACBE8><bold>SMP Started! All online players are receiving their gems!</bold></gradient>"
+  smp-not-started: "<gradient:#FF5F6D:#FFC371>The SMP hasn't started yet! Gems will be given when an admin runs /bliss smp start.</gradient>"
 
 # ==========================================
 # ENCHANT LIMITER (ADMIN CONFIGURABLE)
@@ -951,6 +1059,43 @@ spawn-beacon:
     duration-minutes: 60
 
 # ==========================================
+# SPAWN RESTORATION PEDESTAL
+# ==========================================
+# Set it in-game: stand on the spot, /bliss pedestal set, then /bliss pedestal activate.
+# Repair ritual: drop a Repair Kit at the open pedestal, then throw 5 Energy Bottles into
+#   the beacon -> everyone within 8 blocks gets +1 energy five times, 10 s apart.
+# Restoration ritual: while BROKEN, drop a Restoration Book, throw 5 Energy Bottles, then
+#   stand still on the beacon -> back to Pristine with a freshly rolled gem.
+# Block layout lives in pedestal_layout.yml ("open" and "closed" states).
+pedestal:
+  deposit-cooldown-seconds: 30
+  # Fallback location used only when no pedestal has been set in-game.
+  # /bliss pedestal export prints the values to paste here.
+  fixed:
+    enabled: false
+    world: world
+    x: 0
+    y: 64
+    z: 0
+  repair-energy-to-everyone: false  # true = every player within 8 blocks gets the repair's energy (lets groups duplicate energy)
+
+# ==========================================
+# VILLAGER EVENT (/blissevent)
+# ==========================================
+# 1) /bliss pedestal set + activate (the disc ritual runs over the pedestal)
+# 2) /blissevent compass set  - stand where the lost village should be
+# 3) /blissevent villager set <1|2|3> next to three villagers you hid around the world
+# 4) /blissevent start
+villager-event:
+  # Custom sounds from your resource pack; missing keys just play nothing.
+  disc-song-key: "bliss:village_clue"
+  # false = the disc spells the village coordinates out in a title instead of playing audio
+  clue-audio: true
+  lost-souls-audio: true
+  # Every raid wave's mob count is multiplied by this (0.05 - 3.0). 1.0 = wave 8 is ~110 raiders.
+  raid-mob-scale: 1.0
+
+# ==========================================
 # BROKEN MYTHIC RESPAWN
 # ==========================================
 mythic-respawn:
@@ -968,3 +1113,5 @@ end-sky:
 # METRICS
 # ==========================================
 send-anonymous-metrics: true
+pvp:
+  drop-head-on-kill: true  # Drop the victim's head on a player kill

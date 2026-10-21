@@ -1,11 +1,11 @@
 name: BlissGems
-version: '5.0.1'
+version: '5.1.9'
 main: dev.xoperr.blissgems.BlissGems
 api-version: '1.21'
 description: Bliss SMP Gem System
 author: magicc
 website: https://xoperr.dev
-softdepend: [WorldGuard, ProtocolLib]
+softdepend: [WorldGuard, ProtocolLib, Citizens, Geyser-Spigot]
 
 commands:
   bliss:
@@ -20,6 +20,23 @@ commands:
     description: Toggle forcing every player to 10 hearts on join
     usage: /<command> everyone <true|false>
     permission: blissgems.fixedhearts
+  blissevent:
+    description: Run the Villager event (disc ritual, lost souls, the last raid)
+    usage: /<command> <start|end|phase|compass|villager|give>
+    permission: blissgems.admin
+  goldendream:
+    description: Golden Dream event controls (ritual items, thunder, wake, memories, worlds)
+    usage: /<command> <give|thunder|wake|skip|walk|memory|nick|import|reset>
+    permission: blissgems.admin
+  alternate:
+    description: A dream memory lets out the whisper where they stand
+    usage: /<command>
+  startcharging:
+    description: Start moving deposited watts into your Flux gem's beam charge
+    usage: /<command>
+  stopcharging:
+    description: Stop charging your Flux gem
+    usage: /<command>
   news:
     description: View the BlissGems server news board, respawn timers, and repair windows
     usage: /<command>

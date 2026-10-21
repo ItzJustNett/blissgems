@@ -36,7 +36,9 @@ public class AbilityBossBarManager {
     public void updatePlayer(Player player) {
         UUID uuid = player.getUniqueId();
         AbilityManager am = this.plugin.getAbilityManager();
-        if (am == null) {
+        // Boss bar cooldowns are only for Bedrock players (Floodgate "." name prefix)
+        if (am == null || !AbilityBindingManager.isBedrock(player)) {
+            this.removeAllBars(player);
             return;
         }
         Map<String, Long> activeAbilities = this.getActiveAbilities(uuid);

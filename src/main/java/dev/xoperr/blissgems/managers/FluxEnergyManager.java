@@ -26,19 +26,22 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -47,9 +50,11 @@ import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -57,16 +62,16 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 public class FluxEnergyManager {
-    public static final String GUI_TITLE = "\u00a7b\ud83d\udd2e Flux Charging Station";
     public static final int DEFAULT_MAX_WATTS = 2000000;
     public static final double DEFAULT_CHARGE_PER_TICK = 0.667;
     public static final double DEFAULT_BEAM_MAX_CHARGE = 200.0;
-    private static final int[] FUEL_SLOTS = new int[]{10, 11, 12, 14, 15, 16};
     private final BlissGems plugin;
     private final Map<UUID, Double> playerWatts = new ConcurrentHashMap<UUID, Double>();
     private final Map<UUID, Double> beamCharge = new ConcurrentHashMap<UUID, Double>();
     private final Map<UUID, Boolean> isCharging = new ConcurrentHashMap<UUID, Boolean>();
-    private final Map<UUID, Inventory> openStations = new ConcurrentHashMap<UUID, Inventory>();
+    private final Map<UUID, Deque<ItemStack>> queues = new HashMap<>();
+    private final Map<UUID, BukkitTask> burners = new HashMap<>();
+    private final Set<UUID> autoStart = new HashSet<>();
     private BukkitTask chargeTask;
     private final File dataFile;
 
@@ -120,21 +125,16 @@ public class FluxEnergyManager {
         UUID uuid = player.getUniqueId();
         if (charging) {
             if (this.getWatts(uuid) <= 0.0) {
-                player.sendMessage(String.valueOf(ChatColor.RED) + "You don't have enough energy to charge!");
+                player.sendMessage(PedestalManager.color("&cYou don't have enough energy to charge!"));
                 this.isCharging.put(uuid, false);
                 return;
             }
             this.isCharging.put(uuid, true);
-            player.sendMessage(String.valueOf(ChatColor.GREEN) + "Charging started!");
+            player.sendMessage(PedestalManager.color("&aCharging started!"));
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.8f);
         } else {
             this.isCharging.put(uuid, false);
-            player.sendMessage(String.valueOf(ChatColor.RED) + "Charging paused!");
-        }
-        Inventory inv = this.openStations.get(uuid);
-        if (inv != null) {
-            this.updateStatusItem(player, inv);
-            this.updateLeverItem(player, inv);
+            player.sendMessage(PedestalManager.color("&cCharging Stopped!"));
         }
     }
 
@@ -160,199 +160,162 @@ public class FluxEnergyManager {
             case NETHERITE_INGOT -> 46819;
             case NETHERITE_BLOCK -> 421378;
             case WITHER_SKELETON_SKULL -> 112047;
+            case NETHER_STAR -> 336141;
             default -> 0;
         };
     }
 
+    /** Watts one item is worth; custom items (anything with model data or a BlissGems id) never burn. */
+    private int wattsFor(ItemStack item) {
+        if (item == null || item.getType().isAir()) return 0;
+        if (CustomItemManager.getIdByItem(item) != null) return 0;
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null && meta.hasCustomModelData()) return 0;
+        return this.getFuelWattValue(item.getType());
+    }
+
+    // ---- Watt Deposit: a plain chest; what you put in burns into watts one item a second ----
+
+    public static final class DepositHolder implements InventoryHolder {
+        private Inventory inventory;
+
+        @Override
+        public Inventory getInventory() {
+            return this.inventory;
+        }
+    }
+
+    public static boolean isDeposit(Inventory inv) {
+        return inv != null && inv.getHolder() instanceof DepositHolder;
+    }
+
     public void openChargingStation(Player player) {
-        Inventory inv = Bukkit.createInventory(null, (int)27, (String)GUI_TITLE);
-        ItemStack book = new ItemStack(Material.BOOK);
-        ItemMeta bookMeta = book.getItemMeta();
-        if (bookMeta != null) {
-            bookMeta.setDisplayName("\u00a7b\u00a7lHow to Charge");
-            ArrayList<String> lore = new ArrayList<>();
-            lore.add("\u00a77Place charging items in the slots");
-            lore.add("\u00a77to add energy to your Flux Gem");
-            lore.add("");
-            lore.add("\u00a7eCharging Values:");
-            lore.add("\u00a7fCopper Ingot: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.COPPER_INGOT)) + " watts");
-            lore.add("\u00a7fCopper Block: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.COPPER_BLOCK)) + " watts");
-            lore.add("\u00a7fIron Ingot: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.IRON_INGOT)) + " watts");
-            lore.add("\u00a7fIron Block: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.IRON_BLOCK)) + " watts");
-            lore.add("\u00a7fDiamond: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.DIAMOND)) + " watts");
-            lore.add("\u00a7fDiamond Block: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.DIAMOND_BLOCK)) + " watts");
-            lore.add("\u00a7fNetherite Ingot: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.NETHERITE_INGOT)) + " watts");
-            lore.add("\u00a7fNetherite Block: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.NETHERITE_BLOCK)) + " watts");
-            lore.add("\u00a7fWither Skull: \u00a7a" + String.format("%,d", this.getFuelWattValue(Material.WITHER_SKELETON_SKULL)) + " watts");
-            lore.add("");
-            lore.add("\u00a7cMax Capacity: \u00a76" + String.format("%,d", this.getMaxWatts()) + " watts");
-            bookMeta.setLore(lore);
-            book.setItemMeta(bookMeta);
-        }
-        inv.setItem(26, book);
-        this.updateStatusItem(player, inv);
-        this.updateLeverItem(player, inv);
-        ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta glassMeta = glass.getItemMeta();
-        if (glassMeta != null) {
-            glassMeta.setDisplayName(" ");
-            glass.setItemMeta(glassMeta);
-        }
-        for (int i = 0; i < 27; ++i) {
-            if (this.isFuelSlot(i) || i == 4 || i == 26 || i == 22) continue;
-            inv.setItem(i, glass);
-        }
-        this.openStations.put(player.getUniqueId(), inv);
+        DepositHolder holder = new DepositHolder();
+        Inventory inv = Bukkit.createInventory(holder, 27, PedestalManager.color("&9Watt Deposit (" + String.format("%,.0f", this.getWatts(player.getUniqueId())) + " watts)"));
+        holder.inventory = inv;
         player.openInventory(inv);
-        player.playSound(player.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.8f, 1.5f);
+        player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.7f, 1.4f);
     }
 
-    private boolean isFuelSlot(int slot) {
-        for (int s : FUEL_SLOTS) {
-            if (s != slot) continue;
-            return true;
-        }
-        return false;
-    }
-
-    public void updateStatusItem(Player player, Inventory inv) {
-        UUID uuid = player.getUniqueId();
-        double currentWatts = this.getWatts(uuid);
-        int maxWatts = this.getMaxWatts();
-        double batteryPercent = currentWatts / (double)maxWatts * 100.0;
-        double currentBeam = this.getBeamCharge(uuid);
-        ItemStack star = new ItemStack(Material.NETHER_STAR);
-        ItemMeta meta = star.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName("\u00a76\u00a7l\u26a1 Current Status");
-            ArrayList<String> lore = new ArrayList<>();
-            lore.add("");
-            lore.add("\u00a7fTotal Watts: \u00a7b" + String.format("%,.0f", currentWatts) + " \u00a77/ \u00a7b" + String.format("%,d", maxWatts));
-            lore.add("\u00a7fBattery Charge: \u00a7a" + String.format("%.2f%%", batteryPercent));
-            lore.add("\u00a7fBeam Ready: \u00a7e" + String.format("%.2f%%", currentBeam));
-            lore.add("");
-            lore.add(this.isCharging(player) ? "\u00a7aCurrently Charging" : "\u00a7cNot Charging");
-            meta.setLore(lore);
-            star.setItemMeta(meta);
-        }
-        inv.setItem(4, star);
-    }
-
-    public void updateLeverItem(Player player, Inventory inv) {
-        boolean active = this.isCharging(player);
-        ItemStack lever = new ItemStack(Material.LEVER);
-        ItemMeta meta = lever.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(active ? "\u00a7c\u00a7lStop Charging" : "\u00a7a\u00a7lStart Charging");
-            lever.setItemMeta(meta);
-        }
-        inv.setItem(22, lever);
-    }
-
+    /** Gems can't go in; everything else may (what won't burn comes back on close). */
     public void onInventoryClick(InventoryClickEvent event) {
-        HumanEntity humanEntity = event.getWhoClicked();
-        if (!(humanEntity instanceof Player)) {
-            return;
-        }
-        Player player = (Player)humanEntity;
-        if (!event.getView().getTitle().equals(GUI_TITLE)) {
-            return;
-        }
-        int rawSlot = event.getRawSlot();
-        ItemStack currentItem = event.getCurrentItem();
-        ItemStack cursorItem = event.getCursor();
-        if (currentItem != null && CustomItemManager.getIdByItem(currentItem) != null && GemType.isGem(CustomItemManager.getIdByItem(currentItem)) || cursorItem != null && CustomItemManager.getIdByItem(cursorItem) != null && GemType.isGem(CustomItemManager.getIdByItem(cursorItem))) {
+        ItemStack current = event.getCurrentItem();
+        ItemStack cursor = event.getCursor();
+        if (isGem(current) || isGem(cursor)) {
             event.setCancelled(true);
             return;
         }
-        if (rawSlot >= 27 && event.isShiftClick() && (currentItem == null || this.getFuelWattValue(currentItem.getType()) <= 0)) {
-            event.setCancelled(true);
-            return;
+        if (event.getClick() == ClickType.NUMBER_KEY && event.getRawSlot() < 27) {
+            ItemStack hotbar = event.getWhoClicked().getInventory().getItem(event.getHotbarButton());
+            if (isGem(hotbar)) event.setCancelled(true);
         }
-        if (rawSlot >= 0 && rawSlot < 27) {
-            if (rawSlot == 22) {
-                event.setCancelled(true);
-                this.setCharging(player, !this.isCharging(player));
-                return;
-            }
-            if (rawSlot == 4 || rawSlot == 13 || !this.isFuelSlot(rawSlot)) {
-                event.setCancelled(true);
-                return;
-            }
-            if (cursorItem != null && !cursorItem.getType().isAir() && this.getFuelWattValue(cursorItem.getType()) <= 0) {
-                event.setCancelled(true);
-                player.sendMessage("\u00a7cThis item is not a conductive fuel!");
-                return;
-            }
-        }
-        Bukkit.getScheduler().runTaskLater((Plugin)this.plugin, () -> {
-            if (player.isOnline() && player.getOpenInventory().getTitle().equals(GUI_TITLE)) {
-                this.consumeFuels(player, player.getOpenInventory().getTopInventory());
-            }
-        }, 1L);
     }
 
-    private void consumeFuels(Player player, Inventory inv) {
-        UUID uuid = player.getUniqueId();
-        double currentWatts = this.getWatts(uuid);
-        int maxWatts = this.getMaxWatts();
-        boolean changed = false;
-        for (int slot : FUEL_SLOTS) {
-            int fuelVal;
-            ItemStack stack = inv.getItem(slot);
-            if (stack == null || stack.getType().isAir() || (fuelVal = this.getFuelWattValue(stack.getType())) <= 0) continue;
-            int amount = stack.getAmount();
-            double totalProvided = (double)fuelVal * (double)amount;
-            if (currentWatts + totalProvided > (double)maxWatts) {
-                double needed = (double)maxWatts - currentWatts;
-                if (needed <= 0.0) continue;
-                int itemsNeeded = (int)Math.ceil(needed / (double)fuelVal);
-                itemsNeeded = Math.min(itemsNeeded, amount);
-                double gained = (double)fuelVal * (double)itemsNeeded;
-                currentWatts = Math.min((double)maxWatts, currentWatts + gained);
-                int remainingAmount = amount - itemsNeeded;
-                if (remainingAmount > 0) {
-                    stack.setAmount(remainingAmount);
-                    inv.setItem(slot, stack);
-                } else {
-                    inv.setItem(slot, null);
-                }
-                changed = true;
-                continue;
-            }
-            currentWatts += totalProvided;
-            inv.setItem(slot, null);
-            changed = true;
-        }
-        if (changed) {
-            this.setWatts(uuid, currentWatts);
-            double percent = currentWatts / (double)maxWatts * 100.0;
-            player.sendMessage("\u00a7b\ud83d\udd2e \u00a7bYou now have \u00a7f" + String.format("%,.0f", currentWatts) + " \u00a7bwatts, up to \u00a7a" + String.format("%.2f%%", percent) + " \u00a7bcharge.");
-            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.4f);
-            this.updateStatusItem(player, inv);
-        }
+    private static boolean isGem(ItemStack item) {
+        String id = item == null ? null : CustomItemManager.getIdByItem(item);
+        return id != null && GemType.isGem(id);
     }
 
     public void onInventoryClose(InventoryCloseEvent event) {
-        HumanEntity humanEntity = event.getPlayer();
-        if (!(humanEntity instanceof Player)) {
-            return;
-        }
-        Player player = (Player)humanEntity;
-        if (!event.getView().getTitle().equals(GUI_TITLE)) {
+        if (!(event.getPlayer() instanceof Player player) || !isDeposit(event.getInventory())) {
             return;
         }
         Inventory inv = event.getInventory();
-        for (int slot : FUEL_SLOTS) {
-            ItemStack item = inv.getItem(slot);
+        Deque<ItemStack> queue = this.queues.computeIfAbsent(player.getUniqueId(), k -> new ArrayDeque<>());
+        int returned = 0;
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
             if (item == null || item.getType().isAir()) continue;
-            inv.setItem(slot, null);
-            HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(new ItemStack[]{item});
-            for (ItemStack drop : leftover.values()) {
-                player.getWorld().dropItemNaturally(player.getLocation(), drop);
+            inv.setItem(i, null);
+            if (this.wattsFor(item) > 0) {
+                queue.addLast(item);
+            } else {
+                this.giveBack(player, item);
+                returned += item.getAmount();
             }
         }
-        this.openStations.remove(player.getUniqueId());
+        if (returned > 0) {
+            player.sendMessage(PedestalManager.color("&7" + returned + " item" + (returned == 1 ? "" : "s") + " that won't burn came back to you."));
+        }
+        if (queue.isEmpty()) {
+            this.queues.remove(player.getUniqueId());
+        } else {
+            this.startBurner(player.getUniqueId());
+        }
+        this.saveData();
+        this.beginCharging(player);
+    }
+
+    private void beginCharging(Player player) {
+        UUID id = player.getUniqueId();
+        if (this.getWatts(id) <= 0.0) {
+            this.autoStart.add(id);
+            return;
+        }
+        this.autoStart.remove(id);
+        if (!this.isCharging(player)) this.setCharging(player, true);
+    }
+
+    private void giveBack(Player player, ItemStack item) {
+        for (ItemStack left : player.getInventory().addItem(item).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), left);
+        }
+    }
+
+    private void startBurner(UUID id) {
+        if (this.burners.containsKey(id)) return;
+        this.burners.put(id, Bukkit.getScheduler().runTaskTimer(this.plugin, () -> this.burn(id), 20L, 20L));
+    }
+
+    private void stopBurner(UUID id) {
+        BukkitTask t = this.burners.remove(id);
+        if (t != null) t.cancel();
+        this.autoStart.remove(id);
+    }
+
+    /** Burns the next deposited item into watts. */
+    private void burn(UUID id) {
+        Player player = Bukkit.getPlayer(id);
+        Deque<ItemStack> queue = this.queues.get(id);
+        if (queue == null || queue.isEmpty() || player == null) {
+            if (queue != null && queue.isEmpty()) this.queues.remove(id);
+            this.stopBurner(id);
+            return;
+        }
+        if (player.isDead()) return;
+        double watts = this.getWatts(id);
+        int max = this.getMaxWatts();
+        if (watts >= max) {
+            this.stopBurner(id);
+            this.saveData();
+            player.sendMessage(PedestalManager.color("🔮 &bThe gem is full — the rest of your deposit is held until it has room."));
+            return;
+        }
+        ItemStack next = queue.peekFirst();
+        int value = this.wattsFor(next);
+        if (value <= 0) {
+            queue.pollFirst();
+            this.giveBack(player, next);
+            this.saveData();
+            return;
+        }
+        if (next.getAmount() <= 1) queue.pollFirst(); else next.setAmount(next.getAmount() - 1);
+        double now = Math.min(max, watts + value);
+        this.setWatts(id, now);
+        player.sendMessage(PedestalManager.color("&f🔮 You now have " + String.format("%,.0f", now) + " watts, up to " + String.format("%.1f", now / max * 100.0) + "% charge."));
+        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.4f, 1.6f);
+        if (this.autoStart.contains(id)) this.beginCharging(player);
+        if (queue.isEmpty()) {
+            this.queues.remove(id);
+            this.stopBurner(id);
+        }
+        this.saveData();
+    }
+
+    /** Re-arms a saved deposit queue when its owner comes back. */
+    public void onJoin(Player player) {
+        Deque<ItemStack> queue = this.queues.get(player.getUniqueId());
+        if (queue != null && !queue.isEmpty()) this.startBurner(player.getUniqueId());
     }
 
     private void startChargingLoop() {
@@ -368,10 +331,9 @@ public class FluxEnergyManager {
                         FluxEnergyManager.this.isCharging.put(uuid, false);
                         continue;
                     }
-                    boolean holdsFlux = FluxEnergyManager.this.isHoldingFluxGem(player);
-                    if (!holdsFlux) {
-                        FluxEnergyManager.this.setCharging(player, false);
-                        player.sendMessage("\u00a7cCharging paused! (Must hold Flux Gem)");
+                    if (!FluxEnergyManager.this.isHoldingFluxGem(player)) {
+                        FluxEnergyManager.this.isCharging.put(uuid, false);
+                        player.sendMessage(PedestalManager.color("&cCharging paused!"));
                         continue;
                     }
                     double watts = FluxEnergyManager.this.getWatts(uuid);
@@ -380,21 +342,21 @@ public class FluxEnergyManager {
                     double chargeRate = FluxEnergyManager.this.getChargePerTick();
                     double maxBeam = FluxEnergyManager.this.getBeamMaxCharge();
                     if (watts <= 0.0) {
-                        FluxEnergyManager.this.setCharging(player, false);
-                        player.sendMessage("\u00a7b\ud83d\udd2e \u00a7bYou ran out of watts, your gem is charged at \u00a7e" + String.format("%.2f%%", beam));
+                        FluxEnergyManager.this.isCharging.put(uuid, false);
+                        player.sendMessage(PedestalManager.color("&f🔮 You ran out of watts, your gem is charged at " + String.format("%.1f", beam) + "%"));
                         continue;
                     }
                     if (beam >= maxBeam) {
-                        FluxEnergyManager.this.setCharging(player, false);
-                        player.sendMessage("\u00a7b\u26a1\u00a7l Maximum beam charge reached! \u00a7e(" + (int)beam + "%)");
+                        FluxEnergyManager.this.isCharging.put(uuid, false);
+                        player.sendMessage(PedestalManager.color("&f🔮 &eYour gem is fully overcharged at " + (int)beam + "%"));
                         player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.4f);
                         continue;
                     }
                     if (beam >= 100.0) {
                         if (maxBeam <= 100.0) {
                             FluxEnergyManager.this.setBeamCharge(uuid, 100.0);
-                            FluxEnergyManager.this.setCharging(player, false);
-                            player.sendMessage("\u00a7b\u26a1\u00a7l Fully charged! \u00a7eRight-click to fire!");
+                            FluxEnergyManager.this.isCharging.put(uuid, false);
+                            player.sendMessage(PedestalManager.color("&f🔮 Your gem is fully charged at 100%"));
                             continue;
                         }
                         if (this.tickCount % 20 == 0) {
@@ -410,8 +372,8 @@ public class FluxEnergyManager {
                                 player.damage(2.0);
                             }
                         }
-                        if (beam >= 100.0 && beam < 100.0 + chargeRate) {
-                            player.sendMessage("\u00a7c\u00a7l\u26a1 WARNING: DO NOT RELEASE BEAM UNTIL 200% (Inflicts progressive self-damage)!");
+                        if (beam < 100.0 + chargeRate) {
+                            player.sendMessage(PedestalManager.color("&f🔮 &6Overcharging! &7(past 100% — it hurts until 200%)"));
                             player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 2.0f);
                         }
                     }
@@ -423,28 +385,17 @@ public class FluxEnergyManager {
                     FluxEnergyManager.this.setBeamCharge(uuid, beam + transferPercent);
                     player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0.0, 1.0, 0.0), 10, 0.4, 0.4, 0.4, 0.0, (Object)new Particle.DustOptions(ParticleUtils.FLUX_CYAN, 1.0f));
                     player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0.0, 0.8, 0.0), 4, 0.2, 0.2, 0.2, 0.02);
-                    FluxEnergyManager.this.showChargeActionBar(player, beam + transferPercent, watts - wattsCost, maxWatts);
-                    Inventory openInv = FluxEnergyManager.this.openStations.get(uuid);
-                    if (openInv == null) continue;
-                    FluxEnergyManager.this.updateStatusItem(player, openInv);
+                    if (this.tickCount % 5 == 0) FluxEnergyManager.this.showChargeActionBar(player, beam + transferPercent, watts - wattsCost, maxWatts);
                 }
             }
         }.runTaskTimer((Plugin)this.plugin, 1L, 1L);
     }
 
+    /** Blood-style HUD: stored watts as a percentage, then the beam charge. */
     private void showChargeActionBar(Player player, double beam, double watts, int maxWatts) {
-        int bars = (int)Math.min(20.0, Math.max(0.0, beam / 100.0 * 20.0));
-        StringBuilder bar = new StringBuilder("\u00a7b\u26a1 Flux Beam: \u00a7e");
-        for (int i = 0; i < 20; ++i) {
-            if (i < bars) {
-                bar.append("\u2588");
-                continue;
-            }
-            bar.append("\u00a78\u2588");
-        }
-        bar.append(" \u00a7b").append(String.format("%.1f%%", beam));
-        bar.append(" \u00a77| \u00a7f").append(String.format("%,.0f", watts)).append("W");
-        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, (BaseComponent)new TextComponent(bar.toString()));
+        String bar = "<##009ac9>🔺 &b" + String.format("%.2f", watts / maxWatts * 100.0)
+            + "  <##5ED7FF>🔮 &b" + String.format("%.2f", beam) + "%";
+        player.sendActionBar(PedestalManager.color(bar));
     }
 
     public boolean isHoldingFluxGem(Player player) {
@@ -470,15 +421,10 @@ public class FluxEnergyManager {
     public void cleanupPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         this.isCharging.remove(uuid);
-        Inventory inv = this.openStations.remove(uuid);
-        if (inv != null) {
-            for (int slot : FUEL_SLOTS) {
-                ItemStack item = inv.getItem(slot);
-                if (item == null || item.getType().isAir()) continue;
-                inv.setItem(slot, null);
-                player.getInventory().addItem(new ItemStack[]{item});
-            }
-        }
+        BukkitTask t = this.burners.remove(uuid);
+        if (t != null) t.cancel();
+        this.autoStart.remove(uuid);
+        this.saveData();
     }
 
     public void loadData() {
@@ -491,6 +437,16 @@ public class FluxEnergyManager {
                 try {
                     UUID id = UUID.fromString(key);
                     this.playerWatts.put(id, config.getDouble("watts." + key, 0.0));
+                }
+                catch (Exception ignored) {}
+            }
+        }
+        if (config.isConfigurationSection("deposit")) {
+            for (String key : config.getConfigurationSection("deposit").getKeys(false)) {
+                try {
+                    Deque<ItemStack> q = new ArrayDeque<>();
+                    for (Object o : config.getList("deposit." + key, List.of())) if (o instanceof ItemStack item) q.addLast(item);
+                    if (!q.isEmpty()) this.queues.put(UUID.fromString(key), q);
                 }
                 catch (Exception ignored) {}
             }
@@ -514,6 +470,9 @@ public class FluxEnergyManager {
         for (Map.Entry<UUID, Double> entry : this.beamCharge.entrySet()) {
             config.set("beam_charge." + entry.getKey().toString(), (Object)entry.getValue());
         }
+        for (Map.Entry<UUID, Deque<ItemStack>> entry : this.queues.entrySet()) {
+            if (!entry.getValue().isEmpty()) config.set("deposit." + entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
         try {
             config.save(this.dataFile);
         }
@@ -526,6 +485,11 @@ public class FluxEnergyManager {
         if (this.chargeTask != null) {
             this.chargeTask.cancel();
         }
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (isDeposit(p.getOpenInventory().getTopInventory())) p.closeInventory();
+        }
+        for (BukkitTask t : this.burners.values()) t.cancel();
+        this.burners.clear();
         this.saveData();
     }
 }

@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 5001,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/prismatic_edge"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/netherite_sword"
+    }
+  }
+}

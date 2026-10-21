@@ -2,8 +2,9 @@ package dev.xoperr.blissgems.commands;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.managers.MythicWorldEventManager;
-import dev.xoperr.blissgems.managers.SpawnBeaconManager;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -46,18 +47,17 @@ public class NewsCommand implements CommandExecutor {
         }
         sender.sendMessage("");
 
-        // 2. Spawn Beacon Repairs Schedule
-        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b✦ &3&lSPAWN BEACON GEM REPAIRS:"));
-        SpawnBeaconManager beaconManager = plugin.getSpawnBeaconManager();
-        if (beaconManager != null) {
+        // 2. Spawn Pedestal (the real, admin-placed structure)
+        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b✦ &3&lSPAWN PEDESTAL:"));
+        PedestalManager pedestal = plugin.getPedestalManager();
+        Location main = pedestal != null ? pedestal.state().mainLoc() : null;
+        if (main == null) {
+            sender.sendMessage(ChatColor.GRAY + "  • Not set up on this server yet.");
+        } else {
             sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "  &7• Status: " + beaconManager.getRepairScheduleStatusString()));
-            if (beaconManager.getBeaconLocation() != null) {
-                sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                        "  &7• Coordinates: &fX: " + (int) beaconManager.getBeaconLocation().getX() +
-                                ", Y: " + (int) beaconManager.getBeaconLocation().getY() +
-                                ", Z: " + (int) beaconManager.getBeaconLocation().getZ()));
-            }
+                    "  &7• Status: " + (pedestal.state().active() ? "&aOPEN" : "&cCLOSED")));
+            sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                    "  &7• Coordinates: &fX: " + main.getBlockX() + ", Y: " + main.getBlockY() + ", Z: " + main.getBlockZ()));
         }
         sender.sendMessage("");
 

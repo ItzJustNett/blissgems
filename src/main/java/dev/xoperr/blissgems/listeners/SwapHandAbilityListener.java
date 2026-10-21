@@ -42,15 +42,16 @@ implements Listener {
         if (!mainIsGem && !offIsGem) {
             return;
         }
-        event.setCancelled(true);
-        if (this.plugin.getBlissCommand() == null) {
-            return;
-        }
-        if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
+        // F is a normal swap key for gems unless the player bound an ability to it in /bliss ability
+        if (this.plugin.getBlissCommand() == null || !this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
             return;
         }
         AbilityBinding input = AbilityBinding.swapHand(player.isSneaking());
         AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
+        if (slot == null) {
+            return;
+        }
+        event.setCancelled(true);
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 

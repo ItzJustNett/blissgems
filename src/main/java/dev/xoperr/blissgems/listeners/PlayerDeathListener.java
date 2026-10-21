@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -41,7 +40,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.Plugin;
 
@@ -95,7 +93,12 @@ implements Listener {
             this.plugin.getGoldAbilities().cleanup(victim);
             this.plugin.getGoldGemManager().resetProgress(victim);
         }
-        this.handleUpgraderChargeLoss(victim);
+        // A death rolls the gem back to Tier 1, whatever slot it survived in.
+        String deathGemId = this.plugin.getGemManager().getGemId(victim);
+        if (deathGemId != null && this.plugin.getGemManager().getGemTier(victim) == 2
+                && this.plugin.getGemManager().downgradeGem(victim, deathGemId)) {
+            victim.sendMessage("\u00a7c\u00a7lYour gem reverted to Tier 1!");
+        }
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
             this.plugin.getGemManager().updateActiveGem(killer);
@@ -113,98 +116,17 @@ implements Listener {
         victim.getWorld().dropItemNaturally(victim.getLocation(), head);
     }
 
-    private void handleUpgraderChargeLoss(Player player) {
-        int maxCharges = this.plugin.getConfig().getInt("upgrader.charges", 3);
-        boolean foundUpgrader = false;
-        for (int i = 0; i < player.getInventory().getSize(); ++i) {
-            ItemStack item = player.getInventory().getItem(i);
-            if (item == null) continue;
-            String id = CustomItemManager.getIdByItem(item);
-            if (!"gem_upgrader".equals(id)) continue;
-            foundUpgrader = true;
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) continue;
-            int currentCharges = maxCharges;
-            List<String> lore = meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-            for (String line : lore) {
-                String stripped = ChatColor.stripColor(line);
-                if (stripped != null && stripped.startsWith("Charges: ")) {
-                    try { currentCharges = Integer.parseInt(stripped.substring(9).split("/")[0].trim()); } catch (Exception ignored) {}
-                    break;
-                }
-            }
-            currentCharges--;
-            if (currentCharges <= 0) {
-                player.getInventory().setItem(i, null);
-                String gemId = this.plugin.getGemManager().getGemId(player);
-                if (gemId != null && this.plugin.getGemManager().getGemTier(player) == 2) {
-                    this.plugin.getGemManager().downgradeGem(player, gemId);
-                    player.sendMessage("§c§lYour upgrader broke! Your gem reverted to Tier 1.");
-                }
-            } else {
-                boolean found = false;
-                for (int j = 0; j < lore.size(); j++) {
-                    String stripped = ChatColor.stripColor(lore.get(j));
-                    if (stripped != null && stripped.startsWith("Charges: ")) {
-                        lore.set(j, "§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    lore.add("§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
-                }
-                meta.setLore(lore);
-                item.setItemMeta(meta);
-            }
-        }
-        if (!foundUpgrader && this.plugin.getGemManager().getGemTier(player) == 2) {
-            ItemStack gem = this.plugin.getGemManager().findGemInInventory(player);
-            if (gem != null && gem.hasItemMeta()) {
-                ItemMeta meta = gem.getItemMeta();
-                List<String> lore = meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-                int currentCharges = maxCharges;
-                boolean hasChargeLore = false;
-                for (String line : lore) {
-                    String stripped = ChatColor.stripColor(line);
-                    if (stripped != null && stripped.startsWith("Charges: ")) {
-                        hasChargeLore = true;
-                        try { currentCharges = Integer.parseInt(stripped.substring(9).split("/")[0].trim()); } catch (Exception ignored) {}
-                        break;
-                    }
-                }
-                if (hasChargeLore) {
-                    currentCharges--;
-                    if (currentCharges <= 0) {
-                        String gemId = this.plugin.getGemManager().getGemId(player);
-                        this.plugin.getGemManager().downgradeGem(player, gemId);
-                        player.sendMessage("§c§lYour Tier 2 gem lost all charges and reverted to Tier 1!");
-                    } else {
-                        for (int j = 0; j < lore.size(); j++) {
-                            String stripped = ChatColor.stripColor(lore.get(j));
-                            if (stripped != null && stripped.startsWith("Charges: ")) {
-                                lore.set(j, "§7Charges: §e" + currentCharges + "§7/§e" + maxCharges);
-                                break;
-                            }
-                        }
-                        meta.setLore(lore);
-                        gem.setItemMeta(meta);
-                        player.sendMessage("§eYour Tier 2 gem lost a charge! (" + currentCharges + "/" + maxCharges + ")");
-                    }
-                }
-            }
-        }
-    }
-
     @EventHandler(priority=EventPriority.LOWEST)
     public void onPlayerDeathProtectGems(PlayerDeathEvent event) {
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().harvestOnDeath(event);
         }
+        Player victim = event.getEntity();
+        // Gems that do drop (prevent-drop off, droppable-on-death) fall as Tier 1 as well.
+        event.getDrops().replaceAll(item -> this.toTier1(item, victim));
         if (!this.plugin.getConfig().getBoolean("gems.prevent-drop", true)) {
             return;
         }
-        Player victim = event.getEntity();
         ArrayList<ItemStack> gemsToSave = new ArrayList<ItemStack>();
         List droppableOnDeath = this.plugin.getConfig().contains("gems.droppable-on-death") ? this.plugin.getConfig().getStringList("gems.droppable-on-death") : List.of();
         event.getDrops().removeIf(item -> {
@@ -221,6 +143,16 @@ implements Listener {
             this.savedGems.put(victim.getUniqueId(), gemsToSave);
             this.saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }
+    }
+
+    private ItemStack toTier1(ItemStack gem, Player owner) {
+        String id = CustomItemManager.getIdByItem(gem);
+        if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem)) {
+            return gem;
+        }
+        ItemStack t1 = CustomItemManager.getItemById(id.substring(0, id.length() - 2) + "1",
+                this.plugin.getEnergyManager().getEnergy(owner));
+        return t1 != null ? t1 : gem;
     }
 
     private boolean isDroppableOnDeath(ItemStack item, List<String> droppableGems) {

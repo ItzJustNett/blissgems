@@ -17,6 +17,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import org.bukkit.command.CommandSender;
@@ -32,6 +33,31 @@ public class ConfigManager {
         this.plugin = plugin;
         this.reload();
         this.autoRepairConfig();
+        this.runMigrations();
+    }
+
+    /** One-time default changes for existing configs (ConfigMigrations); values an admin set stay. */
+    private void runMigrations() {
+        File configFile = new File(this.plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            return;
+        }
+        YamlConfiguration user = YamlConfiguration.loadConfiguration(configFile);
+        List<String> before = new java.util.ArrayList<>(user.getStringList(ConfigMigrations.KEY));
+        List<String> changed = ConfigMigrations.apply(user);
+        if (before.equals(user.getStringList(ConfigMigrations.KEY))) {
+            return;
+        }
+        try {
+            user.save(configFile);
+        } catch (IOException e) {
+            this.plugin.getLogger().warning("Could not save config.yml after migrations: " + e.getMessage());
+            return;
+        }
+        if (!changed.isEmpty()) {
+            this.plugin.getLogger().info("Updated " + changed.size() + " default value(s) in config.yml (new balance): " + String.join(", ", changed));
+        }
+        this.reload();
     }
 
     public void reload() {
@@ -116,7 +142,7 @@ public class ConfigManager {
     }
 
     public int getStartingEnergy() {
-        return this.config.getInt("energy.starting-energy", 5);
+        return this.config.getInt("energy.starting-energy", 10);
     }
 
     public int getRuinedThreshold() {
@@ -225,7 +251,7 @@ public class ConfigManager {
 
     public double getShockingArrowDamage(int tier) {
         String path = "passives.flux.tier" + tier + ".shocking-arrow-damage";
-        return this.config.getDouble(path, tier == 1 ? 2.0 : 3.0);
+        return this.config.getDouble(path, tier == 1 ? 2.0 : 4.0);
     }
 
     public double getFlowStateSpeedBoost(int tier) {
@@ -359,6 +385,37 @@ public class ConfigManager {
         return this.config.getString("upgrader.sound", "ENTITY_PLAYER_LEVELUP");
     }
 
+    /**
+     * Plays the particle/sound configured under <section>.particle, .particle-count and .sound
+     * (names as in the Bukkit Particle/Sound lists); falls back to the given defaults when unset
+     * or misspelled.
+     */
+    public void playConfiguredEffect(org.bukkit.entity.Player player, String section, org.bukkit.Particle defaultParticle, int defaultCount, org.bukkit.Sound defaultSound) {
+        org.bukkit.Particle particle = defaultParticle;
+        String particleName = this.config.getString(section + ".particle");
+        if (particleName != null) {
+            try {
+                particle = org.bukkit.Particle.valueOf(particleName.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                this.plugin.getLogger().warning(section + ".particle: unknown particle '" + particleName + "'");
+            }
+        }
+        org.bukkit.Sound sound = defaultSound;
+        String soundName = this.config.getString(section + ".sound");
+        if (soundName != null) {
+            try {
+                sound = org.bukkit.Sound.valueOf(soundName.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                this.plugin.getLogger().warning(section + ".sound: unknown sound '" + soundName + "'");
+            }
+        }
+        int count = this.config.getInt(section + ".particle-count", defaultCount);
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        if (count > 0 && particle.getDataType() == Void.class) {
+            player.spawnParticle(particle, player.getLocation().add(0.0, 1.0, 0.0), count, 0.5, 0.5, 0.5);
+        }
+    }
+
     public int getTraderCooldown() {
         return this.config.getInt("trader.cooldown", 5);
     }
@@ -392,7 +449,43 @@ public class ConfigManager {
     }
 
     public String getMessage(String key) {
-        return this.config.getString("messages." + key, "").replace("&", "\u00a7");
+        return ConfigManager.renderMessage(this.config.getString("messages." + key, ""));
+    }
+
+    private static final net.kyori.adventure.text.minimessage.MiniMessage MINI = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage();
+    private static final net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer SECTION_HEX =
+        net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.builder().character('\u00a7').hexColors().useUnusualXRepeatedCharacterHexFormat().build();
+    private static final String LEGACY_TAGS = "0black 1dark_blue 2dark_green 3dark_aqua 4dark_red 5dark_purple 6gold 7gray 8dark_gray 9blue agreen baqua cred dlight_purple eyellow fwhite kobfuscated lbold mstrikethrough nunderlined oitalic rreset";
+
+    /**
+     * Messages may use MiniMessage (gradients: {@code <gradient:#C77DFF:#4CC9F0>text</gradient>}),
+     * the old {@code &} colour codes, or both. Returned as a section-sign string with hex colours,
+     * which sendMessage(String) shows as written.
+     */
+    static String renderMessage(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return "";
+        }
+        if (raw.indexOf('<') < 0) {
+            return raw.replace("&", "\u00a7");
+        }
+        StringBuilder mm = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '&' && i + 1 < raw.length()) {
+                char code = Character.toLowerCase(raw.charAt(i + 1));
+                int at = LEGACY_TAGS.indexOf(" " + code) + 1;
+                if (LEGACY_TAGS.charAt(0) == code) at = 0;
+                if (at >= 0 && (at == 0 || LEGACY_TAGS.charAt(at - 1) == ' ')) {
+                    int end = LEGACY_TAGS.indexOf(' ', at);
+                    mm.append('<').append(LEGACY_TAGS, at + 1, end < 0 ? LEGACY_TAGS.length() : end).append('>');
+                    i++;
+                    continue;
+                }
+            }
+            mm.append(c);
+        }
+        return SECTION_HEX.serialize(MINI.deserialize(mm.toString()));
     }
 
     public String getPrefix() {

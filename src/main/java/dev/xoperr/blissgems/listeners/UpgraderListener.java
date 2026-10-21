@@ -31,7 +31,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public class UpgraderListener
 implements Listener {
@@ -77,82 +76,11 @@ implements Listener {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "upgrade-already-tier2", new Object[0]);
             return;
         }
-        int charges = this.plugin.getConfig().getInt("upgrader.charges", 3);
-        ItemMeta meta = item.getItemMeta();
-        int currentCharges = charges;
-        if (meta != null && meta.hasLore() && meta.getLore() != null) {
-            for (String line : meta.getLore()) {
-                String stripped = org.bukkit.ChatColor.stripColor(line);
-                if (stripped.startsWith("Charges: ")) {
-                    try { currentCharges = Integer.parseInt(stripped.substring(9).trim()); } catch (Exception ignored) {}
-                    break;
-                }
-            }
-        }
-        if (currentCharges <= 0) {
-            player.sendMessage("§cThis upgrader has no charges left!");
-            return;
-        }
         if (this.plugin.getGemManager().upgradeGem(player, currentGemId)) {
-            boolean upgraderInOffHand;
-            ItemStack mainHand = player.getInventory().getItemInMainHand();
-            ItemStack offHand = player.getInventory().getItemInOffHand();
-            boolean upgraderInMainHand = mainHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(mainHand));
-            boolean bl = upgraderInOffHand = offHand != null && "gem_upgrader".equals(CustomItemManager.getIdByItem(offHand));
-            currentCharges--;
-            if (currentCharges <= 0) {
-                if (item.getAmount() > 1) {
-                    item.setAmount(item.getAmount() - 1);
-                } else if (upgraderInMainHand) {
-                    player.getInventory().setItemInMainHand(null);
-                } else if (upgraderInOffHand) {
-                    player.getInventory().setItemInOffHand(null);
-                }
-                player.sendMessage("§eUpgrader used all charges and was consumed.");
-            } else {
-                if (meta != null) {
-                    java.util.List<String> lore = meta.getLore() != null ? new java.util.ArrayList<>(meta.getLore()) : new java.util.ArrayList<>();
-                    boolean found = false;
-                    for (int i = 0; i < lore.size(); i++) {
-                        String stripped = org.bukkit.ChatColor.stripColor(lore.get(i));
-                        if (stripped.startsWith("Charges: ")) {
-                            lore.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        lore.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                    }
-                    meta.setLore(lore);
-                    item.setItemMeta(meta);
-                }
-                if (item.getAmount() > 1) {
-                    item.setAmount(item.getAmount() - 1);
-                    ItemStack updated = item.clone();
-                    updated.setAmount(1);
-                    if (updated.getItemMeta() != null) {
-                        ItemMeta um = updated.getItemMeta();
-                        java.util.List<String> ul = um.getLore() != null ? new java.util.ArrayList<>(um.getLore()) : new java.util.ArrayList<>();
-                        boolean uf = false;
-                        for (int i = 0; i < ul.size(); i++) {
-                            if (org.bukkit.ChatColor.stripColor(ul.get(i)).startsWith("Charges: ")) {
-                                ul.set(i, "§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                                uf = true;
-                                break;
-                            }
-                        }
-                        if (!uf) ul.add("§7Charges: §e" + currentCharges + "§7/§e" + charges);
-                        um.setLore(ul);
-                        updated.setItemMeta(um);
-                    }
-                    if (upgraderInMainHand) {
-                        player.getInventory().setItemInMainHand(updated);
-                    } else if (upgraderInOffHand) {
-                        player.getInventory().setItemInOffHand(updated);
-                    }
-                }
-            }
+            // Always act on the exact upgrader that was used (event.getItem() is that stack), never
+            // on "whatever is in the hand now": swapping hotbar slots mid-use used to skip the
+            // consume and leave an infinite upgrader.
+            item.setAmount(item.getAmount() - 1);
             if (this.plugin.getConfigManager().shouldPlayUpgradeEffects()) {
                 try {
                     String soundName = this.plugin.getConfigManager().getUpgradeSound();

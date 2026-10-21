@@ -66,6 +66,10 @@ public class GemManager {
         } else {
             this.activeGems.remove(player.getUniqueId());
         }
+        // Keep the energy line on gem tooltips current (writes only when the text actually changed).
+        if (foundGem != null) {
+            this.updateGemTextures(player);
+        }
     }
 
     public ActiveGem getActiveGem(Player player) {
@@ -155,7 +159,9 @@ public class GemManager {
     }
 
     public boolean hasGemTypeInOffhand(Player player, GemType type) {
-        if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type) || this.hasHarvestedSoul(player, type)) {
+        // the Gold Gem now IS its channelled soul's gem (gold skin), so only the real item counts;
+        // other harvested souls no longer leak their passives in
+        if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
             return true;
         }
         if (this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
@@ -460,6 +466,10 @@ public class GemManager {
             return false;
         }
         ItemStack currentGem = this.findGemInInventory(player);
+        if (CustomItemManager.isGoldSkinned(currentGem)) {
+            player.sendMessage("\u00a76The Gold Gem's soul can only be changed with /bliss gold.");
+            return false;
+        }
         if (currentGem == null) {
             return false;
         }
@@ -518,6 +528,10 @@ public class GemManager {
             return false;
         }
         ItemStack currentGem = this.findGemInInventory(player);
+        if (CustomItemManager.isGoldSkinned(currentGem)) {
+            player.sendMessage("\u00a76The Gold Gem's soul can only be changed with /bliss gold.");
+            return false;
+        }
         if (currentGem == null) {
             return false;
         }
@@ -581,6 +595,7 @@ public class GemManager {
     }
 
     public void updateGemTextures(Player player) {
+        CustomItemManager.migrateGemMaterials(player.getInventory());
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;

@@ -84,10 +84,12 @@ implements Listener {
         int duration = config.getInt("revive-beacon.duration", 300);
         double range = config.getDouble("revive-beacon.range", 10.0);
         Location beaconLoc = player.getLocation().clone();
-        if (item.getAmount() > 1) {
-            item.setAmount(item.getAmount() - 1);
-        } else {
-            player.getInventory().setItemInMainHand(null);
+        if (config.getBoolean("revive-beacon.single-use", true)) {
+            if (item.getAmount() > 1) {
+                item.setAmount(item.getAmount() - 1);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
         }
         int minutes = duration / 60;
         int seconds = duration % 60;

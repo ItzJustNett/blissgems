@@ -209,6 +209,47 @@ implements Listener {
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 
+    /**
+     * Hitting something with a gem in the main hand is the "hit" input (the same binding as left
+     * click). Astra's hit on a player is always Unbounded; sneak-hitting a mob with Astra is soul
+     * capture, not an ability.
+     */
+    @EventHandler(priority=EventPriority.HIGH, ignoreCancelled=true)
+    public void onGemHit(org.bukkit.event.entity.EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player)) {
+            return;
+        }
+        Player player = (Player)event.getDamager();
+        if (event.getCause() != org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+            return;
+        }
+        String id = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (id == null || !id.endsWith("_gem_t1") && !id.endsWith("_gem_t2")) {
+            return;
+        }
+        boolean astra = id.startsWith("astra_gem");
+        if (astra && player.isSneaking() && !(event.getEntity() instanceof Player)) {
+            return;
+        }
+        if (astra && !player.isSneaking() && event.getEntity() instanceof Player) {
+            if (this.gateAbility(player) && this.plugin.getAstraUnbounded() != null) {
+                this.plugin.getAstraUnbounded().start(player, (Player)event.getEntity());
+            }
+            return;
+        }
+        AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, AbilityBinding.leftClick(player.isSneaking())) : null;
+        if (slot == null) {
+            return;
+        }
+        if ((slot == AbilitySlot.QUINARY || slot == AbilitySlot.SENARY) && !"gold_gem_t1".equals(id)) {
+            return;
+        }
+        if (!this.gateAbility(player)) {
+            return;
+        }
+        this.plugin.getBlissCommand().triggerSlot(player, slot);
+    }
+
     private void dispatchBoundAbility(Player player, AbilityBinding input) {
         AbilitySlot slot;
         if (!this.gateAbility(player)) {
@@ -301,6 +342,10 @@ implements Listener {
         event.setCancelled(true);
         int currentEnergy = this.plugin.getEnergyManager().getEnergy(player);
         int maxEnergy = this.plugin.getConfigManager().getMaxEnergy();
+        if (currentEnergy <= 0) {
+            player.sendMessage("\u00a7c\u00a7oYour gem is \u00a7c\u00a7lBROKEN\u00a7c\u00a7o! Only a Restoration Ritual can reforge it.");
+            return;
+        }
         if (currentEnergy >= maxEnergy) {
             String msg2 = this.plugin.getConfigManager().getFormattedMessage("energy-already-max", new Object[0]);
             if (msg2 == null || msg2.isEmpty()) {
@@ -318,9 +363,8 @@ implements Listener {
         } else {
             player.getInventory().setItemInMainHand(null);
         }
-        if (this.plugin.getConfigManager().isEnergyBottleDropEnabled()) {
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-            player.spawnParticle(Particle.HEART, player.getLocation().add(0.0, 1.0, 0.0), 20, 0.5, 0.5, 0.5);
+        if (this.plugin.getConfig().getBoolean("energy-bottle.play-effects", true)) {
+            this.plugin.getConfigManager().playConfiguredEffect(player, "energy-bottle", Particle.HEART, 20, Sound.ENTITY_EXPERIENCE_ORB_PICKUP);
         }
         if ((msg = this.plugin.getConfigManager().getFormattedMessage("energy-bottle-consumed", new Object[0])) != null && !msg.isEmpty()) {
             player.sendMessage(msg);
@@ -368,8 +412,7 @@ implements Listener {
                 this.plugin.getAchievementManager().unlock(player, Achievement.TIME_FOR_A_CHANGE);
             }
             if (this.plugin.getConfigManager().shouldPlayTradeEffects()) {
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                player.spawnParticle(Particle.PORTAL, player.getLocation().add(0.0, 1.0, 0.0), 30, 0.5, 0.5, 0.5);
+                this.plugin.getConfigManager().playConfiguredEffect(player, "trader", Particle.PORTAL, 30, Sound.ENTITY_ENDERMAN_TELEPORT);
             }
             if ((msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId))) != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
@@ -381,7 +424,7 @@ implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+        if (dev.xoperr.blissgems.managers.FluxEnergyManager.isDeposit(event.getView().getTopInventory())) {
             if (this.plugin.getFluxEnergyManager() != null) {
                 this.plugin.getFluxEnergyManager().onInventoryClick(event);
             }
@@ -712,7 +755,7 @@ implements Listener {
             return;
         }
         Player player = (Player)event.getPlayer();
-        if (event.getView().getTitle().equals("\u00a7b\ud83d\udd2e Flux Charging Station")) {
+        if (dev.xoperr.blissgems.managers.FluxEnergyManager.isDeposit(event.getInventory())) {
             if (this.plugin.getFluxEnergyManager() != null) {
                 this.plugin.getFluxEnergyManager().onInventoryClose(event);
             }

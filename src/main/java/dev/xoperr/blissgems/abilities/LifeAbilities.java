@@ -131,7 +131,7 @@ implements GemAbilityHandler {
         }
         int duration = this.plugin.getConfigManager().getAbilityDuration("life-circle");
         int durationTicks = duration * 20;
-        double radius = this.plugin.getConfig().getDouble("abilities.life-circle.radius", 8.0);
+        double radius = this.plugin.getConfig().getDouble("abilities.life-circle.radius", 6.0);
         double healthIncrease = this.plugin.getConfig().getDouble("abilities.life-circle.max-health-increase", 4.0);
         double healthDecrease = this.plugin.getConfig().getDouble("abilities.life-circle.max-health-decrease", 4.0);
         Set<UUID> modifiedInCircle = new HashSet<>();

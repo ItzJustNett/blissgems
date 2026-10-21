@@ -74,6 +74,14 @@ public final class GemCosmetics {
         return NAMES.containsKey(itemId) || LORE.containsKey(itemId);
     }
 
+    public static Component name(String itemId) {
+        return NAMES.get(itemId);
+    }
+
+    public static List<Component> lore(String itemId) {
+        return LORE.get(itemId);
+    }
+
     public static boolean apply(ItemMeta meta, String itemId) {
         List<Component> lore;
         boolean applied = false;

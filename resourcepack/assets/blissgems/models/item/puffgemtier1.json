@@ -1,0 +1,36 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "blissgems:item/puffgemtier1"
+  },
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [-45, -90, 0],
+      "translation": [0, -1.5, -1.5],
+      "scale": [0.4, 0.4, 0.75]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [45, -90, 0],
+      "translation": [0, -1.5, -1.5],
+      "scale": [0.4, 0.4, 0.75]
+    },
+    "firstperson_righthand": {
+      "rotation": [0.0, -88.75, 30.5],
+      "translation": [1.24, 3.51, 1.88],
+      "scale": [0.2, 0.2, 0.4]
+    },
+    "firstperson_lefthand": {
+      "rotation": [85, 90, -114],
+      "translation": [1.24, 3.51, 1.88],
+      "scale": [0.2, 0.2, 0.4]
+    },
+    "gui": {
+      "rotation": [-23, -21, 0],
+      "scale": [0.8, 0.8, 4]
+    },
+    "fixed": {
+      "rotation": [0, 0, 90],
+      "scale": [0.8, 0.8, 0.8]
+    }
+  }
+}

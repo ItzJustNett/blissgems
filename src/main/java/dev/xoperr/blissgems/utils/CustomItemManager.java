@@ -25,6 +25,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -38,7 +42,17 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class CustomItemManager {
+    /**
+     * Every gem is a nautilus shell: Bedrock (Geyser) only lets a few items into the off hand, and the
+     * nautilus shell is one of them, so Bedrock players can hold their gem there too. The resource pack
+     * gives it the gem models (assets/minecraft/items/nautilus_shell.json, same custom_model_data).
+     */
+    public static final Material GEM_MATERIAL = Material.NAUTILUS_SHELL;
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
+    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
     private static final Map<String, CustomItemData> ITEM_REGISTRY = new HashMap<String, CustomItemData>();
+    /** Materials used by soul gems; lets hot inventory scans skip other items without reading their meta. */
+    private static final java.util.Set<Material> GEM_MATERIALS = java.util.EnumSet.noneOf(Material.class);
     private static NamespacedKey ITEM_ID_KEY;
     private static NamespacedKey UNDROPPABLE_KEY;
     private static NamespacedKey OWNER_KEY;
@@ -60,6 +74,25 @@ public class CustomItemManager {
         VILLAGER_SOUL_KEY = new NamespacedKey((Plugin)plugin, "villager_soul");
         VILLAGER_DATA_KEY = new NamespacedKey((Plugin)plugin, "villager_data");
         GemCosmetics.initialize(plugin);
+    }
+
+    /** A normal gem item wearing the Gold Gem's skin (it carries a gold instance id but a soul gem's id). */
+    public static boolean isGoldSkinned(ItemStack item) {
+        String id = CustomItemManager.getIdByItem(item);
+        return id != null && !"gold_gem_t1".equals(id) && CustomItemManager.getGoldInstanceId(item) != null;
+    }
+
+    /** Stamps a specific gold instance id on an item (used when re-skinning the Gold Gem). */
+    public static void setGoldInstanceId(ItemStack item, UUID id) {
+        if (GOLD_INSTANCE_KEY == null || item == null || id == null) {
+            return;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        meta.getPersistentDataContainer().set(GOLD_INSTANCE_KEY, PersistentDataType.STRING, id.toString());
+        item.setItemMeta(meta);
     }
 
     public static UUID getGoldInstanceId(ItemStack item) {
@@ -146,6 +179,9 @@ public class CustomItemManager {
 
     private static void registerItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
         ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
+        if (id.contains("_gem_t")) {
+            GEM_MATERIALS.add(material);
+        }
     }
 
     public static void registerAddonItem(String id, Material material, int customModelData, String displayName, List<String> lore) {
@@ -154,6 +190,14 @@ public class CustomItemManager {
             return;
         }
         ITEM_REGISTRY.put(id, new CustomItemData(material, customModelData, displayName, lore));
+        if (id.contains("_gem_t")) {
+            GEM_MATERIALS.add(material);
+        }
+    }
+
+    /** Cheap pre-check (no item meta read): could this item be a soul gem? */
+    public static boolean mayBeGem(ItemStack item) {
+        return item != null && GEM_MATERIALS.contains(item.getType());
     }
 
     public static String getIdByItem(ItemStack item) {
@@ -193,17 +237,17 @@ public class CustomItemManager {
         if (GemType.isGem(id)) {
             meta.getPersistentDataContainer().set(UNDROPPABLE_KEY, PersistentDataType.BYTE, (byte)1);
         }
-        if (GemCosmetics.apply(meta, id)) {
-            if (GemType.isGem(id)) {
-                CustomItemManager.applyEnhancedGlint(meta, energy);
-            }
-        } else {
+        if (GemType.isGem(id) && !id.startsWith("gold_gem")) {
+            CustomItemManager.renderGem(meta, id, data, energy);
+        } else if (!GemCosmetics.apply(meta, id)) {
             meta.setDisplayName(data.displayName);
             if (GemType.isGem(id)) {
                 CustomItemManager.applyPristinePlusVisuals(meta, data.lore, energy);
             } else if (data.lore != null && !data.lore.isEmpty()) {
                 meta.setLore(data.lore);
             }
+        } else if (GemType.isGem(id)) {
+            CustomItemManager.applyEnhancedGlint(meta, energy);
         }
         CustomItemManager.applySignatureEnchants(id, meta);
         item.setItemMeta(meta);
@@ -306,33 +350,99 @@ public class CustomItemManager {
         }
     }
 
+    /**
+     * Turns gems made before the nautilus-shell switch (echo shards, prismarine crystals) into nautilus
+     * shells, keeping everything else on the item (id, owner, anti-dupe stamp, lore, enchants).
+     * Returns how many were changed.
+     */
+    public static int migrateGemMaterials(org.bukkit.inventory.Inventory inv) {
+        int changed = 0;
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (item == null || item.getType() == GEM_MATERIAL) continue;
+            String id = CustomItemManager.getIdByItem(item);
+            if (id == null || !(GemType.isGem(id) || id.startsWith("gold_gem") || CustomItemManager.isGoldSkinned(item))) continue;
+            inv.setItem(i, item.withType(GEM_MATERIAL));
+            ++changed;
+        }
+        return changed;
+    }
+
     public static void updateGemTexture(ItemStack item, int energy) {
-        if (item == null || !item.hasItemMeta()) {
+        if (!CustomItemManager.mayBeGem(item) || !item.hasItemMeta()) {
             return;
         }
         String id = CustomItemManager.getIdByItem(item);
         if (id == null || !GemType.isGem(id)) {
             return;
         }
-        if (id.startsWith("gold_gem")) {
+        if (id.startsWith("gold_gem") || CustomItemManager.isGoldSkinned(item)) {
             return;
         }
         CustomItemData data = ITEM_REGISTRY.get(id);
         if (data == null) {
             return;
         }
+        ItemMeta before = item.getItemMeta();
         ItemMeta meta = item.getItemMeta();
         if (meta == null) {
             return;
         }
         int pristineModelData = CustomItemManager.getPristineModelData(data.customModelData, energy, id);
         meta.setCustomModelData(Integer.valueOf(pristineModelData));
-        if (GemCosmetics.has(id)) {
-            CustomItemManager.applyEnhancedGlint(meta, energy);
-        } else {
-            CustomItemManager.applyPristinePlusVisuals(meta, data.lore, energy);
+        CustomItemManager.renderGem(meta, id, data, energy);
+        // Only write when something changed: rewriting meta every tick causes client desyncs.
+        if (!meta.equals(before)) {
+            item.setItemMeta(meta);
         }
-        item.setItemMeta(meta);
+    }
+
+    /**
+     * Name and lore of a soul gem: cosmetics.yml text (or the legacy text), a live level line above the
+     * lore, and any Owner/Charges lines the item already carried.
+     */
+    private static void renderGem(ItemMeta meta, String id, CustomItemData data, int energy) {
+        List<Component> kept = new ArrayList<>();
+        List<Component> old = meta.lore();
+        if (old != null) {
+            for (Component c : old) {
+                String plain = PLAIN.serialize(c);
+                if (plain.startsWith("Owner: ") || plain.startsWith("Charges: ")) {
+                    kept.add(c);
+                }
+            }
+        }
+        Component name = GemCosmetics.name(id);
+        meta.displayName(name != null ? name : CustomItemManager.legacy(data.displayName));
+        List<Component> lore = new ArrayList<>();
+        List<Component> base = GemCosmetics.lore(id);
+        if (base != null) {
+            lore.addAll(base);
+        } else if (data.lore != null) {
+            for (String line : data.lore) {
+                lore.add(CustomItemManager.legacy(line));
+            }
+        }
+        if (energy >= 0) {
+            lore.add(0, CustomItemManager.energyLine(energy));
+        }
+        if (!kept.isEmpty()) {
+            lore.add(Component.empty());
+            lore.addAll(kept);
+        }
+        meta.lore(lore.isEmpty() ? null : lore);
+        CustomItemManager.applyEnhancedGlint(meta, energy);
+    }
+
+    /** The level line at the top of a gem's lore, as the Oraxen text had it: " (Pristine)", " (Cracked)", " (Pristine +2)". */
+    public static Component energyLine(int energy) {
+        EnergyState state = EnergyState.fromEnergy(energy);
+        String color = state == EnergyState.PRISTINE ? "\u00a7b" : state.getDisplayName().substring(0, 2);
+        return CustomItemManager.legacy(" \u00a7f(" + color + state.getName() + "\u00a7f)");
+    }
+
+    private static Component legacy(String text) {
+        return LEGACY.deserialize(text).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
     }
 
     private static void applyPristinePlusVisuals(ItemMeta meta, List<String> baseLore, int energy) {
@@ -453,23 +563,23 @@ public class CustomItemManager {
         CustomItemManager.registerItem("netherite_boots_mythic", Material.NETHERITE_BOOTS, 7004, "\u00a76\u00a7lMythic Netherite Boots", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (962 Max)"));
         CustomItemManager.registerItem("player_tracker", Material.COMPASS, 8001, "\u00a7a\u00a7lPlayer Tracker", List.of("\u00a77Points towards the nearest player.", "", "\u00a7eTrade with the Energy Games Villager", "\u00a7efor raw Energy."));
         CustomItemManager.registerItem("villager_soul", Material.NETHER_STAR, 8002, "\u00a7d\u00a7lVillager Soul", List.of("\u00a77An essence encapsulating a merchant.", "", "\u00a7eShift + Right-Click block to release.", "\u00a78Preserves all trade history and limits."));
-        CustomItemManager.registerItem("astra_gem_t1", Material.ECHO_SHARD, 1001, "\u00a7d\u00a7lASTRA GEM", List.of("\u00a7f\u00a7lMANAGE THE TIDES OF THE COSMOS", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Soul Capture & Soul Healing", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd2a ASTRAL DAGGERS", "\u00a77Conjure 3 phantom daggers, launch each one by one", "", "\u00a78Upgrade to Tier 2 for Astral Projection,", "\u00a78Dimensional Drift & Void!"));
-        CustomItemManager.registerItem("fire_gem_t1", Material.ECHO_SHARD, 1002, "\u00a7d\u00a7lFIRE GEM", List.of("\u00a7f\u00a7lMANIPULATE FIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Fire Resistance", "\u00a77- Flame & Fire Aspect on weapons", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd25 CHARGED FIREBALL", "\u00a77Hold to charge, release to fire", "\u00a77Stand on obsidian to prevent charge decay", "", "\u00a78Upgrade to Tier 2 for Campfire,", "\u00a78Crisp & Meteor Shower!"));
-        CustomItemManager.registerItem("flux_gem_t1", Material.ECHO_SHARD, 1003, "\u00a7d\u00a7lFLUX GEM", List.of("\u00a7f\u00a7lWITH GREAT POWER COMES GREAT RESPONSIBILITY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Immune to Weakness, Slowness & Hunger", "\u00a77- Shocking Chance (stun on arrow hits)", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Conduction (/bliss conduction \u2192 nearest copper block)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2720 FLUX BEAM", "\u00a77Charge and fire a powerful beam", "\u00a77Charged beam deals massive armor damage", "", "\u00a78Upgrade to Tier 2 for Ground & more!"));
-        CustomItemManager.registerItem("life_gem_t1", Material.ECHO_SHARD, 1004, "\u00a7d\u00a7lLIFE GEM", List.of("\u00a7f\u00a7lCONTROL THE BALANCE OF LIFE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Wither immunity", "\u00a77- Continuous healing", "\u00a77- Unbreaking on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udc98 HEART DRAINER", "\u00a77Siphon health from your enemies", "", "\u00a78Upgrade to Tier 2 for Life Circle,", "\u00a78Vitality Vortex & Heart Lock!"));
-        CustomItemManager.registerItem("puff_gem_t1", Material.ECHO_SHARD, 1005, "\u00a7d\u00a7lPUFF GEM", List.of("\u00a7f\u00a7lBE THE BIGGEST BIRD", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- No fall damage", "\u00a77- Power & Punch on bows", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Double Jump", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2601 DASH", "\u00a77Dashes in the direction you're looking", "\u00a77Deals damage if passing through enemies", "", "\u00a78Upgrade to Tier 2 for Breezy Bash!"));
-        CustomItemManager.registerItem("speed_gem_t1", Material.ECHO_SHARD, 1006, "\u00a7d\u00a7lSPEED GEM", List.of("\u00a7f\u00a7lWATCH THE WORLD TURN INTO A BLUR", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Speed I & Dolphin's Grace", "\u00a77- Efficiency on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u26a1 BLUR", "\u00a77Summons successive lightning strikes", "\u00a77dealing damage and knockback", "", "\u00a78Upgrade to Tier 2 for Speed Storm", "\u00a78& Terminal Velocity!"));
-        CustomItemManager.registerItem("strength_gem_t1", Material.ECHO_SHARD, 1007, "\u00a7d\u00a7lSTRENGTH GEM", List.of("\u00a7f\u00a7lHAVE THE STRENGTH OF AN ARMY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Strength I", "\u00a77- Sharpness II on weapons", "\u00a77- Bloodthorns (more damage at low HP)", "", "\u00a78No active abilities at Tier 1", "\u00a78Upgrade to Tier 2 for Nullify, Frailer", "\u00a78& Shadow Stalker!"));
-        CustomItemManager.registerItem("wealth_gem_t1", Material.ECHO_SHARD, 1008, "\u00a7d\u00a7lWEALTH GEM", List.of("\u00a7f\u00a7lFUEL AN EMPIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Luck & Hero of the Village", "\u00a77- Mending, Fortune & Looting on tools", "\u00a77- Durability Chip (extra armor damage)", "", "\u00a78No active abilities at Tier 1", "\u00a78Upgrade to Tier 2 for Pockets,", "\u00a78Unfortunate & more!"));
-        CustomItemManager.registerItem("gold_gem_t1", Material.PRISMARINE_CRYSTALS, 1009, "\u00a76\u00a7lGOLD GEM", List.of("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE", "\u00a76(Dormant)", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lPASSIVES", "\u00a77- \u00a7kunstable power", "\u00a77- \u00a7kharvested souls", "\u00a77- \u00a7ksoulbound vessel", "\u00a77- \u00a7kfraying lines", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lABILITY", "\u00a77- \u00a7ksundering beam", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lPOWERS", "\u00a77- \u00a7kchannelled soul", "\u00a77- \u00a7krepurposing", "", "\u00a77- \u00a7kawakening", "\u00a77- \u00a7keight as one"));
-        CustomItemManager.registerItem("astra_gem_t2", Material.ECHO_SHARD, 2001, "\u00a7d\u00a7lASTRA GEM", List.of("\u00a7f\u00a7lMANAGE THE TIDES OF THE COSMOS", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Soul Capture & Soul Healing", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd2a ASTRAL DAGGERS", "\u00a77Conjure 3 phantom daggers, launch each one by one", "", "\u00a7b\u00a7l\ud83d\udc7b ASTRAL PROJECTION", "\u00a77Scout in spectator mode", "\u00a77Sub-abilities: \u00a7dSpook \u00a77& \u00a7dTag", "", "\u00a7b\u00a7l\ud83c\udf00 DIMENSIONAL DRIFT", "\u00a77Dash forward through the rift, briefly invisible", "", "\u00a7b\u00a7l\ud83d\udd73 DIMENSIONAL VOID", "\u00a77Nullify enemy gem abilities in radius"));
-        CustomItemManager.registerItem("fire_gem_t2", Material.ECHO_SHARD, 2002, "\u00a7d\u00a7lFIRE GEM", List.of("\u00a7f\u00a7lMANIPULATE FIRE", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Fire Resistance", "\u00a77- Flame & Fire Aspect on weapons", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd25 CHARGED FIREBALL", "\u00a77Hold to charge, release to fire", "\u00a77Stand on obsidian to prevent charge decay", "", "\u00a7b\u00a7l\ud83e\udd7e COZY CAMPFIRE", "\u00a77Spawns a campfire granting allies Regen IV", "", "\u00a7b\u00a7l\ud83e\uddca CRISP", "\u00a77Evaporate water, replace blocks with nether", "", "\u00a7b\u00a7l\ud83e\udde8 METEOR SHOWER", "\u00a77Rain fire on a target area"));
-        CustomItemManager.registerItem("flux_gem_t2", Material.ECHO_SHARD, 2003, "\u00a7d\u00a7lFLUX GEM", List.of("\u00a7f\u00a7lWITH GREAT POWER COMES GREAT RESPONSIBILITY", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Immune to Weakness, Slowness & Hunger", "\u00a77- Shocking Chance (stun on arrow hits)", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Conduction (/bliss conduction \u2192 nearest copper block)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2720 FLUX BEAM", "\u00a77Chargeable beam dealing massive armor damage", "", "\u00a7b\u00a7l\ud83c\udf00 GROUND", "\u00a77Freeze enemies in place", "", "\u00a7b\u00a7l\ud83d\udca5 FLASHBANG", "\u00a77Blindness and Nausea to enemies in radius", "", "\u00a7b\u00a7l\u26a1 KINETIC BURST", "\u00a77Radial knockback with sonic boom"));
-        CustomItemManager.registerItem("life_gem_t2", Material.ECHO_SHARD, 2004, "\u00a7d\u00a7lLIFE GEM", List.of("\u00a7f\u00a7lCONTROL THE BALANCE OF LIFE", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Wither immunity", "\u00a77- Continuous healing", "\u00a77- Unbreaking on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udc98 HEART DRAINER", "\u00a77Siphon health from your enemies", "", "\u00a7b\u00a7l\u2728 CIRCLE OF LIFE", "\u00a77Zone that decreases enemy max HP", "\u00a77and increases yours and allies' HP", "", "\u00a7b\u00a7l\ud83d\udcab VITALITY VORTEX", "\u00a77Grants effects based on your surroundings", "", "\u00a7b\u00a7l\ud83d\udd12 HEART LOCK", "\u00a77Cap enemy max HP at their current HP"));
-        CustomItemManager.registerItem("puff_gem_t2", Material.ECHO_SHARD, 2005, "\u00a7d\u00a7lPUFF GEM", List.of("\u00a7f\u00a7lBE THE BIGGEST BIRD", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- No fall damage", "\u00a77- Power & Punch on bows", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Double Jump", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2601 DASH", "\u00a77Dashes in the direction you're looking", "\u00a77Deals damage if passing through enemies", "", "\u00a7b\u00a7l\u23eb BREEZY BASH", "\u00a77Launch an enemy skyward then slam them", "", "\u00a7b\u00a7l\ud83c\udf2a GROUP BREEZY BASH", "\u00a77Send all nearby enemies flying away"));
-        CustomItemManager.registerItem("speed_gem_t2", Material.ECHO_SHARD, 2006, "\u00a7d\u00a7lSPEED GEM", List.of("\u00a7f\u00a7lWATCH THE WORLD TURN INTO A BLUR", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Speed I & Dolphin's Grace", "\u00a77- Efficiency on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u26a1 BLUR", "\u00a77Summons successive lightning strikes", "\u00a77dealing damage and knockback", "", "\u00a7b\u00a7l\ud83c\udf29 SPEED STORM", "\u00a77Freezes enemies while granting allies", "\u00a77Speed and Haste", "", "\u00a7b\u00a7l\ud83d\udca8 TERMINAL VELOCITY", "\u00a77Speed III + Haste II for a short duration"));
-        CustomItemManager.registerItem("strength_gem_t2", Material.ECHO_SHARD, 2007, "\u00a7d\u00a7lSTRENGTH GEM", List.of("\u00a7f\u00a7lHAVE THE STRENGTH OF AN ARMY", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Strength I", "\u00a77- Sharpness V on weapons", "\u00a77- Bloodthorns (more damage at low HP)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2694 CHAD STRENGTH", "\u00a77Empower your next few hits with bonus damage", "", "\u00a7b\u00a7l\ud83d\udc94 FRAILER", "\u00a77Apply Weakness I (20s), Slowness & Wither I (40s)", "", "\u00a7b\u00a7l\ud83d\udd0d SHADOW STALKER", "\u00a77Consume a player head or an owned item", "\u00a77to track a player's location", "", "\u00a7b\u00a7l\ud83d\udeab NULLIFY", "\u00a77Temporarily strip a target's potion effects"));
-        CustomItemManager.registerItem("wealth_gem_t2", Material.ECHO_SHARD, 2008, "\u00a7d\u00a7lWEALTH GEM", List.of("\u00a7f\u00a7lFUEL AN EMPIRE", "\u00a7a\u00a7o(Pristine)", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Luck & Hero of the Village", "\u00a77- Mending, Fortune & Looting on tools", "\u00a77- Durability Chip & Armor Mend", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udcb8 UNFORTUNATE", "\u00a77Chance to disable enemy actions", "", "\u00a7b\u00a7l\ud83c\udf92 POCKETS", "\u00a779 extra inventory slots (/bliss pockets)", "", "\u00a7b\u00a7l\ud83d\udd12 ITEM LOCK", "\u00a77Lock an enemy's held item temporarily", "", "\u00a7b\u00a7l\u2728 AMPLIFICATION", "\u00a77Boost all enchantments for 45s", "", "\u00a7b\u00a7l\ud83c\udf40 RICH RUSH", "\u00a77Increased drop rates for ~3 min"));
+        CustomItemManager.registerItem("astra_gem_t1", GEM_MATERIAL, 1001, "\u00a7d\u00a7lASTRA GEM", List.of("\u00a7f\u00a7lMANAGE THE TIDES OF THE COSMOS", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Soul Capture & Soul Healing", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd2a ASTRAL DAGGERS", "\u00a77Conjure 3 phantom daggers, launch each one by one", "", "\u00a78Upgrade to Tier 2 for Astral Projection,", "\u00a78Dimensional Drift & Void!"));
+        CustomItemManager.registerItem("fire_gem_t1", GEM_MATERIAL, 1002, "\u00a7d\u00a7lFIRE GEM", List.of("\u00a7f\u00a7lMANIPULATE FIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Fire Resistance", "\u00a77- Flame & Fire Aspect on weapons", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd25 CHARGED FIREBALL", "\u00a77Hold to charge, release to fire", "\u00a77Stand on obsidian to prevent charge decay", "", "\u00a78Upgrade to Tier 2 for Campfire,", "\u00a78Crisp & Meteor Shower!"));
+        CustomItemManager.registerItem("flux_gem_t1", GEM_MATERIAL, 1003, "\u00a7d\u00a7lFLUX GEM", List.of("\u00a7f\u00a7lWITH GREAT POWER COMES GREAT RESPONSIBILITY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Immune to Weakness, Slowness & Hunger", "\u00a77- Shocking Chance (stun on arrow hits)", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Conduction (/bliss conduction \u2192 nearest copper block)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2720 FLUX BEAM", "\u00a77Charge and fire a powerful beam", "\u00a77Charged beam deals massive armor damage", "", "\u00a78Upgrade to Tier 2 for Ground & more!"));
+        CustomItemManager.registerItem("life_gem_t1", GEM_MATERIAL, 1004, "\u00a7d\u00a7lLIFE GEM", List.of("\u00a7f\u00a7lCONTROL THE BALANCE OF LIFE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Wither immunity", "\u00a77- Continuous healing", "\u00a77- Unbreaking on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udc98 HEART DRAINER", "\u00a77Siphon health from your enemies", "", "\u00a78Upgrade to Tier 2 for Life Circle,", "\u00a78Vitality Vortex & Heart Lock!"));
+        CustomItemManager.registerItem("puff_gem_t1", GEM_MATERIAL, 1005, "\u00a7d\u00a7lPUFF GEM", List.of("\u00a7f\u00a7lBE THE BIGGEST BIRD", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- No fall damage", "\u00a77- Power & Punch on bows", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Double Jump", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2601 DASH", "\u00a77Dashes in the direction you're looking", "\u00a77Deals damage if passing through enemies", "", "\u00a78Upgrade to Tier 2 for Breezy Bash!"));
+        CustomItemManager.registerItem("speed_gem_t1", GEM_MATERIAL, 1006, "\u00a7d\u00a7lSPEED GEM", List.of("\u00a7f\u00a7lWATCH THE WORLD TURN INTO A BLUR", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Speed I & Dolphin's Grace", "\u00a77- Efficiency on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u26a1 BLUR", "\u00a77Summons successive lightning strikes", "\u00a77dealing damage and knockback", "", "\u00a78Upgrade to Tier 2 for Speed Storm", "\u00a78& Terminal Velocity!"));
+        CustomItemManager.registerItem("strength_gem_t1", GEM_MATERIAL, 1007, "\u00a7d\u00a7lSTRENGTH GEM", List.of("\u00a7f\u00a7lHAVE THE STRENGTH OF AN ARMY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Strength I", "\u00a77- Sharpness II on weapons", "\u00a77- Bloodthorns (more damage at low HP)", "", "\u00a78No active abilities at Tier 1", "\u00a78Upgrade to Tier 2 for Nullify, Frailer", "\u00a78& Shadow Stalker!"));
+        CustomItemManager.registerItem("wealth_gem_t1", GEM_MATERIAL, 1008, "\u00a7d\u00a7lWEALTH GEM", List.of("\u00a7f\u00a7lFUEL AN EMPIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Luck & Hero of the Village", "\u00a77- Mending, Fortune & Looting on tools", "\u00a77- Durability Chip (extra armor damage)", "", "\u00a78No active abilities at Tier 1", "\u00a78Upgrade to Tier 2 for Pockets,", "\u00a78Unfortunate & more!"));
+        CustomItemManager.registerItem("gold_gem_t1", GEM_MATERIAL, 1009, "\u00a76\u00a7lGOLD GEM", List.of("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE", "\u00a76(Dormant)", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lPASSIVES", "\u00a77- \u00a7kunstable power", "\u00a77- \u00a7kharvested souls", "\u00a77- \u00a7ksoulbound vessel", "\u00a77- \u00a7kfraying lines", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lABILITY", "\u00a77- \u00a7ksundering beam", "", "\u00a76\ud83c\udf1f \u00a76\u00a7lPOWERS", "\u00a77- \u00a7kchannelled soul", "\u00a77- \u00a7krepurposing", "", "\u00a77- \u00a7kawakening", "\u00a77- \u00a7keight as one"));
+        CustomItemManager.registerItem("astra_gem_t2", GEM_MATERIAL, 2001, "\u00a7d\u00a7lASTRA GEM", List.of("\u00a7f\u00a7lMANAGE THE TIDES OF THE COSMOS", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Soul Capture & Soul Healing", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd2a ASTRAL DAGGERS", "\u00a77Conjure 3 phantom daggers, launch each one by one", "", "\u00a7b\u00a7l\ud83d\udc7b ASTRAL PROJECTION", "\u00a77Scout in spectator mode", "\u00a77Sub-abilities: \u00a7dSpook \u00a77& \u00a7dTag", "", "\u00a7b\u00a7l\ud83c\udf00 DIMENSIONAL DRIFT", "\u00a77Dash forward through the rift, briefly invisible", "", "\u00a7b\u00a7l\ud83d\udd73 DIMENSIONAL VOID", "\u00a77Nullify enemy gem abilities in radius"));
+        CustomItemManager.registerItem("fire_gem_t2", GEM_MATERIAL, 2002, "\u00a7d\u00a7lFIRE GEM", List.of("\u00a7f\u00a7lMANIPULATE FIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Fire Resistance", "\u00a77- Flame & Fire Aspect on weapons", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udd25 CHARGED FIREBALL", "\u00a77Hold to charge, release to fire", "\u00a77Stand on obsidian to prevent charge decay", "", "\u00a7b\u00a7l\ud83e\udd7e COZY CAMPFIRE", "\u00a77Spawns a campfire granting allies Regen IV", "", "\u00a7b\u00a7l\ud83e\uddca CRISP", "\u00a77Evaporate water, replace blocks with nether", "", "\u00a7b\u00a7l\ud83e\udde8 METEOR SHOWER", "\u00a77Rain fire on a target area"));
+        CustomItemManager.registerItem("flux_gem_t2", GEM_MATERIAL, 2003, "\u00a7d\u00a7lFLUX GEM", List.of("\u00a7f\u00a7lWITH GREAT POWER COMES GREAT RESPONSIBILITY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Immune to Weakness, Slowness & Hunger", "\u00a77- Shocking Chance (stun on arrow hits)", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Conduction (/bliss conduction \u2192 nearest copper block)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2720 FLUX BEAM", "\u00a77Chargeable beam dealing massive armor damage", "", "\u00a7b\u00a7l\ud83c\udf00 GROUND", "\u00a77Freeze enemies in place", "", "\u00a7b\u00a7l\ud83d\udca5 FLASHBANG", "\u00a77Blindness and Nausea to enemies in radius", "", "\u00a7b\u00a7l\u26a1 KINETIC BURST", "\u00a77Radial knockback with sonic boom"));
+        CustomItemManager.registerItem("life_gem_t2", GEM_MATERIAL, 2004, "\u00a7d\u00a7lLIFE GEM", List.of("\u00a7f\u00a7lCONTROL THE BALANCE OF LIFE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Wither immunity", "\u00a77- Continuous healing", "\u00a77- Unbreaking on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udc98 HEART DRAINER", "\u00a77Siphon health from your enemies", "", "\u00a7b\u00a7l\u2728 CIRCLE OF LIFE", "\u00a77Zone that decreases enemy max HP", "\u00a77and increases yours and allies' HP", "", "\u00a7b\u00a7l\ud83d\udcab VITALITY VORTEX", "\u00a77Grants effects based on your surroundings", "", "\u00a7b\u00a7l\ud83d\udd12 HEART LOCK", "\u00a77Cap enemy max HP at their current HP"));
+        CustomItemManager.registerItem("puff_gem_t2", GEM_MATERIAL, 2005, "\u00a7d\u00a7lPUFF GEM", List.of("\u00a7f\u00a7lBE THE BIGGEST BIRD", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- No fall damage", "\u00a77- Power & Punch on bows", "", "\u00a7b\ud83c\udf1f \u00a7b\u00a7lABILITY", "\u00a77- Double Jump", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2601 DASH", "\u00a77Dashes in the direction you're looking", "\u00a77Deals damage if passing through enemies", "", "\u00a7b\u00a7l\u23eb BREEZY BASH", "\u00a77Launch an enemy skyward then slam them", "", "\u00a7b\u00a7l\ud83c\udf2a GROUP BREEZY BASH", "\u00a77Send all nearby enemies flying away"));
+        CustomItemManager.registerItem("speed_gem_t2", GEM_MATERIAL, 2006, "\u00a7d\u00a7lSPEED GEM", List.of("\u00a7f\u00a7lWATCH THE WORLD TURN INTO A BLUR", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Speed I & Dolphin's Grace", "\u00a77- Efficiency on tools", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u26a1 BLUR", "\u00a77Summons successive lightning strikes", "\u00a77dealing damage and knockback", "", "\u00a7b\u00a7l\ud83c\udf29 SPEED STORM", "\u00a77Freezes enemies while granting allies", "\u00a77Speed and Haste", "", "\u00a7b\u00a7l\ud83d\udca8 TERMINAL VELOCITY", "\u00a77Speed III + Haste II for a short duration"));
+        CustomItemManager.registerItem("strength_gem_t2", GEM_MATERIAL, 2007, "\u00a7d\u00a7lSTRENGTH GEM", List.of("\u00a7f\u00a7lHAVE THE STRENGTH OF AN ARMY", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Strength I", "\u00a77- Sharpness V on weapons", "\u00a77- Bloodthorns (more damage at low HP)", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\u2694 CHAD STRENGTH", "\u00a77Empower your next few hits with bonus damage", "", "\u00a7b\u00a7l\ud83d\udc94 FRAILER", "\u00a77Apply Weakness I (20s), Slowness & Wither I (40s)", "", "\u00a7b\u00a7l\ud83d\udd0d SHADOW STALKER", "\u00a77Consume a player head or an owned item", "\u00a77to track a player's location", "", "\u00a7b\u00a7l\ud83d\udeab NULLIFY", "\u00a77Temporarily strip a target's potion effects"));
+        CustomItemManager.registerItem("wealth_gem_t2", GEM_MATERIAL, 2008, "\u00a7d\u00a7lWEALTH GEM", List.of("\u00a7f\u00a7lFUEL AN EMPIRE", "", "\u00a7a\ud83c\udf1f \u00a7a\u00a7lPASSIVES", "\u00a77- Luck & Hero of the Village", "\u00a77- Mending, Fortune & Looting on tools", "\u00a77- Durability Chip & Armor Mend", "", "\u00a7d\ud83c\udf1f \u00a7d\u00a7lPOWERS", "\u00a7b\u00a7l\ud83d\udcb8 UNFORTUNATE", "\u00a77Chance to disable enemy actions", "", "\u00a7b\u00a7l\ud83c\udf92 POCKETS", "\u00a779 extra inventory slots (/bliss pockets)", "", "\u00a7b\u00a7l\ud83d\udd12 ITEM LOCK", "\u00a77Lock an enemy's held item temporarily", "", "\u00a7b\u00a7l\u2728 AMPLIFICATION", "\u00a77Boost all enchantments for 45s", "", "\u00a7b\u00a7l\ud83c\udf40 RICH RUSH", "\u00a77Increased drop rates for ~3 min"));
         CustomItemManager.registerItem("gem_upgrader", Material.ENCHANTED_BOOK, 3001, "\u00a76\u00a7l\u00a7nGem Upgrader", List.of("\u00a77Right Click to upgrade any Tier 1 gem to Tier 2", "", "\u00a78Works for ALL gem types:", "\u00a75Astra \u00a78\u2022 \u00a7cFire \u00a78\u2022 \u00a7bFlux \u00a78\u2022 \u00a7dLife", "\u00a7fPuff \u00a78\u2022 \u00a7aSpeed \u00a78\u2022 \u00a76Strength \u00a78\u2022 \u00a7eWealth"));
         CustomItemManager.registerItem("prismatic_edge", Material.NETHERITE_SWORD, 5001, "\u00a7b\u00a7l\u00a7nPrismatic Edge", List.of("\u00a77A blade holding the light of every gem.", "", "\u00a7bSneak + Left Click \u00a77to fire a \u00a7dprismatic beam", "\u00a77that freezes whoever it strikes.", "", "\u00a77Land \u00a7e5 hits in a row \u00a77and every hit", "\u00a77after that crits - until you are struck."));
         CustomItemManager.registerItem("restoration_book", Material.ENCHANTED_BOOK, 3002, "\u00a75\u00a7l\u00a7nRestoration Book", List.of("\u00a77Right Click while your gem is \u00a7c\u00a7lBROKEN", "\u00a77to begin a \u00a75Restoration Ritual\u00a77.", "", "\u00a77Your gem is reforged at random and", "\u00a77returns at \u00a7bPristine\u00a77.", "", "\u00a78The whole server will know."));

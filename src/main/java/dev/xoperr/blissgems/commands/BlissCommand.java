@@ -51,7 +51,10 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
+import dev.xoperr.blissgems.pedestal.PedestalState;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
@@ -138,7 +141,7 @@ TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             if (sender instanceof Player) {
-                this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
+                this.plugin.getGemMenu().open((Player)sender);
             } else {
                 this.sendHelp(sender);
             }
@@ -282,6 +285,27 @@ TabCompleter {
                 this.handleSmp(sender, args);
                 break;
             }
+            case "pedestal": {
+                this.handlePedestal(sender, args);
+                break;
+            }
+            case "deps": {
+                this.handleDeps(sender);
+                break;
+            }
+            case "shaders":
+            case "shader": {
+                this.handleShaders(sender);
+                break;
+            }
+            case "unbounded": {
+                this.handleUnbounded(sender, args);
+                break;
+            }
+            case "cooldowns": {
+                this.handleListCooldowns(sender, args);
+                break;
+            }
             case "clearcds": {
                 this.handleClearCooldowns(sender, args);
                 break;
@@ -319,11 +343,31 @@ TabCompleter {
                             this.handleExtraSlot(sender, AbilitySlot.SENARY);
                             return true;
                         }
+                        case "set":
+                        case "bind": {
+                            String[] shifted = new String[Math.max(1, args.length - 1)];
+                            shifted[0] = "set_ability";
+                            for (int i = 2; i < args.length; i++) shifted[i - 1] = args[i];
+                            this.handleSetAbility(sender, shifted);
+                            return true;
+                        }
+                        case "reset": {
+                            this.handleSetAbility(sender, new String[]{"set_ability", "reset"});
+                            return true;
+                        }
+                        case "list": {
+                            this.handleAbilityBindingsList(sender, args);
+                            return true;
+                        }
                         default:
                             break;
                     }
                 }
-                this.handleAbilityBindingsList(sender, args);
+                if (sender instanceof Player && this.plugin.getControlsMenu() != null) {
+                    this.plugin.getControlsMenu().open((Player)sender);
+                } else {
+                    this.handleAbilityBindingsList(sender, args);
+                }
                 break;
             }
             case "primary":
@@ -354,6 +398,17 @@ TabCompleter {
             case "viewer":
             case "gemviewer":
             case "gui":
+            case "admin": {
+                // the old dashboard (players, gems, settings, energy, config) - admins only
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage("\u00a7cOnly players can open the admin panel!");
+                } else if (!sender.hasPermission("blissgems.admin")) {
+                    this.plugin.getConfigManager().sendFormattedMessage(sender, "no-permission", new Object[0]);
+                } else {
+                    this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
+                }
+                break;
+            }
             case "menu": {
                 if (sender instanceof Player) {
                     this.plugin.getEnhancedGuiManager().openMainMenu((Player)sender);
@@ -372,6 +427,10 @@ TabCompleter {
             }
             case "goldcycle": {
                 this.handleGoldCycle(sender);
+                break;
+            }
+            case "gold": {
+                this.handleGold(sender, args);
                 break;
             }
             case "goldarmor": 
@@ -566,6 +625,29 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss goldgem remove <player> <soulType>");
         sender.sendMessage("\u00a77/bliss goldgem clear <player>");
         sender.sendMessage("\u00a77/bliss goldgem list <player>");
+    }
+
+    /** /bliss gold [souls|cycle|beam|armor] - the Gold Gem's own powers, whatever soul it is channelling. */
+    private void handleGold(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold == null || !gold.holdsGoldGem(player)) {
+            player.sendMessage("\u00a7cYou are not carrying the Gold Gem.");
+            return;
+        }
+        String sub = args.length > 1 ? args[1].toLowerCase() : "souls";
+        switch (sub) {
+            case "cycle", "next" -> this.handleGoldCycle(sender);
+            case "beam" -> {
+                if (!this.blockedByGemLock(player)) this.plugin.getGoldAbilities().onTertiary(player, 1);
+            }
+            case "armor", "armour", "trims" -> this.handleGoldArmorToggle(sender);
+            case "souls", "menu" -> this.plugin.getGoldAbilities().openSoulMenu(player);
+            default -> player.sendMessage("\u00a76/bliss gold \u00a77[souls|cycle|beam|armor] \u00a78- pick the channelled soul, cycle it, fire the Sundering Beam, toggle gold trims");
+        }
     }
 
     private void handleGoldCycle(CommandSender sender) {
@@ -1291,6 +1373,15 @@ TabCompleter {
         if (this.blockedByGemLock(player)) {
             return;
         }
+        GoldGemManager goldMgr = this.plugin.getGoldGemManager();
+        if (goldMgr != null && (goldMgr.isGoldGem(player.getInventory().getItemInMainHand()) || goldMgr.isGoldGem(player.getInventory().getItemInOffHand()))) {
+            if (slot == AbilitySlot.QUINARY) {
+                this.plugin.getGoldAbilities().onTertiary(player, 1);
+            } else {
+                this.plugin.getGoldAbilities().openSoulMenu(player);
+            }
+            return;
+        }
         String oraxenId = this.findGemInHand(player);
         if (oraxenId == null) {
             String msg = this.plugin.getConfigManager().getFormattedMessage("must-hold-gem", new Object[0]);
@@ -1509,7 +1600,7 @@ TabCompleter {
                     break;
                 }
                 case SPEED: {
-                    this.plugin.getSpeedAbilities().galeClouds(player);
+                    this.plugin.getSpeedAbilities().lightningBackstab(player);
                     break;
                 }
                 case STRENGTH: {
@@ -1547,6 +1638,7 @@ TabCompleter {
             return;
         }
         EnumMap<AbilityBinding, AbilitySlot> map = mgr.getAll(player);
+        EnumMap<AbilityBinding, AbilitySlot> defaults = mgr.getDefaults(player);
         player.sendMessage("\u00a7d\u00a7l\u26a1 Your Ability Bindings");
         for (AbilitySlot abilitySlot : AbilitySlot.values()) {
             AbilityBinding boundInput = null;
@@ -1556,7 +1648,14 @@ TabCompleter {
                 break;
             }
             String inputLabel = boundInput != null ? "\u00a7f" + boundInput.getDisplayName() : "\u00a78unbound";
-            player.sendMessage("\u00a77" + abilitySlot.getDisplayName() + " \u00a78\u2192 " + inputLabel);
+            AbilityBinding defaultInput = null;
+            for (Map.Entry<AbilityBinding, AbilitySlot> e : defaults.entrySet()) {
+                if (e.getValue() != abilitySlot) continue;
+                defaultInput = e.getKey();
+                break;
+            }
+            String defaultLabel = defaultInput != null ? defaultInput.getDisplayName() : "unbound";
+            player.sendMessage("\u00a77" + abilitySlot.getDisplayName() + " \u00a78\u2192 " + inputLabel + " \u00a78(default: \u00a77" + defaultLabel + "\u00a78)");
         }
         player.sendMessage("");
         player.sendMessage("\u00a7d\u00a7l\u26a1 Available Inputs");
@@ -1566,9 +1665,9 @@ TabCompleter {
             player.sendMessage("\u00a7f\u2022 \u00a77" + ((AbilityBinding)enum_).getId() + " \u00a78- \u00a7f" + ((AbilityBinding)enum_).getDisplayName() + suffix);
         }
         player.sendMessage("");
-        player.sendMessage("\u00a77Change with \u00a7f/bliss set_ability <slot> <input>");
-        player.sendMessage("\u00a77Unbind a slot with \u00a7f/bliss set_ability <slot> none");
-        player.sendMessage("\u00a77Reset defaults with \u00a7f/bliss set_ability reset");
+        player.sendMessage("\u00a77Open the controls menu with \u00a7f/bliss ability");
+        player.sendMessage("\u00a77Change with \u00a7f/bliss ability set <slot> <input>\u00a77, unbind with \u00a7f<slot> none");
+        player.sendMessage("\u00a77Reset defaults with \u00a7f/bliss ability reset");
     }
 
     private void handleSetAbility(CommandSender sender, String[] args) {
@@ -1587,15 +1686,15 @@ TabCompleter {
             return;
         }
         if (args.length < 3) {
-            player.sendMessage("\u00a7cUsage: \u00a7f/bliss set_ability <slot> <input>");
-            player.sendMessage("\u00a77Slots: \u00a7fprimary, secondary, tertiary, quaternary");
+            player.sendMessage("\u00a7cUsage: \u00a7f/bliss ability set <slot> <input>");
+            player.sendMessage("\u00a77Slots: \u00a7fprimary, secondary, tertiary, quaternary, quinary, senary");
             player.sendMessage("\u00a77Inputs: \u00a7fright_click, shift_right_click, left_click, shift_left_click, swap_hand, shift_swap_hand, none");
             player.sendMessage("\u00a77See current bindings with \u00a7f/bliss ability");
             return;
         }
         AbilitySlot slot = AbilitySlot.fromId(args[1]);
         if (slot == null) {
-            player.sendMessage("\u00a7cUnknown slot: \u00a7f" + args[1] + "\u00a7c. Valid: primary, secondary, tertiary, quaternary.");
+            player.sendMessage("\u00a7cUnknown slot: \u00a7f" + args[1] + "\u00a7c. Valid: primary, secondary, tertiary, quaternary, quinary, senary.");
             return;
         }
         String inputId = args[2];
@@ -1790,7 +1889,7 @@ TabCompleter {
         }
         Player player = (Player)sender;
         if (!this.plugin.getGemManager().hasGemType(player, GemType.FLUX)) {
-            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Charging Station!");
+            player.sendMessage("\u00a7c\u00a7lYou need the Flux Gem to use the Watt Deposit!");
             return;
         }
         if (this.plugin.getFluxEnergyManager() != null) {
@@ -1926,6 +2025,62 @@ TabCompleter {
         }
     }
 
+    private void handlePedestal(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+        PedestalManager pedestal = this.plugin.getPedestalManager();
+        if (pedestal == null) {
+            sender.sendMessage("\u00a7cThe pedestal system failed to load.");
+            return;
+        }
+        String sub = args.length < 2 ? "" : args[1].toLowerCase();
+        switch (sub) {
+            case "set": {
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage("\u00a7cOnly players can set the pedestal.");
+                    return;
+                }
+                pedestal.setPedestal(((Player)sender).getLocation().clone().add(0.0, -1.0, 0.0));
+                sender.sendMessage(PedestalManager.color("&aPedestal location set (center is one block below you). Run /bliss pedestal activate to build it."));
+                return;
+            }
+            case "activate": {
+                if (!pedestal.activate()) {
+                    sender.sendMessage(PedestalManager.color("&cPedestal location not set. Run /bliss pedestal set first."));
+                    return;
+                }
+                Bukkit.broadcastMessage(PedestalManager.color("&6 The Pedestal Is Now &b&lOpen"));
+                return;
+            }
+            case "deactivate": {
+                pedestal.deactivate();
+                Bukkit.broadcastMessage(PedestalManager.color("&6 The Pedestal Has Closed &c&l"));
+                return;
+            }
+            case "status": {
+                PedestalState st = pedestal.state();
+                Location main = st.mainLoc();
+                sender.sendMessage(PedestalManager.color("&7Location: &f" + (main == null ? "not set" : main.getWorld().getName() + " " + main.getBlockX() + " " + main.getBlockY() + " " + main.getBlockZ())));
+                sender.sendMessage(PedestalManager.color("&7Active: &f" + st.active() + " &7Beacon: &f" + st.beacon() + " &7Ritual: &f" + st.ritual() + " &7Count: &f" + st.count() + "/" + PedestalState.DEPOSITS_REQUIRED + " &7Durability: &f" + st.durability() + "/" + PedestalState.MAX_DURABILITY));
+                return;
+            }
+            case "export": {
+                Location main = pedestal.state().mainLoc();
+                if (main == null) {
+                    sender.sendMessage(PedestalManager.color("&cPedestal location not set."));
+                    return;
+                }
+                sender.sendMessage(PedestalManager.color("&7pedestal.fixed: &fworld: " + main.getWorld().getName() + ", x: " + main.getBlockX() + ", y: " + main.getBlockY() + ", z: " + main.getBlockZ()));
+                return;
+            }
+            default: {
+                sender.sendMessage("\u00a7cUsage: /bliss pedestal <set|activate|deactivate|status|export>");
+            }
+        }
+    }
+
     private void handleSmp(CommandSender sender, String[] args) {
         if (!sender.hasPermission("blissgems.admin")) {
             sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
@@ -2008,6 +2163,37 @@ TabCompleter {
             return null;
         }
         return enabledGems.get(new Random().nextInt(enabledGems.size()));
+    }
+
+    /** /bliss cooldowns <player>: one line per running cooldown and active ability, in whole seconds left. */
+    private void handleListCooldowns(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("blissgems.admin")) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("no-permission", new Object[0]));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("\u00a7cUsage: /bliss cooldowns <player>");
+            return;
+        }
+        Player target = Bukkit.getPlayer((String)args[1]);
+        if (target == null) {
+            sender.sendMessage(this.plugin.getConfigManager().getFormattedMessage("player-not-found", new Object[0]));
+            return;
+        }
+        long now = System.currentTimeMillis();
+        java.util.TreeMap<String, String> lines = new java.util.TreeMap<>();
+        for (Map.Entry<String, Long> e : this.plugin.getAbilityManager().getCooldownsFor(target.getUniqueId()).entrySet()) {
+            long left = (long)Math.ceil((e.getValue() - now) / 1000.0);
+            if (left > 0) lines.put(e.getKey(), "cooldown " + left);
+        }
+        for (Map.Entry<String, Long> e : this.plugin.getAbilityManager().getActiveAbilitiesFor(target.getUniqueId()).entrySet()) {
+            long left = (long)Math.ceil((e.getValue() - now) / 1000.0);
+            if (left > 0) lines.merge(e.getKey(), "active " + left, (a, b) -> a + " " + b);
+        }
+        sender.sendMessage("\u00a7d" + target.getName() + " \u00a77cooldowns: \u00a7f" + lines.size());
+        for (Map.Entry<String, String> e : lines.entrySet()) {
+            sender.sendMessage("\u00a77" + e.getKey() + " \u00a7f" + e.getValue());
+        }
     }
 
     private void handleClearCooldowns(CommandSender sender, String[] args) {
@@ -2128,17 +2314,23 @@ TabCompleter {
         sender.sendMessage("\u00a77/bliss goldgem clear <player> \u00a78- Empty a Gold Gem (Admin)");
         sender.sendMessage("\u00a77/bliss goldgem list <player> \u00a78- List harvested souls (Admin)");
         sender.sendMessage("\u00a77/bliss ability \u00a78- Show your ability keybinds");
-        sender.sendMessage("\u00a77/bliss set_ability <slot> <input> \u00a78- Rebind an ability input");
+        sender.sendMessage("\u00a77/bliss ability \u00a78- Customize your ability controls");
         sender.sendMessage("\u00a77/bliss reload \u00a78- Reload config");
     }
 
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         ArrayList<String> completions = new ArrayList<String>();
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news"));
+            completions.addAll(Arrays.asList("admin", "give", "reroll", "giveitem", "transfer", "energy", "withdraw", "info", "pockets", "amplify", "autosmelt", "conduction", "charge", "setwatts", "getwatts", "reload", "toggle_click", "ability:main", "ability:secondary", "ability:tertiary", "ability:quaternary", "primary", "secondary", "tertiary", "quaternary", "quinary", "senary", "viewer", "gemviewer", "gui", "trust", "untrust", "trusted", "stats", "achievements", "bannable", "oraxen", "souls", "release", "normalise", "normalize", "smp", "cooldowns", "clearcds", "nocdtoggle", "goldgem", "goldcycle", "goldarmor", "ability", "set_ability", "enchantlimit", "spawnvillager", "news", "pedestal", "deps", "unbounded", "gold", "shaders"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("gold")) {
+                return Arrays.asList("souls", "cycle", "beam", "armor");
+            }
+            if (args[0].equalsIgnoreCase("unbounded")) {
+                return Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+            }
             if (args[0].equalsIgnoreCase("ability")) {
-                return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "reset");
+                return Arrays.asList("main", "secondary", "tertiary", "quaternary", "quinary", "senary", "set", "reset", "list");
             }
             if (args[0].equalsIgnoreCase("spawnvillager")) {
                 return Arrays.asList("mace1", "mace2", "mace3", "energy");
@@ -2165,6 +2357,9 @@ TabCompleter {
             }
             if (args[0].equalsIgnoreCase("smp")) {
                 return Arrays.asList("start");
+            }
+            if (args[0].equalsIgnoreCase("pedestal")) {
+                return Arrays.asList("set", "activate", "deactivate", "status", "export");
             }
             if (args[0].equalsIgnoreCase("goldgem")) {
                 return Arrays.asList("fill", "remove", "clear", "list");
@@ -2232,6 +2427,76 @@ TabCompleter {
             return Arrays.asList("1", "2");
         }
         return completions.stream().filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase())).collect(Collectors.toList());
+    }
+
+    /**
+     * /bliss unbounded [player] - Astra's Unbounded without landing a hit: rides the player you are
+     * looking at (or the named one) within range. Same gem, energy, cooldown and trust rules.
+     */
+    private void handleUnbounded(CommandSender sender, String[] args) {
+        if (!this.requirePlayer(sender)) {
+            return;
+        }
+        Player player = (Player)sender;
+        if (!this.plugin.getGemManager().hasGemType(player, GemType.ASTRA)) {
+            player.sendMessage("\u00a75\ud83d\udd2e \u00a7cYou need the Astra gem to use Unbounded.");
+            return;
+        }
+        double range = this.plugin.getConfig().getDouble("abilities.astra-unbounded.range", 12.0);
+        Player target = null;
+        if (args.length > 1) {
+            target = Bukkit.getPlayerExact(args[1]);
+            if (target == null || target.getWorld() != player.getWorld() || target.getLocation().distance(player.getLocation()) > range) {
+                player.sendMessage("\u00a75\ud83d\udd2e \u00a7c" + args[1] + " is not within " + (int)range + " blocks.");
+                return;
+            }
+        } else {
+            org.bukkit.util.RayTraceResult hit = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), range, 0.6,
+                e -> e instanceof Player && !e.equals(player) && ((Player)e).getGameMode() != org.bukkit.GameMode.SPECTATOR);
+            if (hit != null) target = (Player)hit.getHitEntity();
+            if (target == null) {
+                player.sendMessage("\u00a75\ud83d\udd2e \u00a7cLook at a player within " + (int)range + " blocks, or name one: \u00a7f/bliss unbounded <player>");
+                return;
+            }
+        }
+        if (target.equals(player)) {
+            return;
+        }
+        if (this.plugin.getGemLockManager() != null && this.plugin.getGemLockManager().isLocked(player)) {
+            player.sendMessage("\u00a76\ua42c \u00a7c\u00a7oYour gem is locked!");
+            return;
+        }
+        if (this.plugin.getAstraUnbounded() != null) {
+            this.plugin.getAstraUnbounded().start(player, target);
+        }
+    }
+
+    /** Where to get the optional BlissGems shaderpack and how to install it. */
+    private void handleShaders(CommandSender sender) {
+        String url = this.plugin.getConfig().getString("golden-dream.sky.shaderpack-url",
+            "https://github.com/ItzJustNett/blissgems/releases/latest/download/BlissGems-Shaders.zip");
+        sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems shaderpack" + org.bukkit.ChatColor.GRAY + " (optional, Java + Iris or OptiFine)");
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "GoldenDome in the golden dream, GloomHaze in the memory world, plain Minecraft everywhere else.");
+        net.md_5.bungee.api.chat.TextComponent link = new net.md_5.bungee.api.chat.TextComponent(org.bukkit.ChatColor.AQUA + "" + org.bukkit.ChatColor.UNDERLINE + "Download BlissGems-Shaders.zip");
+        link.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(net.md_5.bungee.api.chat.ClickEvent.Action.OPEN_URL, url));
+        sender.spigot().sendMessage(link);
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "Put the zip in " + org.bukkit.ChatColor.WHITE + ".minecraft/shaderpacks" + org.bukkit.ChatColor.GRAY + ", then pick " + org.bukkit.ChatColor.WHITE + "BlissGems-Shaders" + org.bukkit.ChatColor.GRAY + " in Video Settings > Shader Packs.");
+    }
+
+    /** Lists the optional plugins BlissGems can use and what each one unlocks. Nothing here is required. */
+    private void handleDeps(CommandSender sender) {
+        sender.sendMessage(org.bukkit.ChatColor.GOLD + "" + org.bukkit.ChatColor.BOLD + "BlissGems optional plugins" + org.bukkit.ChatColor.GRAY + " (none are required)");
+        String[][] deps = {
+            {"Citizens", "NPC memories in the Golden Dream (/goldendream memory npc)"},
+            {"Geyser-Spigot", "Bedrock players: dream fog and screen fades (skies/time/weather work without it)"},
+            {"WorldGuard", "region flags that block abilities"},
+            {"ProtocolLib", "extra packet effects"},
+        };
+        for (String[] d : deps) {
+            boolean on = org.bukkit.Bukkit.getPluginManager().isPluginEnabled(d[0]);
+            sender.sendMessage((on ? org.bukkit.ChatColor.GREEN + "\u2714 " : org.bukkit.ChatColor.RED + "\u2716 ") + org.bukkit.ChatColor.WHITE + d[0] + org.bukkit.ChatColor.GRAY + " \u2014 " + d[1] + (on ? "" : org.bukkit.ChatColor.DARK_GRAY + " (not installed)"));
+        }
+        sender.sendMessage(org.bukkit.ChatColor.GRAY + "Resource pack: models and sounds (bliss:*) for rituals; without it everything still runs, with vanilla looks.");
     }
 }
 

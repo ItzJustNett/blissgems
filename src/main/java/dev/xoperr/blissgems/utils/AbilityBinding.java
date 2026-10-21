@@ -6,8 +6,8 @@ package dev.xoperr.blissgems.utils;
 public enum AbilityBinding {
     RIGHT_CLICK("right_click", "Right Click", false),
     SHIFT_RIGHT_CLICK("shift_right_click", "Shift + Right Click", true),
-    LEFT_CLICK("left_click", "Left Click", false),
-    SHIFT_LEFT_CLICK("shift_left_click", "Shift + Left Click", true),
+    LEFT_CLICK("left_click", "Hit / Left Click", false),
+    SHIFT_LEFT_CLICK("shift_left_click", "Shift + Hit / Left Click", true),
     SWAP_HAND("swap_hand", "F (Swap Offhand)", false),
     SHIFT_SWAP_HAND("shift_swap_hand", "Shift + F", true);
 

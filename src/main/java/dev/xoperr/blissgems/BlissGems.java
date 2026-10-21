@@ -96,6 +96,12 @@ import dev.xoperr.blissgems.managers.MaceVillagerManager;
 import dev.xoperr.blissgems.managers.EnchantLimiterManager;
 import dev.xoperr.blissgems.managers.MythicWorldEventManager;
 import dev.xoperr.blissgems.managers.SpawnBeaconManager;
+import dev.xoperr.blissgems.pedestal.PedestalListener;
+import dev.xoperr.blissgems.goldevent.FragmentCoreRitual;
+import dev.xoperr.blissgems.pedestal.PedestalManager;
+import dev.xoperr.blissgems.villagerevent.VillagerEventCommand;
+import dev.xoperr.blissgems.villagerevent.VillagerEventListener;
+import dev.xoperr.blissgems.villagerevent.VillagerEventManager;
 import dev.xoperr.blissgems.managers.EndSkyVisualManager;
 import dev.xoperr.blissgems.listeners.MaceVillagerListener;
 import dev.xoperr.blissgems.listeners.EnchantLimiterListener;
@@ -146,6 +152,8 @@ implements BlissGemsAPI {
     private CriticalHitManager criticalHitManager;
     private PluginMessagingManager pluginMessagingManager;
     private AstraAbilities astraAbilities;
+    private dev.xoperr.blissgems.abilities.AstraUnbounded astraUnbounded;
+    private dev.xoperr.blissgems.managers.ControlsMenu controlsMenu;
     private FireAbilities fireAbilities;
     private FluxAbilities fluxAbilities;
     private FluxEnergyManager fluxEnergyManager;
@@ -167,6 +175,10 @@ implements BlissGemsAPI {
     private MythicWorldEventManager mythicWorldEventManager;
     private SpawnBeaconManager spawnBeaconManager;
     private EndSkyVisualManager endSkyVisualManager;
+    private PedestalManager pedestalManager;
+    private VillagerEventManager villagerEventManager;
+    private FragmentCoreRitual fragmentCoreRitual;
+    private dev.xoperr.blissgems.goldevent.GoldenDream goldenDream;
     private Metrics metrics;
 
     public void onEnable() {
@@ -503,6 +515,22 @@ implements BlissGemsAPI {
             this.enchantLimiterManager = new EnchantLimiterManager(this);
             this.mythicWorldEventManager = new MythicWorldEventManager(this);
             this.endSkyVisualManager = new EndSkyVisualManager(this);
+            this.pedestalManager = new PedestalManager(this);
+            this.getServer().getPluginManager().registerEvents((Listener)new PedestalListener(this, this.pedestalManager), (Plugin)this);
+            this.getServer().getPluginManager().registerEvents((Listener)this.pedestalManager.revive(), (Plugin)this);
+            this.villagerEventManager = new VillagerEventManager(this);
+            this.getServer().getPluginManager().registerEvents((Listener)new VillagerEventListener(this, this.villagerEventManager), (Plugin)this);
+            this.fragmentCoreRitual = new FragmentCoreRitual(this);
+            this.getServer().getPluginManager().registerEvents((Listener)this.fragmentCoreRitual, (Plugin)this);
+            this.fragmentCoreRitual.start();
+            this.goldenDream = new dev.xoperr.blissgems.goldevent.GoldenDream(this, this.fragmentCoreRitual);
+            dev.xoperr.blissgems.goldevent.GoldenDreamCommand goldenDreamCommand = new dev.xoperr.blissgems.goldevent.GoldenDreamCommand(this.goldenDream);
+            this.getCommand("goldendream").setExecutor((CommandExecutor)goldenDreamCommand);
+            this.getCommand("goldendream").setTabCompleter((TabCompleter)goldenDreamCommand);
+            this.getCommand("alternate").setExecutor((CommandExecutor)new dev.xoperr.blissgems.goldevent.AlternateCommand(this.goldenDream));
+            VillagerEventCommand villagerEventCommand = new VillagerEventCommand(this.villagerEventManager);
+            this.getCommand("blissevent").setExecutor((CommandExecutor)villagerEventCommand);
+            this.getCommand("blissevent").setTabCompleter((TabCompleter)villagerEventCommand);
         }
         catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: World/Villager/Beacon Managers ===");
@@ -552,6 +580,9 @@ implements BlissGemsAPI {
     }
 
     public void onDisable() {
+        if (this.gemIntegrity != null) {
+            this.gemIntegrity.save();
+        }
         if (this.particleManager != null) {
             this.particleManager.cleanup();
         }
@@ -584,6 +615,21 @@ implements BlissGemsAPI {
         }
         if (this.endSkyVisualManager != null) {
             this.endSkyVisualManager.cleanup();
+        }
+        if (this.goldenDream != null) {
+            this.goldenDream.shutdown();
+        }
+        if (this.astraUnbounded != null) {
+            this.astraUnbounded.shutdown();
+        }
+        if (this.fragmentCoreRitual != null) {
+            this.fragmentCoreRitual.stop();
+        }
+        if (this.villagerEventManager != null) {
+            this.villagerEventManager.shutdown();
+        }
+        if (this.pedestalManager != null) {
+            this.pedestalManager.shutdown();
         }
         if (this.pluginMessagingManager != null) {
             this.pluginMessagingManager.shutdown();
@@ -649,14 +695,27 @@ implements BlissGemsAPI {
         }
     }
 
+    private dev.xoperr.blissgems.listeners.GemIntegrityListener gemIntegrity;
+
     private void registerListeners() {
         PlayerDeathListener deathListener = new PlayerDeathListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)deathListener, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.GemCraftingGuard(), (Plugin)this);
+        this.gemMenu = new dev.xoperr.blissgems.managers.GemMenu(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.gemMenu, (Plugin)this);
         this.getServer().getScheduler().runTask((Plugin)this, deathListener::validateDroppableOnDeathConfig);
         this.getServer().getPluginManager().registerEvents((Listener)new ComprehensiveGemProtectionListener(this), (Plugin)this);
+        this.gemIntegrity = new dev.xoperr.blissgems.listeners.GemIntegrityListener(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.gemIntegrity, (Plugin)this);
+        this.gemIntegrity.start();
         this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.AstraPhasingListener(this), (Plugin)this);
+        this.astraUnbounded = new dev.xoperr.blissgems.abilities.AstraUnbounded(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.astraUnbounded, (Plugin)this);
+        this.controlsMenu = new dev.xoperr.blissgems.managers.ControlsMenu(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.controlsMenu, (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PlayerJoinListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new AutoEnchantListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new StunListener(this), (Plugin)this);
@@ -705,6 +764,30 @@ implements BlissGemsAPI {
         this.getCommand("bliss").setExecutor((CommandExecutor)this.blissCommand);
         this.getCommand("bliss").setTabCompleter((TabCompleter)this.blissCommand);
         NewsCommand newsCommand = new NewsCommand(this);
+        for (String name : new String[]{"startcharging", "stopcharging"}) {
+            if (this.getCommand(name) == null) continue;
+            boolean start = name.equals("startcharging");
+            this.getCommand(name).setExecutor((sender, command, label, args) -> {
+                if (!(sender instanceof org.bukkit.entity.Player p)) {
+                    sender.sendMessage("Player only.");
+                    return true;
+                }
+                if (this.fluxEnergyManager != null) this.fluxEnergyManager.setCharging(p, start);
+                return true;
+            });
+        }
+        this.getServer().getPluginManager().registerEvents(new Listener() {
+            @org.bukkit.event.EventHandler
+            public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+                if (BlissGems.this.fluxEnergyManager != null) BlissGems.this.fluxEnergyManager.onJoin(event.getPlayer());
+                BlissGems.this.refreshGoldLater(event.getPlayer(), 40L);
+            }
+
+            @org.bukkit.event.EventHandler
+            public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
+                BlissGems.this.refreshGoldLater(event.getPlayer(), 5L);
+            }
+        }, (Plugin)this);
         if (this.getCommand("news") != null) {
             this.getCommand("news").setExecutor((CommandExecutor)newsCommand);
         }
@@ -786,6 +869,23 @@ implements BlissGemsAPI {
         return this.gemRitualManager;
     }
 
+    /** Re-skins a carried Gold Gem (its channelled soul, energy lore) a little after join/respawn. */
+    void refreshGoldLater(org.bukkit.entity.Player player, long delay) {
+        this.getServer().getScheduler().runTaskLater((Plugin)this, () -> {
+            if (player.isOnline() && !player.isDead() && this.goldGemManager != null && this.goldGemManager.holdsGoldGem(player)) {
+                this.goldGemManager.refreshGoldItem(player);
+            }
+        }, delay);
+    }
+
+    public dev.xoperr.blissgems.managers.ControlsMenu getControlsMenu() {
+        return this.controlsMenu;
+    }
+
+    public dev.xoperr.blissgems.abilities.AstraUnbounded getAstraUnbounded() {
+        return this.astraUnbounded;
+    }
+
     public AstraAbilities getAstraAbilities() {
         return this.astraAbilities;
     }
@@ -808,6 +908,12 @@ implements BlissGemsAPI {
 
     public SpeedAbilities getSpeedAbilities() {
         return this.speedAbilities;
+    }
+
+    private dev.xoperr.blissgems.managers.GemMenu gemMenu;
+
+    public dev.xoperr.blissgems.managers.GemMenu getGemMenu() {
+        return this.gemMenu;
     }
 
     public StrengthAbilities getStrengthAbilities() {
@@ -937,12 +1043,24 @@ implements BlissGemsAPI {
         return this.endSkyVisualManager;
     }
 
+    public PedestalManager getPedestalManager() {
+        return this.pedestalManager;
+    }
+
+    public dev.xoperr.blissgems.goldevent.GoldenDream getGoldenDream() {
+        return this.goldenDream;
+    }
+
+    public VillagerEventManager getVillagerEventManager() {
+        return this.villagerEventManager;
+    }
+
     private void registerBuiltInGems() {
         for (GemType type : GemType.values()) {
             GemDefinition def = new GemDefinition.Builder(type.getId()).displayName(type.getDisplayName()).description(type.getDescription()).color(type.getColor()).plugin("BlissGems").maxTier(2).build();
             this.gemRegistry.registerGem(def);
         }
-        this.gemRegistry.registerGem(new GemDefinition.Builder("gold").displayName("Gold").description("Watch the lines of reality fray as eight souls become one").color("\u00a76").plugin("BlissGems").maxTier(1).material(Material.PRISMARINE_CRYSTALS).t1CustomModelData(1009).build());
+        this.gemRegistry.registerGem(new GemDefinition.Builder("gold").displayName("Gold").description("Watch the lines of reality fray as eight souls become one").color("\u00a76").plugin("BlissGems").maxTier(1).material(CustomItemManager.GEM_MATERIAL).t1CustomModelData(1009).build());
         if (this.astraAbilities != null) {
             this.gemRegistry.registerAbilities("astra", this.astraAbilities);
         }

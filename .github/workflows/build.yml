@@ -1,0 +1,120 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Builds the jar and runs the tests (config wiring checks); a failing test fails the build
+      - name: Build and test
+        run: mvn -B package
+
+      # The BlissGems shaderpack (shaderpack/BlissGems): zipped with shaders/ at the root,
+      # the layout Iris and OptiFine expect.
+      - name: Zip shaderpack
+        run: cd shaderpack/BlissGems && zip -qr ../../target/BlissGems-Shaders.zip shaders
+
+      # The resource pack (resourcepack/ is the whole pack) zipped with pack.mcmeta at the root.
+      - name: Zip resource pack
+        run: cd resourcepack && zip -qr ../target/BlissGems-Resourcepack.zip pack.mcmeta pack.png assets
+
+      - name: Upload resource pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlissGems-Resourcepack-${{ github.sha }}
+          path: target/BlissGems-Resourcepack.zip
+
+      - name: Upload shaderpack
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlissGems-Shaders-${{ github.sha }}
+          path: target/BlissGems-Shaders.zip
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlissGems-${{ github.sha }}
+          path: target/BlissGems-*.jar
+          if-no-files-found: error
+
+      # Releases only ship builds that passed the local test suite (testing/run-all.sh), the
+      # visual review and the player check, with no code change since (testing/tested.json).
+      - name: Check the build was tested
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/bliss/V')
+        run: python3 testing/tools/check_tested.py .
+
+      - name: Release (tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/BlissGems-*.jar
+            target/BlissGems-Shaders.zip
+            target/BlissGems-Resourcepack.zip
+          generate_release_notes: true
+
+      # A push to a release branch named bliss/V<version> publishes release v<version>,
+      # creating the tag on that commit (for when tags can't be pushed directly).
+      - name: Release tag from branch
+        id: branchtag
+        if: startsWith(github.ref, 'refs/heads/bliss/V')
+        run: echo "tag=v${GITHUB_REF_NAME#bliss/V}" >> "$GITHUB_OUTPUT"
+
+      - name: Release (release branch)
+        if: startsWith(github.ref, 'refs/heads/bliss/V')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.branchtag.outputs.tag }}
+          name: BlissGems ${{ steps.branchtag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            target/BlissGems-*.jar
+            target/BlissGems-Shaders.zip
+            target/BlissGems-Resourcepack.zip
+          generate_release_notes: true
+
+      # Every push refreshes the public shaderpack download:
+      # https://github.com/<repo>/releases/download/shaders-latest/BlissGems-Shaders.zip
+      - name: Publish latest shaderpack
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: shaders-latest
+          name: BlissGems Shaderpack (latest)
+          body: |
+            The BlissGems shaderpack (GoldenDome + GloomHaze), rebuilt on every push.
+            Put BlissGems-Shaders.zip in .minecraft/shaderpacks and select it (Iris or OptiFine).
+            It only changes the picture when the BlissGems server signals the golden dream or the memory world.
+          make_latest: false
+          files: target/BlissGems-Shaders.zip
+
+      # Every push refreshes the public resource pack download too:
+      # https://github.com/<repo>/releases/download/resourcepack-latest/BlissGems-Resourcepack.zip
+      - name: Publish latest resource pack
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: resourcepack-latest
+          name: BlissGems Resource Pack (latest)
+          body: |
+            The BlissGems resource pack (gem, item and GUI textures), rebuilt on every push.
+            Put BlissGems-Resourcepack.zip in .minecraft/resourcepacks, or serve it from server.properties.
+          make_latest: false
+          files: target/BlissGems-Resourcepack.zip

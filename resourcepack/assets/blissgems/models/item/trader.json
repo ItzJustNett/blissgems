@@ -1,0 +1,60 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"parent": "generated",
+	"textures": {
+		"1": "blissgems:item/trader",
+		"particle": "blissgems:item/trader"
+	},
+	"elements": [
+		{
+			"from": [5, 2, 4],
+			"to": [15, 12, 14],
+			"rotation": {"angle": 0, "axis": "y", "origin": [10, 7, 9]},
+			"faces": {
+				"north": {"uv": [4, 3, 14, 13], "texture": "#1"},
+				"east": {"uv": [3, 3, 13, 13], "texture": "#1"},
+				"south": {"uv": [2, 3, 12, 13], "texture": "#1"},
+				"west": {"uv": [3, 3, 13, 13], "texture": "#1"},
+				"up": {"uv": [2, 3, 12, 13], "texture": "#1"},
+				"down": {"uv": [0, 0, 10, 10], "texture": "#1"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"scale": [0.3, 0.3, 0.3]
+		},
+		"thirdperson_lefthand": {
+			"scale": [0.3, 0.3, 0.3]
+		},
+		"firstperson_righthand": {
+			"translation": [0, 4.25, -1.5],
+			"scale": [0.31, 0.31, 0.31]
+		},
+		"firstperson_lefthand": {
+			"translation": [1.75, 3.5, 0],
+			"scale": [0.2, 0.2, 0.2]
+		},
+		"ground": {
+			"translation": [0, 3, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"gui": {
+			"rotation": [26, 31, 0],
+			"translation": [-2, 0.75, 0],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"fixed": {
+			"scale": [0.7, 0.7, 0.7]
+		}
+	},
+	"groups": [
+		{
+			"name": "trader",
+			"origin": [8, 7, 6],
+			"color": 0,
+			"children": [0]
+		}
+	]
+}

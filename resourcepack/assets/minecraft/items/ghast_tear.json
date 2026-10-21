@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 4001,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/energy_bottle"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "item/ghast_tear"
+    }
+  }
+}

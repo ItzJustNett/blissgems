@@ -32,6 +32,7 @@ import dev.xoperr.blissgems.api.GemAbilityHandler;
 import dev.xoperr.blissgems.managers.FluxEnergyManager;
 import dev.xoperr.blissgems.utils.Achievement;
 import dev.xoperr.blissgems.utils.ParticleUtils;
+import dev.xoperr.blissgems.utils.TrueDamage;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -166,7 +167,7 @@ implements GemAbilityHandler {
         if (target instanceof Player) {
             Player targetPlayer2 = (Player)target;
             if (this.plugin.getTrustedPlayersManager().isTrusted(player, targetPlayer2)) {
-                int maxArmorDamage = this.plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 350);
+                int maxArmorDamage = this.plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 250);
                 int armorRestore = (int)(charge / 100.0 * (double)maxArmorDamage);
                 this.restoreArmorDurability(targetPlayer2, armorRestore);
                 player.sendMessage("\u00a7a\u00a7lRestored " + targetPlayer2.getName() + "'s armor! (+" + armorRestore + " durability)");
@@ -174,43 +175,17 @@ implements GemAbilityHandler {
                 return;
             }
         }
-        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.flux-beam-base", 12.5);
+        double baseDamage = this.plugin.getConfig().getDouble("abilities.damage.flux-beam-base", 14.0);
         double damageMultiplier = 1.0 + charge / 50.0;
         double finalDamage = baseDamage * damageMultiplier;
-        int maxArmorDamage = this.plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 350);
+        int maxArmorDamage = this.plugin.getConfig().getInt("abilities.damage.flux-beam-max-armor-damage", 250);
         int armorDamage = (int)(charge / 100.0 * (double)maxArmorDamage);
         if (target instanceof Player && ((tp = (Player)target).getGameMode() == GameMode.CREATIVE || tp.getGameMode() == GameMode.SPECTATOR)) {
             player.sendMessage("\u00a7cCannot hit players in creative/spectator mode!");
             return;
         }
-        double currentHealth = target.getHealth();
-        boolean wouldDie = currentHealth <= finalDamage;
-        boolean hasTotem = false;
-        if (wouldDie && target instanceof Player) {
-            targetPlayer = (Player)target;
-            ItemStack mainHand = targetPlayer.getInventory().getItemInMainHand();
-            ItemStack offHand = targetPlayer.getInventory().getItemInOffHand();
-            if (mainHand.getType() == Material.TOTEM_OF_UNDYING) {
-                hasTotem = true;
-                targetPlayer.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
-            } else if (offHand.getType() == Material.TOTEM_OF_UNDYING) {
-                hasTotem = true;
-                targetPlayer.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
-            }
-            if (hasTotem) {
-                targetPlayer.setHealth(1.0);
-                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 800, 1));
-                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 100, 1));
-                targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 800, 0));
-                targetPlayer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetPlayer.getLocation().add(0.0, 1.0, 0.0), 100, 0.5, 0.5, 0.5, 0.5);
-                targetPlayer.playSound(targetPlayer.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
-                player.sendMessage("\u00a7e\u26a1 Totem of Undying activated!");
-            }
-        }
-        if (!hasTotem) {
-            double newHealth = Math.max(0.0, currentHealth - finalDamage);
-            target.setHealth(newHealth);
-        }
+        // Armor-piercing unless lethal: the killing blow goes through vanilla damage so totems and armor apply.
+        TrueDamage.apply(target, finalDamage, player);
         if (target instanceof Player) {
             targetPlayer = (Player)target;
             this.damageArmorPieces(targetPlayer, armorDamage);
@@ -341,7 +316,7 @@ implements GemAbilityHandler {
                 return;
             }
         }
-        int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 5);
+        int stunDurationSeconds = this.plugin.getConfig().getInt("abilities.durations.flux-ground-freeze", 4);
         int stunDuration = stunDurationSeconds * 20;
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunDuration, 3, false, true));
         target.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, stunDuration, 1, false, true));
@@ -452,7 +427,7 @@ implements GemAbilityHandler {
             return;
         }
         double radius = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.radius", 6.0);
-        double knockbackPower = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.knockback", 2.5);
+        double knockbackPower = this.plugin.getConfig().getDouble("abilities.flux-kinetic-burst.knockback", 2.6);
         Location center = player.getLocation();
         int affectedCount = 0;
         for (Entity entity : player.getWorld().getNearbyEntities(center, radius, radius, radius)) {
