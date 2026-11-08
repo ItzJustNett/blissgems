@@ -95,6 +95,12 @@ implements Listener {
             this.plugin.getGoldAbilities().cleanup(victim);
             this.plugin.getGoldGemManager().resetProgress(victim);
         }
+        // A death rolls the gem back to Tier 1, whatever slot it survived in.
+        String deathGemId = this.plugin.getGemManager().getGemId(victim);
+        if (deathGemId != null && this.plugin.getGemManager().getGemTier(victim) == 2
+                && this.plugin.getGemManager().downgradeGem(victim, deathGemId)) {
+            victim.sendMessage("\u00a7c\u00a7lYour gem reverted to Tier 1!");
+        }
         this.handleUpgraderChargeLoss(victim);
         this.plugin.getGemManager().updateActiveGem(victim);
         if (killer != null) {
@@ -218,6 +224,19 @@ implements Listener {
             return false;
         });
         if (!gemsToSave.isEmpty()) {
+            // A death rolls the gem back to Tier 1 - the upgrader has to be earned again.
+            for (int i = 0; i < gemsToSave.size(); i++) {
+                ItemStack gem = gemsToSave.get(i);
+                String id = CustomItemManager.getIdByItem(gem);
+                if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem)) {
+                    continue;
+                }
+                ItemStack t1 = CustomItemManager.getItemById(id.substring(0, id.length() - 2) + "1",
+                        this.plugin.getEnergyManager().getEnergy(victim));
+                if (t1 != null) {
+                    gemsToSave.set(i, t1);
+                }
+            }
             this.savedGems.put(victim.getUniqueId(), gemsToSave);
             this.saveGemsToDisk(victim.getUniqueId(), gemsToSave);
         }

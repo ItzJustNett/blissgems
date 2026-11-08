@@ -236,3 +236,5 @@ All passives require gem in offhand and energy above Ruined threshold (2+).
 | Speed | Yellow | 244, 255, 28 |
 | Strength | Red | 199, 0, 10 |
 | Wealth | Green | 0, 166, 44 |
+<!-- update -->
+
