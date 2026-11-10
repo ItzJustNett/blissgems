@@ -244,8 +244,9 @@ passives:
     phase-cooldown-seconds: 8     # after a phase, no new phase for this long
     phase-hides-gear: true        # hide armour + held items from other players while phased
     # SOUL CAPTURE (sneak + hit/right-click a mob): only mobs worn below this share of their health,
-    # and no bigger than the tier's capture-max-health. The gem holds 2 souls.
+    # and no bigger than the tier's capture-max-health. The captured mob shows on the action bar.
     capture-health-fraction: 0.5
+    soul-capacity: 1              # how many souls the gem holds at once
     # SOUL GUARD: a hit that would leave you at trigger-health (HP) or less burns a captured soul
     # instead - the hit misses, you phase and heal.
     soul-guard:
@@ -306,6 +307,7 @@ passives:
       launch-velocity: 4.5  # Upward launch when hitting players
       fall-damage-immunity: true
       sculk-immunity: true  # Tier 2 has sculk immunity
+    double-jump-dash: 0.6  # Forward push of the double jump (a tiny dash)
 
   fire:
     tier1:
@@ -361,47 +363,50 @@ abilities:
   # Global ability cooldown (in seconds)
   global-cooldown: 1
 
+  # true = abilities only fire while the gem is in your main hand. Passives (Puff's
+  # double jump included) keep working from either hand.
+  require-main-hand: false
+
   # Specific ability cooldowns (in seconds)
   cooldowns:
-    astra-daggers: 75
-    astra-projection: 120  # 2 minutes (set when projection ends)
-    astra-drift: 60  # Dimensional Drift (set when drift ends)
-    astra-void: 120  # 2 minutes - Dimensional Void
+    astra-daggers: 90
+    astra-projection: 300  # 5 minutes (set when projection ends)
+    astra-drift: 45  # Dimensional Drift (set when drift ends)
+    astra-void: 150  # 2.5 minutes - Dimensional Void
     astra-unbounded: 90  # Hit a player with the Astra gem: ride them as a ghost
-    fire-fireball: 35
-    fire-campfire: 90  # 2 minutes
-    fire-crisp: 60  # 1.5 minutes - Evaporate water + scorch terrain
-    fire-meteor-shower: 90  # 2 minutes - Rain fire on target area
+    fire-fireball: 75
+    fire-campfire: 600  # 10 minutes
+    fire-crisp: 42  # Evaporate water + scorch terrain
+    fire-meteor-shower: 75  # Rain fire on target area
     flux-ground: 30
-    flux-beam: 150  # 4 minutes - Very powerful armor-piercing attack (combined with stun can one-shot)
+    flux-beam: 30  # Very powerful armor-piercing attack (combined with stun can one-shot)
     flux-conduction: 3  # Copper teleport cooldown
     flux-flashbang: 45  # Flashbang AOE blindness
     flux-kinetic-burst: 30  # Radial knockback
-    life-drainer: 60
-    life-circle-of-life: 120
+    life-drainer: 75
+    life-circle-of-life: 180
     life-vitality-vortex: 45
     life-heart-lock: 75
-    puff-dash: 12
-    puff-breezy-bash: 45
-    puff-group-bash: 60
+    puff-dash: 40
+    puff-breezy-bash: 75
     puff-launch: 15  # Launch-on-hit passive (Puff gem in main hand)
-    speed-blur: 45
+    speed-blur: 90
     speed-sedative: 60
-    speed-storm: 90  # 2.25 minutes (tripled from 45)
+    speed-storm: 20
     speed-terminal: 50  # Terminal Velocity cooldown
     speed-gale-clouds: 45  # Gale Clouds (Quaternary)
     adrenaline-rush: 180  # T2 only - Speed scales with energy + instant attacks
-    strength-nullify: 120
-    strength-frailer: 120
-    strength-shadow-stalker: 180
+    strength-nullify: 240
+    strength-frailer: 240
+    strength-shadow-stalker: 300
     wealth-pockets: 0  # No cooldown for opening
-    wealth-item-lock: 90
-    wealth-unfortunate: 150
-    wealth-rich-rush: 540  # 9 minutes
-    wealth-amplification: 300  # 5 minutes
+    wealth-item-lock: 200
+    wealth-unfortunate: 200
+    wealth-rich-rush: 420  # 7 minutes
+    wealth-amplification: 420  # 7 minutes
     gold-beam: 10  # Gold Gem Sundering Beam
     puff-updraft: 10  # Puff Updraft
-    strength-chad: 10  # Chad Strength
+    strength-chad: 150  # Chad Strength
 
   # Astra Soul Absorption settings (temporary max hearts on kill)
   soul-absorption:
@@ -483,10 +488,27 @@ abilities:
     yield-base: 1.5  # Explosion yield at 0% charge
     yield-per-percent: 0.025  # Yield added per 1% charge (at 100% = yield-base + 100*this)
 
-  # Puff Group Breezy Bash settings
+  # Quakitus's Binding Vow Fire Gem (/bliss vow <player> quakitus)
+  fire-vow:
+    fireball-min-damage: 10.0  # True damage in HP (10 = 5 hearts)
+    fireball-max-damage: 12.0
+    mark-seconds: 6  # Glow + particles on whoever the fireball hits
+    explosion-multiplier: 1.6  # The vow fireball's blast is this much bigger than a normal one
+    sphere-seconds: 10  # The pink sphere around the EMP
+    sphere-radius: 8.0
+    emp-effect-seconds: 30  # Every mythic is disabled this long
+    heart-cost-seconds: 30  # Then the holder loses 5 hearts this long
+    gem-disabled-seconds: 60  # ...and their gem is off this long (also when the EMP is usable again)
+
+  # Puff Breezy Bash: aimed at a player = single (fling up, slam down), else group (you + enemies flung up)
+  puff-breezy-bash:
+    range: 12.0
+    launch-velocity: 2.2
+    slam-velocity: 3.5
+    slam-damage: 6.0  # HP when the slammed player lands
   puff-group-bash:
     radius: 6.0
-    knockback: 2.5
+    launch-velocity: 1.8
 
   # Life Circle of Life settings
   life-circle:
@@ -603,8 +625,8 @@ abilities:
   life-drainer:
     steal-hp: 4.0  # HP stolen instantly by Heart Drainer
   puff-dash:
-    power: 3.2  # Forward power of the dash
-    vertical: 0.18  # Upward push of the dash
+    speed: 1.6  # Blocks per tick while dashing (flat, no arc)
+    ticks: 6  # How long the dash lasts (6 ticks at 1.6 = ~10 blocks)
   puff-updraft:
     radius: 6.0  # Radius of the updraft
     launch-velocity: 3.2  # How hard the updraft launches
@@ -653,11 +675,12 @@ golden-dream:
   # Where the memory world (goldenworld) comes from when it doesn't exist yet. An existing
   # goldenworld folder is always used as-is, and a map put at /goldendream_import (a world folder
   # next to the server jar) always wins - a singleplayer save's nether/end come along.
-  #   generate  - a brand-new world, like the original plugin (default)
-  #   copy-main - a copy of the main world
+  #   generate  - a brand-new world, like the original plugin
+  #   copy-main - a copy of the main world (default): the memory is the server's own overworld,
+  #               nether and end, as they are when the first dreamer falls asleep
   #   import    - only the /goldendream_import map; without it the fragment ritual won't start
   # To swap the memory for a map later: put it at /goldendream_import, then /goldendream reset confirm.
-  memory-world: generate
+  memory-world: copy-main
   # The dream's skies, made without any resource pack so Java and Bedrock players both see them.
   sky:
     # Installs the "bliss_skies" datapack into the main world (needs one restart the first time).
@@ -722,7 +745,7 @@ gold:
     # Any vanilla trim pattern: FLOW, BOLT, SENTRY, EYE, VEX, WARD, SILENCE, TIDE, SNOUT,
     # RIB, SPIRE, WAYFINDER, SHAPER, RAISER, HOST, DUNE, COAST, WILD.
     pattern: FLOW
-  # Gem fragments dropped when a harvested gem is shattered.
+  # Shards of the harvested gem (e.g. Fire Shard) dropped when the Gold Gem shatters it.
   shards-per-harvest: 3
   beam:
     # Ticks the beam winds up for before it fires. The charge is visible and audible,
@@ -736,6 +759,57 @@ gold:
     # Chance for any hit the holder lands to come through amplified.
     chance: 0.15
     multiplier: 1.5
+  # AWAKENED: all eight souls harvested AND woken by the end of a Golden Dream (or /bliss goldgem awaken).
+  # Passives always: Ichor, Midas Touch (enemy pearls and wind charges freeze around you), Prophecy.
+  # /bliss goldcycle steps through the souls, then two movesets that replace soul channelling:
+  #   Moveset I:  primary - Snap (main hand) / Golden Drill (off hand), one shared cooldown
+  #               secondary - Rayler (main hand) / Gilded Viola, the triple beam (off hand)
+  #   Moveset II: primary - Prophet's Ladder (main hand) / Gilded Blitz (off hand), one shared cooldown
+  #               secondary - Mark of the Beast
+  #   both:       tertiary - Gilded Wrath, senary - the Sundering Beam
+  awakened:
+    enabled: true
+    prophecy-health: 20.0     # extra max HP while the awakened gem is held (10 hearts)
+    ichor-chance: 0.08        # chance a hit shakes a utility item out of the victim's inventory
+    snap:
+      cooldown: 120           # shared with Golden Drill
+      damage: 7.0             # to every other player on the server (double to broken gems)
+      lock-seconds: 60        # how long the three random gems stay disabled
+    drill:
+      ticks: 160              # how long the charge lasts (8 s)
+      speed: 1.1              # blocks per tick, steered by where you look
+      damage: 1.5             # per grind (every 10 ticks) to enemies caught in it
+      break-blocks: true      # bores through blocks (claims/regions are respected)
+    rayler:
+      charge-seconds: 95      # each of the 3 charges comes back this long after it was spent
+      range: 60.0
+      damage: 5.0             # the smaller beam
+      blink-range: 30.0       # the smaller beam first blinks behind an enemy this close in sight
+      pierce-blocks: 6        # blocks a single beam breaks through
+      triple-damage: 22.0     # per beam of Gilded Viola, the triple beam (takes all 3 charges)
+      triple-pierce-blocks: 12
+      triple-cooldown: 10800  # 3 hours
+    # Moveset II (pick it in /bliss goldcycle after the souls)
+    ladder:
+      cooldown: 180           # Prophet's Ladder, shared with Gilded Blitz
+      length: 20.0
+      damage: 9.0
+      unfortunate-seconds: 10 # Wealth's Unfortunate on everyone it drags in
+    blitz:
+      range: 16.0
+      damage: 7.0             # and strips Regeneration, Resistance and Absorption
+    mark:
+      charges: 2              # Mark of the Beast
+      charge-seconds: 90      # each charge comes back this long after it was spent
+      delay-seconds: 5        # between two shots
+      range: 7.0
+      damage: 13.0
+    wrath:
+      cooldown: 50
+      radius: 8.0
+      max-damage: 30.0        # at the centre, falling off with distance
+      gem-lock-seconds: 20
+      debuff-seconds: 10      # Frailer / Nullify / Item Lock / Unfortunate / Heart Drainer / Heart Lock
 
 # ==========================================
 # UPGRADER SYSTEM
@@ -752,11 +826,151 @@ upgrader:
   sound-pitch: 1.5
 
 # ==========================================
+# PROGRESSIONS (Bliss Season 3)
+# ==========================================
+# overworld -> nether -> end -> villagers -> netherite. /bliss progression <status|set <1-5>|next>.
+#   1: Nether and End sealed, plain diamond armour only. Eight Enchanted Obsidian (/bliss giveitem
+#      <player> enchanted_obsidian) in a nether portal's frame light it and start Progression 2.
+#      Holders glow and show yellow in the tab list.
+#   2: Nether open. The first player into the Nether wakes a custom Wither (drops below).
+#   3: End open, Gem Upgraders craftable. Holding the Dragon Egg: +10 hearts, gem cooldowns halved.
+#   4: villagers trade.
+#   5: the late Season 3 kit.
+# Off by default: turning it on seals the Nether and End until you move the server on.
+progression:
+  enabled: false
+  enchanted-obsidian-needed: 8
+  # Netherite gear can't be made at a smithing table (it comes from custom villagers in Bliss).
+  block-netherite-smithing: true
+  wither:
+    enabled: true
+    health: 900.0
+    upgraders: 4
+    revive-books: 2
+    traders: 8
+  # Per stage. enchants: highest level allowed (0 = removed); applies to anvils, enchanting tables
+  # and worn/held gear. potions: false bans them; max-potion-level caps them; banned-potions lists
+  # effect ids. max-items caps how many you can pick up. border: world border size when the stage
+  # starts (0 = leave it; Bliss went 6000 -> 12000 -> 30000). name: the title's subtitle ("Phase N").
+  stages:
+    1:
+      name: "The Creation of Everything"
+      potions: false
+      enchants:
+        protection: 1
+      border: 0
+    2:
+      name: "The Nether"
+      max-potion-level: 1
+      enchants:
+        protection: 3
+        sharpness: 3
+      border: 0
+    3:
+      name: "The Dragon Games"
+      max-potion-level: 1
+      enchants:
+        protection: 3
+        sharpness: 5
+      max-items:
+        CHORUS_FRUIT: 16
+      border: 0
+    4:
+      name: "The Lost Souls"
+      max-potion-level: 2
+      enchants:
+        protection: 3
+        sharpness: 3
+      border: 0
+    5:
+      name: "The End of Everything"
+      max-potion-level: 1
+      banned-potions: [resistance]   # Turtle Master
+      banned-items: [ENCHANTED_GOLDEN_APPLE]
+      enchants:
+        protection: 3
+        sharpness: 5
+        knockback: 1
+        thorns: 0
+      max-items:
+        TOTEM_OF_UNDYING: 2
+      banned-abilities: [fire-meteor-shower, wealth-item-lock, flux-charging]
+      border: 0
+
+# ==========================================
+# ENERGY GAMES / DRAGON GAMES
+# ==========================================
+# One-life events run by staff: /bliss games <energy|dragon> start, then stop, eliminate, revive,
+# worth/points <player> [amount], ban/unban <gem>, double <minutes>, glow <hours>,
+# border <size> <minutes>, bloodmoon on|off, piece <player> <sword|axe|helmet|chestplate|leggings|boots>.
+# Dragon Games players buy from /bliss shop with points (the Energy Games have no shop; admins can always open it).
+games:
+  include-staff: false          # players with blissgems.admin join the games too
+  eliminated-spectate: true     # the eliminated watch in spectator mode
+  tracker-minutes: 60
+  energy:
+    kill-quota-days: 4          # a kill every N days or you're out (0 = off)
+    hide-gem-stages: true       # every gem shows Pristine during the games
+    revive-cost: 1              # energy a player pays for /bliss games revive <player>
+  blood-moon-minutes: 90       # /bliss games bloodmoon [minutes]; ends by itself after this long
+  dragon:
+    banned-gems: [flux, speed, astra, strength]
+    ban-offhand-shields: true
+    egg-to-winner: true
+    # Every player's points value (what their killer earns, and what a revive of them costs).
+    # Picked at random from these tiers when the games start; repeat a value to make it likelier.
+    # /bliss games worth <player> <points> sets one by hand.
+    worth-tiers: [5, 5, 5, 15, 15, 15, 25, 25, 25, 35, 35, 55, 55, 90, 100, 120]
+    default-worth: 15
+    points-per-victim-kill: 5   # bonus points per kill the victim had
+  shop:
+    effect-seconds: 180        # Strength I (blaze powder) / Speed I (sugar) / Fire Resistance (magma cream), right-click to use
+    effect-items-per-buy: 1    # how many of them one shop purchase gives
+    # Dragon Games shop prices, in points
+    dragon:
+      hearts: 75          # +2 max hearts
+      egap: 75
+      restock-shulker: 75
+      totem: 75
+      traders: 30         # 2 Gem Traders
+      webs: 30            # 64 cobwebs
+      gaps: 15            # 64 golden apples
+      exp: 15             # 64 bottles o' enchanting
+      tracker: 15
+      strength: 5
+      speed: 5
+      fire-resistance: 5
+
+# ==========================================
+# MEGA MACE
+# ==========================================
+mega-mace:
+  # The Heavy, Tempered and Overcharged maces together in a crafting grid forge the Mega Mace:
+  # no cooldown, no enchantment limits, the best enchantments of all three.
+  enabled: true
+  # How many Mega Maces can ever be forged on this server (-1 = no limit). The count is kept in
+  # plugins/BlissGems/mega_mace.yml (set crafted: 0 there and restart to start over).
+  max-crafts: -1
+
+# ==========================================
+# ADVANCEMENTS
+# ==========================================
+advancements:
+  # The 13 achievements also show as real advancements: a "Bliss Gems" tab in the advancements
+  # screen, the toast, and the chat line (vanilla gamerule announceAdvancements). No datapack or
+  # extra plugin needed. false = achievements stay chat-only.
+  enabled: true
+
+# ==========================================
 # TRADER SYSTEM
 # ==========================================
 trader:
   # Cooldown in seconds
   cooldown: 5
+  # Left-click with a Gem Trader: pick which gems can come out. Every gem you take out of the
+  # pool costs this much energy (right-click still rolls any gem for free).
+  pick-menu: true
+  pick-energy-per-gem: 1
   # Play effects on trade
   play-effects: true
   particle: PORTAL
@@ -861,6 +1075,7 @@ messages:
   gold-no-soul: "<gradient:#FF5F6D:#FFC371><italic>The Gold Gem is dormant, harvest a soul first.</italic></gradient>"
   gold-soul-too-weak: "<gradient:#FF5F6D:#FFC371><italic>The {gem} soul was taken at Tier 1, it has no second power to give.</italic></gradient>"
   gold-progress-reset: "<gradient:#FF5F6D:#FFC371><italic>Your Gold Gem went dark. Every harvested soul is lost.</italic></gradient>"
+  gold-harvest-awakened: "<gradient:#F7971E:#FFD200><italic>Eight souls rest in {player}'s Gold Gem. It still sleeps, waiting for the Golden Dream.</italic></gradient>"
   gold-awakened: "<gradient:#F7971E:#FFD200><bold>The Gold Gem in {player}'s hands has awakened. Eight souls are one.</bold></gradient>"
   gold-gem-broken: "<gradient:#FF5F6D:#FFC371><italic>Your Gold Gem shattered on death. Restore it with a Restoration Book.</italic></gradient>"
   gold-soul-returned: "<gradient:#56F39A:#3ACBE8><italic>Your gem was torn back out of {player}'s Gold Gem. The {gem} is yours again.</italic></gradient>"
@@ -924,7 +1139,7 @@ messages:
 
   # Command Messages
   must-hold-gem: "<gradient:#FF5F6D:#FFC371>§lYou must be holding a gem to use this command!</gradient>"
-  requires-tier2: "<gradient:#FF5F6D:#FFC371>Secondary abilities require Tier 2 gem!</gradient>"
+  requires-tier2: "<gradient:#FF5F6D:#FFC371>Powers require a Tier 2 gem!</gradient>"
   requires-tier2-ability: "<gradient:#FF5F6D:#FFC371><italic>This ability requires Tier 2!</italic></gradient>"
 
   # Wealth Gem Messages
@@ -1088,9 +1303,11 @@ pedestal:
 # 4) /blissevent start
 villager-event:
   # Custom sounds from your resource pack; missing keys just play nothing.
-  disc-song-key: "bliss:village_clue"
-  # false = the disc spells the village coordinates out in a title instead of playing audio
+  disc-song-key: "bliss:village_message"
+  # The disc spells the village coordinates out in a title and plays disc-song-key (the village
+  # message in the BlissGems resource pack). false = no recording, a villager mumbles them instead.
   clue-audio: true
+  arrival-radius: 24.0  # Reaching the disc's coordinates (this close) plays the village's second message
   lost-souls-audio: true
   # Every raid wave's mob count is multiplied by this (0.05 - 3.0). 1.0 = wave 8 is ~110 raiders.
   raid-mob-scale: 1.0

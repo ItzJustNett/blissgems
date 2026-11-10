@@ -5,6 +5,9 @@
 #   testing/run-all.sh --only items       one suite (items, abilities, abilities-config,
 #                                         abilities-tier, passives, passives-config, regressions)
 #   testing/run-all.sh --update-goldens   take this run's tooltips as the new expected ones
+#   WITH_MYTHICS=1 testing/run-all.sh --only mythics
+#                                         BlissMythics on the server too (the menu suite expects
+#                                         it absent, so run the mythics suite on its own)
 #
 # A full pass writes testing/tested.json (version, source fingerprint, counts) with the visual
 # review and the player check still "pending"; testing/approve.sh records those afterwards.
@@ -19,7 +22,7 @@ docker build --network host -q -t blissgems-test . >/dev/null
 rm -rf results && mkdir -p results
 echo "running (server log, bot logs and the report go to testing/results/)..."
 set +e
-docker run --rm --network host --name blissgems-test \
+docker run --rm --network host --name blissgems-test -e WITH_MYTHICS="${WITH_MYTHICS:-0}" \
   -v "$REPO:/repo:ro" -v "$PWD/.cache:/cache:ro" -v "$PWD/results:/out" -v blissgems-test-m2:/root/.m2 \
   blissgems-test "$@"
 code=$?

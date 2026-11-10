@@ -37,6 +37,7 @@ import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.comphenix.protocol.wrappers.WrappedGameProfile;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -45,6 +46,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -99,15 +101,16 @@ public final class PlayerCloneNPC {
             return;
         }
         PacketContainer addInfo = pm.createPacket(PacketType.Play.Server.PLAYER_INFO);
-        addInfo.getPlayerInfoAction().write(0, EnumWrappers.PlayerInfoAction.ADD_PLAYER);
-        PlayerInfoData data = new PlayerInfoData(profile, 0, EnumWrappers.NativeGameMode.SURVIVAL, WrappedChatComponent.fromText((String)owner.getName()));
+        addInfo.getPlayerInfoActions().write(0, EnumSet.of(EnumWrappers.PlayerInfoAction.ADD_PLAYER));
+        PlayerInfoData data = new PlayerInfoData(npcId, 0, false, EnumWrappers.NativeGameMode.SURVIVAL, profile, WrappedChatComponent.fromText((String)owner.getName()));
         addInfo.getPlayerInfoDataLists().write(1, Collections.singletonList(data));
-        PacketContainer spawn = pm.createPacket(PacketType.Play.Server.NAMED_ENTITY_SPAWN);
+        PacketContainer spawn = pm.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
         spawn.getIntegers().write(0, entityId);
         spawn.getUUIDs().write(0, npcId);
+        spawn.getEntityTypeModifier().write(0, EntityType.PLAYER);
         spawn.getDoubles().write(0, loc.getX()).write(1, loc.getY()).write(2, loc.getZ());
-        spawn.getBytes().write(0, (byte)(loc.getYaw() * 256.0f / 360.0f));
-        spawn.getBytes().write(1, (byte)(loc.getPitch() * 256.0f / 360.0f));
+        byte yaw = (byte)(loc.getYaw() * 256.0f / 360.0f);
+        spawn.getBytes().write(0, (byte)(loc.getPitch() * 256.0f / 360.0f)).write(1, yaw).write(2, yaw);
         for (Player viewer : viewers) {
             PlayerCloneNPC.sendSafely(pm, viewer, addInfo);
             PlayerCloneNPC.sendSafely(pm, viewer, spawn);

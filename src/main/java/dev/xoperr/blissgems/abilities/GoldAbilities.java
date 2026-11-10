@@ -56,6 +56,8 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
+import java.util.List;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -68,6 +70,8 @@ implements GemAbilityHandler,
 Listener {
     public static final String BEAM_COOLDOWN_ID = "gold-beam";
     private static final String SOUL_MENU_TITLE = "\u00a76\u00a7lHarvested Souls";
+    /** Moveset I sits here and Moveset II next to it in the soul menu. */
+    private static final int MOVESET_SLOT = 18;
     private static final Set<String> PRIMARY_REQUIRES_TIER_2 = Set.of("wealth", "strength");
     private final BlissGems plugin;
     private final Map<UUID, BukkitRunnable> charging = new HashMap<UUID, BukkitRunnable>();
@@ -78,22 +82,43 @@ Listener {
 
     @Override
     public void onPrimary(Player player, int tier) {
+        if (this.awakened(player)) {
+            this.plugin.getAwakenedGold().primary(player);
+            return;
+        }
         this.channel(player, AbilitySlot.PRIMARY);
     }
 
     @Override
     public void onSecondary(Player player, int tier) {
+        if (this.awakened(player)) {
+            this.plugin.getAwakenedGold().secondary(player);
+            return;
+        }
         this.channel(player, AbilitySlot.SECONDARY);
     }
 
     @Override
     public void onQuinary(Player player, int tier) {
+        if (this.awakened(player)) {
+            this.plugin.getAwakenedGold().quinary(player);
+            return;
+        }
         this.channel(player, AbilitySlot.TERTIARY);
     }
 
     @Override
     public void onSenary(Player player, int tier) {
+        if (this.awakened(player)) {
+            this.chargeBeam(player);
+            return;
+        }
         this.channel(player, AbilitySlot.QUATERNARY);
+    }
+
+    /** A fully awakened gem with a moveset picked in /bliss goldcycle: that kit replaces soul channelling (see AwakenedGold). */
+    private boolean awakened(Player player) {
+        return this.plugin.getAwakenedGold() != null && this.plugin.getAwakenedGold().moveset(player) > 0;
     }
 
     /*
@@ -117,8 +142,16 @@ Listener {
             return;
         }
         int soulTier = gold.getActiveTier(player.getUniqueId());
+        if (soulTier < 2 && slot == AbilitySlot.PRIMARY && !"puff".equals(soul)) {
+            // a Tier 1 soul holds only its ability, like a Tier 1 gem (Wealth's is Pockets)
+            if ("wealth".equals(soul)) {
+                this.plugin.getWealthAbilities().pockets(player);
+                return;
+            }
+            slot = AbilitySlot.TERTIARY;
+        }
         boolean bl = primaryNeedsTier2 = slot == AbilitySlot.PRIMARY && PRIMARY_REQUIRES_TIER_2.contains(soul);
-        if ((slot != AbilitySlot.PRIMARY || primaryNeedsTier2) && soulTier < 2) {
+        if ((slot != AbilitySlot.PRIMARY && !(slot == AbilitySlot.TERTIARY && !"puff".equals(soul)) || primaryNeedsTier2) && soulTier < 2) {
             String message = this.plugin.getConfigManager().getMessage("gold-soul-too-weak");
             if (message.isEmpty()) {
                 message = "\u00a7c\u00a7oThe {gem} soul was taken at Tier 1, it has no second power to give.";
@@ -153,7 +186,15 @@ Listener {
     }
 
     @Override
-    public void onTertiary(final Player player, int tier) {
+    public void onTertiary(Player player, int tier) {
+        if (this.awakened(player)) {
+            this.plugin.getAwakenedGold().tertiary(player);
+            return;
+        }
+        this.chargeBeam(player);
+    }
+
+    private void chargeBeam(final Player player) {
         final UUID playerId = player.getUniqueId();
         if (this.charging.containsKey(playerId)) {
             this.breakCharge(player, "gold-beam-cancelled");
@@ -282,7 +323,28 @@ Listener {
             }
             menu.setItem(slot++, icon);
         }
+        // a fully awakened gem also offers its own two movesets (bottom row)
+        GoldGemManager gold = this.plugin.getGoldGemManager();
+        if (gold.isFullyAwakened(player.getUniqueId())) {
+            int set = gold.getMoveset(player.getUniqueId());
+            menu.setItem(MOVESET_SLOT, this.movesetIcon("\u00a76\u00a7lMoveset I", "\u00a7eSnap / Golden Drill \u00a78\u2022 \u00a7eGilded Wrath \u00a78\u2022 \u00a7eRayler / Gilded Viola", set == 1));
+            menu.setItem(MOVESET_SLOT + 1, this.movesetIcon("\u00a76\u00a7lMoveset II", "\u00a7eProphet's Ladder / Gilded Blitz \u00a78\u2022 \u00a7eGilded Wrath \u00a78\u2022 \u00a7eMark of the Beast", set == 2));
+        }
         player.openInventory(menu);
+    }
+
+    private ItemStack movesetIcon(String name, String kit, boolean selected) {
+        ItemStack icon = CustomItemManager.getItemById(GoldGemManager.GOLD_ITEM_ID);
+        if (icon == null) {
+            icon = new ItemStack(Material.GOLD_INGOT);
+        }
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name + (selected ? " \u00a7a\u00a7l< CHANNELLED >" : ""));
+            meta.setLore(List.of(kit));
+            icon.setItemMeta(meta);
+        }
+        return icon;
     }
 
     @EventHandler(priority=EventPriority.HIGH)
@@ -300,6 +362,17 @@ Listener {
                 player = (Player)humanEntity;
                 if (event.getCurrentItem() != null) break block7;
             }
+            return;
+        }
+        int raw = event.getRawSlot();
+        if (raw == MOVESET_SLOT || raw == MOVESET_SLOT + 1) {
+            if (this.plugin.getGoldGemManager().setMoveset(player, raw == MOVESET_SLOT ? 1 : 2)) {
+                player.sendMessage(raw == MOVESET_SLOT
+                    ? "\u00a76\u00a7lMoveset I \u00a78- \u00a7eSnap / Golden Drill \u00a78\u2022 \u00a7eGilded Wrath \u00a78\u2022 \u00a7eRayler / Gilded Viola"
+                    : "\u00a76\u00a7lMoveset II \u00a78- \u00a7eProphet's Ladder / Gilded Blitz \u00a78\u2022 \u00a7eGilded Wrath \u00a78\u2022 \u00a7eMark of the Beast");
+                player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.4f);
+            }
+            player.closeInventory();
             return;
         }
         String itemId = CustomItemManager.getIdByItem(event.getCurrentItem());

@@ -21,6 +21,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -157,6 +158,10 @@ public final class VillagerRaid implements Listener {
         }, 0L, 2L));
         this.tasks.add(Bukkit.getScheduler().runTaskTimer(this.plugin, this::ambientBolt, 35L, 35L));
         this.tasks.add(Bukkit.getScheduler().runTaskTimer(this.plugin, this::raiderBehaviour, 15L, 15L));
+        // the portal's hum over the village for the whole raid (52 s loop)
+        this.tasks.add(Bukkit.getScheduler().runTaskTimer(this.plugin, () -> {
+            if (!this.finished) this.center.getWorld().playSound(this.center, "bliss:raid_portal_ambience", SoundCategory.AMBIENT, 6.0f, 1.0f);
+        }, 0L, 1040L));
         this.stormOn();
     }
 
@@ -212,7 +217,8 @@ public final class VillagerRaid implements Listener {
             i += group;
             delay += 8L;
         }
-        this.playAll(Sound.EVENT_RAID_HORN, 1.0f);
+        // the Bliss raid horn (resource pack), heard by everyone
+        for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p, "bliss:raid_horn", SoundCategory.MASTER, 1.0f, 1.0f);
     }
 
     private void victory() {
@@ -256,7 +262,10 @@ public final class VillagerRaid implements Listener {
         this.tasks.clear();
         this.restoreEdits();
         this.stormOff();
-        for (Player p : Bukkit.getOnlinePlayers()) p.hideBossBar(this.bar);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.hideBossBar(this.bar);
+            p.stopSound("bliss:raid_portal_ambience", SoundCategory.AMBIENT);
+        }
         if (current == this) current = null;
     }
 
@@ -270,6 +279,8 @@ public final class VillagerRaid implements Listener {
         String name = online != null ? online.getName() : Bukkit.getOfflinePlayer(top).getName();
         if (name == null) name = "Someone";
         Bukkit.broadcastMessage(PedestalManager.color("&6✦ &e" + name + " &6dealt the most damage in the Last Raid and rises as the &l&eHonored One&6!"));
+        dev.xoperr.blissgems.BlissGems plugin = org.bukkit.plugin.java.JavaPlugin.getPlugin(dev.xoperr.blissgems.BlissGems.class);
+        if (plugin.getHonoredOne() != null) plugin.getHonoredOne().crown(top);
     }
 
     // ---- waves ----

@@ -55,6 +55,19 @@ rm -rf "$W/server" && cp -r /opt/paper "$W/server"
 mkdir -p "$W/server/plugins" "$W/server/config"
 cp "$PLUGIN_JAR" "$W/server/plugins/BlissGems.jar"
 cp /opt/deps/ViaVersion.jar /opt/deps/ViaBackwards.jar "$W/server/plugins/"
+# WITH_MYTHICS=1: BlissMythics (built against this BlissGems) goes on the server too
+if [ "${WITH_MYTHICS:-0}" = 1 ]; then
+  log "building BlissMythics"
+  rm -rf "$W/mythics" && mkdir -p "$W/mythics/target"
+  cp -r /repo/BlissMythicsSource "$W/mythics/"
+  rm -rf "$W/mythics/BlissMythicsSource/target"
+  cp "$PLUGIN_JAR" "$W/mythics/target/BlissGems-4.9.9.jar"
+  if ! (cd "$W/mythics/BlissMythicsSource" && mvn -B -q package >> "$OUT/maven.log" 2>&1); then
+    log "BlissMythics BUILD FAILED - see maven.log"
+    exit 2
+  fi
+  cp "$W"/mythics/BlissMythicsSource/target/BlissMythics-*.jar "$W/server/plugins/"
+fi
 echo "eula=true" > "$W/server/eula.txt"
 sed -e "s/@SERVER_PORT@/$SERVER_PORT/" -e "s/@RCON_PORT@/$RCON_PORT/" -e "s/@RCON_PASSWORD@/$RCON_PASSWORD/" \
     -e "s#@PACK_URL@#http://127.0.0.1:$PACK_PORT/rp/pack.zip#" -e "s/@PACK_SHA1@/$PACK_SHA1/" \

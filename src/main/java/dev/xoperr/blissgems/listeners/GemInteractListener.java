@@ -90,6 +90,12 @@ implements Listener {
         this.traderCooldowns = new HashMap<UUID, Long>();
     }
 
+    private GemTraderMenu traderMenu;
+
+    public void setTraderMenu(GemTraderMenu traderMenu) {
+        this.traderMenu = traderMenu;
+    }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         boolean hasBundleInOffHand;
@@ -101,12 +107,21 @@ implements Listener {
             return;
         }
         if (isLeft) {
+            if (event.getHand() == EquipmentSlot.HAND && this.traderMenu != null && "gem_trader".equals(CustomItemManager.getIdByItem(event.getItem()))) {
+                event.setCancelled(true);
+                this.traderMenu.open(event.getPlayer());
+                return;
+            }
             this.handleLeftClickAbility(event);
             return;
         }
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
         if (item == null) {
+            // Binding Vow: an empty hand is the gem (the client only reports empty-hand right clicks on blocks)
+            if (event.getHand() == EquipmentSlot.HAND && this.plugin.getBindingVows() != null && this.plugin.getBindingVows().firesFrom(player, player.getInventory().getItemInMainHand())) {
+                this.dispatchBoundAbility(player, AbilityBinding.rightClick(player.isSneaking()));
+            }
             return;
         }
         ItemStack mainHand = player.getInventory().getItemInMainHand();
@@ -173,6 +188,13 @@ implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
         String id = item != null ? CustomItemManager.getIdByItem(item) : null;
+        if (id == null && this.plugin.getBindingVows() != null && this.plugin.getBindingVows().firesFrom(player, player.getInventory().getItemInMainHand())) {
+            // a fist on a block is mining, not the vow's ability
+            if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+                return;
+            }
+            id = this.plugin.getBindingVows().vowItemId(player);
+        }
         boolean heldGem = id != null && (id.endsWith("_gem_t1") || id.endsWith("_gem_t2"));
         boolean bl = offhandGold = this.plugin.getGoldGemManager() != null && this.plugin.getGoldGemManager().isGoldGem(player.getInventory().getItemInOffHand());
         if (!(heldGem || offhandGold && event.getAction() == Action.LEFT_CLICK_AIR)) {
@@ -194,7 +216,8 @@ implements Listener {
             }
         }
         AbilityBinding input = AbilityBinding.leftClick(player.isSneaking());
-        AbilitySlot abilitySlot = slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
+        AbilitySlot abilitySlot = slot = this.mythicInMainHand(player) ? AbilitySlot.PRIMARY
+            : this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
         if (slot == null) {
             return;
         }
@@ -224,6 +247,9 @@ implements Listener {
             return;
         }
         String id = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (id == null && this.plugin.getBindingVows() != null && this.plugin.getBindingVows().firesFrom(player, player.getInventory().getItemInMainHand())) {
+            id = this.plugin.getBindingVows().vowItemId(player);
+        }
         if (id == null || !id.endsWith("_gem_t1") && !id.endsWith("_gem_t2")) {
             return;
         }
@@ -237,7 +263,8 @@ implements Listener {
             }
             return;
         }
-        AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, AbilityBinding.leftClick(player.isSneaking())) : null;
+        AbilitySlot slot = this.mythicInMainHand(player) ? AbilitySlot.PRIMARY
+            : this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, AbilityBinding.leftClick(player.isSneaking())) : null;
         if (slot == null) {
             return;
         }
@@ -250,9 +277,27 @@ implements Listener {
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 
+    /**
+     * Mythic gems (Auratus, Heretic) are worked like in Bliss: left click with the gem in the main
+     * hand is the first ability, right click the second, whatever /bliss ability says.
+     */
+    private boolean mythicInMainHand(Player player) {
+        String id = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (id == null || this.plugin.getGemRegistry() == null) {
+            return false;
+        }
+        String gemId = this.plugin.getGemRegistry().gemIdFromItemId(id);
+        dev.xoperr.blissgems.api.GemDefinition def = gemId != null ? this.plugin.getGemRegistry().getGem(gemId) : null;
+        return def != null && def.getMinTier() >= 2;
+    }
+
     private void dispatchBoundAbility(Player player, AbilityBinding input) {
         AbilitySlot slot;
         if (!this.gateAbility(player)) {
+            return;
+        }
+        if ((input == AbilityBinding.RIGHT_CLICK || input == AbilityBinding.SHIFT_RIGHT_CLICK) && this.mythicInMainHand(player)) {
+            this.plugin.getBlissCommand().triggerSlot(player, AbilitySlot.SECONDARY);
             return;
         }
         AbilitySlot abilitySlot = slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
@@ -308,6 +353,9 @@ implements Listener {
     }
 
     private boolean gateAbility(Player player) {
+        if (!this.plugin.getAbilityManager().isHandAllowed(player)) {
+            return false;
+        }
         GemLockManager lockMgr = this.plugin.getGemLockManager();
         if (lockMgr != null && lockMgr.isLocked(player)) {
             int left = lockMgr.getRemainingSeconds(player.getUniqueId());
@@ -400,6 +448,18 @@ implements Listener {
             return;
         }
         String newGemId = (String)availableGems.get((int)(Math.random() * (double)availableGems.size()));
+        this.tradeGem(player, traderItem, newGemId);
+    }
+
+    /** Seconds until this player may use a Gem Trader again (0 = now). */
+    public int traderSecondsLeft(Player player) {
+        Long lastUse = this.traderCooldowns.get(player.getUniqueId());
+        long timeLeft = lastUse == null ? 0L : lastUse + (long)this.plugin.getConfigManager().getTraderCooldown() * 1000L - System.currentTimeMillis();
+        return timeLeft > 0L ? (int)Math.ceil((double)timeLeft / 1000.0) : 0;
+    }
+
+    /** Swaps the player's gem for newGemId and uses up one Gem Trader. */
+    public boolean tradeGem(Player player, ItemStack traderItem, String newGemId) {
         if (this.plugin.getGemManager().replaceGem(player, newGemId)) {
             String msg;
             if (traderItem.getAmount() > 1) {
@@ -407,7 +467,7 @@ implements Listener {
             } else {
                 player.getInventory().setItemInMainHand(null);
             }
-            this.traderCooldowns.put(player.getUniqueId(), now);
+            this.traderCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
             if (this.plugin.getAchievementManager() != null) {
                 this.plugin.getAchievementManager().unlock(player, Achievement.TIME_FOR_A_CHANGE);
             }
@@ -417,9 +477,10 @@ implements Listener {
             if ((msg = this.plugin.getConfigManager().getFormattedMessage("trade-success", "gem", this.plugin.getGemManager().getGemDisplayName(newGemId))) != null && !msg.isEmpty()) {
                 player.sendMessage(msg);
             }
-        } else {
-            player.sendMessage(String.valueOf(ChatColor.RED) + "Failed to trade gem!");
+            return true;
         }
+        player.sendMessage(String.valueOf(ChatColor.RED) + "Failed to trade gem!");
+        return false;
     }
 
     @EventHandler
@@ -917,7 +978,7 @@ implements Listener {
         GemDefinition def = gemId != null && registry != null ? registry.getGem(gemId) : null;
         boolean bl3 = unlocksAllAtTier1 = def != null && def.getMaxTier() < 2;
         if (secondary && tier < 2 && !unlocksAllAtTier1) {
-            player.sendMessage("\u00a7c\u00a7lSecondary abilities require Tier 2 gem!");
+            player.sendMessage("\u00a7c\u00a7lPowers require a Tier 2 gem!");
             return;
         }
         GemType gemType = GemType.fromOraxenId(oraxenId);
@@ -963,6 +1024,9 @@ implements Listener {
             return;
         }
         if (gemId != null && registry != null && (handler = registry.getAbilityHandler(gemId)) != null) {
+            if (this.plugin.getFireVow().jamsGem(player, gemId)) {
+                return;
+            }
             if (secondary) {
                 handler.onSecondary(player, tier);
             } else {

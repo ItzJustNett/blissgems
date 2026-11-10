@@ -28,8 +28,10 @@ def fill(ctx, ids):
     """Gives the items one by one into an empty inventory; returns {slot: item id} for what arrived."""
     w = ctx.world
     w.reset_player(ctx.tester)
+    # the plugin can hand a player's own gem back a moment after the reset; that slot isn't ours
+    time.sleep(1.0)
     expected = {}
-    taken = set()
+    taken = {it["slot"] for it in ctx.tester.items()}
     for item_id in ids:
         out = w.give_item(ctx.tester, item_id)
         time.sleep(0.25)

@@ -55,6 +55,8 @@ public final class VillagerEventState {
     public boolean isFinalActive() { return this.finalActive; }
     public void setFinalActive(boolean v) { this.finalActive = v; }
     public boolean isEventRunning() { return this.active || this.finalActive; }
+    /** Bliss: the villagers trade during the Lost Souls hunt and stop at the last raid (phase 3). */
+    public boolean canTrade() { return this.active && !this.finalActive; }
 
     // ---- returned villagers ----
     public int villagersReturned() { return this.villagersReturned; }

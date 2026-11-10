@@ -43,6 +43,10 @@ implements GemRegistry {
             return;
         }
         this.gems.put(id, definition);
+        // Bliss: mythic gems (Tier 2 only) can be dropped like any item
+        if (definition.getMinTier() >= 2) {
+            for (int tier = 1; tier <= definition.getMaxTier(); tier++) CustomItemManager.allowDrop(definition.buildItemId(tier));
+        }
         if (!"BlissGems".equals(definition.getPluginName())) {
             this.registerAddonItems(definition);
         }

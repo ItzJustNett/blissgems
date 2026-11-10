@@ -30,7 +30,6 @@ class ConfigKeysTest {
         "messages.projection-boundary",
         "messages.projection-ended",
         "messages.projection-blocked",
-        "messages.cannot-swap-gem-full-inventory",
         "messages.cannot-move-gem-to-container",
         "messages.cannot-use-gem-in-composter",
         "messages.cannot-trust-self",

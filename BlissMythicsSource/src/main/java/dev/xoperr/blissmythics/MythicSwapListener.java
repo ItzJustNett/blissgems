@@ -1,6 +1,7 @@
 package dev.xoperr.blissmythics;
 
 import dev.xoperr.blissgems.api.BlissGemsAPI;
+import dev.xoperr.blissgems.goldevent.GoldenDreamWorld;
 import dev.xoperr.blissgems.utils.CustomItemManager;
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -26,7 +28,11 @@ import org.bukkit.inventory.ItemStack;
  *       that normal gem is pulled out of the inventory and stashed (memory + disk).</li>
  *   <li>The mythic already drops on death on its own — mythic items are not flagged
  *       undroppable, so BlissGems' death protection leaves them in the drops.</li>
- *   <li>On respawn, if the player no longer holds a mythic, the stashed gem is returned.</li>
+ *   <li>A mythic that arrives any other way (/bliss give, a kill) is caught by a sweep every
+ *       5 ticks, which stashes the normal gem held next to it.</li>
+ *   <li>On respawn, or when they drop the mythic (mythics are droppable), if the player no
+ *       longer holds a mythic, the stashed gem is returned - never inside the Golden Dream,
+ *       whose wake puts the real inventory back over whatever was handed out there.</li>
  * </ul>
  *
  * Only one gem is stashed at a time: picking up a second mythic while one is already stashed
@@ -45,11 +51,21 @@ public final class MythicSwapListener implements Listener {
       this.api = api;
       this.file = new File(plugin.getDataFolder(), "stashed-gems.yml");
       this.load();
+      Bukkit.getScheduler().runTaskTimer(plugin, this::sweep, 5L, 5L);
+   }
+
+   /** A normal gem held next to a mythic goes into the stash, however the mythic got there. */
+   private void sweep() {
+      for (Player player : Bukkit.getOnlinePlayers()) {
+         if (!player.isDead() && !this.stashed.containsKey(player.getUniqueId()) && this.holdsMythic(player)) {
+            this.stashNormalGem(player);
+         }
+      }
    }
 
    /** The gem id an item represents, or null if it is not a gem. */
    private String gemIdOf(ItemStack item) {
-      if (item == null || item.getType().isAir()) {
+      if (!CustomItemManager.mayBeGem(item)) {
          return null;
       }
       String itemId = CustomItemManager.getIdByItem(item);
@@ -78,6 +94,11 @@ public final class MythicSwapListener implements Listener {
       if (!this.isMythic(event.getItem().getItemStack())) {
          return;
       }
+      this.stashNormalGem(player);
+   }
+
+   /** Pulls the player's normal (non-mythic) gem out of their inventory into the stash. */
+   public void stashNormalGem(Player player) {
       UUID id = player.getUniqueId();
       if (this.stashed.containsKey(id)) {
          return; // a gem is already stashed — don't overwrite it
@@ -104,18 +125,30 @@ public final class MythicSwapListener implements Listener {
       if (!this.stashed.containsKey(id)) {
          return;
       }
-      Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
-         if (!player.isOnline() || !this.stashed.containsKey(id)) {
-            return;
-         }
-         if (this.holdsMythic(player)) {
-            return; // mythic survived (keepInventory) — keep the stash for later
-         }
-         player.getInventory().addItem(this.stashed.remove(id));
-         this.save();
-         this.api.getGemManager().updateActiveGem(player);
-         player.sendMessage("§d§oYour gem returns to you.");
-      }, 3L);
+      // a mythic that survived (keepInventory) keeps the stash for later
+      Bukkit.getScheduler().runTaskLater(this.plugin, () -> this.returnStash(player), 3L);
+   }
+
+   /** Dropping the mythic hands the stashed gem back. */
+   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+   public void onDrop(PlayerDropItemEvent event) {
+      Player player = event.getPlayer();
+      if (!this.isMythic(event.getItemDrop().getItemStack()) || !this.stashed.containsKey(player.getUniqueId())) {
+         return;
+      }
+      Bukkit.getScheduler().runTask(this.plugin, () -> this.returnStash(player));
+   }
+
+   private void returnStash(Player player) {
+      UUID id = player.getUniqueId();
+      if (!player.isOnline() || player.isDead() || !this.stashed.containsKey(id) || this.holdsMythic(player)
+         || GoldenDreamWorld.isDreamWorld(player.getWorld())) {
+         return;
+      }
+      player.getInventory().addItem(this.stashed.remove(id)).values().forEach(left -> player.getWorld().dropItem(player.getLocation(), left));
+      this.save();
+      this.api.getGemManager().updateActiveGem(player);
+      player.sendMessage("§d§oYour gem returns to you.");
    }
 
    private void save() {

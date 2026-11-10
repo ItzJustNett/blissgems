@@ -26,7 +26,7 @@ public final class GoldenDream {
         this.tabList = new DreamTabList(plugin);
         this.nicks = new NickManager(plugin, this);
         this.roster = new MemoryRoster(plugin, this);
-        this.npcs = new MemoryNpcs(plugin, this.roster);
+        this.npcs = new MemoryNpcs(plugin, this, this.roster);
         this.world = new GoldenDreamWorld(plugin, this);
         this.ritual = new GoldenDreamRitual(plugin, this, fx);
         PluginManager pm = Bukkit.getPluginManager();

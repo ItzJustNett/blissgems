@@ -249,7 +249,7 @@ implements Listener {
         boolean hasPuff = this.plugin.getGemManager().hasGemTypeInOffhand(player, GemType.PUFF) || this.isHoldingPuffGem(player);
         boolean bl = passivesActive = hasPuff && this.canUsePassives(player);
         if (passivesActive && player.isOnGround()) {
-            this.jumpsRemaining.put(player.getUniqueId(), 2);
+            this.jumpsRemaining.put(player.getUniqueId(), 1);
             if (!player.getAllowFlight()) {
                 player.setAllowFlight(true);
             }
@@ -296,7 +296,10 @@ implements Listener {
             tier = 1;
         }
         double jumpVelocity = this.plugin.getConfigManager().getDoubleJumpVelocity(tier);
-        Vector velocity = player.getVelocity();
+        // Bliss: the double jump carries a tiny dash the way you're looking
+        double dash = this.plugin.getConfig().getDouble("passives.puff.double-jump-dash", 0.6);
+        Vector velocity = player.getLocation().getDirection().setY(0);
+        velocity = velocity.lengthSquared() < 1.0E-4 ? player.getVelocity() : velocity.normalize().multiply(dash);
         velocity.setY(jumpVelocity);
         player.setVelocity(velocity);
         player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 20, 0.3, 0.1, 0.3, 0.05);

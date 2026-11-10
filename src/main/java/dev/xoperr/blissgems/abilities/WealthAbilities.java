@@ -117,9 +117,6 @@ implements GemAbilityHandler {
     }
 
     public void pockets(Player player) {
-        if (!this.requireTier2(player)) {
-            return;
-        }
         Inventory pockets = this.pocketsInventories.computeIfAbsent(player.getUniqueId(), uuid -> {
             Inventory inv = Bukkit.createInventory(null, (int)9, (String)"\u00a76\u00a7lPockets");
             this.loadPocketsInventory(player.getUniqueId(), inv);
@@ -433,6 +430,25 @@ implements GemAbilityHandler {
             return null;
         }
         return new NamespacedKey("blissgems", AMP_PDC_PREFIX + enchant.getKey().getKey());
+    }
+
+    /** Unfortunate on a target for a while, from another gem's ability (no caster bookkeeping). */
+    public static void afflictUnfortunate(Plugin plugin, Player target, int seconds) {
+        UUID id = target.getUniqueId();
+        unfortunatePlayers.add(id);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> unfortunatePlayers.remove(id), (long)seconds * 20L);
+    }
+
+    /** Item Lock on whatever the target holds, from another gem's ability. False when their hand is empty. */
+    public static boolean lockHeldItem(Plugin plugin, Player target, int seconds) {
+        ItemStack held = target.getInventory().getItemInMainHand();
+        if (held == null || held.getType().isAir()) {
+            return false;
+        }
+        UUID id = target.getUniqueId();
+        itemLockedPlayers.put(id, held.clone());
+        Bukkit.getScheduler().runTaskLater(plugin, () -> itemLockedPlayers.remove(id), (long)seconds * 20L);
+        return true;
     }
 
     public static boolean isUnfortunate(UUID uuid) {

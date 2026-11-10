@@ -1,0 +1,26 @@
+{
+	"credit": "Auratus chain tip: two crossed planes pointing +Z",
+	"texture_size": [32, 32],
+	"textures": {
+		"0": "blissgems:item/chain_tip",
+		"particle": "blissgems:item/chain_tip"
+	},
+	"elements": [
+		{
+			"from": [8, 4, 8],
+			"to": [8, 12, 16],
+			"faces": {
+				"east": {"uv": [16, 0, 0, 16], "texture": "#0"},
+				"west": {"uv": [0, 0, 16, 16], "texture": "#0"}
+			}
+		},
+		{
+			"from": [4, 8, 8],
+			"to": [12, 8, 16],
+			"faces": {
+				"up": {"uv": [0, 0, 16, 16], "rotation": 90, "texture": "#0"},
+				"down": {"uv": [0, 0, 16, 16], "rotation": 270, "texture": "#0"}
+			}
+		}
+	]
+}

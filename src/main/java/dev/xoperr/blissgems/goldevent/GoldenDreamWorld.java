@@ -95,6 +95,7 @@ public final class GoldenDreamWorld implements Listener {
     private World end;
     private BukkitTask gradeTask;
     private int stormUntil = -1;
+    private boolean building;
 
     public GoldenDreamWorld(BlissGems plugin, GoldenDream dream) {
         this.plugin = plugin;
@@ -222,11 +223,11 @@ public final class GoldenDreamWorld implements Listener {
 
     /**
      * Where a missing goldenworld comes from (an existing goldenworld folder is always used as-is,
-     * and a map in /goldendream_import always wins): "generate" (default, like the original plugin) -
-     * a new world; "copy-main" - a copy of the main world; "import" - only ever the import map.
+     * and a map in /goldendream_import always wins): "generate" (like the original plugin) - a new
+     * world; "copy-main" (default) - a copy of the main world; "import" - only ever the import map.
      */
     private String memorySource() {
-        return this.plugin.getConfig().getString("golden-dream.memory-world", "generate").toLowerCase(java.util.Locale.ROOT);
+        return this.plugin.getConfig().getString("golden-dream.memory-world", "copy-main").toLowerCase(java.util.Locale.ROOT);
     }
 
     /** True once a memory world exists or can be made. */
@@ -236,42 +237,93 @@ public final class GoldenDreamWorld implements Listener {
             || !"import".equals(this.memorySource());
     }
 
-    /** Builds goldenworld from the import folder (or a copy of the main world). False when there is nothing to build from. */
-    private boolean prepareMemory() {
+    /** One folder (or file) copied into a memory world: {@code sub} is the path inside that world's folder. */
+    private record Copy(File from, String world, String sub) {}
+
+    /**
+     * What goldenworld is built from: copies (empty = WorldCreator generates it), or null when there
+     * is nothing to build from.
+     */
+    private List<Copy> memoryCopies() {
         File container = Bukkit.getWorldContainer();
         File src = new File(container, IMPORT_FOLDER);
-        try {
-            if (isWorldFolder(src)) {
-                this.plugin.getLogger().info("Golden Dream: building the memory world from /" + IMPORT_FOLDER + " ...");
-                copyWorld(src, new File(container, WORLD));
-                // a singleplayer save keeps its nether and end inside: use them too
-                if (new File(src, "DIM-1").isDirectory() && !new File(container, NETHER).exists()) {
-                    copyWorld(new File(src, "DIM-1"), new File(new File(container, NETHER), "DIM-1"));
-                    java.nio.file.Files.copy(new File(src, "level.dat").toPath(), new File(container, NETHER + "/level.dat").toPath());
-                }
-                if (new File(src, "DIM1").isDirectory() && !new File(container, END).exists()) {
-                    copyWorld(new File(src, "DIM1"), new File(new File(container, END), "DIM1"));
-                    java.nio.file.Files.copy(new File(src, "level.dat").toPath(), new File(container, END + "/level.dat").toPath());
-                }
-                return true;
+        List<Copy> copies = new ArrayList<>();
+        if (isWorldFolder(src)) {
+            this.plugin.getLogger().info("Golden Dream: building the memory world from /" + IMPORT_FOLDER + " ...");
+            copies.add(new Copy(src, WORLD, ""));
+            // a singleplayer save keeps its nether and end inside: use them too
+            if (new File(src, "DIM-1").isDirectory() && !new File(container, NETHER).exists()) {
+                copies.add(new Copy(new File(src, "DIM-1"), NETHER, "DIM-1"));
+                copies.add(new Copy(new File(src, "level.dat"), NETHER, "level.dat"));
             }
-            if ("generate".equals(this.memorySource())) {
-                return true; // WorldCreator makes a fresh world, exactly like the original plugin
+            if (new File(src, "DIM1").isDirectory() && !new File(container, END).exists()) {
+                copies.add(new Copy(new File(src, "DIM1"), END, "DIM1"));
+                copies.add(new Copy(new File(src, "level.dat"), END, "level.dat"));
             }
-            if ("copy-main".equals(this.memorySource())) {
-                World main = Bukkit.getWorlds().get(0);
-                main.save();
-                this.plugin.getLogger().info("Golden Dream: building the memory world as a copy of '" + main.getName() + "' ...");
-                copyWorld(main.getWorldFolder(), new File(container, WORLD));
-                return true;
-            }
-        } catch (IOException e) {
-            this.plugin.getLogger().warning("Golden Dream: could not build the memory world: " + e.getMessage());
-            return false;
+            return copies;
+        }
+        if ("generate".equals(this.memorySource())) {
+            return copies; // WorldCreator makes a fresh world, exactly like the original plugin
+        }
+        if ("copy-main".equals(this.memorySource())) {
+            World main = Bukkit.getWorlds().get(0);
+            // World#save() only queues the chunks on Paper; the copy needs them on disk.
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "save-all flush");
+            this.plugin.getLogger().info("Golden Dream: building the memory world as a copy of '" + main.getName() + "' (with its nether and end) ...");
+            copies.add(new Copy(main.getWorldFolder(), WORLD, ""));
+            World mainNether = Bukkit.getWorld(main.getName() + "_nether");
+            if (mainNether != null && !new File(container, NETHER).exists()) copies.add(new Copy(mainNether.getWorldFolder(), NETHER, ""));
+            World mainEnd = Bukkit.getWorld(main.getName() + "_the_end");
+            if (mainEnd != null && !new File(container, END).exists()) copies.add(new Copy(mainEnd.getWorldFolder(), END, ""));
+            return copies;
         }
         this.plugin.getLogger().warning("Golden Dream: there is no memory world. Put the map's world folder at /" + IMPORT_FOLDER
             + " (next to the server jar), or set golden-dream.memory-world to generate or copy-main. The dream will not start until then.");
-        return false;
+        return null;
+    }
+
+    /**
+     * Copies the memory worlds in off the main thread (a big map would stall the server into the
+     * watchdog), into "<name>.building" folders that are renamed once complete, so a copy cut short
+     * never passes for a world. The worlds load when it is done.
+     */
+    private void build(List<Copy> copies) {
+        this.building = true;
+        File container = Bukkit.getWorldContainer();
+        Bukkit.getScheduler().runTaskAsynchronously(this.plugin, () -> {
+            String failure = null;
+            try {
+                Set<String> worlds = new java.util.LinkedHashSet<>();
+                for (Copy c : copies) worlds.add(c.world());
+                for (String w : worlds) deleteTree(new File(container, w + ".building"));
+                for (Copy c : copies) copyWorld(c.from(), new File(new File(container, c.world() + ".building"), c.sub()));
+                for (String w : worlds) {
+                    File done = new File(container, w);
+                    deleteTree(done);
+                    Files.move(new File(container, w + ".building").toPath(), done.toPath());
+                }
+            } catch (IOException | RuntimeException e) {
+                failure = e.getMessage();
+            }
+            String failed = failure;
+            if (!this.plugin.isEnabled()) return;
+            Bukkit.getScheduler().runTask(this.plugin, () -> {
+                this.building = false;
+                if (failed != null) {
+                    this.plugin.getLogger().warning("Golden Dream: could not build the memory world: " + failed);
+                    return;
+                }
+                this.plugin.getLogger().info("Golden Dream: memory world copied");
+                this.worldSet();
+            });
+        });
+    }
+
+    private static void deleteTree(File dir) throws IOException {
+        if (!dir.exists()) return;
+        try (Stream<Path> walk = Files.walk(dir.toPath())) {
+            for (Path path : (Iterable<Path>) walk.sorted(Comparator.reverseOrder())::iterator) Files.delete(path);
+        }
     }
 
     /** Copies a world folder, leaving out the lock, the uid and per-player files. */
@@ -290,10 +342,18 @@ public final class GoldenDreamWorld implements Listener {
     }
 
     World worldSet() {
+        if (this.building) return null;
         if (this.overworld == null) {
             this.overworld = Bukkit.getWorld(WORLD);
             if (this.overworld == null) {
-                if (!isWorldFolder(new File(Bukkit.getWorldContainer(), WORLD)) && !this.prepareMemory()) return null;
+                if (!isWorldFolder(new File(Bukkit.getWorldContainer(), WORLD))) {
+                    List<Copy> copies = this.memoryCopies();
+                    if (copies == null) return null;
+                    if (!copies.isEmpty()) {
+                        this.build(copies);
+                        return null;
+                    }
+                }
                 this.overworld = this.load(WORLD, World.Environment.NORMAL);
             }
         }
@@ -358,7 +418,8 @@ public final class GoldenDreamWorld implements Listener {
                 }
                 continue;
             }
-            long key = storming ? 1L : 0L;
+            // the shader signal shifts when the world's day rolls over, so a new day re-sends it
+            long key = DreamSky.worldDay(p) * 2L + (storming ? 1L : 0L);
             Long last = this.gradedDay.get(p.getUniqueId());
             if (this.graded.add(p.getUniqueId()) || last == null || last != key) {
                 DreamSky.memory(p, storming);
@@ -456,7 +517,8 @@ public final class GoldenDreamWorld implements Listener {
                 keepOnWalkway(pl);
                 if (s.auto && s.t == WALK_DELAY_TICKS) self.lock(pl, s);
                 if (s.locked) pl.setVelocity(new Vector(WALK_SPEED, Math.min(0.0, pl.getVelocity().getY()), 0.0));
-                if (s.t >= LEAVE_TICKS || s.skip) {
+                // the memory world may still be copying in: keep walking until it is there
+                if ((s.t >= LEAVE_TICKS || s.skip) && self.worldSet() != null) {
                     self.leave(pl, s);
                     this.cancel();
                     return;
@@ -667,6 +729,8 @@ public final class GoldenDreamWorld implements Listener {
             p.setFallDistance(0);
         }
         this.plugin.getGemManager().updateActiveGem(p);
+        // the restored Gold Gem may have been woken while its holder dreamt
+        if (this.plugin.getGoldGemManager() != null) this.plugin.getGoldGemManager().refreshGoldItem(p);
         if (starter) {
             for (ItemStack left : p.getInventory().addItem(RitualItems.fragmentCore()).values()) p.getWorld().dropItemNaturally(p.getLocation(), left);
         }

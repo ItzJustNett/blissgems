@@ -27,6 +27,10 @@ public final class WakeFloat {
     }
 
     public static int start(Plugin plugin, GoldenDream dream) {
+        // the end of the dream wakes a Gold Gem that already holds all eight souls
+        if (dream.plugin().getGoldGemManager() != null) {
+            for (Player p : Bukkit.getOnlinePlayers()) dream.plugin().getGoldGemManager().awaken(p);
+        }
         int added = 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (FROM.containsKey(p.getUniqueId()) || !GoldenDreamWorld.isDreamWorld(p.getWorld()) || p.hasMetadata("NPC")) continue;

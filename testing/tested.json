@@ -1,14 +1,12 @@
 {
-  "version": "5.1.9",
-  "sourceHash": "d2913789ab9b9664ee38230b50c3b5993312905a8a472560572b6e1418676c1a",
+  "version": "5.2.0",
+  "sourceHash": "161c96a002745c28b6aefeb280b2ebcf350815a4d3f44928d932dfa9af9adb4a",
   "mcVersion": "1.21.11",
   "summary": {
-    "pass": 120,
-    "skip": 3
+    "pass": 124,
+    "skip": 5
   },
-  "testedAt": "2026-10-16 08:56:40",
-  "visualReview": "approved",
-  "playerCheck": "approved",
-  "visualReviewAt": "2026-10-16 08:57:19",
-  "playerCheckAt": "2026-10-16 09:01:05"
+  "testedAt": "2026-11-10 07:43:35",
+  "visualReview": "pending",
+  "playerCheck": "pending"
 }

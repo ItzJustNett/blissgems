@@ -1,5 +1,5 @@
 name: BlissGems
-version: '5.1.9'
+version: '5.2.0'
 main: dev.xoperr.blissgems.BlissGems
 api-version: '1.21'
 description: Bliss SMP Gem System

@@ -203,10 +203,6 @@ implements GemAbilityHandler {
     }
 
     public void activateTerminalVelocity(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
-            return;
-        }
         this.terminalVelocity(player);
     }
 
@@ -359,7 +355,14 @@ implements GemAbilityHandler {
         }
         final double damage = this.plugin.getConfigManager().getAbilityDamage("blur");
         final double knockbackPower = this.plugin.getConfig().getDouble("abilities.blur.knockback", 0.4);
-        final Location strikeLoc = player.getTargetBlock(null, 20).getLocation().add(0.5, 1.0, 0.5);
+        // strike the entity in the crosshair; the block ray alone passed through players and hit the ground behind them
+        org.bukkit.util.RayTraceResult aimed = player.getWorld().rayTraceEntities(player.getEyeLocation(), player.getEyeLocation().getDirection(), 20.0, 0.6,
+            e -> e instanceof LivingEntity && !e.equals(player) && !(e instanceof Player p && p.getGameMode() == org.bukkit.GameMode.SPECTATOR));
+        org.bukkit.block.Block aimedBlock = player.getTargetBlockExact(20);
+        final Location strikeLoc = aimed != null && aimed.getHitEntity() != null
+            && (aimedBlock == null || aimedBlock.getLocation().add(0.5, 0.5, 0.5).distanceSquared(player.getEyeLocation()) > aimed.getHitPosition().toLocation(player.getWorld()).distanceSquared(player.getEyeLocation()))
+            ? aimed.getHitEntity().getLocation()
+            : player.getTargetBlock(null, 20).getLocation().add(0.5, 1.0, 0.5);
         strikeLoc.getWorld().strikeLightningEffect(strikeLoc);
         final Particle.DustOptions strikeDust = new Particle.DustOptions(ParticleUtils.SPEED_YELLOW, 2.5f);
         strikeLoc.getWorld().spawnParticle(Particle.DUST, strikeLoc, 250, 1.5, 2.0, 1.5, 0.0, (Object)strikeDust, true);

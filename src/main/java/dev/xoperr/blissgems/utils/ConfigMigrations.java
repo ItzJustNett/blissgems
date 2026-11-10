@@ -47,6 +47,39 @@ public final class ConfigMigrations {
             new Change("abilities.durations.terminal-velocity", 10.0, 15.0),
             new Change("abilities.cooldowns.speed-terminal", 60.0, 50.0),
             new Change("abilities.cooldowns.speed-gale-clouds", 60.0, 45.0)));
+        // Cooldowns matched to the Bliss SMP
+        ALL.put("2026-10-bliss-smp-cooldowns", List.of(
+            new Change("abilities.cooldowns.puff-dash", 12.0, 40.0),
+            new Change("abilities.cooldowns.puff-breezy-bash", 45.0, 75.0),
+            new Change("abilities.cooldowns.speed-blur", 45.0, 90.0),
+            new Change("abilities.cooldowns.speed-storm", 90.0, 20.0),
+            new Change("abilities.cooldowns.strength-nullify", 120.0, 240.0),
+            new Change("abilities.cooldowns.strength-frailer", 120.0, 240.0),
+            new Change("abilities.cooldowns.strength-chad", 10.0, 150.0),
+            new Change("abilities.cooldowns.strength-shadow-stalker", 180.0, 300.0),
+            new Change("abilities.cooldowns.wealth-rich-rush", 540.0, 420.0),
+            new Change("abilities.cooldowns.wealth-amplification", 300.0, 420.0),
+            new Change("abilities.cooldowns.wealth-item-lock", 90.0, 200.0),
+            new Change("abilities.cooldowns.wealth-unfortunate", 150.0, 200.0),
+            new Change("abilities.cooldowns.fire-fireball", 35.0, 75.0),
+            new Change("abilities.cooldowns.fire-meteor-shower", 90.0, 75.0),
+            new Change("abilities.cooldowns.fire-crisp", 60.0, 42.0),
+            new Change("abilities.cooldowns.fire-campfire", 90.0, 600.0),
+            new Change("abilities.cooldowns.flux-beam", 150.0, 30.0),
+            new Change("abilities.cooldowns.life-circle-of-life", 120.0, 180.0),
+            new Change("abilities.cooldowns.life-drainer", 60.0, 75.0),
+            new Change("abilities.cooldowns.astra-daggers", 75.0, 90.0),
+            new Change("abilities.cooldowns.astra-drift", 60.0, 45.0),
+            new Change("abilities.cooldowns.astra-projection", 120.0, 300.0),
+            new Change("abilities.cooldowns.astra-void", 120.0, 150.0)));
+        // Awakened Gold Gem numbers from the Bliss SMP footage
+        ALL.put("2026-10-awakened-gold", List.of(
+            new Change("gold.awakened.drill.ticks", 60.0, 160.0),
+            new Change("gold.awakened.drill.damage", 2.0, 1.5),
+            new Change("gold.awakened.rayler.damage", 10.0, 5.0),
+            new Change("gold.awakened.rayler.triple-damage", 16.0, 22.0),
+            new Change("gold.awakened.rayler.triple-cooldown", 7200.0, 10800.0),
+            new Change("gold.awakened.wrath.max-damage", 20.0, 30.0)));
     }
 
     private ConfigMigrations() {

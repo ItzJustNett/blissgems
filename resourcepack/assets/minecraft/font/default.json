@@ -2,6 +2,168 @@
   "providers": [
     {
       "type": "bitmap",
+      "file": "blissgems:icons/auratus_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue008"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/heretic_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue009"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/astra_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue000"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/fire_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue001"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/flux_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue002"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/life_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue003"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/puff_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue004"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/speed_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue005"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/strength_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue006"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/wealth_gem.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue007"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/astra_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue030"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/fire_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue031"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/flux_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue032"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/life_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue033"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/puff_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue034"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/speed_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue035"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/strength_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue036"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/wealth_gem_t1.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue037"
+      ]
+    },
+    {
+      "type": "bitmap",
       "file": "blissgems:icons/astra1.png",
       "ascent": 7,
       "height": 8,
@@ -629,6 +791,51 @@
       "height": 8,
       "chars": [
         "\ue021"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/gold_snap.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue022"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/gold_rayler.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue023"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/gold_prophets_ladder.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue024"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/gold_mark_of_the_beast.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue025"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "blissgems:icons/gold_middle.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\ue026"
       ]
     },
     {

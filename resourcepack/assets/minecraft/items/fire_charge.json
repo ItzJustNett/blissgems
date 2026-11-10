@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "entries": [
+      {
+        "threshold": 100,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/fire_charge_binding_vow"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "model",
+      "model": "minecraft:item/fire_charge"
+    }
+  }
+}

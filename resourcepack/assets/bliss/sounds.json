@@ -1,0 +1,20 @@
+{
+  "music_disc.lost_souls": {
+    "sounds": [{"name": "bliss:lost_souls", "stream": true}]
+  },
+  "lost_souls": {
+    "sounds": [{"name": "bliss:lost_souls", "stream": true}]
+  },
+  "village_message": {
+    "sounds": [{"name": "bliss:village_message", "stream": true}]
+  },
+  "village_message_2": {
+    "sounds": [{"name": "bliss:village_message_2", "stream": true}]
+  },
+  "raid_horn": {
+    "sounds": [{"name": "bliss:raid_horn"}]
+  },
+  "raid_portal_ambience": {
+    "sounds": [{"name": "bliss:raid_portal_ambience", "stream": true}]
+  }
+}

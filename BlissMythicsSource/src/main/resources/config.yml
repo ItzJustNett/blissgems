@@ -6,7 +6,6 @@ heretic:
   bloodsaw-max-bounces: 3  # How many times a blood saw ricochets off walls before dying
   bloodsaw-life-ticks: 60  # Saw lifetime in ticks (~0.9 blocks/tick) — effectively its range
   bloodlink-damage: 9.0
-  hurricane-damage: 4.0
   max-hit-cap: 13.0
   saw-window-ms: 4000
   bleed-ms: 8000
@@ -16,15 +15,24 @@ heretic:
   bloodlink-knockup: 0.6  # Upward velocity added to entities hit by a Bloodlink landing
   bloodlink-min-rise: 2.7  # Floor on every hop's upward launch, so chained slams rise like the first. Server cap is 3.9
   bloodlink-max-hits: 0  # Slams in one chain; each has to connect to earn the next. 0 = unlimited
+  divebomb-speed: 2.6  # Top speed (blocks/tick) of the Bloodlink divebomb after the hop's apex
+  divebomb-steer: 0.85  # How much your aim steers the divebomb (1 = only your aim, 0 = locked onto the hop's aimed point)
+  bloodstorm-window-ms: 750  # Both Bloodsaws thrown within this many ms = Bloodstorm
+  bloodstorm-radius: 5.0  # Players inside the blood fountain bleed
   cooldowns:
     bloodsaws: 25
     bloodlink: 60
+    bloodstorm: 90  # Bloodstorm (both Bloodsaws at once) can only be unleashed this often
 
 auratus:
-  perforator-damage: 6.0
-  slam-damage: 12.0
+  perforator-damage: 6.0  # Chain hit: 3 hearts (before armor)
+  slam-damage: 8.0  # Ground slam: 4 hearts (before armor)
   slam-knockup: 1.6  # Upward velocity added to entities hit by a ground slam
   aegis-heal: 5.0
+  aegis-chain-damage: 4.0  # Damage of the slow chain Echoing Aegis throws, on the first enemy it reaches
+  aegis-chain-slow-ticks: 60  # Slowness III the chained enemy gets (ticks)
+  aegis-throw-speed: 0.25  # Blocks per tick the thrown Echoing Aegis travels
+  aegis-throw-ticks: 40  # How long it flies (40 x 0.25 = 10 blocks)
   aegis-window-ms: 1500
   anchor-window-ms: 5000
   chain:

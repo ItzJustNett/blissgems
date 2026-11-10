@@ -31,8 +31,25 @@ public final class DreamSky {
     public static final long GLITCH_DAY = 80039L;
     private static boolean signals = true;
 
-    private static long at(long day, long timeOfDay) {
-        return signals ? day * 24000L + timeOfDay : timeOfDay;
+    /**
+     * Freezes the player's clock on the signal day. A fixed (non-relative) player time is added to
+     * the start of the world's current day by the server, so that day start is subtracted here -
+     * otherwise the client reads day 80036 + the world's day count and the shaderpack stays off on
+     * any world older than day 0. The day start moves at the world's midnight, so callers re-send
+     * (see {@link #worldDay}).
+     */
+    private static void setSignalTime(Player p, long day, long timeOfDay) {
+        if (!signals) {
+            p.setPlayerTime(timeOfDay, false);
+            return;
+        }
+        long full = p.getWorld().getFullTime();
+        p.setPlayerTime(day * 24000L + timeOfDay - (full - Math.floorMod(full, 24000L)), false);
+    }
+
+    /** The day number of the player's world: the signal has to be re-sent when it changes. */
+    public static long worldDay(Player p) {
+        return Math.floorDiv(p.getWorld().getFullTime(), 24000L);
     }
     private static String pocketFog = "minecraft:fog_mesa";
     private static String goldenFog = "minecraft:fog_mesa";
@@ -72,25 +89,28 @@ public final class DreamSky {
 
     /** Near the ritual / the golden mass: a frozen golden-hour sky. */
     public static void golden(Player p) {
-        p.setPlayerTime(at(DOME_DAY, goldenTime), false);
+        setSignalTime(p, DOME_DAY, goldenTime);
         setFog(p, goldenFog);
     }
 
     /** Sky glitch (the shaderpack's glitch mode): the moment the fragments go off. */
     public static void glitch(Player p) {
-        if (signals) p.setPlayerTime(GLITCH_DAY * 24000L + 6000L, false);
+        if (signals) setSignalTime(p, GLITCH_DAY, 6000L);
     }
 
     /** GoldenDome fading in: f 0..1 (the shaderpack reads the time of day 0..1000 as the fade). */
     public static void domeFade(Player p, double f) {
         long tod = Math.round(Math.max(0.0, Math.min(1.0, f)) * 1000.0);
-        p.setPlayerTime(at(DOME_DAY, tod), false);
+        setSignalTime(p, DOME_DAY, tod);
         setFog(p, goldenFog);
     }
 
-    /** The pocket walkway: shaders off (real clock, no signal day); the gold sky there comes from the datapack. */
+    /**
+     * The pocket walkway: the shaderpack's GoldenDome, like the ritual; without the shaderpack the
+     * gold sky there comes from the datapack.
+     */
     public static void pocket(Player p) {
-        p.resetPlayerTime();
+        setSignalTime(p, DOME_DAY, goldenTime);
         p.setPlayerWeather(WeatherType.CLEAR);
         setFog(p, pocketFog);
     }
@@ -98,11 +118,11 @@ public final class DreamSky {
     /** The memory world: an endless dusk, or a night storm while the great thunder hangs. */
     public static void memory(Player p, boolean storm) {
         if (storm) {
-            p.setPlayerTime(at(STORM_DAY, stormTime), false);
+            setSignalTime(p, STORM_DAY, stormTime);
             p.setPlayerWeather(WeatherType.DOWNFALL);
             setFog(p, stormFog);
         } else {
-            p.setPlayerTime(at(GLOOM_DAY, memoryTime), false);
+            setSignalTime(p, GLOOM_DAY, memoryTime);
             p.setPlayerWeather(WeatherType.CLEAR);
             setFog(p, memoryFog);
         }

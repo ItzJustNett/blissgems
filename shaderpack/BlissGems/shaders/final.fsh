@@ -7,6 +7,7 @@
 //   день 80036 -> GoldenDome (ритуал і золота маса); час доби 0..1000 = плавна поява купола
 //   день 80037 -> GloomHaze (світ пам'яті)
 //   день 80038 -> GloomHaze під час бурі (великого грому)
+//   день 80040 -> Blood Moon (Dragon Games): червоне небо і місяць
 // FORCE_MODE: 0 = слухати сервер, 1 = завжди GoldenDome, 2 = завжди GloomHaze (для тестів у соло).
 
 #define FORCE_MODE 0           // [0 1 2]
@@ -36,6 +37,7 @@
 #define SIGNAL_GLOOM 80037
 #define SIGNAL_STORM 80038
 #define SIGNAL_GLITCH 80039
+#define SIGNAL_BLOOD 80040
 #define GLITCH_STRENGTH 1.0    // [0.0 0.5 1.0 1.5]
 
 uniform sampler2D colortex0;
@@ -249,8 +251,23 @@ vec3 skyGlitch(vec2 uv) {
     return c * flicker * scan;
 }
 
+// ================= Blood Moon =================
+// Небо (і місяць на ньому) — густо-червоне, світ — ледь підфарбований.
+vec3 bloodMoon(vec3 color, float depth) {
+    float l = luma(color);
+    vec3 red = vec3(0.25 + l * 1.7, l * 0.22, l * 0.18);
+    float amount = depth >= 1.0 ? 0.9 : 0.25;
+    return mix(color, red, amount);
+}
+
 void main() {
     vec3 color = texture(colortex0, texcoord).rgb;
+
+    if (FORCE_MODE == 0 && worldDay == SIGNAL_BLOOD) {
+        float bloodDepth = texture(depthtex0, texcoord).r;
+        outColor = vec4(clamp(bloodMoon(color, bloodDepth), 0.0, 1.0), 1.0);
+        return;
+    }
 
     if (FORCE_MODE == 0 && worldDay == SIGNAL_GLITCH) {
         outColor = vec4(clamp(skyGlitch(texcoord), 0.0, 1.0), 1.0);

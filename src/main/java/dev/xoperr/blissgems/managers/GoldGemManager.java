@@ -28,8 +28,10 @@ package dev.xoperr.blissgems.managers;
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemPassiveHandler;
 import dev.xoperr.blissgems.managers.GemManager;
+import dev.xoperr.blissgems.utils.GemType;
 import dev.xoperr.blissgems.managers.GemRegistryImpl;
 import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.GemCosmetics;
 import dev.xoperr.blissgems.utils.EnergyState;
 import java.io.File;
 import java.io.IOException;
@@ -66,12 +68,17 @@ import org.bukkit.scheduler.BukkitRunnable;
 public class GoldGemManager {
     public static final String GOLD_ITEM_ID = "gold_gem_t1";
     public static final int SOULS_TO_AWAKEN = 8;
-    public static final int BASE_MODEL_DATA = 1009;
+    /** 20000 + a bit per harvested gem (GemType order): the pack lights up exactly those sockets. */
+    public static final int SOCKET_MODEL_DATA = 20000;
     private final BlissGems plugin;
     private final Map<UUID, Map<String, Harvest>> harvested = new HashMap<UUID, Map<String, Harvest>>();
     private final Map<UUID, String> active = new HashMap<UUID, String>();
     private final Map<UUID, UUID> trackedInstance = new HashMap<UUID, UUID>();
     private final Set<UUID> trimsDisabled = new HashSet<UUID>();
+    /** Fully awakened by the Golden Dream (eight souls alone only make it harvest-awakened). */
+    private final Set<UUID> awakened = new HashSet<UUID>();
+    /** The awakened moveset picked in /bliss goldcycle (1 or 2); absent while a soul is channelled. */
+    private final Map<UUID, Integer> moveset = new HashMap<UUID, Integer>();
 
     public GoldGemManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -118,6 +125,8 @@ public class GoldGemManager {
         if (!tracked.equals(onItem)) {
             this.harvested.remove(playerId);
             this.active.remove(playerId);
+            this.awakened.remove(playerId);
+            this.moveset.remove(playerId);
             this.trackedInstance.put(playerId, onItem);
             this.save(playerId);
         }
@@ -130,6 +139,12 @@ public class GoldGemManager {
     /** The dormant Gold Gem, or any gem wearing the Gold Gem's skin (its channelled soul). */
     public boolean isGoldGem(ItemStack item) {
         return item != null && (GOLD_ITEM_ID.equals(CustomItemManager.getIdByItem(item)) || CustomItemManager.isGoldSkinned(item));
+    }
+
+    /** Souls harvested as last known, without re-checking the gem in the inventory (cheap, for per-tick checks). */
+    public int cachedSoulCount(UUID playerId) {
+        Map<String, Harvest> souls = this.harvested.get(playerId);
+        return souls == null ? 0 : souls.size();
     }
 
     public Map<String, Harvest> getHarvested(UUID playerId) {
@@ -159,16 +174,61 @@ public class GoldGemManager {
         }
     }
 
+    /** All eight souls harvested and woken by the Golden Dream: the awakened lore, passives and movesets. */
+    public boolean isFullyAwakened(UUID playerId) {
+        return this.awakened.contains(playerId) && this.getHarvested(playerId).size() >= SOULS_TO_AWAKEN;
+    }
+
+    /** Wakes the Gold Gem of a player who holds all eight souls; false when they don't. */
+    public boolean awaken(Player player) {
+        UUID playerId = player.getUniqueId();
+        if (this.getHarvested(playerId).size() < SOULS_TO_AWAKEN || !this.awakened.add(playerId)) {
+            return false;
+        }
+        // wake straight into the awakened kit; with a soul still channelled the gem kept that soul's powers
+        this.moveset.put(playerId, 1);
+        this.save(playerId);
+        this.refreshGoldItem(player);
+        String message = this.plugin.getConfigManager().getMessage("gold-awakened");
+        if (message != null && !message.isEmpty()) {
+            Bukkit.broadcastMessage(message.replace("{player}", player.getName()));
+        }
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 0.8f);
+        return true;
+    }
+
+    /** The awakened moveset in use (1 or 2), or 0 while a soul is channelled or the gem isn't fully awakened. */
+    public int getMoveset(UUID playerId) {
+        return this.isFullyAwakened(playerId) ? this.moveset.getOrDefault(playerId, 0) : 0;
+    }
+
+    /** Switches a fully awakened gem to moveset 1 or 2; false when it isn't fully awakened. */
+    public boolean setMoveset(Player player, int set) {
+        UUID playerId = player.getUniqueId();
+        if ((set != 1 && set != 2) || !this.isFullyAwakened(playerId)) {
+            return false;
+        }
+        this.moveset.put(playerId, set);
+        this.save(playerId);
+        this.refreshGoldItem(player);
+        return true;
+    }
+
     public boolean setActive(Player player, String gemId) {
         if (!this.getHarvested(player.getUniqueId()).containsKey(gemId)) {
             return false;
         }
+        this.moveset.remove(player.getUniqueId());
         this.active.put(player.getUniqueId(), gemId);
         this.save(player.getUniqueId());
         this.refreshGoldItem(player);
         return true;
     }
 
+    /**
+     * Steps to the next harvested soul; a fully awakened gem also steps through its two movesets
+     * after the souls. Returns the soul's gem id, "moveset_1"/"moveset_2", or null without souls.
+     */
     public String cycleActive(Player player) {
         UUID playerId = player.getUniqueId();
         Map<String, Harvest> souls = this.getHarvested(playerId);
@@ -176,10 +236,20 @@ public class GoldGemManager {
             return null;
         }
         ArrayList<String> order = new ArrayList<String>(souls.keySet());
-        String current = this.active.get(playerId);
+        if (this.isFullyAwakened(playerId)) {
+            order.add("moveset_1");
+            order.add("moveset_2");
+        }
+        int set = this.getMoveset(playerId);
+        String current = set > 0 ? "moveset_" + set : this.active.get(playerId);
         int index = current != null ? order.indexOf(current) : -1;
         String next = (String)order.get((index + 1) % order.size());
-        this.active.put(playerId, next);
+        if (next.startsWith("moveset_")) {
+            this.moveset.put(playerId, next.endsWith("1") ? 1 : 2);
+        } else {
+            this.moveset.remove(playerId);
+            this.active.put(playerId, next);
+        }
         this.save(playerId);
         this.refreshGoldItem(player);
         return next;
@@ -236,6 +306,8 @@ public class GoldGemManager {
         int removed = this.getHarvested(playerId).size();
         this.harvested.remove(playerId);
         this.active.remove(playerId);
+        this.awakened.remove(playerId);
+        this.moveset.remove(playerId);
         this.save(playerId);
         this.refreshGoldItem(player);
         return removed;
@@ -318,7 +390,7 @@ public class GoldGemManager {
         killer.playSound(killer.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 0.7f);
         int soulCount = this.getHarvested(killer.getUniqueId()).size();
         killer.sendMessage(this.plugin.getConfigManager().getMessage("gold-soul-harvested").replace("{gem}", this.plugin.getGemManager().getGemDisplayName(taken.gemId())).replace("{count}", String.valueOf(soulCount)));
-        if (soulCount >= 8 && (awakened = this.plugin.getConfigManager().getMessage("gold-awakened")) != null && !awakened.isEmpty()) {
+        if (soulCount >= 8 && (awakened = this.plugin.getConfigManager().getMessage("gold-harvest-awakened")) != null && !awakened.isEmpty()) {
             Bukkit.broadcastMessage((String)awakened.replace("{player}", killer.getName()));
         }
     }
@@ -357,7 +429,8 @@ public class GoldGemManager {
         UUID instance = CustomItemManager.getGoldInstanceId(current);
         Map<String, Harvest> souls = this.harvested.getOrDefault(player.getUniqueId(), Map.of());
         String active = this.active.get(player.getUniqueId());
-        Harvest soul = active != null ? souls.get(active) : null;
+        // an awakened moveset is worked by the Gold Gem itself, a channelled soul by that soul's gem
+        Harvest soul = active != null && this.getMoveset(player.getUniqueId()) == 0 ? souls.get(active) : null;
         ItemStack base = soul != null
             ? CustomItemManager.getItemById(soul.gemId() + "_gem_t" + soul.tier(), this.plugin.getEnergyManager().getEnergy(player))
             : CustomItemManager.getItemById(GOLD_ITEM_ID);
@@ -369,29 +442,16 @@ public class GoldGemManager {
         if (meta == null) {
             return null;
         }
-        ArrayList<String> lore = new ArrayList<>();
-        if (soul != null) {
-            meta.setDisplayName("\u00a76\u00a7lGOLD GEM \u00a78\u00bb " + this.plugin.getGemManager().getGemColorCode(soul.gemId()) + "\u00a7l"
-                + this.plugin.getGemManager().getGemDisplayName(soul.gemId()) + " \u00a78(T" + soul.tier() + ")");
-            if (meta.getLore() != null) lore.addAll(meta.getLore());
-            lore.add("");
-        } else {
-            lore.add("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE");
+        // Bliss: the gem reads Dormant (its text glitched) until the Golden Dream wakes it, however many
+        // souls it holds; the channelled soul and the harvest show in the action bar and /bliss gold
+        boolean awake = this.isFullyAwakened(player.getUniqueId());
+        if (!GemCosmetics.apply(meta, awake ? "gold_gem_awakened" : GOLD_ITEM_ID)) {
+            meta.setDisplayName("\u00a76\u00a7lGOLD GEM");
+            meta.setLore(awake
+                ? List.of("\u00a7f\u00a7lTHE PINNACLE OF BLISS", "\u00a76(Awakened)")
+                : List.of("\u00a7f\u00a7lWATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE", "\u00a76(Dormant)"));
         }
-        lore.add(this.stateLine(souls.size()));
-        lore.add("\u00a76\ud83c\udf1f \u00a76\u00a7lHARVESTED SOULS");
-        if (souls.isEmpty()) {
-            lore.add("\u00a78- the gem is silent -");
-        } else {
-            lore.add(this.colourBar(souls.keySet()));
-            for (Map.Entry<String, Harvest> e : souls.entrySet()) {
-                lore.add(this.plugin.getGemManager().getGemColorCode(e.getKey()) + "- " + this.plugin.getGemManager().getGemDisplayName(e.getKey())
-                    + " \u00a78(T" + e.getValue().tier() + ")" + (e.getKey().equals(active) ? " \u00a7a\u25c0" : ""));
-            }
-        }
-        lore.add("\u00a77/bliss gold \u00a78- switch soul, Sundering Beam");
-        meta.setLore(lore);
-        meta.setCustomModelData(Integer.valueOf(BASE_MODEL_DATA + Math.min(souls.size(), 8)));
+        meta.setCustomModelData(Integer.valueOf(SOCKET_MODEL_DATA + this.socketMask(souls.keySet())));
         item.setItemMeta(meta);
         item.setAmount(1);
         if (instance != null) CustomItemManager.setGoldInstanceId(item, instance);
@@ -399,22 +459,15 @@ public class GoldGemManager {
         return item;
     }
 
-    private String colourBar(Iterable<String> gemIds) {
-        StringBuilder bar = new StringBuilder();
-        for (String gemId : gemIds) {
-            bar.append(this.plugin.getGemManager().getGemColorCode(gemId)).append("\u2756");
+    private int socketMask(java.util.Collection<String> souls) {
+        int mask = 0;
+        for (String soul : souls) {
+            GemType type = GemManager.builtInType(soul);
+            if (type != null) {
+                mask |= 1 << type.ordinal();
+            }
         }
-        return bar.toString();
-    }
-
-    private String stateLine(int soulCount) {
-        if (soulCount <= 0) {
-            return "\u00a76(Dormant)";
-        }
-        if (soulCount >= 8) {
-            return "\u00a76\u00a7l(Awakened)";
-        }
-        return "\u00a76(Awakening \u2014 " + soulCount + "/8)";
+        return mask;
     }
 
     private String harvestableGemId(ItemStack item) {
@@ -442,7 +495,10 @@ public class GoldGemManager {
         if (amount <= 0) {
             return;
         }
-        ItemStack fragment = CustomItemManager.getItemById("gem_fragment");
+        ItemStack fragment = CustomItemManager.getItemById(harvestedId + "_shard");
+        if (fragment == null) {
+            fragment = CustomItemManager.getItemById("gem_fragment");
+        }
         if (fragment == null) {
             return;
         }
@@ -469,6 +525,8 @@ public class GoldGemManager {
         }
         this.harvested.remove(playerId);
         this.active.remove(playerId);
+        this.awakened.remove(playerId);
+        this.moveset.remove(playerId);
         this.save(playerId);
         this.refreshGoldItem(player);
         this.clearTrims(player);
@@ -722,6 +780,13 @@ public class GoldGemManager {
         if (data.getBoolean("gold.trims-disabled", false)) {
             this.trimsDisabled.add(playerId);
         }
+        if (data.getBoolean("gold.awakened", false)) {
+            this.awakened.add(playerId);
+        }
+        int set = data.getInt("gold.moveset", 0);
+        if (set == 1 || set == 2) {
+            this.moveset.put(playerId, set);
+        }
     }
 
     public void save(UUID playerId) {
@@ -742,6 +807,8 @@ public class GoldGemManager {
         UUID instance = this.trackedInstance.get(playerId);
         data.set("gold.instance", instance != null ? instance.toString() : null);
         data.set("gold.trims-disabled", this.trimsDisabled.contains(playerId) ? Boolean.valueOf(true) : null);
+        data.set("gold.awakened", this.awakened.contains(playerId) ? Boolean.valueOf(true) : null);
+        data.set("gold.moveset", this.moveset.get(playerId));
         try {
             data.save(file);
         }
@@ -755,6 +822,8 @@ public class GoldGemManager {
         this.active.remove(playerId);
         this.trackedInstance.remove(playerId);
         this.trimsDisabled.remove(playerId);
+        this.awakened.remove(playerId);
+        this.moveset.remove(playerId);
     }
 
     public record Harvest(String gemId, int tier, UUID owner) {

@@ -103,7 +103,7 @@ public class PassiveManager {
         }
         if (gemId != null && (registry = this.plugin.getGemRegistry()) != null) {
             GemPassiveHandler handler = registry.getPassiveHandler(gemId);
-            if (handler != null) {
+            if (handler != null && !(this.plugin.getFireVow().isEmpActive() && this.isMythicGem(gemId))) {
                 handler.applyPassives(player, tier);
             }
             this.applyConfiguredExtraEffectsById(player, gemId, tier);
@@ -154,10 +154,18 @@ public class PassiveManager {
         }
     }
 
+    private boolean isMythicGem(String gemId) {
+        dev.xoperr.blissgems.api.GemDefinition def = this.plugin.getGemRegistry().getGem(gemId);
+        return def != null && def.getMinTier() >= 2;
+    }
+
     private void applyAstraPassives(Player player) {
     }
 
     private void applyFirePassives(Player player) {
+        if (this.plugin.getFireVow().isGemDisabled(player)) {
+            return;
+        }
         int tier = this.plugin.getGemManager().getTierForPassives(player);
         if (this.plugin.getConfigManager().isFireResistanceEnabled(tier)) {
             int interval = this.plugin.getConfigManager().getPassiveUpdateInterval();

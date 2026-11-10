@@ -166,6 +166,10 @@ public class MaceVillagerManager {
                 break;
             }
         }
+        // A villager with zero experience and no job site drops its profession (and its trades);
+        // max level plus some experience locks the profession in place.
+        villager.setVillagerLevel(5);
+        villager.setVillagerExperience(Math.max(1, villager.getVillagerExperience()));
         villager.setRecipes(recipes);
     }
 

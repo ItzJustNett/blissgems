@@ -34,6 +34,35 @@
    " 0.6 Attack Speed"
   ]
  },
+ "enchanted_obsidian": {
+  "base": "minecraft:obsidian",
+  "customModelData": 4010,
+  "name": "Enchanted Obsidian",
+  "tooltip": [
+   "Enchanted Obsidian",
+   "One of eight. Together, in a portal frame,",
+   "they open the Nether.",
+   "",
+   "Its holder glows for all to see."
+  ]
+ },
+ "mega_mace": {
+  "base": "minecraft:mace",
+  "customModelData": 6004,
+  "name": "Mega Mace",
+  "tooltip": [
+   "Mega Mace",
+   "The three maces of the triad, forged into one.",
+   "",
+   "✔ No cooldown",
+   "✔ No enchantment limits",
+   "Owner: Tester",
+   "",
+   "When in Main Hand:",
+   " 6 Attack Damage",
+   " 0.6 Attack Speed"
+  ]
+ },
  "mace_3": {
   "base": "minecraft:mace",
   "customModelData": 6003,
@@ -357,27 +386,27 @@
  "gold_gem_t1": {
   "base": "minecraft:nautilus_shell",
   "customModelData": 1009,
-  "name": "GOLD GEM",
+  "name": "gold  gem",
   "tooltip": [
-   "GOLD GEM",
-   "WATCH THE LINES OF REALITY FRAY AS EIGHT SOULS BECOME ONE",
+   "gold  gem",
+   "watch  the  lines  of  reality  fray  as  eight  souls  become  one",
    "(Dormant)",
    "",
-   "🌟 PASSIVES",
+   "ꐹ passives",
    "- unstable power",
    "- harvested souls",
    "- soulbound vessel",
    "- fraying lines",
    "",
-   "🌟 ABILITY",
+   "ꐹ ability",
    "- sundering beam",
    "",
-   "🌟 POWERS",
+   "ꐹ powers",
    "- channelled soul",
-   "- repurposing",
+   "- repurposing the eight",
    "",
-   "- awakening",
-   "- eight as one"
+   "- awakening of gold",
+   "- eight become one"
   ]
  },
  "astra_gem_t2": {

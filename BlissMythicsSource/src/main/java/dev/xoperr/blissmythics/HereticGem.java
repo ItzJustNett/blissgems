@@ -16,6 +16,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.Particle.DustOptions;
 import org.bukkit.block.Block;
 import org.bukkit.entity.ItemDisplay;
@@ -45,13 +46,13 @@ import org.joml.Vector3f;
 public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, Listener {
    private static final String KEY_SAWS = "heretic-bloodsaws";
    private static final String KEY_LINK = "heretic-bloodlink";
+   private static final String KEY_STORM = "heretic-bloodstorm";
    private final BlissMythics plugin;
    private final BlissGemsAPI api;
    private final Map<UUID, Long> firstSawAt = new HashMap<>();
    private final Map<UUID, Long> bleeding = new HashMap<>();
    private final Map<UUID, Set<UUID>> links = new HashMap<>();
    private final Map<UUID, Long> linkExpiry = new HashMap<>();
-   private final Map<UUID, Long> lastCombo = new HashMap<>();
    private final Set<UUID> mirroring = new HashSet<>();
    private final Set<UUID> crashing = new HashSet<>();
 
@@ -59,10 +60,13 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double bleedMultiplier;
    private final double bloodsawsDamage;
    private final double bloodlinkDamage;
-   private final double hurricaneDamage;
    private final double maxHitDamage;
    private final int bloodsawsCooldown;
    private final int bloodlinkCooldown;
+   private final int bloodstormCooldown;
+   private final double divebombSpeed;
+   private final double divebombSteer;
+   private final long stormWindowMs;
    private final long sawWindowMs;
    private final long bleedMs;
    private final long linkMs;
@@ -82,10 +86,13 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       this.bleedMultiplier = var1.getConfig().getDouble("heretic.bleed-multiplier", 2.0);
       this.bloodsawsDamage = var1.getConfig().getDouble("heretic.bloodsaws-damage", 6.0);
       this.bloodlinkDamage = var1.getConfig().getDouble("heretic.bloodlink-damage", 9.0);
-      this.hurricaneDamage = var1.getConfig().getDouble("heretic.hurricane-damage", 4.0);
       this.maxHitDamage = var1.getConfig().getDouble("heretic.max-hit-cap", 13.0);
       this.bloodsawsCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodsaws", 25);
       this.bloodlinkCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodlink", 60);
+      this.bloodstormCooldown = var1.getConfig().getInt("heretic.cooldowns.bloodstorm", 90);
+      this.divebombSpeed = var1.getConfig().getDouble("heretic.divebomb-speed", 2.6);
+      this.divebombSteer = Math.max(0.0, Math.min(1.0, var1.getConfig().getDouble("heretic.divebomb-steer", 0.85)));
+      this.stormWindowMs = var1.getConfig().getLong("heretic.bloodstorm-window-ms", 750L);
       this.sawWindowMs = var1.getConfig().getLong("heretic.saw-window-ms", 4000L);
       this.bleedMs = var1.getConfig().getLong("heretic.bleed-ms", 8000L);
       this.linkMs = var1.getConfig().getLong("heretic.bloodlink-duration-ms", 15000L);
@@ -120,7 +127,10 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          this.launchSaw(var1);
          if (var6 != null && var4 - var6 <= this.sawWindowMs) {
             this.firstSawAt.remove(var3);
-            this.spore(var1);
+            // Both saws thrown at (almost) the same time: the "spore" Bloodstorm.
+            if (var4 - var6 <= this.stormWindowMs) {
+               this.bloodstorm(var1);
+            }
             this.api.getAbilityManager().setCooldown(var1, "heretic-bloodsaws", bloodsawsCooldown);
          } else {
             this.firstSawAt.put(var3, var4);
@@ -272,38 +282,67 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       }
    }
 
-   private void spore(final Player var1) {
-      this.lastCombo.put(var1.getUniqueId(), System.currentTimeMillis());
+   // Bloodstorm (Bliss "spore"): a blood fountain where the saws were aimed - a red double helix
+   // rising out of the ground and a dark spray falling back around it like an umbrella. Everyone
+   // inside bleeds (damage they take is amplified).
+   private void bloodstorm(final Player var1) {
+      if (this.api.getAbilityManager().isOnCooldown(var1, KEY_STORM)) {
+         var1.sendMessage("§4Bloodstorm §7on cooldown: §c" + this.api.getAbilityManager().getRemainingCooldown(var1, KEY_STORM) + "s");
+         return;
+      }
+      this.api.getAbilityManager().setCooldown(var1, KEY_STORM, this.bloodstormCooldown);
+      var1.sendMessage("§4§oBloodstorm!");
       Block var2 = var1.getTargetBlockExact(15);
       final Location var3 = var2 != null ? var2.getLocation().add(0.5, 1.0, 0.5) : var1.getLocation();
-      var1.getWorld().playSound(var3, Sound.BLOCK_SCULK_CATALYST_BLOOM, 1.4F, 0.5F);
-      final DustOptions var4 = new DustOptions(Color.fromRGB(170, 10, 10), 2.0F);
+      var3.getWorld().playSound(var3, Sound.BLOCK_SCULK_CATALYST_BLOOM, 1.4F, 0.5F);
+      var3.getWorld().playSound(var3, Sound.ENTITY_WITHER_SPAWN, 0.8F, 1.6F);
+      final DustOptions var4 = new DustOptions(Color.fromRGB(220, 20, 40), 1.6F);
+      final DustOptions var5 = new DustOptions(Color.fromRGB(70, 0, 0), 1.3F);
+      final double var6 = this.plugin.getConfig().getDouble("heretic.bloodstorm-radius", 5.0);
+      final double var8 = 6.0;
       (new BukkitRunnable() {
          int life = 0;
 
          public void run() {
-            if (++this.life > 12) {
+            if (++this.life > 120 || !var1.isOnline()) {
                this.cancel();
-            } else {
-               for (int var1x = 0; var1x < 25; var1x++) {
-                  double var2x = Math.random() * Math.PI * 2.0;
-                  double var4x = Math.random() * 1.2;
-                  Location var6 = var3.clone().add(Math.cos(var2x) * var4x, Math.random() * 2.5, Math.sin(var2x) * var4x);
-                  var3.getWorld().spawnParticle(Particle.DUST, var6, 1, 0.0, 0.0, 0.0, 0.0, var4);
+               return;
+            }
+            World var9 = var3.getWorld();
+            double var10 = this.life * 0.25;
+            // the double helix
+            for (int var12 = 0; var12 < 2; var12++) {
+               for (double var13 = 0.0; var13 < var8; var13 += 0.25) {
+                  double var15 = var10 + var13 * 1.2 + var12 * Math.PI;
+                  double var17 = 0.35 + var13 * 0.05;
+                  var9.spawnParticle(Particle.DUST, var3.clone().add(Math.cos(var15) * var17, var13, Math.sin(var15) * var17), 1, 0.0, 0.0, 0.0, 0.0, var4, true);
                }
-
-               var3.getWorld().spawnParticle(Particle.LAVA, var3, 2, 0.5, 0.3, 0.5, 0.0);
-               long var7 = System.currentTimeMillis() + HereticGem.this.bleedMs;
-
-               for (Player var8 : var3.getNearbyPlayers(5.0)) {
-                  if (var8 != var1) {
-                     HereticGem.this.bleeding.put(var8.getUniqueId(), var7);
-                     var8.sendMessage("§4§oYou are bleeding! Damage taken is amplified!");
+            }
+            // the umbrella: spokes from the top curving out and down to the edge
+            if (this.life % 2 == 0) {
+               for (int var19 = 0; var19 < 24; var19++) {
+                  double var20 = var19 * (Math.PI * 2.0 / 24.0) + var10 * 0.3;
+                  for (double var22 = 0.0; var22 <= 1.0; var22 += 0.08) {
+                     double var24 = var22 * var6;
+                     double var26 = var8 - Math.pow(var22, 2.0) * (var8 * 0.75);
+                     var9.spawnParticle(Particle.DUST, var3.clone().add(Math.cos(var20) * var24, var26, Math.sin(var20) * var24), 1, 0.0, 0.0, 0.0, 0.0, var5, true);
+                  }
+               }
+               var9.spawnParticle(Particle.DUST, var3, 12, 0.6, 0.1, 0.6, 0.0, var5, true);
+            }
+            if (this.life % 10 == 0) {
+               long var28 = System.currentTimeMillis() + HereticGem.this.bleedMs;
+               for (Player var30 : var3.getNearbyPlayers(var6, var8)) {
+                  if (var30 != var1 && !HereticGem.this.api.getTrustedPlayersManager().isTrusted(var1, var30)) {
+                     if (!HereticGem.this.bleeding.containsKey(var30.getUniqueId())) {
+                        var30.sendMessage("§4§oYou are bleeding! Damage taken is amplified!");
+                     }
+                     HereticGem.this.bleeding.put(var30.getUniqueId(), var28);
                   }
                }
             }
          }
-      }).runTaskTimer(this.plugin, 0L, 10L);
+      }).runTaskTimer(this.plugin, 0L, 1L);
    }
 
    // Horizontal distance an impulse of 1.0 covers over var0 ticks of vanilla air drag (0.91/tick).
@@ -365,42 +404,6 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       return var5;
    }
 
-   // One tick of vanilla elytra motion. The player has no elytra equipped, and the server
-   // clears the fall-flying flag without one, so the glide is flown by hand: pitch aims it,
-   // speed trades for lift, and the air brakes it exactly as a real glide would.
-   private static Vector elytraStep(Player var0, Vector var1) {
-      Location var2 = var0.getEyeLocation();
-      Vector var3 = var2.getDirection();
-      double var4 = Math.sqrt(var3.getX() * var3.getX() + var3.getZ() * var3.getZ());
-      double var6 = Math.sqrt(var1.getX() * var1.getX() + var1.getZ() * var1.getZ());
-      double var8 = Math.toRadians(var2.getPitch());
-      double var10 = Math.cos(var8);
-      var10 = var10 * var10 * Math.min(1.0, var3.length() / 0.4);
-      double var12 = var1.getX();
-      double var14 = var1.getY() + 0.08 * (-1.0 + var10 * 0.75);
-      double var16 = var1.getZ();
-      if (var14 < 0.0 && var4 > 0.0) {
-         double var18 = var14 * -0.1 * var10;
-         var12 += var3.getX() * var18 / var4;
-         var14 += var18;
-         var16 += var3.getZ() * var18 / var4;
-      }
-
-      if (var8 < 0.0 && var4 > 0.0) {
-         double var20 = var6 * -Math.sin(var8) * 0.04;
-         var12 -= var3.getX() * var20 / var4;
-         var14 += var20 * 3.2;
-         var16 -= var3.getZ() * var20 / var4;
-      }
-
-      if (var4 > 0.0) {
-         var12 += (var3.getX() / var4 * var6 - var12) * 0.1;
-         var16 += (var3.getZ() / var4 * var6 - var16) * 0.1;
-      }
-
-      return new Vector(var12 * 0.99, var14 * 0.98, var16 * 0.99);
-   }
-
    // At the top of the arc: drop onto the aimed point, keeping just enough horizontal push to
    // cover whatever ground the rise left over.
    private static Vector diveAim(Player var1, Location var2) {
@@ -423,6 +426,23 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       }
    }
 
+   // One tick of the divebomb: the player's aim steers it (heretic.divebomb-steer), the hop's
+   // aimed point only nudges it, always downward, accelerating up to heretic.divebomb-speed.
+   private Vector divebombStep(Player var1, Location var2, int var3) {
+      Vector var4 = var1.getEyeLocation().getDirection().normalize();
+      Vector var5 = var4.clone();
+      if (var2 != null && var2.getWorld() == var1.getWorld()) {
+         Vector var6 = var2.toVector().subtract(var1.getLocation().toVector());
+         if (var6.lengthSquared() > 0.01) {
+            var5 = var6.normalize().multiply(1.0 - this.divebombSteer).add(var4.multiply(this.divebombSteer));
+         }
+      }
+
+      var5.setY(Math.min(var5.getY(), -0.55));
+      double var7 = Math.min(this.divebombSpeed, 0.8 + var3 * 0.15);
+      return var5.normalize().multiply(var7);
+   }
+
    private void bloodlinkSequence(final Player var1) {
       final HashSet<UUID> var2 = new HashSet<>();
       this.crashing.add(var1.getUniqueId());
@@ -434,6 +454,7 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
          Location target = null;
          double lastY = 0.0;
          boolean rising = false;
+         int diveTicks = 0;
 
          public void cancel() {
             HereticGem.this.crashing.remove(var1.getUniqueId());
@@ -482,18 +503,18 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                   && (var11 <= this.lastY || this.airTicks >= HereticGem.this.bloodlinkRiseTicks + 60);
                this.lastY = var11;
                if (this.phase == 1 && var12) {
-                  // The apex hands over to a real glide instead of a forced dive: only a gentle
-                  // nose-over towards the aimed point, and from there the player flies it.
-                  Vector var13 = diveAim(var1, this.target);
-                  var13.setY(-0.2);
-                  var1.setVelocity(var13);
+                  // The apex tips into an elytra divebomb: nose down onto the aimed point,
+                  // speeding up as it falls. The player's aim still bends the dive a little.
+                  var1.setVelocity(diveAim(var1, this.target).normalize().multiply(0.8));
                   var1.setGliding(true);
+                  var1.getWorld().playSound(var1.getLocation(), Sound.ITEM_ELYTRA_FLYING, 0.8F, 1.6F);
                   this.phase = 2;
+                  this.diveTicks = 0;
                } else {
-                  if (this.phase == 2 && !var1.isOnGround() && !var1.isGliding()) {
-                     // Without an elytra equipped the server drops the fall-flying flag on the
-                     // next tick, so the glide is driven by hand instead.
-                     var1.setVelocity(elytraStep(var1, var1.getVelocity()));
+                  if (this.phase == 2 && !var1.isOnGround()) {
+                     var1.setGliding(true);
+                     var1.setVelocity(HereticGem.this.divebombStep(var1, this.target, ++this.diveTicks));
+                     var1.getWorld().spawnParticle(Particle.DUST, var1.getLocation(), 6, 0.2, 0.2, 0.2, 0.0, new DustOptions(Color.fromRGB(170, 0, 0), 1.8F));
                   }
 
                   if (this.phase == 2 && var1.isOnGround()) {
@@ -512,12 +533,6 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
                               var2.add(var3.getUniqueId());
                            }
                         }
-                     }
-
-                     // Third power: landing a Bloodlink slam soon after a Bloodsaws combo
-                     // unleashes a Bloodstorm hurricane on this spot.
-                     if (var10 && HereticGem.this.consumeCombo(var1)) {
-                        HereticGem.this.spawnHurricane(var1, var1.getLocation().clone().add(0.0, 0.1, 0.0));
                      }
 
                      // The chain is earned hit by hit: a slam that lands nothing ends it, and
@@ -732,79 +747,8 @@ public final class HereticGem implements GemAbilityHandler, GemPassiveHandler, L
       }
    }
 
-   private boolean consumeCombo(Player var1) {
-      Long var2 = this.lastCombo.get(var1.getUniqueId());
-      if (var2 != null && System.currentTimeMillis() - var2 <= 10000L) {
-         this.lastCombo.remove(var1.getUniqueId());
-         return true;
-      } else {
-         return false;
-      }
-   }
-
-   private void spawnHurricane(final Player var1, final Location var2) {
-      var2.getWorld().playSound(var2, Sound.ENTITY_WITHER_SPAWN, 1.2F, 1.4F);
-      var1.sendMessage("§4§oBloodstorm unleashed!");
-      (new BukkitRunnable() {
-         int life = 0;
-
-         public void run() {
-            if (++this.life > 120 || !var1.isOnline()) {
-               this.cancel();
-            } else {
-               double var1x = this.life * 0.35;
-
-               for (int var3 = 0; var3 < 3; var3++) {
-                  double var4 = var1x + var3 * (Math.PI * 2.0 / 3.0);
-
-                  for (double var6 = 0.0; var6 < 4.0; var6 += 0.5) {
-                     double var8 = 1.0 + var6 * 0.6;
-                     double var10 = Math.cos(var4 + var6) * var8;
-                     double var12 = Math.sin(var4 + var6) * var8;
-                     var2.getWorld()
-                        .spawnParticle(
-                           Particle.DUST, var2.clone().add(var10, var6, var12), 1, 0.0, 0.0, 0.0, 0.0, new DustOptions(Color.fromRGB(150, 0, 0), 1.4F)
-                        );
-                  }
-               }
-
-               if (this.life % 10 == 0) {
-                  for (Player var15 : var2.getNearbyPlayers(8.0)) {
-                     if (var15 != var1 && !HereticGem.this.api.getTrustedPlayersManager().isTrusted(var1, var15)) {
-                        Location var5 = var2.clone().add(0.0, 2.0, 0.0);
-                        Vector var6 = var15.getLocation().add(0.0, 1.0, 0.0).toVector().subtract(var5.toVector());
-                        double var7 = var6.length();
-                        if (var7 > 0.001) {
-                           Vector var9 = var6.multiply(1.0 / var7);
-
-                           for (double var10 = 0.0; var10 < var7; var10 += 0.5) {
-                              var2.getWorld()
-                                 .spawnParticle(
-                                    Particle.DUST,
-                                    var5.clone().add(var9.clone().multiply(var10)),
-                                    1,
-                                    0.0,
-                                    0.0,
-                                    0.0,
-                                    0.0,
-                                    new DustOptions(Color.fromRGB(200, 0, 0), 1.2F)
-                                 );
-                           }
-                        }
-
-                        var15.damage(HereticGem.this.hurricaneDamage, var1);
-                        var15.getWorld().playSound(var15.getLocation(), Sound.ENTITY_PLAYER_HURT, 1.0F, 0.6F);
-                     }
-                  }
-               }
-            }
-         }
-      }).runTaskTimer(this.plugin, 0L, 1L);
-   }
-
    public void cleanup(Player var1) {
       UUID var2 = var1.getUniqueId();
       this.firstSawAt.remove(var2);
-      this.lastCombo.remove(var2);
    }
 }

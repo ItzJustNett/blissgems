@@ -18,6 +18,7 @@ package dev.xoperr.blissgems;
 import dev.xoperr.blissgems.abilities.AstraAbilities;
 import dev.xoperr.blissgems.abilities.FireAbilities;
 import dev.xoperr.blissgems.abilities.FluxAbilities;
+import dev.xoperr.blissgems.abilities.AwakenedGold;
 import dev.xoperr.blissgems.abilities.GoldAbilities;
 import dev.xoperr.blissgems.abilities.LifeAbilities;
 import dev.xoperr.blissgems.abilities.PuffAbilities;
@@ -50,6 +51,7 @@ import dev.xoperr.blissgems.listeners.ComprehensiveGemProtectionListener;
 import dev.xoperr.blissgems.listeners.DropSwapGuard;
 import dev.xoperr.blissgems.listeners.GaleCloudListener;
 import dev.xoperr.blissgems.listeners.GemInteractListener;
+import dev.xoperr.blissgems.listeners.GemTraderMenu;
 import dev.xoperr.blissgems.listeners.GoldSummonListener;
 import dev.xoperr.blissgems.listeners.ItemOwnershipListener;
 import dev.xoperr.blissgems.listeners.KillTrackingListener;
@@ -70,6 +72,7 @@ import dev.xoperr.blissgems.managers.AbilityBindingManager;
 import dev.xoperr.blissgems.managers.AbilityBossBarManager;
 import dev.xoperr.blissgems.managers.AbilityManager;
 import dev.xoperr.blissgems.managers.AchievementManager;
+import dev.xoperr.blissgems.managers.BlissAdvancements;
 import dev.xoperr.blissgems.managers.ClickActivationManager;
 import dev.xoperr.blissgems.managers.CooldownDisplayManager;
 import dev.xoperr.blissgems.managers.CriticalHitManager;
@@ -105,6 +108,15 @@ import dev.xoperr.blissgems.villagerevent.VillagerEventManager;
 import dev.xoperr.blissgems.managers.EndSkyVisualManager;
 import dev.xoperr.blissgems.listeners.MaceVillagerListener;
 import dev.xoperr.blissgems.listeners.EnchantLimiterListener;
+import dev.xoperr.blissgems.listeners.MegaMaceListener;
+import dev.xoperr.blissgems.lore.Assassins;
+import dev.xoperr.blissgems.games.EventGames;
+import dev.xoperr.blissgems.games.GamesShop;
+import dev.xoperr.blissgems.lore.BindingVows;
+import dev.xoperr.blissgems.lore.FireVow;
+import dev.xoperr.blissgems.lore.HonoredOne;
+import dev.xoperr.blissgems.lore.Wisps;
+import dev.xoperr.blissgems.progression.Progression;
 import dev.xoperr.blissgems.listeners.BrokenMythicListener;
 import dev.xoperr.blissgems.commands.NewsCommand;
 import dev.xoperr.blissgems.utils.ConfigManager;
@@ -146,6 +158,15 @@ implements BlissGemsAPI {
     private SoulManager soulManager;
     private GoldGemManager goldGemManager;
     private GoldAbilities goldAbilities;
+    private AwakenedGold awakenedGold;
+    private Assassins assassins;
+    private Wisps wisps;
+    private HonoredOne honoredOne;
+    private Progression progression;
+    private BindingVows bindingVows;
+    private FireVow fireVow;
+    private EventGames eventGames;
+    private GamesShop gamesShop;
     private GoldHarvestCeremony goldHarvestCeremony;
     private FlowStateManager flowStateManager;
     private GemLockManager gemLockManager;
@@ -169,6 +190,7 @@ implements BlissGemsAPI {
     private AutoEnchantManager autoEnchantManager;
     private RegionManager regionManager;
     private AchievementManager achievementManager;
+    private BlissAdvancements blissAdvancements;
     private GemRitualManager gemRitualManager;
     private MaceVillagerManager maceVillagerManager;
     private EnchantLimiterManager enchantLimiterManager;
@@ -431,6 +453,7 @@ implements BlissGemsAPI {
         try {
             this.goldGemManager = new GoldGemManager(this);
             this.goldAbilities = new GoldAbilities(this);
+            this.awakenedGold = new AwakenedGold(this);
             this.goldHarvestCeremony = new GoldHarvestCeremony(this);
         }
         catch (Exception e) {
@@ -468,6 +491,8 @@ implements BlissGemsAPI {
         }
         try {
             this.achievementManager = new AchievementManager(this);
+            this.blissAdvancements = new BlissAdvancements(this);
+            this.blissAdvancements.register();
         }
         catch (Exception e) {
             this.getLogger().severe("=== BLISSGEMS FAILED TO INITIALIZE: AchievementManager ===");
@@ -580,6 +605,9 @@ implements BlissGemsAPI {
     }
 
     public void onDisable() {
+        if (this.wisps != null) {
+            this.wisps.shutdown();
+        }
         if (this.gemIntegrity != null) {
             this.gemIntegrity.save();
         }
@@ -708,7 +736,11 @@ implements BlissGemsAPI {
         this.gemIntegrity = new dev.xoperr.blissgems.listeners.GemIntegrityListener(this);
         this.getServer().getPluginManager().registerEvents((Listener)this.gemIntegrity, (Plugin)this);
         this.gemIntegrity.start();
-        this.getServer().getPluginManager().registerEvents((Listener)new GemInteractListener(this), (Plugin)this);
+        GemInteractListener gemInteractListener = new GemInteractListener(this);
+        GemTraderMenu gemTraderMenu = new GemTraderMenu(this, gemInteractListener);
+        gemInteractListener.setTraderMenu(gemTraderMenu);
+        this.getServer().getPluginManager().registerEvents((Listener)gemInteractListener, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)gemTraderMenu, (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new UpgraderListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new PassiveListener(this), (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)new dev.xoperr.blissgems.listeners.AstraPhasingListener(this), (Plugin)this);
@@ -732,6 +764,7 @@ implements BlissGemsAPI {
         this.getServer().getPluginManager().registerEvents((Listener)new PrismaticEdgeListener(this), (Plugin)this);
         if (this.goldAbilities != null) {
             this.getServer().getPluginManager().registerEvents((Listener)this.goldAbilities, (Plugin)this);
+            this.getServer().getPluginManager().registerEvents((Listener)this.awakenedGold, (Plugin)this);
         }
         if (this.goldHarvestCeremony != null) {
             this.getServer().getPluginManager().registerEvents((Listener)this.goldHarvestCeremony, (Plugin)this);
@@ -754,6 +787,20 @@ implements BlissGemsAPI {
         if (this.enchantLimiterManager != null) {
             this.getServer().getPluginManager().registerEvents((Listener)new EnchantLimiterListener(this, this.enchantLimiterManager), (Plugin)this);
         }
+        this.getServer().getPluginManager().registerEvents((Listener)new MegaMaceListener(this), (Plugin)this);
+        this.assassins = new Assassins(this);
+        this.wisps = new Wisps(this);
+        this.honoredOne = new HonoredOne(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.wisps, (Plugin)this);
+        this.bindingVows = new BindingVows(this);
+        this.fireVow = new FireVow(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.fireVow, (Plugin)this);
+        this.eventGames = new EventGames(this);
+        this.gamesShop = new GamesShop(this, this.eventGames);
+        this.getServer().getPluginManager().registerEvents((Listener)this.eventGames, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.gamesShop, (Plugin)this);
+        this.progression = new Progression(this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.progression, (Plugin)this);
         if (this.mythicWorldEventManager != null) {
             this.getServer().getPluginManager().registerEvents((Listener)new BrokenMythicListener(this, this.mythicWorldEventManager), (Plugin)this);
         }
@@ -940,6 +987,42 @@ implements BlissGemsAPI {
         return this.goldAbilities;
     }
 
+    public AwakenedGold getAwakenedGold() {
+        return this.awakenedGold;
+    }
+
+    public Assassins getAssassins() {
+        return this.assassins;
+    }
+
+    public Wisps getWisps() {
+        return this.wisps;
+    }
+
+    public HonoredOne getHonoredOne() {
+        return this.honoredOne;
+    }
+
+    public EventGames getEventGames() {
+        return this.eventGames;
+    }
+
+    public GamesShop getGamesShop() {
+        return this.gamesShop;
+    }
+
+    public BindingVows getBindingVows() {
+        return this.bindingVows;
+    }
+
+    public FireVow getFireVow() {
+        return this.fireVow;
+    }
+
+    public Progression getProgression() {
+        return this.progression;
+    }
+
     public GoldHarvestCeremony getGoldHarvestCeremony() {
         return this.goldHarvestCeremony;
     }
@@ -979,6 +1062,10 @@ implements BlissGemsAPI {
 
     public AchievementManager getAchievementManager() {
         return this.achievementManager;
+    }
+
+    public BlissAdvancements getBlissAdvancements() {
+        return this.blissAdvancements;
     }
 
     public PluginMessagingManager getPluginMessagingManager() {
@@ -1021,6 +1108,11 @@ implements BlissGemsAPI {
             return false;
         }
         return gemId.equals(gem.getGemId());
+    }
+
+    @Override
+    public boolean isEmpActive() {
+        return this.fireVow != null && this.fireVow.isEmpActive();
     }
 
     public MaceVillagerManager getMaceVillagerManager() {
@@ -1095,7 +1187,7 @@ implements BlissGemsAPI {
         this.gemRegistry.registerCooldowns("fire", List.of(new CooldownEntry("fire-fireball", "Fireball"), new CooldownEntry("fire-campfire", "Campfire"), new CooldownEntry("fire-crisp", "Crisp"), new CooldownEntry("fire-meteor-shower", "Meteor")));
         this.gemRegistry.registerCooldowns("flux", List.of(new CooldownEntry("flux-beam", "Beam"), new CooldownEntry("flux-ground", "Ground"), new CooldownEntry("flux-flashbang", "Flash"), new CooldownEntry("flux-kinetic-burst", "Kinetic")));
         this.gemRegistry.registerCooldowns("life", List.of(new CooldownEntry("life-drainer", "Drainer"), new CooldownEntry("life-circle-of-life", "Circle"), new CooldownEntry("life-vitality-vortex", "Vortex"), new CooldownEntry("life-heart-lock", "Lock")));
-        this.gemRegistry.registerCooldowns("puff", List.of(new CooldownEntry("puff-dash", "Dash"), new CooldownEntry("puff-breezy-bash", "Bash"), new CooldownEntry("puff-group-bash", "Group")));
+        this.gemRegistry.registerCooldowns("puff", List.of(new CooldownEntry("puff-dash", "Dash"), new CooldownEntry("puff-breezy-bash", "Bash")));
         this.gemRegistry.registerCooldowns("speed", List.of(new CooldownEntry("speed-blur", "Blur"), new CooldownEntry("speed-storm", "Storm"), new CooldownEntry("speed-terminal", "Terminal")));
         this.gemRegistry.registerCooldowns("strength", List.of(new CooldownEntry("strength-nullify", "Nullify"), new CooldownEntry("strength-frailer", "Frailer"), new CooldownEntry("strength-shadow-stalker", "Stalker")));
         this.gemRegistry.registerCooldowns("wealth", List.of(new CooldownEntry("wealth-unfortunate", "Unfortunate"), new CooldownEntry("wealth-rich-rush", "Rush"), new CooldownEntry("wealth-item-lock", "Lock"), new CooldownEntry("wealth-amplification", "Amplify")));

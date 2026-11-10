@@ -210,6 +210,10 @@ implements Listener {
             return;
         }
         GemType gemType = activeGem.getType();
+        // Quakitus's vow left his Fire Gem nothing but Fire Resistance.
+        if (gemType == GemType.FIRE && this.plugin.getFireVow().hasVowGem(player)) {
+            return;
+        }
         Map<Enchantment, Integer> enchantsToAdd = this.getEnchantsForGem(gemType, item, tier = activeGem.getTier());
         if (enchantsToAdd.isEmpty()) {
             return;

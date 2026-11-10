@@ -49,6 +49,12 @@ import org.joml.Vector3f;
 public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, Listener {
    private static final String KEY_CHAINS = "auratus-perforators";
    private static final String KEY_AEGIS = "auratus-aegis";
+   /** Hook tip at the head of a flying chain (resourcepack: echo_shard 12351, custom/chain_tip). */
+   private static final int CHAIN_TIP_MODEL = 12351;
+   private static final float TIP_SCALE = 0.8F;
+   /** Bliss sounds from the resource pack (assets/minecraft/sounds.json). */
+   private static final String CHAIN_SOUND = "minecraft:bliss.auratuschain";
+   private static final String SLAM_SOUND = "minecraft:bliss.auratusslam";
    private final BlissMythics plugin;
    private final BlissGemsAPI api;
    private final Map<UUID, List<Long>> chainUses = new HashMap<>();
@@ -77,6 +83,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private final double perforatorDamage;
    private final double slamDamage;
    private final double aegisHeal;
+   private final double aegisChainDamage;
+   private final double aegisThrowSpeed;
+   private final int aegisThrowTicks;
+   private final int aegisChainSlowTicks;
    private final int aegisCooldown;
    private final double chainRange;
    private final int chainCharges;
@@ -103,8 +113,12 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
       this.plugin = var1;
       this.api = var2;
       this.perforatorDamage = var1.getConfig().getDouble("auratus.perforator-damage", 6.0);
-      this.slamDamage = var1.getConfig().getDouble("auratus.slam-damage", 12.0);
+      this.slamDamage = var1.getConfig().getDouble("auratus.slam-damage", 8.0);
       this.aegisHeal = var1.getConfig().getDouble("auratus.aegis-heal", 5.0);
+      this.aegisChainDamage = var1.getConfig().getDouble("auratus.aegis-chain-damage", 4.0);
+      this.aegisThrowSpeed = var1.getConfig().getDouble("auratus.aegis-throw-speed", 0.25);
+      this.aegisThrowTicks = var1.getConfig().getInt("auratus.aegis-throw-ticks", 40);
+      this.aegisChainSlowTicks = var1.getConfig().getInt("auratus.aegis-chain-slow-ticks", 60);
       this.aegisCooldown = var1.getConfig().getInt("auratus.cooldowns.aegis", 45);
       this.chainRange = var1.getConfig().getDouble("auratus.chain.range", 55.0);
       this.chainCharges = var1.getConfig().getInt("auratus.chain.charges", 2);
@@ -151,8 +165,9 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    private boolean holdingAuratus(Player var1) {
-      return this.isAuratusItem(var1.getInventory().getItemInMainHand())
-         || this.isAuratusItem(var1.getInventory().getItemInOffHand());
+      // an EMP switches every mythic off
+      return !this.api.isEmpActive()
+         && (this.isAuratusItem(var1.getInventory().getItemInMainHand()) || this.isAuratusItem(var1.getInventory().getItemInOffHand()));
    }
 
    private boolean isAuratusItem(ItemStack var1) {
@@ -282,13 +297,37 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                var1x.setTeleportDuration(2);
             }
          );
+      // The thrown aegis drags a slow chain behind it; the first enemy it reaches is hurt,
+      // bound and slowed.
       (new BukkitRunnable() {
          int ticks = 0;
-         final Vector step = var5.clone().multiply(0.45);
+         final Vector step = var5.clone().multiply(AuratusGem.this.aegisThrowSpeed);
 
          public void run() {
-            if (++this.ticks <= 24 && var7.isValid()) {
+            if (++this.ticks <= AuratusGem.this.aegisThrowTicks && var7.isValid()) {
                var7.teleport(var7.getLocation().add(this.step));
+               // redrawn every 3 ticks and gone after 3, so only one chain trails the aegis
+               if (this.ticks % 3 == 0) {
+                  AuratusGem.this.spawnChain(var1, var1.getLocation().add(0.0, 1.1, 0.0), var7.getLocation(), 3L);
+               }
+
+               for (LivingEntity var8 : var7.getLocation().getNearbyLivingEntities(1.1)) {
+                  if (var8 == var1 || var8 instanceof Player var9 && AuratusGem.this.api.getTrustedPlayersManager().isTrusted(var1, var9)) {
+                     continue;
+                  }
+
+                  var8.damage(AuratusGem.this.aegisChainDamage, var1);
+                  var8.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, AuratusGem.this.aegisChainSlowTicks, 2, false, true, true));
+                  AuratusGem.this.spawnChain(var1, var1.getLocation().add(0.0, 1.1, 0.0), var8.getLocation().add(0.0, 1.0, 0.0));
+                  var8.getWorld().playSound(var8.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.4F, 0.6F);
+                  if (var8 instanceof Player var10) {
+                     var10.sendMessage("§6§oBound by the Aegis chain!");
+                  }
+
+                  var7.remove();
+                  this.cancel();
+                  return;
+               }
             } else {
                if (var7.isValid()) {
                   var7.remove();
@@ -393,14 +432,14 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private void launchChainToPoint(final Player var1, final Location var2, final Runnable var3) {
       Location var4 = var1.getEyeLocation();
       Vector var5 = var2.toVector().subtract(var4.toVector()).normalize();
-      var1.getWorld().playSound(var4, Sound.BLOCK_CHAIN_PLACE, 1.2F, 1.1F);
+      var1.getWorld().playSound(var4, CHAIN_SOUND, 1.2F, 1.0F);
       final ItemStack var6 = new ItemStack(Material.ECHO_SHARD);
       ItemMeta var7 = var6.getItemMeta();
       var7.setCustomModelData(12348);
       var6.setItemMeta(var7);
       ItemStack var8 = new ItemStack(Material.ECHO_SHARD);
       ItemMeta var9 = var8.getItemMeta();
-      var9.setCustomModelData(12349);
+      var9.setCustomModelData(CHAIN_TIP_MODEL);
       var8.setItemMeta(var9);
       final ArrayList<ItemDisplay> var10 = new ArrayList<>();
       Location var11 = var4.clone().add(var5.clone().multiply(0.9));
@@ -412,7 +451,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
          var2x.setGlowing(true);
          var2x.setBrightness(new Brightness(15, 15));
          var2x.setPersistent(false);
-         var2x.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), var12, new Vector3f(0.4F, 0.4F, 0.4F), new Quaternionf()));
+         var2x.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), var12, new Vector3f(TIP_SCALE, TIP_SCALE, TIP_SCALE), new Quaternionf()));
          var2x.setTeleportDuration(1);
       });
       (new BukkitRunnable() {
@@ -532,14 +571,14 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    private void launchChainAt(final Player var1, final LivingEntity var2) {
       Location var3 = var1.getEyeLocation();
       Vector var4 = var3.getDirection().normalize();
-      var1.getWorld().playSound(var3, Sound.BLOCK_CHAIN_PLACE, 1.2F, 1.1F);
+      var1.getWorld().playSound(var3, CHAIN_SOUND, 1.2F, 1.0F);
       final ItemStack var5 = new ItemStack(Material.ECHO_SHARD);
       ItemMeta var6 = var5.getItemMeta();
       var6.setCustomModelData(12348);
       var5.setItemMeta(var6);
       ItemStack var7 = new ItemStack(Material.ECHO_SHARD);
       ItemMeta var8 = var7.getItemMeta();
-      var8.setCustomModelData(12349);
+      var8.setCustomModelData(CHAIN_TIP_MODEL);
       var7.setItemMeta(var8);
       final ArrayList<ItemDisplay> var9 = new ArrayList<>();
       Location var10 = var3.clone().add(var4.clone().multiply(0.9));
@@ -550,7 +589,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
          var2x.setGlowing(true);
          var2x.setBrightness(new Brightness(15, 15));
          var2x.setPersistent(false);
-         var2x.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), rotationFor(var4), new Vector3f(0.4F, 0.4F, 0.4F), new Quaternionf()));
+         var2x.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), rotationFor(var4), new Vector3f(TIP_SCALE, TIP_SCALE, TIP_SCALE), new Quaternionf()));
          var2x.setTeleportDuration(1);
       });
       (new BukkitRunnable() {
@@ -590,7 +629,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                      Location var13 = this.tip.clone();
                      var13.setYaw(0.0F);
                      var13.setPitch(0.0F);
-                     var11.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), var8x, new Vector3f(0.4F, 0.4F, 0.4F), new Quaternionf()));
+                     var11.setTransformation(new Transformation(new Vector3f(0.0F, 0.0F, 0.0F), var8x, new Vector3f(TIP_SCALE, TIP_SCALE, TIP_SCALE), new Quaternionf()));
                      var11.teleport(var13);
                   }
                }
@@ -722,7 +761,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   if (var10 < AuratusGem.this.slamMinHeight) {
                      var1.sendMessage("§7§oNot high enough to slam — windcharge up first!");
                   } else {
-                     var1.getWorld().playSound(var1.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.2F, 0.8F);
+                     var1.getWorld().playSound(var1.getLocation(), SLAM_SOUND, 1.4F, 1.0F);
                      var1.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, var1.getLocation(), 1);
                      AuratusGem.this.spawnSmashDecal(var1.getLocation());
 
@@ -958,6 +997,10 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
    }
 
    private void spawnChain(Player var1, Location var2, Location var3) {
+      this.spawnChain(var1, var2, var3, 12L);
+   }
+
+   private void spawnChain(Player var1, Location var2, Location var3, long var24) {
       Vector var4 = var3.toVector().subtract(var2.toVector());
       double var5 = var4.length();
       if (!(var5 < 0.5)) {
@@ -997,7 +1040,7 @@ public final class AuratusGem implements GemAbilityHandler, GemPassiveHandler, L
                   var2x.remove();
                }
             }
-         }, 12L);
+         }, var24);
       }
    }
 

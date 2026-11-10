@@ -1,9 +1,7 @@
 package dev.xoperr.blissmythics;
 
 import dev.xoperr.blissgems.api.BlissGemsAPI;
-import dev.xoperr.blissgems.api.CooldownEntry;
 import dev.xoperr.blissgems.utils.CustomItemManager;
-import java.util.List;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -59,56 +57,43 @@ public final class MythicStatusBar {
       }
    }
 
+   // Bliss layout, all icons 8px so they sit inside the action bar line; mythics have no gem icon:
+   //   Heretic: [bloodsaws] charges  Bloodstorm  [bloodlinking] cooldown
+   //   Auratus: [perforators] chains  [aegis] cooldown
    private String build(Player var1, String var2) {
-      List<CooldownEntry> var3 = this.api.getGemRegistry().getCooldownEntries(var2);
-      if (var3 != null && !var3.isEmpty()) {
-         String var4 = "heretic".equals(var2) ? "§4" : "§6";
-         StringBuilder var5 = new StringBuilder();
-         boolean var6 = true;
-
-         for (CooldownEntry var8 : var3) {
-            if (!var6) {
-               var5.append(" ").append(var4).append("| ");
-            }
-
-            var6 = false;
-            int var9 = this.api.getAbilityManager().getRemainingCooldown(var1, var8.getAbilityKey());
-            boolean var10 = var8.getAbilityKey().equals("auratus-perforators") || var8.getAbilityKey().equals("heretic-bloodsaws");
-            if (var10) {
-               String var11 = var8.getDisplayName();
-               if (var8.getAbilityKey().equals("auratus-perforators")) {
-                  int var12 = this.auratus.chainCharges(var1);
-                  var5.append("§f").append(var11).append(" ");
-                  if (var12 >= 2) {
-                     var5.append("§a2");
-                  } else if (var12 == 1) {
-                     var5.append("§e1");
-                  } else {
-                     var5.append("§c").append(this.auratus.nextChainChargeIn(var1)).append("s");
-                  }
-               } else {
-                  var5.append("§f").append(var11).append(" ");
-                  if (var9 > 0) {
-                     var5.append("§c").append(var9).append("s");
-                  } else if (this.heretic.chargeWindowActive(var1)) {
-                     var5.append("§e1");
-                  } else {
-                     var5.append("§a2");
-                  }
-               }
-            } else {
-               var5.append(var4).append(var8.getDisplayName()).append(" ");
-               if (var9 > 0) {
-                  var5.append("§c").append(var9).append("s");
-               } else {
-                  var5.append("§aReady");
-               }
-            }
+      StringBuilder var3 = new StringBuilder();
+      if ("heretic".equals(var2)) {
+         int var4 = this.api.getAbilityManager().getRemainingCooldown(var1, "heretic-bloodsaws");
+         var3.append("§f\ua423 ");
+         if (var4 > 0) {
+            var3.append("§c").append(var4).append("s");
+         } else if (this.heretic.chargeWindowActive(var1)) {
+            var3.append("§e1");
+         } else {
+            var3.append("§a2");
          }
 
-         return var5.toString();
+         var3.append("  ").append(this.status(var1, "heretic-bloodstorm"));
+         var3.append("  §f\ua421 ").append(this.status(var1, "heretic-bloodlink"));
       } else {
-         return "";
+         int var5 = this.auratus.chainCharges(var1);
+         var3.append("§f\u22b3 ");
+         if (var5 >= 2) {
+            var3.append("§a2");
+         } else if (var5 == 1) {
+            var3.append("§e1");
+         } else {
+            var3.append("§c").append(this.auratus.nextChainChargeIn(var1)).append("s");
+         }
+
+         var3.append("  §f\u22b2 ").append(this.status(var1, "auratus-aegis"));
       }
+
+      return var3.toString();
+   }
+
+   private String status(Player var1, String var2) {
+      int var3 = this.api.getAbilityManager().getRemainingCooldown(var1, var2);
+      return var3 > 0 ? "§c" + var3 + "s" : "§aReady!";
    }
 }

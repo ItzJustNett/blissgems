@@ -71,7 +71,7 @@ public class EndSkyVisualManager {
                         double ox = ThreadLocalRandom.current().nextDouble(-10, 10);
                         double oy = ThreadLocalRandom.current().nextDouble(8, 16);
                         double oz = ThreadLocalRandom.current().nextDouble(-10, 10);
-                        player.spawnParticle(Particle.DRAGON_BREATH, eyeLoc.clone().add(ox, oy, oz), 4, 0.2, 0.2, 0.2, 0.01);
+                        player.spawnParticle(Particle.DRAGON_BREATH, eyeLoc.clone().add(ox, oy, oz), 4, 0.2, 0.2, 0.2, 0.01, Particle.DRAGON_BREATH.getDataType() == Float.class ? (Object) 1.0f : null);
                     }
                     continue;
                 }

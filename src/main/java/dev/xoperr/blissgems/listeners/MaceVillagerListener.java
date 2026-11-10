@@ -20,6 +20,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.VillagerAcquireTradeEvent;
+import org.bukkit.event.entity.VillagerCareerChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -71,6 +73,20 @@ public class MaceVillagerListener implements Listener {
                 player.sendMessage(ChatColor.translateAlternateColorCodes('&',
                         "&d&l✦ [SOUL FORM] &7Villager successfully bound into &dSoul Form&7! Place down anywhere to restore."));
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onCareerChange(VillagerCareerChangeEvent event) {
+        if (villagerManager.isCustomVillager(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onAcquireTrade(VillagerAcquireTradeEvent event) {
+        if (event.getEntity() instanceof Villager v && villagerManager.isCustomVillager(v)) {
+            event.setCancelled(true);
         }
     }
 

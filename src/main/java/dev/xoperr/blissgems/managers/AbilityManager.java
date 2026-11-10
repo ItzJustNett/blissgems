@@ -13,6 +13,8 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.utils.CustomItemManager;
+import dev.xoperr.blissgems.utils.GemType;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -97,9 +99,27 @@ public class AbilityManager {
         if (this.noCooldown.contains(player.getUniqueId())) {
             return;
         }
+        if (this.plugin.getProgression() != null) {
+            seconds = this.plugin.getProgression().adjustCooldown(player, seconds);
+        }
         Map playerCooldowns = this.cooldowns.computeIfAbsent(player.getUniqueId(), k -> new HashMap());
         playerCooldowns.put(abilityKey, System.currentTimeMillis() + (long)seconds * 1000L);
         this.saveCooldowns(player.getUniqueId());
+    }
+
+    /** False when abilities.require-main-hand is on and the gem isn't in the main hand. */
+    public boolean isHandAllowed(Player player) {
+        if (!this.plugin.getConfig().getBoolean("abilities.require-main-hand", false)) {
+            return true;
+        }
+        if (this.plugin.getBindingVows() != null && this.plugin.getBindingVows().firesFrom(player, player.getInventory().getItemInMainHand())) {
+            return true;
+        }
+        String id = CustomItemManager.getIdByItem(player.getInventory().getItemInMainHand());
+        if (id == null) {
+            return false;
+        }
+        return GemType.isGem(id) || this.plugin.getGemRegistry() != null && this.plugin.getGemRegistry().isRegisteredGem(id);
     }
 
     public boolean isAbilityActive(Player player, String abilityKey) {
@@ -149,8 +169,20 @@ public class AbilityManager {
             this.plugin.getConfigManager().sendFormattedMessage((CommandSender)player, "ability-no-energy", new Object[0]);
             return false;
         }
+        // the EMP vow switches its holder's gem off for a while after each EMP
+        if (this.plugin.getFireVow() != null && this.plugin.getFireVow().blockedByDisabledGem(player)) {
+            return false;
+        }
         if (!abilityKey.startsWith("astra-") && this.plugin.getAstraAbilities().isAbilitySuppressed(player)) {
             player.sendMessage("\u00a74\u00a7l\u00a7oYour gem abilities are nullified by a Dimensional Void!");
+            return false;
+        }
+        if (this.plugin.getEventGames() != null && this.plugin.getEventGames().abilityBanned(abilityKey)) {
+            player.sendMessage("\u00a7c\u00a7oThis gem is banned in the games right now.");
+            return false;
+        }
+        if (this.plugin.getProgression() != null && this.plugin.getProgression().abilityBanned(abilityKey)) {
+            player.sendMessage("\u00a7c\u00a7oThis ability is banned in the current Progression.");
             return false;
         }
         if (this.isAbilityActive(player, abilityKey)) {

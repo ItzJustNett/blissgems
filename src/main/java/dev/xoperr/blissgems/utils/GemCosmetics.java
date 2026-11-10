@@ -30,6 +30,9 @@ public final class GemCosmetics {
     private static final MiniMessage MM = MiniMessage.miniMessage();
     private static final Map<String, Component> NAMES = new HashMap<String, Component>();
     private static final Map<String, List<Component>> LORE = new HashMap<String, List<Component>>();
+    /** Looks registered by addons; kept across cosmetics.yml reloads. */
+    private static final Map<String, Component> ADDON_NAMES = new HashMap<String, Component>();
+    private static final Map<String, List<Component>> ADDON_LORE = new HashMap<String, List<Component>>();
 
     private GemCosmetics() {
     }
@@ -70,27 +73,46 @@ public final class GemCosmetics {
         plugin.getLogger().info("Loaded MiniMessage cosmetics for " + NAMES.size() + " items.");
     }
 
+    /**
+     * Lets an addon give its gems the same MiniMessage look as the built-in ones (smallcaps name,
+     * passives / ability / powers sections). Gem items render it with the live energy line on top.
+     */
+    public static void register(String itemId, String miniName, List<String> miniLore) {
+        if (miniName != null) {
+            ADDON_NAMES.put(itemId, MM.deserialize(miniName));
+        }
+        if (miniLore != null && !miniLore.isEmpty()) {
+            ArrayList<Component> rendered = new ArrayList<Component>(miniLore.size());
+            for (String line : miniLore) {
+                rendered.add(MM.deserialize(line));
+            }
+            ADDON_LORE.put(itemId, rendered);
+        }
+    }
+
     public static boolean has(String itemId) {
-        return NAMES.containsKey(itemId) || LORE.containsKey(itemId);
+        return NAMES.containsKey(itemId) || LORE.containsKey(itemId) || ADDON_NAMES.containsKey(itemId) || ADDON_LORE.containsKey(itemId);
     }
 
     public static Component name(String itemId) {
-        return NAMES.get(itemId);
+        Component name = NAMES.get(itemId);
+        return name != null ? name : ADDON_NAMES.get(itemId);
     }
 
     public static List<Component> lore(String itemId) {
-        return LORE.get(itemId);
+        List<Component> lore = LORE.get(itemId);
+        return lore != null ? lore : ADDON_LORE.get(itemId);
     }
 
     public static boolean apply(ItemMeta meta, String itemId) {
         List<Component> lore;
         boolean applied = false;
-        Component name = NAMES.get(itemId);
+        Component name = GemCosmetics.name(itemId);
         if (name != null) {
             meta.displayName(name);
             applied = true;
         }
-        if ((lore = LORE.get(itemId)) != null) {
+        if ((lore = GemCosmetics.lore(itemId)) != null) {
             meta.lore(lore);
             applied = true;
         }

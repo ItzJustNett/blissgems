@@ -164,7 +164,7 @@ implements GemAbilityHandler {
             HashSet<UUID> toRemove = new HashSet<UUID>();
             for (UUID uuid : new HashSet<>(modifiedInCircle)) {
                 Player modified;
-                if (uuid.equals(player.getUniqueId()) || (modified = this.plugin.getServer().getPlayer(uuid)) != null && modified.isOnline() && !(modified.getLocation().distance(circleLocation) > radius)) continue;
+                if (uuid.equals(player.getUniqueId()) || (modified = this.plugin.getServer().getPlayer(uuid)) != null && modified.isOnline() && modified.getWorld().equals(circleLocation.getWorld()) && !(modified.getLocation().distance(circleLocation) > radius)) continue;
                 if (modified != null && modified.isOnline()) {
                     this.removeCircleModifierDirect(modified, modifierKey);
                 }
@@ -250,10 +250,6 @@ implements GemAbilityHandler {
 
     public void vitalityVortex(Player player) {
         PotionEffect[] effects;
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
-            return;
-        }
         String abilityKey = "life-vitality-vortex";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;

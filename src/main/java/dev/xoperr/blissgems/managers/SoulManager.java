@@ -143,7 +143,7 @@ public class SoulManager {
     }
 
     /**
-     * Binds a mob's soul into the gem (2 slots). The mob must be worn down to half health, and its
+     * Binds a mob's soul into the gem (passives.astra.soul-capacity slots, 1 by default). The mob must be worn down to half health, and its
      * max health must fit the tier (T1 small mobs, T2 up to golems/ravagers by default).
      */
     public boolean captureMob(Player player, LivingEntity mob) {
@@ -152,8 +152,9 @@ public class SoulManager {
             return false;
         }
         List<CapturedMob> souls = this.playerSouls.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<CapturedMob>());
-        if (souls.size() >= 2) {
-            player.sendMessage("\u00a7c\u00a7oYour gem is full! (Max 2 souls)");
+        int capacity = this.getSoulCapacity();
+        if (souls.size() >= capacity) {
+            player.sendMessage("\u00a7c\u00a7oYour gem already holds " + souls.get(souls.size() - 1).getDisplayName() + "! Release it first. \u00a77(Max " + capacity + ")");
             return false;
         }
         if (!this.isCapturable(mob)) {
@@ -180,7 +181,7 @@ public class SoulManager {
         mobLoc.getWorld().spawnParticle(Particle.WITCH, mobLoc, 30, 0.5, 0.5, 0.5, 0.0);
         player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 1.0f, 2.0f);
         String mobName = capturedMob.getDisplayName();
-        player.sendMessage("\u00a75\ud83d\udd2e \u00a7dCaptured " + mobName + " soul. \u00a77(" + souls.size() + "/2)");
+        player.sendMessage("\u00a75\ud83d\udd2e \u00a7dCaptured " + mobName + " soul. \u00a77(" + souls.size() + "/" + capacity + ")");
         this.lastCaptureTimes.put(player.getUniqueId(), System.currentTimeMillis());
         return true;
     }
@@ -220,6 +221,10 @@ public class SoulManager {
 
     public List<CapturedMob> getCapturedSouls(Player player) {
         return this.playerSouls.getOrDefault(player.getUniqueId(), new ArrayList());
+    }
+
+    public int getSoulCapacity() {
+        return Math.max(1, this.plugin.getConfig().getInt("passives.astra.soul-capacity", 1));
     }
 
     public int getCapturedCount(Player player) {

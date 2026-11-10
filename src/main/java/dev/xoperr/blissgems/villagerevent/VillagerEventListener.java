@@ -164,6 +164,15 @@ public final class VillagerEventListener implements Listener {
         }
     }
 
+    /** Trading runs through the Lost Souls hunt and ends at the last raid or Progression 5. */
+    private boolean canTrade() {
+        return this.state.canTrade() && !this.progressionOver();
+    }
+
+    private boolean progressionOver() {
+        return this.plugin.getProgression() != null && this.plugin.getProgression().enabled() && this.plugin.getProgression().stage() >= 5;
+    }
+
     private boolean isRegisteredVillager(Villager v) {
         for (int id = 1; id <= 3; id++) if (v.getUniqueId().equals(this.state.villagerUuid(id))) return true;
         return false;
@@ -183,12 +192,13 @@ public final class VillagerEventListener implements Listener {
         if (!registered && !v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
             return;
         }
-        if (this.state.isFinalActive() && registered) {
+        if (this.canTrade() && registered) {
             return;
         }
         event.setCancelled(true);
         if (registered) {
-            event.getPlayer().sendMessage(PedestalManager.color("&7This villager won't trade until &6the Last Raid &7(phase 3)."));
+            event.getPlayer().sendMessage(PedestalManager.color(this.state.isFinalActive() || this.progressionOver()
+                ? "&7This villager no longer trades." : "&7This villager trades once &6the Lost Souls &7hunt begins."));
         } else if (!this.state.isEventRunning()) {
             v.remove();
         }
@@ -197,7 +207,7 @@ public final class VillagerEventListener implements Listener {
     /** Backup: no trade window from an event villager before phase 3, however it was opened. */
     @EventHandler(priority = EventPriority.LOW)
     public void onEarlyMerchantOpen(InventoryOpenEvent event) {
-        if (this.state.isFinalActive() || !(event.getInventory() instanceof MerchantInventory inv) || !(inv.getMerchant() instanceof Villager v)) {
+        if (this.canTrade() || !(event.getInventory() instanceof MerchantInventory inv) || !(inv.getMerchant() instanceof Villager v)) {
             return;
         }
         if (this.isRegisteredVillager(v) || v.getScoreboardTags().contains(VillagerEventItems.EVENT_TAG)) {
@@ -566,13 +576,22 @@ public final class VillagerEventListener implements Listener {
         jukebox.stopPlaying();
         jukebox.update();
         hand.setAmount(hand.getAmount() - 1);
-        if (!this.plugin.getConfig().getBoolean("villager-event.clue-audio", true)) {
-            this.revealCoords(p);
+        // The coordinates un-scramble in a title; with villager-event.clue-audio the village
+        // message recording plays, otherwise a villager mumbles them out.
+        boolean audio = this.plugin.getConfig().getBoolean("villager-event.clue-audio", true);
+        this.revealCoords(p, top, !audio);
+        if (!audio) {
             return;
         }
-        String sound = this.plugin.getConfig().getString("villager-event.disc-song-key", "bliss:village_clue");
+        String sound = this.discSound();
         block.getWorld().playSound(top, sound, SoundCategory.RECORDS, 4.0f, 1.0f);
         this.startDiscLoop(block, sound);
+    }
+
+    /** villager-event.disc-song-key; the old default (a recording no pack ever had) means the village message. */
+    private String discSound() {
+        String key = this.plugin.getConfig().getString("villager-event.disc-song-key", "bliss:village_message");
+        return "bliss:village_clue".equals(key) ? "bliss:village_message" : key;
     }
 
     private boolean claimTick(Location loc) {
@@ -585,7 +604,7 @@ public final class VillagerEventListener implements Listener {
     }
 
     /** Coordinates un-scramble one character at a time in the title when there is no custom audio. */
-    private void revealCoords(Player p) {
+    private void revealCoords(Player p, Location jukebox, boolean mumble) {
         Location c = this.state.compassLoc();
         if (c == null) {
             p.showTitle(Title.title(VillagerEventItems.text("&e&k████████"), Component.empty(),
@@ -600,6 +619,10 @@ public final class VillagerEventListener implements Listener {
                 Player online = Bukkit.getPlayer(p.getUniqueId());
                 if (online == null) return;
                 boolean first = shown == 0, last = shown == n;
+                if (mumble && !last && coords.charAt(shown) != ' ') {
+                    Sound voice = shown % 3 == 0 ? Sound.ENTITY_VILLAGER_TRADE : Sound.ENTITY_VILLAGER_AMBIENT;
+                    jukebox.getWorld().playSound(jukebox, voice, SoundCategory.RECORDS, 1.5f, 0.8f + (coords.charAt(shown) % 5) * 0.1f);
+                }
                 online.showTitle(Title.title(VillagerEventItems.text(frame(coords, shown)), Component.empty(),
                     Title.Times.times(Duration.ofMillis(first ? 300 : 0), Duration.ofMillis(last ? 4000 : 2400), Duration.ofMillis(last ? 1200 : 0))));
             }, step * 11L);
@@ -627,11 +650,11 @@ public final class VillagerEventListener implements Listener {
             } else {
                 this.stopDiscLoop(loc);
             }
-        }, 406L, 406L));
+        }, 700L, 700L));
     }
 
     private void stopDisc(Block block) {
-        String sound = this.plugin.getConfig().getString("villager-event.disc-song-key", "bliss:village_clue");
+        String sound = this.discSound();
         for (Player p : block.getWorld().getPlayers()) {
             if (p.getLocation().distanceSquared(block.getLocation()) <= 4096.0) p.stopSound(sound, SoundCategory.RECORDS);
         }

@@ -35,6 +35,7 @@ public class EnchantLimiterListener implements Listener {
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         ItemStack result = event.getResult();
         if (result == null || result.getType() == Material.AIR) return;
+        if (CustomItemManager.isMegaMace(result)) return; // the Mega Mace has no enchantment limits
 
         boolean modified = false;
         boolean isLimitedMace = CustomItemManager.isLimitedMace(result);
@@ -79,6 +80,7 @@ public class EnchantLimiterListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEnchantItem(EnchantItemEvent event) {
         ItemStack item = event.getItem();
+        if (CustomItemManager.isMegaMace(item)) return;
         boolean isLimitedMace = CustomItemManager.isLimitedMace(item);
         Map<Enchantment, Integer> toAdd = event.getEnchantsToAdd();
 

@@ -190,6 +190,10 @@ public class FluxEnergyManager {
     }
 
     public void openChargingStation(Player player) {
+        if (this.plugin.getProgression() != null && this.plugin.getProgression().abilityBanned("flux-charging")) {
+            player.sendMessage("\u00a7c\u00a7oFlux charging is banned in the current Progression.");
+            return;
+        }
         DepositHolder holder = new DepositHolder();
         Inventory inv = Bukkit.createInventory(holder, 27, PedestalManager.color("&9Watt Deposit (" + String.format("%,.0f", this.getWatts(player.getUniqueId())) + " watts)"));
         holder.inventory = inv;

@@ -466,20 +466,6 @@
                 }
             },
             {
-                "threshold": 12348,
-                "model": {
-                    "type": "model",
-                    "model": "blissgems:custom/chain"
-                }
-            },
-            {
-                "threshold": 12349,
-                "model": {
-                    "type": "model",
-                    "model": "blissgems:custom/chain_end"
-                }
-            },
-            {
                 "threshold": 12345,
                 "model": {
                     "type": "model",
@@ -501,10 +487,31 @@
                 }
             },
             {
+                "threshold": 12348,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:custom/chain"
+                }
+            },
+            {
+                "threshold": 12349,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:custom/chain_end"
+                }
+            },
+            {
                 "threshold": 12350,
                 "model": {
                     "type": "model",
                     "model": "blissgems:custom/astra_dagger"
+                }
+            },
+            {
+                "threshold": 12351,
+                "model": {
+                    "type": "model",
+                    "model": "blissgems:custom/chain_tip"
                 }
             }
         ],

@@ -4,7 +4,10 @@ import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.pedestal.PedestalManager;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
@@ -37,6 +40,12 @@ public final class VillagerEventManager {
         "do not be swayed by", "the shimmer of emeralds", "or our super duper", "really...",
         "crazy good trades..", "You", "Hold the hope of our people", "bring us home", "and rekindle",
         "the spirit of the villages"};
+    /**
+     * When each LOST_SOULS line starts (ticks) in lost_souls.ogg: the 24.7 s of voice (pauses cut out)
+     * shared out by line length. LOST_SOULS_END is when the voice stops.
+     */
+    private static final long[] LOST_SOULS_TICKS = {0, 25, 57, 74, 104, 131, 159, 216, 234, 251, 286, 309, 335, 366, 383, 418, 435, 446};
+    private static final long LOST_SOULS_END = 495L;
     private static final Particle.DustOptions RED_DUST = new Particle.DustOptions(Color.fromRGB(190, 20, 20), 2.0f);
 
     private final BlissGems plugin;
@@ -45,6 +54,8 @@ public final class VillagerEventManager {
     private final VillagerEventVisuals visuals;
     private BukkitTask pendingHuntStart;
     private boolean raidScheduled;
+    /** Who already heard the village's second message (reaching the disc's coordinates). */
+    private final Set<UUID> reachedVillage = new HashSet<>();
 
     public VillagerEventManager(BlissGems plugin) {
         this.plugin = plugin;
@@ -53,6 +64,7 @@ public final class VillagerEventManager {
         this.items = new VillagerEventItems(plugin);
         this.visuals = new VillagerEventVisuals(plugin, this.state, this.items);
         this.visuals.start();
+        Bukkit.getScheduler().runTaskTimer(plugin, this::checkArrivals, 40L, 20L);
         if (this.state.isFinalActive() && this.state.compassLoc() != null) {
             // resume the raid once worlds and entities are loaded
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -76,6 +88,17 @@ public final class VillagerEventManager {
         return p != null && p.state().isPedestalBlock(loc);
     }
 
+    /** Reaching the coordinates the disc gave plays the village's second message, once per player. */
+    private void checkArrivals() {
+        Location at = this.state.compassLoc();
+        if (at == null || at.getWorld() == null || this.state.isFinalActive()) return;
+        double r = this.plugin.getConfig().getDouble("villager-event.arrival-radius", 24.0);
+        for (Player p : at.getWorld().getPlayers()) {
+            if (p.getLocation().distanceSquared(at) > r * r || !this.reachedVillage.add(p.getUniqueId())) continue;
+            p.playSound(p, "bliss:village_message_2", SoundCategory.RECORDS, 1.0f, 1.0f);
+        }
+    }
+
     // ---- phase 1 ----
 
     /** False when there is no spawn pedestal to hold the ritual on. */
@@ -93,26 +116,25 @@ public final class VillagerEventManager {
         this.state.setVillagersReturned(0);
         this.state.clearReturnedVillagers();
         this.state.setFinalActive(false);
+        this.reachedVillage.clear();
         for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
         this.playLostSoulsIntro();
     }
 
-    /** The "Lost Souls:" lines type themselves out in titles over ~28 s, then the hunt begins. */
+    /** The "Lost Souls:" lines type themselves out in titles along with the recording (~25 s), then the hunt begins. */
     private void playLostSoulsIntro() {
         if (this.plugin.getConfig().getBoolean("villager-event.lost-souls-audio", true)) {
             for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p, "bliss:lost_souls", SoundCategory.MASTER, 1000000.0f, 1.0f);
         }
-        int totalChars = 0;
-        for (String line : LOST_SOULS) totalChars += line.length();
-        if (totalChars == 0) totalChars = 1;
-        long typed = 0L;
         boolean first = true;
         Component header = VillagerEventItems.text("&6&lLost Souls:");
-        for (String line : LOST_SOULS) {
+        for (int i = 0; i < LOST_SOULS.length; i++) {
+            String line = LOST_SOULS[i];
             int len = Math.max(1, line.length());
-            long lineStart = 568L * typed / totalChars;
-            long lineEnd = 568L * (typed + len) / totalChars;
-            long span = Math.max(len, lineEnd - lineStart);
+            long lineStart = LOST_SOULS_TICKS[i];
+            long lineEnd = i + 1 < LOST_SOULS.length ? LOST_SOULS_TICKS[i + 1] : LOST_SOULS_END;
+            // typed a little faster than spoken, so the line is complete while it is heard
+            long span = Math.max(1L, (lineEnd - lineStart) * 3 / 4);
             for (int c = 1; c <= len; c++) {
                 final String shown = line.substring(0, Math.min(c, line.length()));
                 final boolean fadeIn = first;
@@ -123,7 +145,6 @@ public final class VillagerEventManager {
                     for (Player p : Bukkit.getOnlinePlayers()) p.showTitle(title);
                 }, lineStart + span * (c - 1) / len);
             }
-            typed += len;
         }
         Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -131,16 +152,16 @@ public final class VillagerEventManager {
                 p.playSound(p.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_PLACE, 1.0f, 1.0f);
                 p.playSound(p.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.0f);
             }
-        }, 578L);
+        }, LOST_SOULS_END + 10L);
         Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
-        }, 580L);
+        }, LOST_SOULS_END + 12L);
         if (this.pendingHuntStart != null) this.pendingHuntStart.cancel();
         this.pendingHuntStart = Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
             this.pendingHuntStart = null;
             this.state.setActive(true);
             this.state.save();
-        }, 586L);
+        }, LOST_SOULS_END + 18L);
     }
 
     // ---- phase 3 ----

@@ -375,10 +375,6 @@ implements GemAbilityHandler {
     }
 
     public void flashbang(Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
-            return;
-        }
         String abilityKey = "flux-flashbang";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;

@@ -16,6 +16,7 @@ public class GemDefinition {
     private final String color;
     private final String pluginName;
     private final int maxTier;
+    private final int minTier;
     private final Material material;
     private final int t1CustomModelData;
     private final int t2CustomModelData;
@@ -31,6 +32,7 @@ public class GemDefinition {
         this.color = builder.color;
         this.pluginName = builder.pluginName;
         this.maxTier = builder.maxTier;
+        this.minTier = Math.min(builder.minTier, builder.maxTier);
         this.material = builder.material;
         this.t1CustomModelData = builder.t1CustomModelData;
         this.t2CustomModelData = builder.t2CustomModelData;
@@ -62,6 +64,11 @@ public class GemDefinition {
 
     public int getMaxTier() {
         return this.maxTier;
+    }
+
+    /** The lowest tier this gem exists at (2 for gems that skip Tier 1, like the mythics). */
+    public int getMinTier() {
+        return this.minTier;
     }
 
     public Material getMaterial() {
@@ -103,6 +110,7 @@ public class GemDefinition {
         private String color = "\u00a77";
         private String pluginName = "BlissGems";
         private int maxTier = 2;
+        private int minTier = 1;
         private Material material = Material.ECHO_SHARD;
         private int t1CustomModelData = -1;
         private int t2CustomModelData = -1;
@@ -138,6 +146,11 @@ public class GemDefinition {
 
         public Builder maxTier(int maxTier) {
             this.maxTier = maxTier;
+            return this;
+        }
+
+        public Builder minTier(int minTier) {
+            this.minTier = minTier;
             return this;
         }
 

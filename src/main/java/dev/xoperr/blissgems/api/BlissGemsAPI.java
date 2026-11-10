@@ -28,5 +28,8 @@ public interface BlissGemsAPI {
     public TrustedPlayersManager getTrustedPlayersManager();
 
     public boolean playerHasGem(Player var1, String var2);
+
+    /** An EMP is down: every mythic gem's powers and passives are off. */
+    public boolean isEmpActive();
 }
 

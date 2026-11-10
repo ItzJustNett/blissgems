@@ -95,9 +95,15 @@ public class AchievementManager {
         unlocked.add(achievement);
         Map playerProgress = this.progressCache.computeIfAbsent(uuid, k -> new HashMap());
         playerProgress.put(achievement, achievement.getTargetProgress());
-        player.sendMessage("\u00a76\u00a7l\u2b50 ACHIEVEMENT UNLOCKED! \u00a7e" + achievement.getDisplayName());
-        player.sendMessage("\u00a77\u00a7o" + achievement.getDescription());
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        BlissAdvancements advancements = this.plugin.getBlissAdvancements();
+        if (advancements != null && advancements.isEnabled()) {
+            // the advancement toast, its sound and the server-wide chat line
+            advancements.award(player, achievement);
+        } else {
+            player.sendMessage("\u00a76\u00a7l\u2b50 ACHIEVEMENT UNLOCKED! \u00a7e" + achievement.getDisplayName());
+            player.sendMessage("\u00a77\u00a7o" + achievement.getDescription());
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        }
         player.spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0.0, 1.0, 0.0), 40, 0.5, 0.5, 0.5, 0.1);
         this.savePlayerData(uuid);
     }

@@ -1,5 +1,119 @@
 # Changelog
 
+## BlissGems 5.2.0
+
+The biggest release since 5.0: Binding Vows, Progressions (Season 3), Energy/Dragon Games, the Awakened Gold Gem, Assassins, Wisps, the Mega Mace and real advancements, plus every ability cooldown matched to the Bliss SMP.
+
+**Config:** existing servers get the new cooldowns automatically (config migration `2026-10-bliss-smp-cooldowns`); a value an admin changed by hand is left alone.
+
+**Config:** the Awakened Gold Gem numbers move too (migration `2026-10-awakened-gold`); the Energy Games shop prices are gone (games.energy.revive-cost is the energy price of /bliss games revive).
+
+**Resource pack:** needs the updated pack (gem icons in the action bar, Prismatic Edge model, Gold Gem sockets, gem shards, Auratus/Heretic models, Gem Trader crosses, the Bliss sounds).
+
+### Added
+- **Bliss-style action bar** for every gem: `[1st] Ready!  [gem icon] Ready!  [2nd] Ready!`; the gem icon in the middle carries the extra abilities (Flux shows one per ability). Fire no longer looks different from the rest.
+- **Awakened Gold Gem:** 8 souls only harvest-awaken the gem (it still reads Dormant, its text glitched); the end of a Golden Dream (or /bliss goldgem awaken <player>) fully awakens a gem holding all 8. Then: passives Ichor, Midas Touch, Prophecy (+10 hearts), and /bliss goldcycle steps through the souls and two movesets - **I:** Snap / Golden Drill, Gilded Wrath, Rayler (3 charges, blinks behind the target) / Gilded Viola (the triple beam, 3 h); **II:** Prophet's Ladder (pulls enemies into the beam, Unfortunate) / Gilded Blitz (yank, strips Regeneration/Resistance/Absorption), Gilded Wrath, Mark of the Beast (2 charges). Snap skips mythic and Binding Vow gems. Numbers under gold.awakened (migration `2026-10-awakened-gold`).
+- Gold Gem lore: Dormant (glitched passives/ability/powers) until fully awakened, then "The Pinnacle of Bliss" with the awakened kit; no harvested-souls list or channelled soul's lore on the item.
+- /bliss goldgem fill <player> all [tier] fills all 8 souls (Tier 2 by default).
+- **Gold Gem sockets:** the gem shows exactly which gems' souls it holds (256 combinations).
+- **Gem shards:** a harvested gem drops its own shard (Fire Shard, Astra Shard, ...) instead of a generic Gem Fragment. /bliss giveitem <player> <gem>_shard (in its suggestions).
+- **Gem Trader picker:** left-click a Gem Trader to choose the pool; every gem taken out costs 1 energy (trader.pick-energy-per-gem). Right-click still rolls any gem.
+- **Advancements:** the 13 achievements are real advancements now (own tab, toast, chat line). No extra plugin needed.
+- **Mega Mace:** the Heavy, Tempered and Overcharged maces in a crafting grid forge it; no cooldown, no enchantment limits. mega-mace.max-crafts caps how many the server ever forges (-1 = no limit; the count is in mega_mace.yml).
+- **Assassins:** /bliss assassin <player> <auratus|heretic|off> (netherite with Curse of Vanishing, 20 hearts, stocked ender chest, the mythic gem).
+- **Wisps:** /bliss wisp <prophet|manifestation|balance|off> to become one (chat is spoken as the wisp), /bliss wispsay to speak as one.
+- abilities.require-main-hand: abilities only from the main hand; passives (double jump) still work from both.
+- Memory NPCs in the Golden Dream wear a random kit (memory_npcs.yml kits) and attack players within aggro-range.
+- **Progressions** (Bliss Season 3, off by default, progression.enabled): stages 1-5 seal/open the Nether and End, set per-stage enchant caps, potion and item limits and banned abilities, Enchanted Obsidian opens the Nether in Progression 1, a custom Wither drops Upgraders/Revive Books/Traders on the first Nether visit, the Dragon Egg gives +10 hearts and halved cooldowns from Progression 3. /bliss progression <status|set <1-5>|1-5|next|prev> - any phase, either direction, with a confirmation.
+- **Binding Vows:** /bliss vow <player> <gem|quakitus|off>. Nemvevo-style: a gem's Tier 2 powers with no gem, used from an empty hand (action bar in the gem's colour). "BINDING VOW CREATED" on creation.
+- **Quakitus's Binding Vow Fire Gem** (/bliss vow <player> quakitus): only Fire Resistance and the fireball, which burns for 5-6 hearts through armor, blows up bigger (abilities.fire-vow.explosion-multiplier) in purple and black, marks the target and kills read "flew too close to the sun". The fireball is purple while charging and in flight. Same name and lore as the Fire Gem, with only the fireball under powers; its action bar shows only the fireball. Can't be traded, never drops to Tier 1 on death.
+- **EMP Binding Vow** (/bliss vow <player> emp), a vow of its own: /bliss emp, sneak + F with both hands empty, or sneak + right-click a block with an empty hand. A pink sphere for 10 s, every mythic disabled for 30 s (powers and passives: Auto Crit, Blood Hardening, Feathered Fall, Hauling Strike, ...), then the holder loses 5 hearts for 30 s and their gem is off for 60 s (abilities.fire-vow).
+- Binding Vows: F stands in for an empty-hand right click in the air (the client never sends that), and a fist on a block mines it instead of firing the vow.
+- **Dragon Games shop** (/bliss shop, points): 2 Hearts, Enchanted Golden Apple, Restock Shulker, Totem (75), 2 Gem Traders, 64 Cobwebs (30), 64 Golden Apples, 64 XP bottles, Player Tracker (15), Strength I (blaze powder), Speed I (sugar), Fire Resistance (magma cream) (5) - right-click to use (games.shop.effect-seconds); prices under games.shop.dragon. The Restock Shulker is Bliss's: three rows of gapples, strength, speed, fire res, webs and xp.
+- Dragon Games points values: each player is worth a random tier (games.dragon.worth-tiers) or what /bliss games worth <player> <points> sets; their killer earns it. Anyone in the games can /bliss games revive <player> for that player's value. Off-hand shields are banned.
+- **Blood Moon** (/bliss games bloodmoon [minutes|off]): a timed red night (games.blood-moon-minutes, 90) with a "The Blood Moon" bar, red sky and moon with the shaderpack, no sleeping; zombies in Protection IV netherite with Sharpness V swords, skeletons with Power V / Punch II / Flame bows, strong spiders, charged creepers.
+- Progression titles: "Phase N" with the phase's name (progression.stages.N.name: The Creation of Everything, The Nether, The Dragon Games, The Lost Souls, The End of Everything) when a phase starts and on /bliss progression.
+- Golden Dream memories carry fully enchanted kits and supplies (gapples, healing / strength / speed potions, a totem), block with shields (an axe knocks the shield down), strafe and crit-jump, and use a gem power (fire, puff, speed, strength or life). Their loot is what they carried (memory_npcs.yml loot-mode) plus their head (only the Memory head, no extra "'s Head"); dropping 15 heads (memory_npcs.yml heads-needed) at the memory world's spawn brings the great thunder and wakes the dreamers. Memories wear maxed-out diamond only (old shipped kits are replaced).
+- Enchanted Obsidian has the enchantment glint, glows when dropped or placed, and is in /bliss giveitem's suggestions.
+- Wisps have no player any more: other players don't see the wisp's body, name tag or tab entry, only its light and name. New light shapes: the Prophet's gold whirl, Balance's flower of life, Manifestation's orbits.
+- A mythic holder killed by a player loses the mythic (Auratus, Heretic) to their killer.
+- Mythic gems (Auratus, Heretic) are droppable like any item: Q, chests, and they fall where their holder dies (to a player: straight to the killer). Dropping one gives back the gem it replaced - also when the mythic came from /bliss give, which now stores the player's gem instead of deleting it. Inside the Golden Dream the stored gem waits until the dreamer wakes.
+- Gold Gem: Awakened action bar `[snap] Ready!  [gem] Gilded Wrath  [rayler] charges` with Bliss icons; Snap and Rayler icons in the lore.
+- Bliss particle textures in the resource pack.
+- **Energy Games / Dragon Games:** /bliss games ... (one life, kill quota or points, gem bans, events, Dragon Egg for the winner). /bliss shop is the Dragon Games shop only (the Energy Games have none); admins/ops can always open it. /bliss games points <player> [n|+n|-n] shows or sets Dragon Games points.
+- Astra's action bar shows the captured soul (or Empty) in the middle at Tier 1 and Tier 2.
+- Gem Trader picker is one row like Pockets; a gem taken out of the pool shows the gem with a red cross.
+- Honored One: a yellow halo over the head and under the feet and two white beams circling the back; /bliss honored toggles it, staff /bliss honored set <player>|clear.
+- Golden Dream walkway uses the shaderpack's GoldenDome too.
+- Golden Dream memory-world copy-main: the copy is taken after a full flush to disk (it used to miss recent changes), includes the main nether and end, and runs off the main thread so a big map can't freeze the server; dreamers keep walking the pocket until it is ready.
+- New Prismatic Edge model.
+- API: GemDefinition.minTier (mythics skip Tier 1), GemCosmetics.register (addons get the built-in tooltip look).
+
+### Changed
+- **Cooldowns match the Bliss SMP** (abilities.cooldowns):
+
+  | Gem | Ability | Old | New |
+  |---|---|---|---|
+  | Puff | Dash | 12s | 40s |
+  | Puff | Breezy Bash | 45s | 75s |
+  | Speed | Blur | 45s | 90s |
+  | Speed | Speed Storm | 90s | 20s |
+  | Strength | Frailer / Nullify | 120s | 240s |
+  | Strength | Chad Strength | 10s | 150s |
+  | Strength | Shadow Stalker | 180s | 300s |
+  | Wealth | Rich Rush | 540s | 420s |
+  | Wealth | Amplification | 300s | 420s |
+  | Wealth | Item Lock / Unfortunate | 90s / 150s | 200s |
+  | Fire | Fireball | 35s | 75s |
+  | Fire | Meteor Shower | 90s | 75s |
+  | Fire | Crisp | 60s | 42s |
+  | Fire | Cozy Campfire | 90s | 600s |
+  | Flux | Energy Beam | 150s | 30s |
+  | Life | Circle of Life | 120s | 180s |
+  | Life | Heart Drainer | 60s | 75s |
+  | Astra | Dimensional Daggers | 75s | 90s |
+  | Astra | Dimensional Drift | 60s | 45s |
+  | Astra | Astral Projection | 120s | 300s |
+  | Astra | Astral Void | 120s | 150s |
+
+  Unchanged, already matching: Kinetic Burst and Flux Ground (30s), Heart Lock (75s), Vitality Vortex (45s).
+- Puff Dash is a flat, fast dash (abilities.puff-dash.speed / ticks) instead of a lunge, hitting everyone it passes through once, and eases out instead of stopping dead.
+- Puff: the self-launch "Breezy Bash" is gone. Breezy Bash is one ability now: aimed at a player it flings them up and slams them down (abilities.puff-breezy-bash), aimed at nobody it flings you and every enemy around you up (abilities.puff-group-bash). The double jump is a single air jump with a tiny dash (passives.puff.double-jump-dash) and sits in the middle of the action bar.
+- **Tier 1 = the ability only:** a Tier 1 gem has just its ability (the middle one: Crisp, Dimensional Drift, Vitality Vortex, Static Burst, Thunder Step, Shadow Stalker, Pockets); every input fires it and the powers need Tier 2 (Puff keeps its Tier 1 kit). The action bar shows only the gem crystal and the ability.
+- Action bar: the middle icon is each gem's own upright crystal; Tier 1 shows only `[Tier 1 crystal] Ready!` for its ability (Astra: the held soul, Puff: `[dash]  [double jump]`).
+- Assassins wear their mythic's trims: Auratus gold Flow / Bolt / Eye / Spire, Heretic redstone Silence.
+- Resource pack: the Bliss sounds - the Lost Souls recording, the Wanderer's disc message (the coordinates also spell out in a title) and the second message when you reach them (villager-event.arrival-radius), the Last Raid horn and portal hum, the Bliss villager voices and thunder, and the Auratus chain and slam sounds.
+- Villager event: the villagers trade during the Lost Souls hunt and stop at the Last Raid (phase 3) or Progression 5; after the raid they're gone.
+- Astra holds 1 soul (passives.astra.soul-capacity) and the action bar shows which mob it is.
+- golden-dream.memory-world defaults to copy-main: the memory is a copy of the server's overworld.
+
+### Fixed
+- Auratus and Heretic showed each other's (or the wrong) texture: the gem's energy level shifted their model number like a normal gem's.
+- The Lost Souls titles ran 3 s longer than the recording; each line now starts with its voice line.
+- Gold Gem souls taken at Tier 1 follow the Tier 1 rule too (only the ability).
+- Golden Dream shaders only switched on while the world was on day 0 (the server adds the world's day to a fixed player time).
+- Mace and Energy Games villagers lost their profession and trades without a job block.
+- Config migrations can now change the same value twice across releases (Flux Beam 240s -> 150s -> 30s).
+- Puff could triple jump.
+- /bliss games eliminate / revive did nothing (and said nothing) for players who weren't on the participant list or weren't out; /bliss shop now says why it is closed.
+- End sky visuals threw an error every tick on 1.21.9+ (Dragon Breath particle needs a power value now).
+- Speed's packet clone never worked on 1.21+ and always fell back to the armor stand; it uses the current player info / spawn packets now.
+- Circle of Life errored when a player inside it changed worlds.
+- Awakened Gold Gem kept the powers of the soul it was channelling (Astra, Flux, ...): waking it switches to Moveset I, and the soul menu now offers Moveset I and II.
+- Midas Touch and Prophecy (+10 hearts) never worked when their timer started on an odd tick; same for the Wisps' lights.
+- Speed Blur struck the ground behind a player you aimed at, so it rarely hit; it strikes the entity in the crosshair now.
+- Enchanted Obsidian only made its holder glow with Progressions on.
+- Gem shards say what they craft (they work as Gem Fragments: Repair Kit, Restoration Book, Prismatic Edge).
+
+### BlissMythics
+- Auratus and Heretic are Tier 2 only (GemDefinition.minTier).
+- Auratus: a ground slam hits for 4 hearts (auratus.slam-damage 12 -> 8; servers on the old default move over), the chain stays at 3.
+- Fixed: Auratus and Heretic gems showed the wrong (purple) texture; the resource pack maps them on the nautilus shell now.
+- Bliss-style action bar for both, no gem icon: Heretic `[bloodsaws] charges  Bloodstorm  [bloodlink] cooldown`, Auratus `[perforators] chains  [aegis] cooldown`.
+- Mythics are worked like in Bliss: left click with the gem in the main hand is the first ability, right click the second.
+- Heretic: **Bloodstorm** comes from throwing both Bloodsaws at once (heretic.bloodstorm-window-ms), not from Bloodlink: a blood fountain (red double helix, dark spray) where everyone inside bleeds; own cooldown (heretic.cooldowns.bloodstorm, 90s). The Bloodlink hop tips into a divebomb that your aim steers (heretic.divebomb-steer), speeding up to heretic.divebomb-speed.
+- Auratus: the thrown Echoing Aegis is slower (auratus.aegis-throw-speed / -ticks) and drags one chain (it drew three); the first enemy it reaches takes aegis-chain-damage and Slowness III (aegis-chain-slow-ticks). Flying chains have a hook tip.
+
 ## BlissGems 5.1.7
 
 **Resource pack:** https://github.com/ItzJustNett/blissgems/releases/download/resourcepack-latest/BlissGems-Resourcepack.zip (updated on every change - get the new one, the old pack has no textures for the new items or the menu banner).

@@ -58,6 +58,9 @@ public class GemManager {
             foundGem = new ActiveGem(gemId, tier);
             break;
         }
+        if (foundGem == null && this.plugin.getBindingVows() != null && this.plugin.getBindingVows().vow(player) != null) {
+            foundGem = new ActiveGem(this.plugin.getBindingVows().vow(player), 2);
+        }
         if (!(currentGem == null || foundGem != null && Objects.equals(currentGem.getGemId(), foundGem.getGemId()) || currentGem.getGemId() == null || registry == null || (handler = registry.getAbilityHandler(currentGem.getGemId())) == null)) {
             handler.cleanup(player);
         }
@@ -142,7 +145,8 @@ public class GemManager {
         if (itemId != null && this.isAnyGem(itemId)) {
             return itemId;
         }
-        return null;
+        // a Binding Vow stands in for a held gem when no real one is in the hands
+        return this.plugin.getBindingVows() != null ? this.plugin.getBindingVows().vowItemId(player) : null;
     }
 
     public boolean hasGemInOffhand(Player player) {
@@ -162,6 +166,9 @@ public class GemManager {
         // the Gold Gem now IS its channelled soul's gem (gold skin), so only the real item counts;
         // other harvested souls no longer leak their passives in
         if (this.isGemOfType(player.getInventory().getItemInOffHand(), type) || this.isGemOfType(player.getInventory().getItemInMainHand(), type)) {
+            return true;
+        }
+        if (type != null && this.plugin.getBindingVows() != null && this.plugin.getBindingVows().vow(player) == type) {
             return true;
         }
         if (this.plugin.getConfig().getBoolean("passives.apply-in-hotbar", true)) {
@@ -335,7 +342,7 @@ public class GemManager {
             return this.giveGem(player, type, tier);
         }
         GemRegistryImpl registry = this.plugin.getGemRegistry();
-        if (registry != null && (def = registry.getGem(gemId)) != null && (gem = CustomItemManager.getItemById(itemId = def.buildItemId(tier), energy = this.plugin.getEnergyManager().getEnergy(player))) != null) {
+        if (registry != null && (def = registry.getGem(gemId)) != null && (gem = CustomItemManager.getItemById(itemId = def.buildItemId(Math.max(tier, def.getMinTier())), energy = this.plugin.getEnergyManager().getEnergy(player))) != null) {
             player.getInventory().addItem(new ItemStack[]{gem});
             this.updateActiveGem(player);
             return true;
@@ -441,7 +448,7 @@ public class GemManager {
         if (def == null) {
             return false;
         }
-        String itemId = def.buildItemId(tier);
+        String itemId = def.buildItemId(Math.max(tier, def.getMinTier()));
         ItemStack gem = CustomItemManager.getItemById(itemId, energy = this.plugin.getEnergyManager().getEnergy(player));
         if (gem == null) {
             return false;
@@ -471,6 +478,10 @@ public class GemManager {
             return false;
         }
         if (currentGem == null) {
+            return false;
+        }
+        if (CustomItemManager.isBindingVow(currentGem)) {
+            player.sendMessage("\u00a75A gem bound by a Binding Vow can't be traded.");
             return false;
         }
         String currentId = CustomItemManager.getIdByItem(currentGem);
@@ -572,9 +583,12 @@ public class GemManager {
     public boolean downgradeGem(Player player, String gemId) {
         if (gemId == null) return false;
         ItemStack currentGem = this.findGemInInventory(player);
-        if (currentGem == null) return false;
+        if (currentGem == null || CustomItemManager.isBindingVow(currentGem)) return false;
         String currentId = CustomItemManager.getIdByItem(currentGem);
         if (currentId == null || !currentId.equals(gemId + "_gem_t2")) return false;
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        GemDefinition def = registry != null ? registry.getGem(gemId) : null;
+        if (def != null && def.getMinTier() >= 2) return false;
         int energy = this.plugin.getEnergyManager().getEnergy(player);
         ItemStack t1Gem = CustomItemManager.getItemById(gemId + "_gem_t1", energy);
         if (t1Gem == null) return false;
@@ -597,9 +611,32 @@ public class GemManager {
     public void updateGemTextures(Player player) {
         CustomItemManager.migrateGemMaterials(player.getInventory());
         int energy = this.plugin.getEnergyManager().getEnergy(player);
+        if (this.plugin.getEventGames() != null && this.plugin.getEventGames().hidesGemStages()) {
+            energy = 5; // Energy Games: every gem looks Pristine, broken or not
+        }
+        this.liftBelowMinTier(player, energy);
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
             CustomItemManager.updateGemTexture(item, energy);
+        }
+    }
+
+    /** Gems that start at Tier 2 (mythics) can't be held at Tier 1: old Tier 1 copies are swapped up. */
+    private void liftBelowMinTier(Player player, int energy) {
+        GemRegistryImpl registry = this.plugin.getGemRegistry();
+        if (registry == null) {
+            return;
+        }
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; ++i) {
+            String id = contents[i] != null ? CustomItemManager.getIdByItem(contents[i]) : null;
+            String gemId = id != null && registry.isRegisteredGem(id) ? registry.gemIdFromItemId(id) : null;
+            GemDefinition def = gemId != null ? registry.getGem(gemId) : null;
+            if (def == null || registry.tierFromItemId(id) >= def.getMinTier()) continue;
+            ItemStack lifted = CustomItemManager.getItemById(def.buildItemId(def.getMinTier()), energy);
+            if (lifted != null) {
+                player.getInventory().setItem(i, lifted);
+            }
         }
     }
 

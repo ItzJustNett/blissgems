@@ -57,12 +57,17 @@ implements PluginMessageListener {
         }
         switch (abilityType) {
             case "main": {
+                if (tier < 2 && gemType != GemType.PUFF) {
+                    // Tier 1 holds only the gem's ability
+                    this.plugin.getBlissCommand().triggerTertiary(player);
+                    break;
+                }
                 this.handleMainAbility(player, gemType, tier);
                 break;
             }
             case "secondary": {
                 if (tier < 2) {
-                    player.sendMessage("\u00a7c\u00a7lSecondary abilities require Tier 2 gem!");
+                    player.sendMessage("\u00a7c\u00a7lPowers require a Tier 2 gem!");
                     return;
                 }
                 this.handleSecondaryAbility(player, gemType, tier);
@@ -70,7 +75,7 @@ implements PluginMessageListener {
             }
             case "tertiary": {
                 if (tier < 2) {
-                    player.sendMessage("\u00a7c\u00a7lTertiary abilities require Tier 2 gem!");
+                    player.sendMessage("\u00a7c\u00a7lPowers require a Tier 2 gem!");
                     return;
                 }
                 this.handleTertiaryAbility(player, gemType, tier);

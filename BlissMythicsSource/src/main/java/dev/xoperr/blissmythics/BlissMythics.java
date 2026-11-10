@@ -19,6 +19,11 @@ public final class BlissMythics extends JavaPlugin {
 
    public void onEnable() {
       this.saveDefaultConfig();
+      // Bliss: a slam hits for 4 hearts (was 6); move servers still on the old default
+      if (this.getConfig().getDouble("auratus.slam-damage", 8.0) == 12.0) {
+         this.getConfig().set("auratus.slam-damage", 8.0);
+         this.saveConfig();
+      }
       this.api = (BlissGemsAPI)this.getServer().getServicesManager().load(BlissGemsAPI.class);
       if (this.api == null) {
          this.getLogger().severe("BlissGems API not found - disabling.");
@@ -31,6 +36,7 @@ public final class BlissMythics extends JavaPlugin {
             .color("§4")
             .plugin("BlissMythics")
             .maxTier(2)
+            .minTier(2)
             .material(Material.AMETHYST_SHARD)
             .t1CustomModelData(5001)
             .t2CustomModelData(5002)
@@ -49,7 +55,7 @@ public final class BlissMythics extends JavaPlugin {
                   "§4Powers:",
                   "§7- §4Bloodsaws §8(use, 2 charges)",
                   "§7- §4Bloodlinking §8(shift+use)",
-                  "§7- §4Bloodstorm §8(combo + slam)"
+                  "§7- §4Bloodstorm §8(both saws at once, 90s)"
                )
             )
             .build();
@@ -60,6 +66,7 @@ public final class BlissMythics extends JavaPlugin {
             .color("§6")
             .plugin("BlissMythics")
             .maxTier(2)
+            .minTier(2)
             .material(Material.AMETHYST_SHARD)
             .t1CustomModelData(5003)
             .t2CustomModelData(5004)
@@ -91,14 +98,16 @@ public final class BlissMythics extends JavaPlugin {
          var1.registerAbilities("auratus", this.auratus);
          var1.registerPassives("auratus", this.auratus);
          var1.registerCooldowns(
-            "heretic", List.of(new CooldownEntry("heretic-bloodsaws", "\ud83e\udd1f"), new CooldownEntry("heretic-bloodlink", "\ud83e\udd0c"))
+            "heretic", List.of(new CooldownEntry("heretic-bloodsaws", "\ua423"), new CooldownEntry("heretic-bloodlink", "\ua421"))
          );
-         var1.registerCooldowns("auratus", List.of(new CooldownEntry("auratus-perforators", "⊵"), new CooldownEntry("auratus-aegis", "⊴")));
-         // MythicDeathListener intentionally NOT registered: BlissGems already keeps/restores
-         // gems on death (gems.droppable-on-death). Dropping mythics here as well produced a
-         // duplicated drop, so mythics now follow the standard gem death behaviour.
+         var1.registerCooldowns("auratus", List.of(new CooldownEntry("auratus-perforators", "\u22b3"), new CooldownEntry("auratus-aegis", "\u22b2")));
+         // MythicDeathListener intentionally NOT registered: mythics are droppable items now
+         // (BlissGems never locks a Tier-2-only gem), so they fall where their holder dies and
+         // adding them here again would drop them twice.
          new MythicStatusBar(this, this.api, this.heretic, this.auratus);
-         this.getServer().getPluginManager().registerEvents(new MythicSwapListener(this, this.api), this);
+         MythicSwapListener swap = new MythicSwapListener(this, this.api);
+         this.getServer().getPluginManager().registerEvents(swap, this);
+         this.getServer().getPluginManager().registerEvents(new MythicKillTransfer(this, this.api, swap), this);
          this.getServer().getPluginManager().registerEvents(this.heretic, this);
          this.getServer().getPluginManager().registerEvents(this.auratus, this);
          this.getLogger().info("Registered mythic gems: heretic, auratus");
@@ -132,6 +141,7 @@ public final class BlissMythics extends JavaPlugin {
    }
 
    public boolean holds(Player var1, String var2) {
-      return this.api != null && this.api.playerHasGem(var1, var2);
+      // an EMP switches every mythic off
+      return this.api != null && !this.api.isEmpActive() && this.api.playerHasGem(var1, var2);
    }
 }

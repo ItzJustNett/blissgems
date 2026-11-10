@@ -88,6 +88,9 @@ implements Listener {
         }
         Player player = event.getPlayer();
         event.setCancelled(true);
+        if (this.plugin.getFireVow().jamsMythicItem(player)) {
+            return;
+        }
         int cooldownSeconds = this.plugin.getConfig().getInt("prismatic-edge.beam.cooldown-seconds", 120);
         if (this.plugin.getAbilityManager().isOnCooldown(player, BEAM_COOLDOWN_ID)) {
             int remaining = this.plugin.getAbilityManager().getRemainingCooldown(player, BEAM_COOLDOWN_ID);
@@ -152,7 +155,7 @@ implements Listener {
             return;
         }
         Player attacker = (Player)entity;
-        if (!this.isPrismaticEdge(attacker.getInventory().getItemInMainHand())) {
+        if (!this.isPrismaticEdge(attacker.getInventory().getItemInMainHand()) || this.plugin.getFireVow().isEmpActive()) {
             return;
         }
         int required = this.plugin.getConfig().getInt("prismatic-edge.combo.hits-required", 5);

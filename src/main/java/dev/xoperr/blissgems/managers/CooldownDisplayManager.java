@@ -15,6 +15,7 @@
 package dev.xoperr.blissgems.managers;
 
 import dev.xoperr.blissgems.BlissGems;
+import dev.xoperr.blissgems.abilities.AwakenedGold;
 import dev.xoperr.blissgems.api.CooldownEntry;
 import dev.xoperr.blissgems.api.GemDefinition;
 import dev.xoperr.blissgems.managers.AbilityManager;
@@ -40,6 +41,13 @@ import org.bukkit.scheduler.BukkitTask;
 public class CooldownDisplayManager {
     private static final String GOLD_GEM_GLYPH = "\ue020";
     private static final String GOLD_BEAM_GLYPH = "\ue021";
+    private static final String GOLD_SNAP_GLYPH = "\ue022";
+    private static final String GOLD_RAYLER_GLYPH = "\ue023";
+    private static final String GOLD_LADDER_GLYPH = "\ue024";
+    private static final String GOLD_MARK_GLYPH = "\ue025";
+    private static final String GOLD_MIDDLE_GLYPH = "\ue026";
+    /** GemInfo.location for a Binding Vow: no gem item, the bar is drawn in the gem's colour. */
+    private static final String VOW = "vow";
     private final BlissGems plugin;
     private BukkitTask displayTask;
     private static final Map<GemType, List<String[]>> GEM_ABILITIES = new HashMap<GemType, List<String[]>>();
@@ -62,7 +70,12 @@ public class CooldownDisplayManager {
                 }
                 int energy = this.plugin.getEnergyManager().getEnergy(player);
                 Object cooldownDisplay = this.buildCooldownDisplay(player);
-                if (energy == 0) {
+                GemInfo shown = this.getCurrentGemInfo(player);
+                if (shown != null && VOW.equals(shown.location) && shown.type != null) {
+                    // a Binding Vow's bar is all in the gem's colour, unlike a real gem's white
+                    cooldownDisplay = ((String)cooldownDisplay).replaceAll("\u00a7[0-9a-fA-F]", this.getGemColor(shown.type));
+                }
+                if (energy == 0 && (this.plugin.getEventGames() == null || !this.plugin.getEventGames().hidesGemStages())) {
                     String brokenPrefix = "\u00a7c\u00a7lBROKEN \u00a78| ";
                     cooldownDisplay = !((String)cooldownDisplay).isEmpty() ? brokenPrefix + (String)cooldownDisplay : "\u00a7c\u00a7lBROKEN";
                 }
@@ -248,12 +261,15 @@ public class CooldownDisplayManager {
                 return new GemInfo(null, gemId, tier, "\ud83d\udee1");
             }
         }
+        GemType vow = this.plugin.getBindingVows() != null ? this.plugin.getBindingVows().vow(player) : null;
+        if (vow != null) {
+            return new GemInfo(vow, vow.getId(), 2, VOW);
+        }
         return null;
     }
 
     private String buildCooldownDisplay(Player player) {
         StringBuilder display = new StringBuilder();
-        AbilityManager abilityManager = this.plugin.getAbilityManager();
         GemInfo gemInfo = this.getCurrentGemInfo(player);
         if (gemInfo == null) {
             return "";
@@ -266,176 +282,98 @@ public class CooldownDisplayManager {
         if (gemType == null) {
             return "";
         }
-        String gemColor = gemType.getColor();
         List<String[]> abilities = GEM_ABILITIES.get((Object)gemType);
         if (abilities == null) {
             return "";
         }
-        if (gemType == GemType.ASTRA) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                String driftStatus = abilities.size() > 2 ? this.formatCompactStatus(player, abilities.get(2)[0]) : "\u2022";
-                String voidStatus = abilities.size() > 3 ? this.formatCompactStatus(player, abilities.get(3)[0]) : "\u2022";
-                if (!"\u2022".equals(driftStatus) && !"\u2022".equals(voidStatus)) {
-                    display.append(" \u00a75(").append(driftStatus).append("\u00a77|").append(voidStatus).append(") ");
-                } else if (!"\u2022".equals(driftStatus)) {
-                    display.append(" \u00a75(").append(driftStatus).append(") ");
-                } else if (!"\u2022".equals(voidStatus)) {
-                    display.append(" \u00a75(").append(voidStatus).append(") ");
-                } else {
-                    display.append("  \u00a75(\u2726)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
-            return display.toString();
+        if (gemType == GemType.FIRE && this.plugin.getFireVow().hasVowGem(player)) {
+            // Quakitus's vow gem holds nothing but the fireball
+            return display.append(this.getAbilityIcon(gemType, 0)).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0])).toString();
         }
-        if (gemType == GemType.FLUX) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                int remainingFlash = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
-                int remainingKinetic = abilityManager.getRemainingCooldown(player, abilities.get(3)[0]);
-                if (remainingFlash > 0 && remainingKinetic > 0) {
-                    display.append(" \u00a7b(").append(remainingFlash).append("s\u00a77|").append(remainingKinetic).append("s) ");
-                } else if (remainingFlash > 0) {
-                    display.append(" \u00a7b(").append(remainingFlash).append("s) ");
-                } else if (remainingKinetic > 0) {
-                    display.append(" \u00a7b(").append(remainingKinetic).append("s) ");
-                } else {
-                    display.append("  \u00a7b(\u26a1)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
-            return display.toString();
-        }
-        if (gemType == GemType.LIFE) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                String vortexStatus = this.formatCompactStatus(player, abilities.get(2)[0]);
-                String lockStatus = this.formatCompactStatus(player, abilities.get(3)[0]);
-                if (!"\u2022".equals(vortexStatus) && !"\u2022".equals(lockStatus)) {
-                    display.append(" \u00a7d(").append(vortexStatus).append("\u00a77|").append(lockStatus).append(") ");
-                } else if (!"\u2022".equals(vortexStatus)) {
-                    display.append(" \u00a7d(").append(vortexStatus).append(") ");
-                } else if (!"\u2022".equals(lockStatus)) {
-                    display.append(" \u00a7d(").append(lockStatus).append(") ");
-                } else {
-                    display.append("  \u00a7d(\u2764)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
-            return display.toString();
-        }
-        if (gemType == GemType.PUFF) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                int remainingGroup = abilityManager.getRemainingCooldown(player, abilities.get(2)[0]);
-                if (remainingGroup > 0) {
-                    display.append(" \u00a7f(").append(remainingGroup).append("s) ");
-                } else {
-                    display.append("  \u00a7f(\u2728)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
-            return display.toString();
-        }
-        if (gemType == GemType.SPEED) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            int blurCharges = this.plugin.getSpeedAbilities().getBlurCharges(player.getUniqueId());
-            display.append(ability1Icon).append(" ");
-            if (blurCharges > 0) {
-                int maxCharges = this.plugin.getConfig().getInt("abilities.blur.strikes", 5);
-                display.append("\u00a7e(").append(blurCharges).append("/").append(maxCharges).append(")");
+        if (tier < 2 && gemType != GemType.PUFF) {
+            // Bliss Tier 1 holds only the gem's ability: its crystal and the ability's state
+            // (Astra: the soul it holds; Wealth: Pockets, which has no cooldown)
+            display.append("\u00a7f").append(this.getTier1GemIcon(gemType)).append(" ");
+            if (gemType == GemType.ASTRA) {
+                display.append(this.astraMiddle(player, abilities));
+            } else if (gemType == GemType.WEALTH || abilities.size() < 3) {
+                display.append("\u00a7aReady!");
             } else {
-                display.append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            }
-            if (tier == 2 && abilities.size() > 1) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                String tertiaryStatus = this.formatCompactStatus(player, abilities.get(2)[0]);
-                if (!"\u2022".equals(tertiaryStatus)) {
-                    display.append(" \u00a7a(").append(tertiaryStatus).append(") ");
-                } else {
-                    display.append("  \u00a7a(\u26a1)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
+                display.append(this.readyOrSeconds(player, abilities.get(2)[0]));
             }
             return display.toString();
         }
-        if (gemType == GemType.WEALTH) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2 && abilities.size() > 1) {
-                String ampStatus;
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                String lockStatus = abilities.size() > 2 ? this.formatCompactStatus(player, abilities.get(2)[0]) : "\u2022";
-                String string = ampStatus = abilities.size() > 3 ? this.formatCompactStatus(player, abilities.get(3)[0]) : "\u2022";
-                if (!"\u2022".equals(lockStatus) && !"\u2022".equals(ampStatus)) {
-                    display.append(" \u00a7e(").append(lockStatus).append("\u00a77|").append(ampStatus).append(") ");
-                } else if (!"\u2022".equals(lockStatus)) {
-                    display.append(" \u00a7e(").append(lockStatus).append(") ");
-                } else if (!"\u2022".equals(ampStatus)) {
-                    display.append(" \u00a7e(").append(ampStatus).append(") ");
-                } else {
-                    display.append("  \u00a7e(\ud83d\udcb0)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
+        // Bliss layout: [primary] Ready!  [gem] Ready!  [secondary] Ready!
+        // The gem icon in the middle carries the extra abilities (Flux shows one per ability).
+        display.append(this.getAbilityIcon(gemType, 0)).append(" ");
+        int blurCharges = gemType == GemType.SPEED ? this.plugin.getSpeedAbilities().getBlurCharges(player.getUniqueId()) : 0;
+        if (blurCharges > 0) {
+            int maxCharges = this.plugin.getConfig().getInt("abilities.blur.strikes", 5);
+            display.append("\u00a7e(").append(blurCharges).append("/").append(maxCharges).append(")");
+        } else {
+            display.append(this.readyOrSeconds(player, abilities.get(0)[0]));
+        }
+        if (tier < 2) {
+            // Puff Tier 1: the dash and the double jump
+            display.append("  \u00a7f").append(this.getTier1GemIcon(gemType)).append(" ");
+            display.append(player.isOnGround() || player.getAllowFlight() ? "\u00a7aReady!" : "\u00a77Used");
             return display.toString();
         }
-        if (gemType == GemType.STRENGTH) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2 && abilities.size() > 1) {
-                String tertiaryStatus;
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                String string = tertiaryStatus = abilities.size() > 2 ? this.formatCompactStatus(player, abilities.get(2)[0]) : "\u2022";
-                if (!"\u2022".equals(tertiaryStatus)) {
-                    display.append(" \u00a76(").append(tertiaryStatus).append(") ");
-                } else {
-                    display.append("  \u00a76(\ud83d\udcaa)  ");
-                }
-                display.append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-            }
+        if (abilities.size() < 2) {
             return display.toString();
         }
+        // Bliss: the middle icon is the gem's own upright crystal
+        String gemIcon = this.getCustomGemIcon(gemType);
         if (gemType == GemType.ASTRA) {
-            String ability1Icon = this.getAbilityIcon(gemType, 0);
-            display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(0)[0]));
-            if (tier == 2 && abilities.size() > 1) {
-                String ability2Icon = this.getAbilityIcon(gemType, 1);
-                display.append(" ").append(gemColor).append("| ").append(ability2Icon).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
-                if (abilities.size() > 2) {
-                    display.append(" ").append(gemColor).append("| ").append(gemColor).append("Drift: ").append(this.readyOrSeconds(player, abilities.get(2)[0]));
-                }
-                if (abilities.size() > 3) {
-                    display.append(" ").append(gemColor).append("| ").append(gemColor).append("Nullify: ").append(this.readyOrSeconds(player, abilities.get(3)[0]));
-                }
-            }
-            return display.toString();
-        }
-        String[] ability1 = abilities.get(0);
-        String ability1Key = ability1[0];
-        String ability1Icon = this.getAbilityIcon(gemType, 0);
-        display.append(ability1Icon).append(" ").append(this.readyOrSeconds(player, ability1Key));
-        if (tier == 2 && abilities.size() > 1) {
-            String[] ability2 = abilities.get(1);
-            String ability2Key = ability2[0];
-            String ability2Icon = this.getAbilityIcon(gemType, 1);
-            display.append(" ").append(gemColor).append("| ").append(ability2Icon).append(" ").append(this.readyOrSeconds(player, ability2Key));
+            // Bliss: Astra's middle slot shows the soul held in the gem
+            display.append("  \u00a7f").append(gemIcon).append(" ").append(this.astraMiddle(player, abilities));
+        } else if (gemType == GemType.FLUX) {
             for (int i = 2; i < abilities.size(); ++i) {
-                String[] ability = abilities.get(i);
-                String abilityKeyStr = ability[0];
-                display.append(" ").append(gemColor).append("| ").append(gemColor).append("\u2726 ").append(this.readyOrSeconds(player, abilityKeyStr));
+                display.append("  \u00a7f").append(gemIcon).append(" ").append(this.readyOrSeconds(player, abilities.get(i)[0]));
             }
+        } else if (gemType == GemType.PUFF) {
+            // Puff's middle slot is the double jump: ready while it's still available in the air
+            boolean ready = player.isOnGround() || player.getAllowFlight();
+            display.append("  \u00a7f").append(gemIcon).append(" ").append(ready ? "\u00a7aReady!" : "\u00a77Used");
+        } else if (abilities.size() > 2) {
+            display.append("  \u00a7f").append(gemIcon).append(" ").append(this.middleStatus(player, abilities));
         }
+        display.append("  \u00a7f").append(this.getAbilityIcon(gemType, 1)).append(" ").append(this.readyOrSeconds(player, abilities.get(1)[0]));
         return display.toString();
+    }
+
+    /** Astra's middle slot: the soul held in the gem (or Empty), plus the middle abilities' state while not ready. */
+    private String astraMiddle(Player player, List<String[]> abilities) {
+        String soul = this.capturedSoulName(player);
+        String out = soul != null ? "\u00a7d" + soul : "\u00a78Empty";
+        String status = abilities.size() > 2 ? this.middleStatus(player, abilities) : "\u00a7aReady!";
+        return "\u00a7aReady!".equals(status) ? out : out + " " + status;
+    }
+
+    /** The captured soul's name for Astra's middle slot, or null when the gem holds none. */
+    private String capturedSoulName(Player player) {
+        if (this.plugin.getSoulManager() == null) {
+            return null;
+        }
+        List<SoulManager.CapturedMob> souls = this.plugin.getSoulManager().getCapturedSouls(player);
+        return souls.isEmpty() ? null : souls.get(souls.size() - 1).getDisplayName();
+    }
+
+    /** Status of the abilities behind the middle gem icon: "Ready!" when all are, else each one's state. */
+    private String middleStatus(Player player, List<String[]> abilities) {
+        StringBuilder out = new StringBuilder();
+        boolean allReady = true;
+        for (int i = 2; i < abilities.size(); ++i) {
+            String status = this.formatCompactStatus(player, abilities.get(i)[0]);
+            if (!"\u2022".equals(status)) {
+                allReady = false;
+            }
+            if (out.length() > 0) {
+                out.append("\u00a77|");
+            }
+            out.append("\u2022".equals(status) ? "\u00a7aReady!" : ("Act".equals(status) ? "\u00a7eActive" : "\u00a7c" + status));
+        }
+        return allReady ? "\u00a7aReady!" : out.toString();
     }
 
     private String buildGoldDisplay(Player player) {
@@ -444,6 +382,19 @@ public class CooldownDisplayManager {
             return "";
         }
         AbilityManager abilityManager = this.plugin.getAbilityManager();
+        int moveset = this.plugin.getAwakenedGold() != null ? this.plugin.getAwakenedGold().moveset(player) : 0;
+        if (moveset == 1) {
+            // Bliss layout: [snap] Ready!  [gem] Gilded Wrath  [rayler] charges
+            return "\u00a7f" + GOLD_SNAP_GLYPH + " " + this.readyOrSeconds(abilityManager.getRemainingCooldown(player, AwakenedGold.SNAP_KEY))
+                + "  \u00a7f" + GOLD_MIDDLE_GLYPH + " " + this.readyOrSeconds(abilityManager.getRemainingCooldown(player, AwakenedGold.WRATH_KEY))
+                + "  \u00a7f" + GOLD_RAYLER_GLYPH + " \u00a7e" + this.plugin.getAwakenedGold().getRaylerCharges(player) + "\u00a77/3";
+        }
+        if (moveset == 2) {
+            // [ladder] Ready!  [gem] Gilded Wrath  [mark] charges
+            return "\u00a7f" + GOLD_LADDER_GLYPH + " " + this.readyOrSeconds(abilityManager.getRemainingCooldown(player, AwakenedGold.LADDER_KEY))
+                + "  \u00a7f" + GOLD_MIDDLE_GLYPH + " " + this.readyOrSeconds(abilityManager.getRemainingCooldown(player, AwakenedGold.WRATH_KEY))
+                + "  \u00a7f" + GOLD_MARK_GLYPH + " \u00a7e" + this.plugin.getAwakenedGold().getMarkCharges(player) + "\u00a77/" + this.plugin.getConfig().getInt("gold.awakened.mark.charges", 2);
+        }
         Map<String, GoldGemManager.Harvest> souls = gold.getHarvested(player.getUniqueId());
         StringBuilder display = new StringBuilder();
         display.append("\u00a7f").append(GOLD_GEM_GLYPH).append(" \u00a76").append(souls.size()).append("\u00a77/").append(8);
@@ -463,9 +414,11 @@ public class CooldownDisplayManager {
                 display.append(" \u00a7f").append(this.getAbilityIcon(soul, 0)).append(" \u00a78").append(this.shortCooldown(abilityManager.getRemainingCooldown(player, abilities.get(0)[0])));
                 continue;
             }
-            int usable = entry.getValue().tier() >= 2 ? Math.min(abilities.size(), 4) : 1;
+            // a Tier 1 soul gives only its ability (Puff: its first power)
+            int first = entry.getValue().tier() < 2 && soul != GemType.PUFF && abilities.size() > 2 ? 2 : 0;
+            int usable = entry.getValue().tier() >= 2 ? Math.min(abilities.size(), 4) : first + 1;
             display.append(" ").append(this.getGemColor(soul)).append("\u00ab");
-            for (int i = 0; i < usable; ++i) {
+            for (int i = first; i < usable; ++i) {
                 display.append("\u00a7f").append(this.getAbilityIcon(soul, i)).append(" ").append(this.readyOrSeconds(abilityManager.getRemainingCooldown(player, abilities.get(i)[0])));
                 if (i >= usable - 1) continue;
                 display.append(" ");
@@ -499,7 +452,7 @@ public class CooldownDisplayManager {
     }
 
     private String readyOrSeconds(int remaining) {
-        return remaining > 0 ? "\u00a7c" + remaining + "s" : "\u00a7aReady";
+        return remaining > 0 ? "\u00a7c" + remaining + "s" : "\u00a7aReady!";
     }
 
     private String readyOrSeconds(Player player, String abilityKey) {
@@ -507,7 +460,12 @@ public class CooldownDisplayManager {
             return "\u00a7eActive";
         }
         int remaining = this.plugin.getAbilityManager().getRemainingCooldown(player, abilityKey);
-        return remaining > 0 ? "\u00a7c" + remaining + "s" : "\u00a7aReady";
+        return remaining > 0 ? "\u00a7c" + remaining + "s" : "\u00a7aReady!";
+    }
+
+    /** The gem's Tier 1 crystal (resourcepack icons/<gem>_gem_t1.png). */
+    private String getTier1GemIcon(GemType gemType) {
+        return String.valueOf((char)('\ue030' + gemType.ordinal()));
     }
 
     private String getCustomGemIcon(GemType gemType) {
@@ -736,7 +694,7 @@ public class CooldownDisplayManager {
         GEM_ABILITIES.put(GemType.ASTRA, Arrays.asList(new String[]{"astra-daggers", "Daggers"}, new String[]{"astra-projection", "Projection"}, new String[]{"astra-drift", "Drift"}, new String[]{"astra-void", "Nullify"}));
         GEM_ABILITIES.put(GemType.LIFE, Arrays.asList(new String[]{"life-drainer", "Drainer"}, new String[]{"life-circle-of-life", "Circle"}, new String[]{"life-vitality-vortex", "Vortex"}, new String[]{"life-heart-lock", "Lock"}));
         GEM_ABILITIES.put(GemType.FLUX, Arrays.asList(new String[]{"flux-beam", "Beam"}, new String[]{"flux-ground", "Ground"}, new String[]{"flux-flashbang", "Flash"}, new String[]{"flux-kinetic-burst", "Kinetic"}));
-        GEM_ABILITIES.put(GemType.PUFF, Arrays.asList(new String[]{"puff-dash", "Dash"}, new String[]{"puff-breezy-bash", "Bash"}, new String[]{"puff-group-bash", "Group"}));
+        GEM_ABILITIES.put(GemType.PUFF, Arrays.asList(new String[]{"puff-dash", "Dash"}, new String[]{"puff-breezy-bash", "Bash"}, new String[]{"puff-double-jump", "Double Jump"}));
         GEM_ABILITIES.put(GemType.SPEED, Arrays.asList(new String[]{"speed-blur", "Blur"}, new String[]{"speed-storm", "Storm"}, new String[]{"speed-terminal", "Terminal"}));
         GEM_ABILITIES.put(GemType.STRENGTH, Arrays.asList(new String[]{"strength-chad", "Chad"}, new String[]{"strength-frailer", "Frailer"}, new String[]{"strength-shadow-stalker", "Stalker"}, new String[]{"strength-nullify", "Nullify"}));
         GEM_ABILITIES.put(GemType.WEALTH, Arrays.asList(new String[]{"wealth-unfortunate", "Unfortunate"}, new String[]{"wealth-rich-rush", "Rush"}, new String[]{"wealth-item-lock", "Lock"}, new String[]{"wealth-amplification", "Amplify"}));

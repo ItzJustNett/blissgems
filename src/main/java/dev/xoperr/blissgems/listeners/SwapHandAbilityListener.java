@@ -39,19 +39,31 @@ implements Listener {
         ItemStack offHand = event.getOffHandItem();
         boolean mainIsGem = this.isGem(mainHand);
         boolean offIsGem = this.isGem(offHand);
-        if (!mainIsGem && !offIsGem) {
+        // Binding Vow: F with nothing in either hand is the gem's swap input
+        boolean vow = this.plugin.getBindingVows() != null && this.plugin.getBindingVows().firesFrom(player, mainHand) && (offHand == null || offHand.getType().isAir());
+        if (!mainIsGem && !offIsGem && !vow) {
             return;
         }
-        // F is a normal swap key for gems unless the player bound an ability to it in /bliss ability
-        if (this.plugin.getBlissCommand() == null || !this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
+        if (this.plugin.getBlissCommand() == null) {
             return;
         }
         AbilityBinding input = AbilityBinding.swapHand(player.isSneaking());
         AbilitySlot slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, input) : null;
+        if (vow && slot == null) {
+            // the client never reports an empty-hand right click on air, so F stands in for it
+            slot = this.plugin.getAbilityBindingManager() != null ? this.plugin.getAbilityBindingManager().getSlot(player, AbilityBinding.rightClick(player.isSneaking())) : null;
+        } else if (!this.plugin.getClickActivationManager().isClickActivationEnabled(player)) {
+            // F is a normal swap key for gems unless the player bound an ability to it in /bliss ability
+            return;
+        }
         if (slot == null) {
             return;
         }
         event.setCancelled(true);
+        // The event reports the hands after the swap, so the gem's current hand is the opposite one
+        if (this.plugin.getConfig().getBoolean("abilities.require-main-hand", false) && !offIsGem && !vow) {
+            return;
+        }
         this.plugin.getBlissCommand().triggerSlot(player, slot);
     }
 

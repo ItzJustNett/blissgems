@@ -76,7 +76,8 @@ implements Listener {
                 this.dropEnergyBottle(victim.getLocation());
             }
         }
-        if (killer != null && this.plugin.getConfig().getBoolean("pvp.drop-head-on-kill", true)) {
+        // NPCs (the Golden Dream's memories) drop their own head item
+        if (killer != null && !victim.hasMetadata("NPC") && this.plugin.getConfig().getBoolean("pvp.drop-head-on-kill", true)) {
             this.dropPlayerHead(victim);
         }
         if (this.plugin.getConfigManager().isUpgraderDropOnTier2DeathEnabled() && this.plugin.getGemManager().hasActiveGem(victim) && this.plugin.getGemManager().getGemTier(victim) == 2) {
@@ -147,7 +148,7 @@ implements Listener {
 
     private ItemStack toTier1(ItemStack gem, Player owner) {
         String id = CustomItemManager.getIdByItem(gem);
-        if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem)) {
+        if (id == null || !id.endsWith("_gem_t2") || CustomItemManager.isGoldSkinned(gem) || CustomItemManager.isBindingVow(gem)) {
             return gem;
         }
         ItemStack t1 = CustomItemManager.getItemById(id.substring(0, id.length() - 2) + "1",

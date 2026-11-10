@@ -44,6 +44,9 @@ implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        if (this.plugin.getBlissAdvancements() != null) {
+            this.plugin.getBlissAdvancements().sync(player);
+        }
         if (this.plugin.getGoldGemManager() != null) {
             this.plugin.getGoldGemManager().load(player.getUniqueId());
             this.plugin.getGoldGemManager().deliverPendingGems(player);

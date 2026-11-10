@@ -1,6 +1,9 @@
 """Bugs that were fixed once and must stay fixed."""
+import os
 import re
 import time
+
+import yaml
 
 from .harness import check, test
 
@@ -17,7 +20,9 @@ def drift_cooldown(ctx):
     time.sleep(1.5)
     bars = ctx.tester.actionbar_since_mark()
     ctx.note(f"action bar: {bars[-3:]}")
-    check(any(re.search(r"\(\s*\d+s", b) for b in bars), "Drift's cooldown is not shown in the action bar")
+    # Bliss layout: Drift and Void sit behind the Astra gem icon (\ue000) in the middle of the bar
+    # the soul held in the gem (or "Empty") comes first, then the cooldown
+    check(any(re.search(r"\ue000.*?\d+s", b) for b in bars), "Drift's cooldown is not shown in the action bar")
 
 
 @test("regressions", "cooldown-bossbars-only-for-bedrock-names")
@@ -208,3 +213,124 @@ def hotbar_tier(ctx):
     ctx.note(f"strength effect: {eff}; tier2 strength-level set to 2 for this test")
     check(eff is not None, "no Strength at all from a T2 Strength gem in the hotbar")
     check(eff["amplifier"] == 2, f"Strength amplifier {eff['amplifier']} from a T2 gem in the hotbar, expected 2 (tier2 level)")
+
+
+def forge_mega_mace(ctx):
+    """Puts the three triad maces in the inventory crafting grid and takes the result; True if a Mega Mace came out."""
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    for mace in ("mace_1", "mace_limited", "mace_3"):
+        w.give_item(ctx.tester, mace)
+    time.sleep(3.0)    # the ownership sweep stamps the maces
+    slots = [it["slot"] for it in ctx.tester.items() if it["id"] == "minecraft:mace"]
+    check(len(slots) == 3, f"expected 3 maces, got {slots}")
+    ctx.tester.open_inventory()
+    time.sleep(0.5)
+    for grid, slot in zip((1, 2, 3), slots):
+        ctx.tester.click(slot, container=False)
+        ctx.tester.click(grid, container=True)
+        time.sleep(0.3)
+    time.sleep(0.5)
+    ctx.tester.click(0, container=True)     # take the result
+    time.sleep(0.3)
+    ctx.tester.click(20, container=False)   # put it down in the inventory
+    time.sleep(0.3)
+    ctx.tester.close_screen()
+    time.sleep(0.5)
+    items = ctx.tester.items()
+    ctx.note(f"inventory after crafting: {[(i['slot'], i['name']) for i in items]}")
+    return any("Mega Mace" in (i.get("name") or "") for i in items)
+
+
+@test("regressions", "mega-mace-crafts-from-owned-triad")
+def mega_mace(ctx):
+    """The three triad maces, already stamped with an owner, must forge the Mega Mace in a crafting grid."""
+    check(forge_mega_mace(ctx), "no Mega Mace came out of the crafting grid")
+
+
+MEGA_MACE_COUNT = "/work/server/plugins/BlissGems/mega_mace.yml"
+
+
+@test("regressions", "mega-mace-max-crafts")
+def mega_mace_limit(ctx):
+    """mega-mace.max-crafts caps how many Mega Maces the server ever forges."""
+    try:
+        crafted = (yaml.safe_load(open(MEGA_MACE_COUNT)) or {}).get("crafted", 0)
+    except FileNotFoundError:
+        crafted = 0
+    ctx.world.set_config({"mega-mace.max-crafts": crafted + 1})
+    ctx.note(f"{crafted} forged so far, cap set to {crafted + 1}")
+    check(forge_mega_mace(ctx), "the last Mega Mace under the cap was not forged")
+    check(not forge_mega_mace(ctx), "a Mega Mace was forged past mega-mace.max-crafts")
+
+
+SHARD_GEMS = ("astra", "fire", "flux", "life", "puff", "speed", "strength", "wealth")
+
+
+@test("regressions", "giveitem-gives-every-gem-shard")
+def gem_shards(ctx):
+    """/bliss giveitem <player> <gem>_shard hands out all eight gem shards."""
+    w = ctx.world
+    w.reset_player(ctx.tester)
+    for gem in SHARD_GEMS:
+        w.give_item(ctx.tester, f"{gem}_shard")
+    time.sleep(1.0)
+    names = [i.get("name") or "" for i in ctx.tester.items()]
+    ctx.note(f"inventory: {names}")
+    missing = [g for g in SHARD_GEMS if not any(f"{g.capitalize()} Shard" in n for n in names)]
+    check(not missing, f"shards not given: {missing}")
+
+
+@test("regressions", "emp-vow-fires-from-sneak-f")
+def emp_sneak_f(ctx):
+    """The client never sends an empty-hand right click on air, so sneak + F with empty hands sets the EMP off."""
+    w = ctx.world
+    w.set_config({"abilities.fire-vow.emp-effect-seconds": 2, "abilities.fire-vow.heart-cost-seconds": 1,
+                  "abilities.fire-vow.gem-disabled-seconds": 2})
+    w.reset_player(ctx.victim, (8.5, -60, 0.5))
+    w.cmd(f"bliss vow {ctx.victim.name} emp")
+    try:
+        ctx.victim.mark()
+        ctx.victim.press("swapHands", sneak=True)
+        time.sleep(1.0)
+        chat = ctx.victim.chat_since_mark()
+        ctx.note(f"chat: {chat[-4:]}")
+        check(any("Deploying EMP" in line for line in chat), "sneak + F with empty hands did not set the EMP off")
+    finally:
+        w.cmd(f"bliss vow {ctx.victim.name} off")
+        time.sleep(4.0)   # the short EMP, its heart cost and the gem lock run out before the next test
+
+
+@test("regressions", "golden-dream-memory-copies-the-main-worlds")
+def golden_memory_copy(ctx):
+    """memory-world: copy-main copies the overworld and the nether, blocks placed right before included."""
+    w = ctx.world
+    w.cmd("forceload add 60 60")
+    w.cmd("setblock 60 -61 60 minecraft:gold_block")
+    w.cmd("execute in minecraft:the_nether run forceload add 0 0")
+    w.cmd("execute in minecraft:the_nether run setblock 0 120 0 minecraft:gold_block")
+    log = os.path.join(ctx.out, "server.log")
+    start = len(open(log, errors="replace").read())
+    ctx.note(w.cmd("goldendream reset confirm").strip()[:200])
+    tail = ""
+    end = time.time() + 180
+    while time.time() < end:
+        tail = open(log, errors="replace").read()[start:]
+        if "memory world copied" in tail or "could not build the memory world" in tail:
+            break
+        time.sleep(1)
+    try:
+        check("memory world copied" in tail, f"the memory world was not copied: {tail[-400:]}")
+        time.sleep(2.0)
+        w.cmd("execute in minecraft:goldenworld run forceload add 60 60")
+        w.cmd("execute in minecraft:goldenworldnether run forceload add 0 0")
+        over = w.cmd("execute in minecraft:goldenworld if block 60 -61 60 minecraft:gold_block")
+        nether = w.cmd("execute in minecraft:goldenworldnether if block 0 120 0 minecraft:gold_block")
+        ctx.note(f"overworld check: {over.strip()}; nether check: {nether.strip()}")
+        check("passed" in over.lower(), "the block placed in the main world is missing from the memory copy")
+        check("passed" in nether.lower(), "the memory nether is not a copy of the main nether")
+    finally:
+        w.cmd("setblock 60 -61 60 minecraft:grass_block")
+        w.cmd("forceload remove 60 60")
+        w.cmd("execute in minecraft:the_nether run setblock 0 120 0 minecraft:air")
+        w.cmd("execute in minecraft:the_nether run forceload remove 0 0")

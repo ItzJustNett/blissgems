@@ -62,6 +62,9 @@ public class CustomItemManager {
     private static NamespacedKey MACE_LIMITED_KEY;
     private static NamespacedKey VILLAGER_SOUL_KEY;
     private static NamespacedKey VILLAGER_DATA_KEY;
+    private static NamespacedKey BINDING_VOW_KEY;
+    /** Model of Quakitus's Binding Vow gem (assets/minecraft/items/nautilus_shell.json). */
+    public static final int BINDING_VOW_MODEL_DATA = 2902;
 
     public static void initialize(JavaPlugin plugin) {
         ITEM_ID_KEY = new NamespacedKey((Plugin)plugin, "item_id");
@@ -73,6 +76,7 @@ public class CustomItemManager {
         MACE_LIMITED_KEY = new NamespacedKey((Plugin)plugin, "mace_limited");
         VILLAGER_SOUL_KEY = new NamespacedKey((Plugin)plugin, "villager_soul");
         VILLAGER_DATA_KEY = new NamespacedKey((Plugin)plugin, "villager_data");
+        BINDING_VOW_KEY = new NamespacedKey((Plugin)plugin, "binding_vow");
         GemCosmetics.initialize(plugin);
     }
 
@@ -80,6 +84,29 @@ public class CustomItemManager {
     public static boolean isGoldSkinned(ItemStack item) {
         String id = CustomItemManager.getIdByItem(item);
         return id != null && !"gold_gem_t1".equals(id) && CustomItemManager.getGoldInstanceId(item) != null;
+    }
+
+    /** A gem bound by a Binding Vow (Quakitus's Fire Gem): fixed look, never traded or downgraded. */
+    public static boolean isBindingVow(ItemStack item) {
+        if (BINDING_VOW_KEY == null || item == null || !item.hasItemMeta()) {
+            return false;
+        }
+        return item.getItemMeta().getPersistentDataContainer().has(BINDING_VOW_KEY, PersistentDataType.BYTE);
+    }
+
+    /** Quakitus's Binding Vow Fire Gem. */
+    public static ItemStack createFireVowGem() {
+        ItemStack item = CustomItemManager.getItemById("fire_gem_t2");
+        if (item == null) {
+            return null;
+        }
+        ItemMeta meta = item.getItemMeta();
+        meta.getPersistentDataContainer().set(BINDING_VOW_KEY, PersistentDataType.BYTE, (byte)1);
+        meta.setCustomModelData(Integer.valueOf(BINDING_VOW_MODEL_DATA));
+        // Same look as the Fire Gem (only the texture differs), with just the fireball under powers.
+        GemCosmetics.apply(meta, "fire_gem_binding_vow");
+        item.setItemMeta(meta);
+        return item;
     }
 
     /** Stamps a specific gold instance id on an item (used when re-skinning the Gold Gem). */
@@ -258,7 +285,9 @@ public class CustomItemManager {
     }
 
     private static void applySignatureEnchants(String id, ItemMeta meta) {
-        if ("prismatic_edge".equals(id)) {
+        if ("enchanted_obsidian".equals(id)) {
+            meta.setEnchantmentGlintOverride(true);
+        } else if ("prismatic_edge".equals(id)) {
             meta.addEnchant(Enchantment.SHARPNESS, 7, true);
             meta.addEnchant(Enchantment.MENDING, 1, true);
             meta.addEnchant(Enchantment.UNBREAKING, 3, true);
@@ -337,6 +366,10 @@ public class CustomItemManager {
         if (itemId != null && itemId.startsWith("gold_gem")) {
             return baseModelData;
         }
+        if (GemType.fromOraxenId(itemId) == null) {
+            // addon gems (Auratus, Heretic) have one model per tier: an offset would land on another gem's model
+            return baseModelData;
+        }
         int pristineOffset = energy <= 2 ? 0 : (energy <= 5 ? 20 : (energy <= 8 ? 30 : 40));
         return baseModelData + pristineOffset;
     }
@@ -374,6 +407,14 @@ public class CustomItemManager {
         }
         String id = CustomItemManager.getIdByItem(item);
         if (id == null || !GemType.isGem(id)) {
+            return;
+        }
+        if (CustomItemManager.isBindingVow(item)) {
+            // Older vow gems carried their own purple text.
+            ItemMeta meta = item.getItemMeta();
+            ItemMeta before = meta.clone();
+            GemCosmetics.apply(meta, "fire_gem_binding_vow");
+            if (!meta.equals(before)) item.setItemMeta(meta);
             return;
         }
         if (id.startsWith("gold_gem") || CustomItemManager.isGoldSkinned(item)) {
@@ -488,11 +529,21 @@ public class CustomItemManager {
         return true;
     }
 
+    /** Item ids that are never locked, even when they carry the lock (mythic gems). */
+    private static final java.util.Set<String> DROPPABLE_IDS = new java.util.HashSet<String>();
+
+    public static void allowDrop(String itemId) {
+        DROPPABLE_IDS.add(itemId);
+    }
+
     public static boolean isUndroppable(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
         if (!item.hasItemMeta()) {
+            return false;
+        }
+        if (!DROPPABLE_IDS.isEmpty() && DROPPABLE_IDS.contains(CustomItemManager.getIdByItem(item))) {
             return false;
         }
         ItemMeta meta = item.getItemMeta();
@@ -509,6 +560,10 @@ public class CustomItemManager {
         }
         Byte b = (Byte)item.getItemMeta().getPersistentDataContainer().get(DOUBLE_DURABILITY_KEY, PersistentDataType.BYTE);
         return b != null && b == 1;
+    }
+
+    public static boolean isMegaMace(ItemStack item) {
+        return "mega_mace".equals(CustomItemManager.getIdByItem(item));
     }
 
     public static boolean isLimitedMace(ItemStack item) {
@@ -556,6 +611,8 @@ public class CustomItemManager {
     static {
         CustomItemManager.registerItem("mace_1", Material.MACE, 6001, "\u00a7e\u00a7lHeavy Mace", List.of("\u00a77A perfectly balanced battle mace.", "", "\u00a7a\u2714 Fully Enchantable", "\u00a78Part of the original triad."));
         CustomItemManager.registerItem("mace_limited", Material.MACE, 6002, "\u00a7c\u00a7lTempered Mace", List.of("\u00a77A heavy, restricted battle mace.", "", "\u00a7c\u2716 Density max level II", "\u00a7c\u2716 Wind Burst & Breach Restricted", "\u00a76\u26a1 60s Combat Cooldown"));
+        CustomItemManager.registerItem("enchanted_obsidian", Material.OBSIDIAN, 4010, "\u00a75\u00a7lEnchanted Obsidian", List.of("\u00a77One of eight. Together, in a portal frame,", "\u00a77they open the Nether.", "", "\u00a78Its holder glows for all to see."));
+        CustomItemManager.registerItem("mega_mace", Material.MACE, 6004, "\u00a76\u00a7lMega Mace", List.of("\u00a77The three maces of the triad, forged into one.", "", "\u00a7a\u2714 No cooldown", "\u00a7a\u2714 No enchantment limits"));
         CustomItemManager.registerItem("mace_3", Material.MACE, 6003, "\u00a7b\u00a7lOvercharged Mace", List.of("\u00a77Surging with raw kinetic force.", "", "\u00a7b\u2726 High Impact Triad Weapon"));
         CustomItemManager.registerItem("netherite_helmet_mythic", Material.NETHERITE_HELMET, 7001, "\u00a76\u00a7lMythic Netherite Helmet", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (814 Max)"));
         CustomItemManager.registerItem("netherite_chestplate_mythic", Material.NETHERITE_CHESTPLATE, 7002, "\u00a76\u00a7lMythic Netherite Chestplate", List.of("\u00a77Forged with ancient durability.", "", "\u00a7a\u2726 Protection III", "\u00a7a\u2726 Maxed Secondary Enchants", "\u00a7d\u2726 Double Durability (1184 Max)"));
@@ -587,6 +644,9 @@ public class CustomItemManager {
         CustomItemManager.registerItem("gem_trader", Material.EMERALD, 4002, "\u00a72\u00a7lGem Trader");
         CustomItemManager.registerItem("repair_kit", Material.BEACON, 4003, "\u00a7d\u00a7lRepair Kit");
         CustomItemManager.registerItem("gem_fragment", Material.PRISMARINE_SHARD, 4004, "\u00a73\u00a7lGem Fragment");
+        for (GemType type : GemType.values()) {
+            CustomItemManager.registerItem(type.getId() + "_shard", Material.PRISMARINE_SHARD, 4101 + type.ordinal(), type.getColor() + "\u00a7l" + type.getDisplayName() + " Shard", List.of("\u00a77What is left of a " + type.getDisplayName() + " Gem", "\u00a77the Gold Gem harvested.", "", "\u00a78Crafts like a Gem Fragment: Repair Kit,", "\u00a78Restoration Book, Prismatic Edge."));
+        }
         CustomItemManager.registerItem("wire_fragment", Material.LIGHTNING_ROD, 4006, "\u00a76\u00a7lWire Fragment", List.of("\u00a77A strand torn from the lines of reality.", "", "\u00a78Seven of these and a Fragment Core", "\u00a78summon the Gold Gem."));
         CustomItemManager.registerItem("fragment_core", Material.NETHER_STAR, 4007, "\u00a76\u00a7lFragment Core", List.of("\u00a77What was left behind after the Golden Dream.", "", "\u00a78Binds seven Wire Fragments into one."));
         CustomItemManager.registerItem("revive_beacon", Material.BEACON, 4005, "\u00a7e\u00a7lRevive Beacon", Arrays.asList("\u00a77A powerful beacon that can revive players", "\u00a77from the brink of death.", "", "\u00a76Right-click to activate"));

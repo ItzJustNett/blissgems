@@ -35,6 +35,7 @@ package dev.xoperr.blissgems.abilities;
 
 import dev.xoperr.blissgems.BlissGems;
 import dev.xoperr.blissgems.api.GemAbilityHandler;
+import dev.xoperr.blissgems.lore.FireVow;
 import dev.xoperr.blissgems.utils.ParticleUtils;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -119,6 +120,10 @@ implements GemAbilityHandler {
     }
 
     public void onRightClick(Player player, int tier) {
+        if (this.plugin.getFireVow().hasVowGem(player)) {
+            this.chargedFireball(player);
+            return;
+        }
         if (tier == 2 && player.isSneaking()) {
             this.cozyCampfire(player);
         } else {
@@ -152,6 +157,7 @@ implements GemAbilityHandler {
             this.fireChargedShot(player);
             return;
         }
+        final boolean vow = this.plugin.getFireVow().hasVowGem(player);
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
         }
@@ -194,6 +200,9 @@ implements GemAbilityHandler {
                     }
                 }
                 FireAbilities.this.chargingPlayers.put(uuid, newCharge);
+                if (vow && this.ticksElapsed % 3 == 0) {
+                    FireAbilities.this.plugin.getFireVow().chargeTick(player);
+                }
                 FireAbilities.this.updateChargeDisplay(player, newCharge);
                 FireAbilities.this.showChargeBar(player, newCharge);
                 if (newCharge == 25 || newCharge == 50 || newCharge == 75) {
@@ -246,6 +255,9 @@ implements GemAbilityHandler {
         fireball.setVelocity(direction.multiply(1.5 + (double)charge / 100.0));
         fireball.setYield(yield);
         fireball.setIsIncendiary(true);
+        if (this.plugin.getFireVow().hasVowGem(player)) {
+            this.plugin.getFireVow().markFireball(fireball);
+        }
         int particles = 20 + charge / 2;
         player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f + (float)charge / 200.0f);
         player.spawnParticle(Particle.FLAME, eyeLoc, particles, 0.5, 0.5, 0.5, 0.1);
@@ -284,7 +296,7 @@ implements GemAbilityHandler {
             this.removeChargeDisplay(uuid);
             Location loc = this.displayLocation(player);
             ItemDisplay display = (ItemDisplay)player.getWorld().spawnEntity(loc, EntityType.ITEM_DISPLAY);
-            display.setItemStack(new ItemStack(Material.FIRE_CHARGE));
+            display.setItemStack(this.plugin.getFireVow().hasVowGem(player) ? FireVow.purpleCharge() : new ItemStack(Material.FIRE_CHARGE));
             display.setBrightness(new Display.Brightness(15, 15));
             display.setTeleportDuration(2);
             this.applyDisplayScale(display, 0.3f);
@@ -322,6 +334,10 @@ implements GemAbilityHandler {
     }
 
     public void cozyCampfire(final Player player) {
+        // Quakitus's vow gem holds only the fireball.
+        if (this.plugin.getFireVow().hasVowGem(player)) {
+            return;
+        }
         Block targetBlock;
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
@@ -461,8 +477,7 @@ implements GemAbilityHandler {
     }
 
     public void crisp(final Player player) {
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
+        if (this.plugin.getFireVow().hasVowGem(player)) {
             return;
         }
         String abilityKey = "fire-crisp";
@@ -597,6 +612,9 @@ implements GemAbilityHandler {
     }
 
     public void meteorShower(final Player player) {
+        if (this.plugin.getFireVow().hasVowGem(player)) {
+            return;
+        }
         if (this.plugin.getGemManager().getGemTier(player) < 2) {
             player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
             return;

@@ -9,6 +9,62 @@
           "type": "model",
           "model": "blissgems:item/gem_fragment"
         }
+      },
+      {
+        "threshold": 4101,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/astra_shard"
+        }
+      },
+      {
+        "threshold": 4102,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/fire_shard"
+        }
+      },
+      {
+        "threshold": 4103,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/flux_shard"
+        }
+      },
+      {
+        "threshold": 4104,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/life_shard"
+        }
+      },
+      {
+        "threshold": 4105,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/puff_shard"
+        }
+      },
+      {
+        "threshold": 4106,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/speed_shard"
+        }
+      },
+      {
+        "threshold": 4107,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/strength_shard"
+        }
+      },
+      {
+        "threshold": 4108,
+        "model": {
+          "type": "model",
+          "model": "blissgems:item/wealth_shard"
+        }
       }
     ],
     "fallback": {

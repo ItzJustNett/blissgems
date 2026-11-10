@@ -118,9 +118,6 @@ implements GemAbilityHandler {
     }
 
     public void activateDimensionalDrift(Player player) {
-        if (!this.requireTier2(player)) {
-            return;
-        }
         this.dimensionalDrift(player);
     }
 

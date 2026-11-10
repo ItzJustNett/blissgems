@@ -7,7 +7,8 @@ For each ability there are up to three tests:
                     and its cooldown / active time equals what config.yml says
   <gem>-<n>-config  the cooldown (or duration / damage) is changed in config.yml + /bliss reload,
                     and the new value shows up in-game - catches values hardcoded in Java
-  <gem>-<n>-tier1   (Tier 2 abilities) a Tier 1 gem refuses it with "requires Tier 2"
+  <gem>-<n>-tier1   (powers) a Tier 1 gem doesn't fire it: shift inputs refuse with "requires Tier 2",
+                    right click and hit fire the gem's one ability instead (Puff keeps its Tier 1 kit)
 """
 import math
 import time
@@ -232,9 +233,11 @@ ability("life", 4, "life-heart-lock", "Heart Lock", target="victim", setup=hurt_
         timer=act("abilities.durations.life-heart-lock"))
 # --- Puff
 ability("puff", 1, "puff-dash", "Dash", tier=1, expect=[expect_moved(at_least=2.0)], timer=cd("puff-dash"))
+# Breezy Bash is one ability on slots 2 and 3: aimed at nobody it flings you (and enemies nearby) up,
+# with a victim next to you the victim goes up either way
 ability("puff", 2, "puff-breezy-bash", "Breezy Bash", expect=[expect_moved(at_least=1.0, up=True)], timer=cd("puff-breezy-bash"))
-ability("puff", 3, "puff-group-bash", "Group Breezy Bash", target="victim-near",
-        expect=[expect_moved(who="victim", at_least=1.0)], timer=cd("puff-group-bash"))
+ability("puff", 3, "puff-breezy-bash", "Breezy Bash (near a victim)", target="victim-near",
+        expect=[expect_moved(who="victim", at_least=1.0)], timer=cd("puff-breezy-bash"))
 ability("puff", 4, "puff-updraft", "Updraft", target="victim-near",
         expect=[expect_chat("updraft flings you", who="victim"), expect_moved(who="victim", at_least=1.0, up=True)],
         timer=cd("puff-updraft"))
@@ -377,7 +380,8 @@ def make_tests(a):
         use(ctx, a, 1)
         ok, lines = chat_has(ctx, "Tier 2")
         cds = ctx.world.cooldowns(ctx.tester)
-        check(ok, f"a Tier 1 gem should refuse {a['key']} with 'requires Tier 2'; chat: {lines[-5:]}")
+        if not redirected:
+            check(ok, f"a Tier 1 gem should refuse {a['key']} with 'requires Tier 2'; chat: {lines[-5:]}")
         check(a["key"] not in cds, f"{a['key']} started a timer on a Tier 1 gem: {cds}")
         if a["after"]:
             a["after"](ctx)
@@ -385,7 +389,11 @@ def make_tests(a):
     # config first: it runs with a short duration, so nothing is still active for the normal test
     test("abilities-config", f"{label}-{a['key']}-config")(config)
     test("abilities", f"{label}-{a['key']}-works")(works)
-    if a["tier"] == 2:
+    # Bliss Tier 1: only the gem's ability (slot 3, Wealth's is Pockets); right click and hit fire it
+    puff = a["gem"] == "puff"
+    the_ability = a["slot"] == 3 and not puff and a["gem"] != "wealth"
+    redirected = a["slot"] in (1, 3) and not puff
+    if not the_ability and (a["tier"] == 2 or not puff):
         test("abilities-tier", f"{label}-{a['key']}-tier1")(tier1)
 
 

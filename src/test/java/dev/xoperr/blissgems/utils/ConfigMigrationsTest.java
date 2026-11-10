@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -19,29 +21,38 @@ class ConfigMigrationsTest {
     @Test
     void oldDefaultsMoveToTheNewOnesCustomValuesStay() {
         YamlConfiguration old = new YamlConfiguration();
-        old.set("abilities.cooldowns.flux-beam", 240);          // old default -> 150
+        old.set("abilities.cooldowns.speed-terminal", 60);      // old default -> 50
         old.set("abilities.damage.blur", 2.5);                   // old default -> 3.5
         old.set("abilities.cooldowns.speed-storm", 100);         // admin's own value -> stays
         List<String> changed = ConfigMigrations.apply(old);
-        assertEquals(150, old.get("abilities.cooldowns.flux-beam"), "an int stays an int");
+        assertEquals(50, old.get("abilities.cooldowns.speed-terminal"), "an int stays an int");
         assertEquals(3.5, old.getDouble("abilities.damage.blur"));
         assertEquals(100, old.getInt("abilities.cooldowns.speed-storm"));
-        assertEquals(List.of("abilities.cooldowns.flux-beam", "abilities.damage.blur"), changed);
+        assertEquals(List.of("abilities.damage.blur", "abilities.cooldowns.speed-terminal"), changed);
         assertTrue(old.getStringList(ConfigMigrations.KEY).contains("2026-10-buff-fire-flux-speed"));
         // runs only once: going back to the old value by hand is respected
-        old.set("abilities.cooldowns.flux-beam", 240);
+        old.set("abilities.cooldowns.speed-terminal", 60);
         assertTrue(ConfigMigrations.apply(old).isEmpty());
-        assertEquals(240, old.getInt("abilities.cooldowns.flux-beam"));
+        assertEquals(60, old.getInt("abilities.cooldowns.speed-terminal"));
+    }
+
+    @Test
+    void laterMigrationsChainOnTopOfEarlierOnes() {
+        YamlConfiguration old = new YamlConfiguration();
+        old.set("abilities.cooldowns.flux-beam", 240);          // 240 -> 150 -> 30
+        ConfigMigrations.apply(old);
+        assertEquals(30, old.get("abilities.cooldowns.flux-beam"));
     }
 
     @Test
     void shippedConfigAlreadyHasEveryNewDefault() {
         YamlConfiguration cfg = shipped();
+        // a later migration of the same path wins
+        Map<String, Double> latest = new HashMap<>();
         for (List<ConfigMigrations.Change> changes : ConfigMigrations.ALL.values()) {
-            for (ConfigMigrations.Change c : changes) {
-                assertEquals(c.newDefault(), cfg.getDouble(c.path()), 1e-9, c.path() + " in config.yml");
-            }
+            for (ConfigMigrations.Change c : changes) latest.put(c.path(), c.newDefault());
         }
+        latest.forEach((path, value) -> assertEquals(value, cfg.getDouble(path), 1e-9, path + " in config.yml"));
         // and must not say "already applied", or auto-repair would copy that into old configs
         assertTrue(cfg.getStringList(ConfigMigrations.KEY).isEmpty(), "config-migrations must ship empty");
     }

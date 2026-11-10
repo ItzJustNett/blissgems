@@ -12,6 +12,11 @@
 9. [Passive Effects](#passive-effects)
 10. [Commands](#commands)
 
+> **Tiers (5.2.0):** a Tier 1 gem has only its *ability* (the middle one: Crisp, Dimensional Drift,
+> Vitality Vortex, Static Burst, Thunder Step, Shadow Stalker, Pockets) and every input fires it; all
+> other abilities below are *powers* and need Tier 2. Puff keeps its Tier 1 kit. Where a table says
+> "T1+T2" for a power, read "T2".
+
 ---
 
 ## Astra Gem
@@ -34,7 +39,7 @@ Dimensional stealth and ranged daggers. Color: **Purple** (`RGB 106, 11, 184`)
 | Passive | Tier | How |
 |---|---|---|
 | Soul Healing | T1+T2 | Heal 2.5 hearts (mob kill) or 5 hearts (player kill) automatically |
-| Soul Capture | T1+T2 | Sneak + Hit a mob to capture (max 2). `/bliss release` to release, `/bliss souls` to view |
+| Soul Capture | T1+T2 | Sneak + Hit a mob to capture (max 1, shown on the action bar; `passives.astra.soul-capacity`). `/bliss release` to release, `/bliss souls` to view |
 | Phase | T1+T2 | 10-15% chance to negate incoming damage |
 
 ---
@@ -111,7 +116,7 @@ Aerial mobility and fall damage immunity. Color: **White** (`RGB 255, 255, 255`)
 
 | Ability | Tier | Activation | Cooldown | Description |
 |---|---|---|---|---|
-| Dash | T1+T2 | Right-click | 5s | Launch forward (direction x 2.5, Y +0.3). T2: also damages nearby mobs (2 HP) after 5 ticks. |
+| Dash | T1+T2 | Right-click | 12s | Flat dash forward (1.6 blocks/tick for 6 ticks), damaging everyone passed through once. |
 | Breezy Bash | T2 | Shift + Right-click | 10s | Launch straight up (Y = 2.0). Grants 10s fall damage immunity. Cloud burst particles. |
 
 ### Passives

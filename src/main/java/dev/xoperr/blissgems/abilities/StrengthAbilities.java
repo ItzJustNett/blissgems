@@ -266,10 +266,6 @@ implements GemAbilityHandler {
 
     public void shadowStalker(final Player player) {
         SkullMeta skullMeta;
-        if (this.plugin.getGemManager().getGemTier(player) < 2) {
-            player.sendMessage("\u00a7c\u00a7oThis ability requires Tier 2!");
-            return;
-        }
         String abilityKey = "strength-shadow-stalker";
         if (!this.plugin.getAbilityManager().canUseAbility(player, abilityKey)) {
             return;
